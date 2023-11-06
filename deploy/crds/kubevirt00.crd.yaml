@@ -459,8 +459,26 @@ spec:
                           that can be hotplugged
                         format: int32
                         type: integer
+                      maxGuest:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: MaxGuest defines the maximum amount memory that
+                          can be allocated to the guest using hotplug.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      maxHotplugRatio:
+                        description: 'MaxHotplugRatio is the ratio used to define
+                          the max amount of a hotplug resource that can be made available
+                          to a VM when the specific Max* setting is not defined (MaxCpuSockets,
+                          MaxGuest) Example: VM is configured with 512Mi of guest
+                          memory, if MaxGuest is not defined and MaxHotplugRatio is
+                          2 then MaxGuest = 1Gi defaults to 4'
+                        format: int32
+                        type: integer
                     type: object
                   machineType:
+                    description: Deprecated. Use architectureConfiguration instead.
                     type: string
                   mediatedDevicesConfiguration:
                     description: MediatedDevicesConfiguration holds information about
@@ -603,6 +621,23 @@ spec:
                   network:
                     description: NetworkConfiguration holds network options
                     properties:
+                      binding:
+                        additionalProperties:
+                          properties:
+                            networkAttachmentDefinition:
+                              description: 'NetworkAttachmentDefinition references
+                                to a NetworkAttachmentDefinition CR object. Format:
+                                <name>, <namespace>/<name>. If namespace is not specified,
+                                VMI namespace is assumed. version: 1alphav1'
+                              type: string
+                            sidecarImage:
+                              description: 'SidecarImage references a container image
+                                that runs in the virt-launcher pod. The sidecar handles
+                                (libvirt) domain configuration and optional services.
+                                version: 1alphav1'
+                              type: string
+                          type: object
+                        type: object
                       defaultNetworkInterface:
                         type: string
                       permitBridgeInterfaceOnPodNetwork:
@@ -653,13 +688,40 @@ spec:
                             resourceName:
                               description: The name of the resource that is representing
                                 the device. Exposed by a device plugin and requested
-                                by VMs. Typically of the form vendor.com/product_nameThe
-                                name of the resource that is representing the device.
-                                Exposed by a device plugin and requested by VMs. Typically
-                                of the form vendor.com/product_name
+                                by VMs. Typically of the form vendor.com/product_name
                               type: string
                           required:
                           - pciVendorSelector
+                          - resourceName
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      usb:
+                        items:
+                          properties:
+                            externalResourceProvider:
+                              description: If true, KubeVirt will leave the allocation
+                                and monitoring to an external device plugin
+                              type: boolean
+                            resourceName:
+                              description: 'Identifies the list of USB host devices.
+                                e.g: kubevirt.io/storage, kubevirt.io/bootable-usb,
+                                etc'
+                              type: string
+                            selectors:
+                              items:
+                                properties:
+                                  product:
+                                    type: string
+                                  vendor:
+                                    type: string
+                                required:
+                                - product
+                                - vendor
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
                           - resourceName
                           type: object
                         type: array
@@ -811,6 +873,14 @@ spec:
                           false and the vmi is not requesting any high performance
                           feature (dedicatedCPU/realtime/hugePages), in which free
                           page reporting is always disabled.
+                        type: object
+                      disableSerialConsoleLog:
+                        description: DisableSerialConsoleLog disables logging the
+                          auto-attached default serial console. If not set, serial
+                          console logs will be written to a file and then streamed
+                          from a container named 'guest-console-log'. The value can
+                          be individually overridden for each VM, not relevant if
+                          AutoattachSerialConsole is disabled.
                         type: object
                     type: object
                   vmStateStorageClass:
@@ -3457,8 +3527,26 @@ spec:
                           that can be hotplugged
                         format: int32
                         type: integer
+                      maxGuest:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: MaxGuest defines the maximum amount memory that
+                          can be allocated to the guest using hotplug.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      maxHotplugRatio:
+                        description: 'MaxHotplugRatio is the ratio used to define
+                          the max amount of a hotplug resource that can be made available
+                          to a VM when the specific Max* setting is not defined (MaxCpuSockets,
+                          MaxGuest) Example: VM is configured with 512Mi of guest
+                          memory, if MaxGuest is not defined and MaxHotplugRatio is
+                          2 then MaxGuest = 1Gi defaults to 4'
+                        format: int32
+                        type: integer
                     type: object
                   machineType:
+                    description: Deprecated. Use architectureConfiguration instead.
                     type: string
                   mediatedDevicesConfiguration:
                     description: MediatedDevicesConfiguration holds information about
@@ -3601,6 +3689,23 @@ spec:
                   network:
                     description: NetworkConfiguration holds network options
                     properties:
+                      binding:
+                        additionalProperties:
+                          properties:
+                            networkAttachmentDefinition:
+                              description: 'NetworkAttachmentDefinition references
+                                to a NetworkAttachmentDefinition CR object. Format:
+                                <name>, <namespace>/<name>. If namespace is not specified,
+                                VMI namespace is assumed. version: 1alphav1'
+                              type: string
+                            sidecarImage:
+                              description: 'SidecarImage references a container image
+                                that runs in the virt-launcher pod. The sidecar handles
+                                (libvirt) domain configuration and optional services.
+                                version: 1alphav1'
+                              type: string
+                          type: object
+                        type: object
                       defaultNetworkInterface:
                         type: string
                       permitBridgeInterfaceOnPodNetwork:
@@ -3651,13 +3756,40 @@ spec:
                             resourceName:
                               description: The name of the resource that is representing
                                 the device. Exposed by a device plugin and requested
-                                by VMs. Typically of the form vendor.com/product_nameThe
-                                name of the resource that is representing the device.
-                                Exposed by a device plugin and requested by VMs. Typically
-                                of the form vendor.com/product_name
+                                by VMs. Typically of the form vendor.com/product_name
                               type: string
                           required:
                           - pciVendorSelector
+                          - resourceName
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      usb:
+                        items:
+                          properties:
+                            externalResourceProvider:
+                              description: If true, KubeVirt will leave the allocation
+                                and monitoring to an external device plugin
+                              type: boolean
+                            resourceName:
+                              description: 'Identifies the list of USB host devices.
+                                e.g: kubevirt.io/storage, kubevirt.io/bootable-usb,
+                                etc'
+                              type: string
+                            selectors:
+                              items:
+                                properties:
+                                  product:
+                                    type: string
+                                  vendor:
+                                    type: string
+                                required:
+                                - product
+                                - vendor
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
                           - resourceName
                           type: object
                         type: array
@@ -3809,6 +3941,14 @@ spec:
                           false and the vmi is not requesting any high performance
                           feature (dedicatedCPU/realtime/hugePages), in which free
                           page reporting is always disabled.
+                        type: object
+                      disableSerialConsoleLog:
+                        description: DisableSerialConsoleLog disables logging the
+                          auto-attached default serial console. If not set, serial
+                          console logs will be written to a file and then streamed
+                          from a container named 'guest-console-log'. The value can
+                          be individually overridden for each VM, not relevant if
+                          AutoattachSerialConsole is disabled.
                         type: object
                     type: object
                   vmStateStorageClass:

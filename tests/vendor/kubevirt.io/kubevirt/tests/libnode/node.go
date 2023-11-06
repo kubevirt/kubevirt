@@ -31,11 +31,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -283,8 +282,11 @@ func GetNodesWithKVM() []*k8sv1.Node {
 	return nodes
 }
 
+// GetAllSchedulableNodes returns list of Nodes which are "KubeVirt" schedulable.
 func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
+		LabelSelector: v1.NodeSchedulable + "=" + "true",
+	})
 	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 	return nodes
 }
@@ -351,4 +353,16 @@ func SetNodeSchedulable(nodeName string, virtCli kubecli.KubevirtClient) {
 
 func GetVirtHandlerPod(virtCli kubecli.KubevirtClient, nodeName string) (*k8sv1.Pod, error) {
 	return kubecli.NewVirtHandlerClient(virtCli, &http.Client{}).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+}
+
+func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
+	controlPlaneNodes, err := virtCli.
+		CoreV1().
+		Nodes().
+		List(context.Background(),
+			k8smetav1.ListOptions{LabelSelector: `node-role.kubernetes.io/control-plane`})
+	Expect(err).ShouldNot(HaveOccurred(), "could not list control-plane nodes")
+	Expect(controlPlaneNodes.Items).ShouldNot(BeEmpty(),
+		"There are no control-plane nodes in the cluster")
+	return controlPlaneNodes
 }

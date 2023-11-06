@@ -69,7 +69,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 }
 
 // NewPrometheusRuleCR returns a PrometheusRule with a group of alerts for the KubeVirt deployment.
-func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *v1.PrometheusRule {
+func NewPrometheusRuleCR(namespace string) *v1.PrometheusRule {
 	return &v1.PrometheusRule{
 		TypeMeta: v12.TypeMeta{
 			APIVersion: v12.SchemeGroupVersion.String(),
@@ -83,14 +83,12 @@ func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *v1.Prom
 				"k8s-app":          "kubevirt",
 			},
 		},
-		Spec: *NewPrometheusRuleSpec(namespace, workloadUpdatesEnabled),
+		Spec: *NewPrometheusRuleSpec(namespace),
 	}
 }
 
 // NewPrometheusRuleSpec makes a prometheus rule spec for kubevirt
-func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.PrometheusRuleSpec {
-	fiftyMB := resource.MustParse("50Mi")
-
+func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 	getRestCallsFailedWarning := func(failingCallsPercentage int, component, duration string) string {
 		const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
 		return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
@@ -99,6 +97,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		errorRatioQuery := "sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  /  sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
 		return fmt.Sprintf(errorRatioQuery, ns, podName, errorCodeRegex, durationInMinutes, ns, podName, durationInMinutes)
 	}
+
+	fiftyMB := resource.MustParse("50Mi")
 
 	runbookURLTemplate := getRunbookURLTemplate()
 
@@ -110,7 +110,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 	kubevirtRules = append(kubevirtRules, []v1.Rule{
 		{
 			Alert: "VirtAPIDown",
-			Expr:  intstr.FromString("kubevirt_virt_api_up_total == 0"),
+			Expr:  intstr.FromString("kubevirt_virt_api_up == 0"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "All virt-api servers are down.",
@@ -123,7 +123,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "LowVirtAPICount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_virt_api_up_total < 2)"),
+			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_api_up < 2)"),
 			For:   "60m",
 			Annotations: map[string]string{
 				"summary":     "More than one virt-api should be running if more than one worker nodes exist.",
@@ -136,7 +136,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "LowKVMNodesCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_kvm_available_nodes_count < 2)"),
+			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_nodes_with_kvm < 2)"),
 			For:   "5m",
 			Annotations: map[string]string{
 				"description": "Low number of nodes with KVM resource available.",
@@ -150,7 +150,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "LowReadyVirtControllersCount",
-			Expr:  intstr.FromString("kubevirt_virt_controller_ready_total <  kubevirt_virt_controller_up_total"),
+			Expr:  intstr.FromString("kubevirt_virt_controller_ready <  kubevirt_virt_controller_up"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "Some virt controllers are running but not ready.",
@@ -163,7 +163,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "NoReadyVirtController",
-			Expr:  intstr.FromString("kubevirt_virt_controller_ready_total == 0"),
+			Expr:  intstr.FromString("kubevirt_virt_controller_ready == 0"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "No ready virt-controller was detected for the last 10 min.",
@@ -176,7 +176,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "VirtControllerDown",
-			Expr:  intstr.FromString("kubevirt_virt_controller_up_total == 0"),
+			Expr:  intstr.FromString("kubevirt_virt_controller_up == 0"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "No running virt-controller was detected for the last 10 min.",
@@ -189,7 +189,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "LowVirtControllersCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_virt_controller_ready_total < 2)"),
+			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_controller_ready < 2)"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "More than one virt-controller should be ready if more than one worker node.",
@@ -227,7 +227,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "VirtOperatorDown",
-			Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
+			Expr:  intstr.FromString("kubevirt_virt_operator_up == 0"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "All virt-operator servers are down.",
@@ -240,7 +240,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "LowVirtOperatorCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes_count > 1) and (kubevirt_virt_operator_up_total < 2)"),
+			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_operator_up < 2)"),
 			For:   "60m",
 			Annotations: map[string]string{
 				"summary":     "More than one virt-operator should be running if more than one worker nodes exist.",
@@ -278,7 +278,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "LowReadyVirtOperatorsCount",
-			Expr:  intstr.FromString("kubevirt_virt_operator_ready_total <  kubevirt_virt_operator_up_total"),
+			Expr:  intstr.FromString("kubevirt_virt_operator_ready <  kubevirt_virt_operator_up"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "Some virt-operators are running but not ready.",
@@ -291,7 +291,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "NoReadyVirtOperator",
-			Expr:  intstr.FromString("kubevirt_virt_operator_ready_total == 0"),
+			Expr:  intstr.FromString("kubevirt_virt_operator_ready == 0"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "No ready virt-operator was detected for the last 10 min.",
@@ -304,7 +304,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "NoLeadingVirtOperator",
-			Expr:  intstr.FromString("kubevirt_virt_operator_leading_total == 0"),
+			Expr:  intstr.FromString("kubevirt_virt_operator_leading == 0"),
 			For:   "10m",
 			Annotations: map[string]string{
 				"summary":     "No leading virt-operator was detected for the last 10 min.",
@@ -457,7 +457,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 		},
 		{
 			Alert: "KubeVirtVMIExcessiveMigrations",
-			Expr:  intstr.FromString("sum by (vmi) (max_over_time(kubevirt_migrate_vmi_succeeded[1d])) >= 12"),
+			Expr:  intstr.FromString("sum by (vmi) (max_over_time(kubevirt_vmi_migration_succeeded[1d])) >= 12"),
 			Annotations: map[string]string{
 				"description": "VirtualMachineInstance {{ $labels.vmi }} has been migrated more than 12 times during the last 24 hours",
 				"summary":     "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours.",
@@ -494,22 +494,9 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
-	}...)
-
-	ruleSpec := &v1.PrometheusRuleSpec{
-		Groups: []v1.RuleGroup{
-			{
-				Name:  "kubevirt.rules",
-				Rules: kubevirtRules,
-			},
-		},
-	}
-
-	if workloadUpdatesEnabled {
-		ruleSpec.Groups[0].Rules = append(ruleSpec.Groups[0].Rules, v1.Rule{
-
+		{
 			Alert: "OutdatedVirtualMachineInstanceWorkloads",
-			Expr:  intstr.FromString("kubevirt_vmi_outdated_count != 0"),
+			Expr:  intstr.FromString("kubevirt_vmi_number_of_outdated != 0"),
 			For:   "1440m",
 			Annotations: map[string]string{
 				"summary":     "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
@@ -519,7 +506,16 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				severityAlertLabelKey:        "warning",
 				operatorHealthImpactLabelKey: "none",
 			},
-		})
+		},
+	}...)
+
+	ruleSpec := &v1.PrometheusRuleSpec{
+		Groups: []v1.RuleGroup{
+			{
+				Name:  "kubevirt.rules",
+				Rules: kubevirtRules,
+			},
+		},
 	}
 
 	for _, group := range ruleSpec.Groups {
@@ -545,7 +541,7 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 	return []KubevirtRecordingRule{
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_virt_api_up_total",
+				Record: "kubevirt_virt_api_up",
 				Expr: intstr.FromString(
 					fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'}) or vector(0)", namespace),
 				),
@@ -555,23 +551,23 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_allocatable_nodes_count",
+				Record: "kubevirt_allocatable_nodes",
 				Expr:   intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
 			},
 			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available.",
+			Description: "The number of allocatable nodes in the cluster.",
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_kvm_available_nodes_count",
-				Expr:   intstr.FromString("kubevirt_allocatable_nodes_count - count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} == 0)"),
+				Record: "kubevirt_nodes_with_kvm",
+				Expr:   intstr.FromString("count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} != 0) or vector(0)"),
 			},
 			MType:       prometheusv1.MetricTypeGauge,
 			Description: "The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available.",
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_virt_controller_up_total",
+				Record: "kubevirt_virt_controller_up",
 				Expr: intstr.FromString(
 					fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'}) or vector(0)", namespace),
 				),
@@ -581,9 +577,9 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_virt_controller_ready_total",
+				Record: "kubevirt_virt_controller_ready",
 				Expr: intstr.FromString(
-					fmt.Sprintf("sum(kubevirt_virt_controller_ready{namespace='%s'}) or vector(0)", namespace),
+					fmt.Sprintf("sum(kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace),
 				),
 			},
 			MType:       prometheusv1.MetricTypeGauge,
@@ -591,7 +587,7 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_virt_operator_up_total",
+				Record: "kubevirt_virt_operator_up",
 				Expr: intstr.FromString(
 					fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'}) or vector(0)", namespace),
 				),
@@ -601,9 +597,9 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_virt_operator_ready_total",
+				Record: "kubevirt_virt_operator_ready",
 				Expr: intstr.FromString(
-					fmt.Sprintf("sum(kubevirt_virt_operator_ready{namespace='%s'}) or vector(0)", namespace),
+					fmt.Sprintf("sum(kubevirt_virt_operator_ready_status{namespace='%s'}) or vector(0)", namespace),
 				),
 			},
 			MType:       prometheusv1.MetricTypeGauge,
@@ -611,9 +607,9 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_virt_operator_leading_total",
+				Record: "kubevirt_virt_operator_leading",
 				Expr: intstr.FromString(
-					fmt.Sprintf("sum(kubevirt_virt_operator_leading{namespace='%s'})", namespace),
+					fmt.Sprintf("sum(kubevirt_virt_operator_leading_status{namespace='%s'})", namespace),
 				),
 			},
 			MType:       prometheusv1.MetricTypeGauge,
@@ -621,7 +617,7 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_virt_handler_up_total",
+				Record: "kubevirt_virt_handler_up",
 				Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'}) or vector(0)", namespace)),
 			},
 			MType:       prometheusv1.MetricTypeGauge,
@@ -661,7 +657,7 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 		},
 		{
 			Rule: v1.Rule{
-				Record: "kubevirt_vmsnapshot_disks_restored_from_source_total",
+				Record: "kubevirt_vmsnapshot_disks_restored_from_source",
 				Expr:   intstr.FromString("sum by(vm_name, vm_namespace) (kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
 			},
 			MType:       prometheusv1.MetricTypeGauge,

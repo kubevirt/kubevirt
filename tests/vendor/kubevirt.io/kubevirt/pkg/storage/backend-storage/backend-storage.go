@@ -44,17 +44,21 @@ func PVCForVMI(vmi *corev1.VirtualMachineInstance) string {
 }
 
 func HasPersistentTPMDevice(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	if vmiSpec.Domain.Devices.TPM != nil &&
+	return vmiSpec.Domain.Devices.TPM != nil &&
 		vmiSpec.Domain.Devices.TPM.Persistent != nil &&
-		*vmiSpec.Domain.Devices.TPM.Persistent {
-		return true
-	}
-
-	return false
+		*vmiSpec.Domain.Devices.TPM.Persistent
 }
 
-func isBackendStorageNeededForVMI(vmi *corev1.VirtualMachineInstance) bool {
-	return HasPersistentTPMDevice(&vmi.Spec)
+func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Domain.Firmware != nil &&
+		vmiSpec.Domain.Firmware.Bootloader != nil &&
+		vmiSpec.Domain.Firmware.Bootloader.EFI != nil &&
+		vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent != nil &&
+		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
+}
+
+func IsBackendStorageNeededForVMI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
+	return HasPersistentTPMDevice(vmiSpec) || HasPersistentEFI(vmiSpec)
 }
 
 func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
@@ -65,7 +69,7 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 }
 
 func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) error {
-	if !isBackendStorageNeededForVMI(vmi) {
+	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
 		return nil
 	}
 

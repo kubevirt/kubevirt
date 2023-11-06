@@ -42,6 +42,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	putil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -75,7 +76,7 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 	var objects []unstructured.Unstructured
 	stream, err := os.Open(pathToManifest)
 	util.PanicOnError(err)
-
+	defer putil.CloseIOAndCheckErr(stream, nil)
 	decoder := yaml.NewYAMLOrJSONDecoder(stream, 1024)
 	for {
 		obj := map[string]interface{}{}

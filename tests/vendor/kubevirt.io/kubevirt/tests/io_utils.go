@@ -187,12 +187,9 @@ func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*core
 	return CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, "faulty-disks", "ioerrorpvc", "ioerrorpvc")
 }
 
-func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
-	virtClient := kubevirt.Client()
-
-	size := resource.MustParse("8Mi")
+func CreatePVwithSCSIDisk(storageClass, pvName, nodeName, devicePath string) (*corev1.PersistentVolume, error) {
 	volumeMode := corev1.PersistentVolumeBlock
-
+	size := resource.MustParse("8Mi")
 	affinity := corev1.VolumeNodeAffinity{
 		Required: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -225,7 +222,13 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 			},
 		},
 	}
-	pv, err := virtClient.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+	return kubevirt.Client().CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+}
+
+func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
+	virtClient := kubevirt.Client()
+
+	pv, err := CreatePVwithSCSIDisk(storageClass, pvName, nodeName, devicePath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -235,11 +238,11 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 			GenerateName: pvcName,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			VolumeMode:       &volumeMode,
+			VolumeMode:       pv.Spec.VolumeMode,
 			StorageClassName: &storageClass,
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			Resources: corev1.ResourceRequirements{
-				Requests: map[corev1.ResourceName]resource.Quantity{corev1.ResourceStorage: size},
+				Requests: map[corev1.ResourceName]resource.Quantity{corev1.ResourceStorage: pv.Spec.Capacity["storage"]},
 			},
 		},
 	}

@@ -27,8 +27,8 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 	containers := []k8sv1.Container{}
 	for _, volume := range vmi.Spec.Volumes {
 		if _, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
-
-			container := generateContainerFromVolume(&volume, image, config)
+			resources := resourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
+			container := generateContainerFromVolume(&volume, image, resources)
 			containers = append(containers, container)
 
 		}
@@ -153,8 +153,7 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 	return volumeMountPoint
 }
 
-func generateContainerFromVolume(volume *v1.Volume, image string, config *virtconfig.ClusterConfig) k8sv1.Container {
-	resources := resourcesForVirtioFSContainer(false, false, config)
+func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))

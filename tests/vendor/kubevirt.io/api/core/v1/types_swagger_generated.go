@@ -80,6 +80,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"selinuxContext":                "SELinuxContext is the actual SELinux context of the virt-launcher pod\n+optional",
 		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
 		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
+		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
 	}
 }
 
@@ -358,7 +359,6 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
 		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
-		"interfaceRequests":      "InterfaceRequests indicates a list of interfaces added to the VMI template and\nhot-plugged on an active running VMI.\n+listType=atomic",
 	}
 }
 
@@ -382,13 +382,6 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
 		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
-	}
-}
-
-func (VirtualMachineInterfaceRequest) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"addInterfaceOptions":    "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
-		"removeInterfaceOptions": "RemoveInterfaceOptions when set indicates a network interface should be removed.\nThe details within this field specify how to remove the interface",
 	}
 }
 
@@ -671,21 +664,6 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	}
 }
 
-func (AddInterfaceOptions) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":                                "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
-		"networkAttachmentDefinitionName": "NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format:\n<networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not\nspecified, VMI namespace is assumed.",
-		"name":                            "Name indicates the logical name of the interface.",
-	}
-}
-
-func (RemoveInterfaceOptions) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":     "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
-		"name": "Name indicates the logical name of the interface.",
-	}
-}
-
 func (TokenBucketRateLimiter) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"qps":   "QPS indicates the maximum QPS to the apiserver from this client.\nIf it's zero, the component default will be used",
@@ -767,10 +745,15 @@ func (VirtualMachineOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "VirtualMachineOptions holds the cluster level information regarding the virtual machine.",
 		"disableFreePageReporting": "DisableFreePageReporting disable the free page reporting of\nmemory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.\nThis will have effect only if AutoattachMemBalloon is not false and the vmi is not\nrequesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.",
+		"disableSerialConsoleLog":  "DisableSerialConsoleLog disables logging the auto-attached default serial console.\nIf not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`.\nThe value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
 	}
 }
 
 func (DisableFreePageReporting) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (DisableSerialConsoleLog) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
@@ -832,14 +815,27 @@ func (PermittedHostDevices) SwaggerDoc() map[string]string {
 		"":                "PermittedHostDevices holds information about devices allowed for passthrough",
 		"pciHostDevices":  "+listType=atomic",
 		"mediatedDevices": "+listType=atomic",
+		"usb":             "+listType=atomic",
 	}
+}
+
+func (USBHostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"resourceName":             "Identifies the list of USB host devices.\ne.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc",
+		"selectors":                "+listType=atomic",
+		"externalResourceProvider": "If true, KubeVirt will leave the allocation and monitoring to an\nexternal device plugin",
+	}
+}
+
+func (USBSelector) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (PciHostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "PciHostDevice represents a host PCI device allowed for passthrough",
 		"pciVendorSelector":        "The vendor_id:product_id tuple of the PCI device",
-		"resourceName":             "The name of the resource that is representing the device. Exposed by\na device plugin and requested by VMs. Typically of the form\nvendor.com/product_nameThe name of the resource that is representing\nthe device. Exposed by a device plugin and requested by VMs.\nTypically of the form vendor.com/product_name",
+		"resourceName":             "The name of the resource that is representing the device. Exposed by\na device plugin and requested by VMs. Typically of the form\nvendor.com/product_name",
 		"externalResourceProvider": "If true, KubeVirt will leave the allocation and monitoring to an\nexternal device plugin",
 	}
 }
@@ -881,6 +877,13 @@ func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"sidecarImage":                "SidecarImage references a container image that runs in the virt-launcher pod.\nThe sidecar handles (libvirt) domain configuration and optional services.\nversion: 1alphav1",
+		"networkAttachmentDefinition": "NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object.\nFormat: <name>, <namespace>/<name>.\nIf namespace is not specified, VMI namespace is assumed.\nversion: 1alphav1",
+	}
+}
+
 func (GuestAgentPing) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "GuestAgentPing configures the guest-agent based ping probe",
@@ -901,28 +904,36 @@ func (ClusterProfilerRequest) SwaggerDoc() map[string]string {
 
 func (InstancetypeMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.",
-		"name":            "Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype\n\n+optional",
-		"kind":            "Kind specifies which instancetype resource is referenced.\nAllowed values are: \"VirtualMachineInstancetype\" and \"VirtualMachineClusterInstancetype\".\nIf not specified, \"VirtualMachineClusterInstancetype\" is used by default.\n\n+optional",
-		"revisionName":    "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially\ncaptured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
-		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the instancetype\nto be used through known annotations on the underlying resource. Once applied to the InstancetypeMatcher\nthis field is removed.\n\n+optional",
+		"":                             "InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.",
+		"name":                         "Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype\n\n+optional",
+		"kind":                         "Kind specifies which instancetype resource is referenced.\nAllowed values are: \"VirtualMachineInstancetype\" and \"VirtualMachineClusterInstancetype\".\nIf not specified, \"VirtualMachineClusterInstancetype\" is used by default.\n\n+optional",
+		"revisionName":                 "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially\ncaptured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
+		"inferFromVolume":              "InferFromVolume lists the name of a volume that should be used to infer or discover the instancetype\nto be used through known annotations on the underlying resource. Once applied to the InstancetypeMatcher\nthis field is removed.\n\n+optional",
+		"inferFromVolumeFailurePolicy": "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the instancetype.\nAllowed values are: \"RejectInferFromVolumeFailure\" and \"IgnoreInferFromVolumeFailure\".\nIf not specified, \"RejectInferFromVolumeFailure\" is used by default.\n\n+optional",
 	}
 }
 
 func (PreferenceMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
-		"name":            "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference\n\n+optional",
-		"kind":            "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
-		"revisionName":    "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
-		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
+		"":                             "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
+		"name":                         "Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference\n\n+optional",
+		"kind":                         "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
+		"revisionName":                 "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
+		"inferFromVolume":              "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
+		"inferFromVolumeFailurePolicy": "InferFromVolumeFailurePolicy controls what should happen on failure when preference the instancetype.\nAllowed values are: \"RejectInferFromVolumeFailure\" and \"IgnoreInferFromVolumeFailure\".\nIf not specified, \"RejectInferFromVolumeFailure\" is used by default.\n\n+optional",
 	}
 }
 
 func (LiveUpdateFeatures) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"cpu": "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
+		"cpu":      "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
+		"affinity": "Affinity allows live updating the virtual machines node affinity",
+		"memory":   "MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine\n+optional",
 	}
+}
+
+func (LiveUpdateAffinity) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (LiveUpdateCPU) SwaggerDoc() map[string]string {
@@ -933,6 +944,50 @@ func (LiveUpdateCPU) SwaggerDoc() map[string]string {
 
 func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"maxCpuSockets": "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
+		"maxHotplugRatio": "MaxHotplugRatio is the ratio used to define the max amount\nof a hotplug resource that can be made available to a VM\nwhen the specific Max* setting is not defined (MaxCpuSockets, MaxGuest)\nExample: VM is configured with 512Mi of guest memory, if MaxGuest is not\ndefined and MaxHotplugRatio is 2 then MaxGuest = 1Gi\ndefaults to 4",
+		"maxCpuSockets":   "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
+		"maxGuest":        "MaxGuest defines the maximum amount memory that can be allocated\nto the guest using hotplug.",
+	}
+}
+
+func (LiveUpdateMemory) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"maxGuest": "MaxGuest defines the maximum amount memory that can be allocated for the VM.\n+optional",
+	}
+}
+
+func (SEVPlatformInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "SEVPlatformInfo contains information about the AMD SEV features for the node.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"pdh":       "Base64 encoded platform Diffie-Hellman key.",
+		"certChain": "Base64 encoded SEV certificate chain.",
+	}
+}
+
+func (SEVMeasurementInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "SEVMeasurementInfo contains information about the guest launch measurement.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"measurement": "Base64 encoded launch measurement of the SEV guest.",
+		"apiMajor":    "API major version of the SEV host.",
+		"apiMinor":    "API minor version of the SEV host.",
+		"buildID":     "Build ID of the SEV host.",
+		"policy":      "Policy of the SEV guest.",
+		"loaderSHA":   "SHA256 of the loader binary",
+	}
+}
+
+func (SEVSessionOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "SEVSessionOptions is used to provide SEV session parameters.",
+		"session": "Base64 encoded session blob.",
+		"dhCert":  "Base64 encoded guest owner's Diffie-Hellman key.",
+	}
+}
+
+func (SEVSecretOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "SEVSecretOptions is used to provide a secret for a running guest.",
+		"header": "Base64 encoded header needed to decrypt the secret.",
+		"secret": "Base64 encoded encrypted launch secret.",
 	}
 }

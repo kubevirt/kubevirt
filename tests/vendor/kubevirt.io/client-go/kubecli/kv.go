@@ -114,8 +114,8 @@ func (o *kv) List(options *k8smetav1.ListOptions) (*v1.KubeVirtList, error) {
 		Do(context.Background()).
 		Into(newKvList)
 
-	for _, vm := range newKvList.Items {
-		vm.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
+	for i := range newKvList.Items {
+		newKvList.Items[i].SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
 	}
 
 	return newKvList, err

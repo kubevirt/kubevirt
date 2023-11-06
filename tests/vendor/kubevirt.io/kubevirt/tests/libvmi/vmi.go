@@ -92,6 +92,20 @@ func WithRng() Option {
 	}
 }
 
+// WithWatchdog adds a watchdog to the vmi devices.
+func WithWatchdog(action v1.WatchdogAction) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+			Name: "watchdog",
+			WatchdogDevice: v1.WatchdogDevice{
+				I6300ESB: &v1.I6300ESBWatchdog{
+					Action: action,
+				},
+			},
+		}
+	}
+}
+
 // WithResourceMemory specifies the vmi memory resource.
 func WithResourceMemory(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
@@ -129,6 +143,31 @@ func WithLimitCPU(value string) Option {
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
 		}
 		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse(value)
+	}
+}
+
+func WithDownwardMetricsVolume(volumeName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: volumeName,
+			VolumeSource: v1.VolumeSource{
+				DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+			}})
+
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: volumeName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+		})
+	}
+}
+
+func WithDownwardMetricsChannel() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}
 	}
 }
 
@@ -181,6 +220,20 @@ func WithSEV(isESEnabled bool) Option {
 	}
 }
 
+func WithSEVAttestation() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		startStrategy := v1.StartStrategyPaused
+		vmi.Spec.StartStrategy = &startStrategy
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		}
+		if vmi.Spec.Domain.LaunchSecurity.SEV == nil {
+			vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
+		}
+		vmi.Spec.Domain.LaunchSecurity.SEV.Attestation = &v1.SEVAttestation{}
+	}
+}
+
 func WithCPUFeature(featureName, policy string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.CPU == nil {
@@ -224,6 +277,12 @@ func WithNodeAffinityFor(node *k8sv1.Node) Option {
 
 		vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
 			append(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, nodeSelectorTerm)
+	}
+}
+
+func WithEvictionStrategy(evictionStrategy v1.EvictionStrategy) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.EvictionStrategy = &evictionStrategy
 	}
 }
 

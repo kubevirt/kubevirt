@@ -31,7 +31,15 @@ go_test(
         "defaults_test.go",
         "schema_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    embedsrcs = [
+        "testdata/domain_x86_64.xml.tmpl",
+        "testdata/domain_ppc64le.xml.tmpl",
+        "testdata/domain_arm64.xml.tmpl",
+        "testdata/domain_numa_topology.xml",
+        "testdata/cpu_pinning.xml",
+    ],
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

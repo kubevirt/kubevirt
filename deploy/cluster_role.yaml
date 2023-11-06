@@ -129,6 +129,18 @@ rules:
   - routes/custom-host
   verbs:
   - create
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - create
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -1208,18 +1220,6 @@ rules:
   - delete
   - patch
 - apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - update
-  - create
-  - patch
-- apiGroups:
   - ""
   resources:
   - configmaps
@@ -1365,22 +1365,6 @@ rules:
   - watch
   - patch
 - apiGroups:
-  - flavor.kubevirt.io
-  resources:
-  - virtualmachineflavors
-  - virtualmachineclusterflavors
-  - virtualmachinepreferences
-  - virtualmachineclusterpreferences
-  verbs:
-  - get
-  - delete
-  - create
-  - update
-  - patch
-  - list
-  - watch
-  - deletecollection
-- apiGroups:
   - ""
   resources:
   - pods
@@ -1480,6 +1464,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
@@ -1541,18 +1533,6 @@ rules:
   - configmaps
   - endpoints
   - services
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - update
-  - create
-  - patch
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
   verbs:
   - get
   - list
@@ -1673,6 +1653,8 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/sev/setupsession
+  - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
   - update
 - apiGroups:
@@ -1687,8 +1669,6 @@ rules:
   - network-attachment-definitions
   verbs:
   - get
-  - list
-  - watch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -1800,6 +1780,18 @@ rules:
   - get
   - watch
 - apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - create
+  - patch
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -1906,6 +1898,8 @@ rules:
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
+  - virtualmachineinstances/sev/querylaunchmeasurement
   verbs:
   - get
 - apiGroups:
@@ -1918,6 +1912,8 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/sev/setupsession
+  - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
   - update
 - apiGroups:
@@ -1937,7 +1933,6 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
-  - virtualmachines/addinterface
   verbs:
   - update
 - apiGroups:
@@ -2051,6 +2046,8 @@ rules:
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
+  - virtualmachineinstances/sev/querylaunchmeasurement
   verbs:
   - get
 - apiGroups:
@@ -2063,6 +2060,8 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/sev/setupsession
+  - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
   - update
 - apiGroups:
@@ -2082,7 +2081,6 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
-  - virtualmachines/addinterface
   verbs:
   - update
 - apiGroups:
@@ -2194,6 +2192,8 @@ rules:
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
+  - virtualmachineinstances/sev/querylaunchmeasurement
   verbs:
   - get
 - apiGroups:
@@ -2263,6 +2263,15 @@ rules:
   - migrations.kubevirt.io
   resources:
   - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - instancetype.kubevirt.io
+  resources:
+  - virtualmachineclusterinstancetypes
+  - virtualmachineclusterpreferences
   verbs:
   - get
   - list

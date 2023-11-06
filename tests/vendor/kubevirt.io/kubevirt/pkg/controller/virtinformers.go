@@ -699,7 +699,12 @@ func (f *kubeInformerFactory) MigrationPolicy() cache.SharedIndexInformer {
 }
 
 func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
+	getkey := func(vmClone *clonev1alpha1.VirtualMachineClone, resourceName string) string {
+		return fmt.Sprintf("%s/%s", vmClone.Namespace, resourceName)
+	}
+
 	return cache.Indexers{
+		// Gets: snapshot key. Returns: clones that their source is the specified snapshot
 		"snapshotSource": func(obj interface{}) ([]string, error) {
 			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
 			if !ok {
@@ -708,8 +713,33 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 
 			source := vmClone.Spec.Source
 			if source != nil && *source.APIGroup == snapshot.GroupName && source.Kind == "VirtualMachineSnapshot" {
-				snapshotSourceKey := fmt.Sprintf("%s/%s", vmClone.Namespace, source.Name)
-				return []string{snapshotSourceKey}, nil
+				return []string{getkey(vmClone, source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+		// Gets: snapshot key. Returns: clones in phase SnapshotInProgress that wait for the specified snapshot
+		string(clonev1alpha1.SnapshotInProgress): func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if vmClone.Status.Phase == clonev1alpha1.SnapshotInProgress && vmClone.Status.SnapshotName != nil {
+				return []string{getkey(vmClone, *vmClone.Status.SnapshotName)}, nil
+			}
+
+			return nil, nil
+		},
+		// Gets: restore key. Returns: clones in phase RestoreInProgress that wait for the specified restore
+		string(clonev1alpha1.RestoreInProgress): func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if vmClone.Status.Phase == clonev1alpha1.RestoreInProgress && vmClone.Status.RestoreName != nil {
+				return []string{getkey(vmClone, *vmClone.Status.RestoreName)}, nil
 			}
 
 			return nil, nil

@@ -70,8 +70,18 @@ const (
 	Multiarchitecture = "MultiArchitecture"
 	// VMLiveUpdateFeaturesGate allows updating ceratin VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
+	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
+	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
+	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
+	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
 	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
 	AutoResourceLimitsGate = "AutoResourceLimitsGate"
+
+	// Owner: @lyarwood
+	// Alpha: v1.1.0
+	//
+	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
+	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -80,6 +90,7 @@ var deprecatedFeatureGates = [...]string{
 	NonRoot,
 	NonRootDeprecated,
 	PSA,
+	CPUNodeDiscoveryGate,
 }
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -226,13 +237,27 @@ func (config *ClusterConfig) PersistentReservationEnabled() bool {
 func (config *ClusterConfig) VMPersistentStateEnabled() bool {
 	return config.isFeatureGateEnabled(VMPersistentState)
 }
+
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(Multiarchitecture)
 }
+
 func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
 	return config.isFeatureGateEnabled(VMLiveUpdateFeaturesGate)
 }
 
+func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {
+	return config.isFeatureGateEnabled(BochsDisplayForEFIGuests)
+}
+
+func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
+	return config.isFeatureGateEnabled(NetworkBindingPlugingsGate)
+}
+
 func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
 	return config.isFeatureGateEnabled(AutoResourceLimitsGate)
+}
+
+func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
+	return config.isFeatureGateEnabled(CommonInstancetypesDeploymentGate)
 }

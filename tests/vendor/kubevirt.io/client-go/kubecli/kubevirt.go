@@ -252,6 +252,10 @@ type VirtualMachineInstanceInterface interface {
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
+	SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error)
+	SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error)
+	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
+	SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error
 }
 
 type ReplicaSetInterface interface {
@@ -299,8 +303,6 @@ type VirtualMachineInterface interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
-	AddInterface(ctx context.Context, name string, addInterfaceOptions *v1.AddInterfaceOptions) error
-	RemoveInterface(ctx context.Context, name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

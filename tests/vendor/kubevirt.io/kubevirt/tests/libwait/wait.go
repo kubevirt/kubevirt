@@ -171,67 +171,24 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 	return vmi
 }
 
-// WaitForVMIStartOrFailed blocks until the specified VirtualMachineInstance reaches either Failed or Running states
-func WaitForVMIStartOrFailed(vmi *v1.VirtualMachineInstance, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	return WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running, v1.Failed},
-		WithWarningsPolicy(&wp),
-		WithTimeout(seconds),
-		WithWaitForFail(true),
-	)
-}
-
-// WaitForVMIScheduling blocks until the specified VirtualMachineInstance scheduled and return the target node name.
-func WaitForVMIScheduling(vmi *v1.VirtualMachineInstance, seconds int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	return WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
-		WithWarningsPolicy(&wp),
-		WithTimeout(seconds),
-	)
-}
-
 // WaitForSuccessfulVMIStart blocks until the specified VirtualMachineInstance reaches the Running state
-func WaitForSuccessfulVMIStart(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+// using the passed options
+func WaitForSuccessfulVMIStart(vmi *v1.VirtualMachineInstance, opts ...Option) *v1.VirtualMachineInstance {
 	return WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
+		opts...,
 	)
 }
 
-// WaitForSuccessfulVMIStartIgnoreWarnings blocks until the specified VirtualMachineInstance reaches the Running state ignoring the warnings
-func WaitForSuccessfulVMIStartIgnoreWarnings(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-	return WaitForVMIPhase(vmi,
+// WaitUntilVMIReady blocks until the specified VirtualMachineInstance reaches the Running state using the passed
+// options, and the login succeed
+func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, opts ...Option) *v1.VirtualMachineInstance {
+	vmi = WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
-		WithFailOnWarnings(false),
-		WithTimeout(180),
+		opts...,
 	)
-}
-
-// WaitForSuccessfulVMIStartWithTimeout blocks for the passed seconds until the specified VirtualMachineInstance reaches the Running state
-func WaitForSuccessfulVMIStartWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) *v1.VirtualMachineInstance {
-	return WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		WithTimeout(seconds),
-	)
-}
-
-// WaitForSuccessfulVMIStartWithTimeoutIgnoreSelectedWarnings blocks for the passed seconds until the specified VirtualMachineInstance reaches the Running state,
-// ignoring the warning list passed
-func WaitForSuccessfulVMIStartWithTimeoutIgnoreSelectedWarnings(vmi *v1.VirtualMachineInstance, seconds int, warningsIgnoreList []string) *v1.VirtualMachineInstance {
-	return WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		WithWarningsIgnoreList(warningsIgnoreList),
-		WithTimeout(seconds),
-	)
-}
-
-// WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings blocks for the passed seconds until the specified VirtualMachineInstance reaches the Running state,
-// ignoring all the warnings
-func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi *v1.VirtualMachineInstance, seconds int) *v1.VirtualMachineInstance {
-	return WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		WithFailOnWarnings(false),
-		WithTimeout(seconds),
-	)
+	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
+	return vmi
 }
 
 // WaitForVirtualMachineToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstance disappears
@@ -252,24 +209,4 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 		return errors.IsNotFound(err)
 	}, seconds, 1*time.Second).Should(gomega.BeTrue(), fmt.Sprintf("migration %s was expected to dissapear after %d seconds, but it did not", migration.Name, seconds))
-}
-
-// WaitUntilVMIReady blocks until the specified VirtualMachineInstance reaches the Running state and the login succeed
-func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	vmi = WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-	)
-	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
-	return vmi
-}
-
-// WaitUntilVMIReadyIgnoreSelectedWarnings blocks until the specified VirtualMachineInstance reaches the Running state and the login succeed,
-// ignoring the warning list passed
-func WaitUntilVMIReadyIgnoreSelectedWarnings(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, warningsIgnoreList []string) *v1.VirtualMachineInstance {
-	vmi = WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		WithWarningsIgnoreList(warningsIgnoreList),
-	)
-	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
-	return vmi
 }

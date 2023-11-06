@@ -74,6 +74,20 @@ type VirtualMachineClusterInstancetypeList struct {
 //
 // CPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.
 type VirtualMachineInstancetypeSpec struct {
+	// NodeSelector is a selector which must be true for the vmi to fit on a node.
+	// Selector which must match a node's labels for the vmi to be scheduled on that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	//
+	// NodeSelector is the name of the custom node selector for the instancetype.
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// If specified, the VMI will be dispatched by specified scheduler.
+	// If not specified, the VMI will be dispatched by default scheduler.
+	//
+	// SchedulerName is the name of the custom K8s scheduler for the instancetype.
+	// +optional
+	SchedulerName string `json:"schedulerName,omitempty"`
 
 	// Required CPU related attributes of the instancetype.
 	CPU CPUInstancetype `json:"cpu"`
@@ -102,6 +116,11 @@ type VirtualMachineInstancetypeSpec struct {
 	//
 	// +optional
 	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
+
+	// Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance
+	//
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // CPUInstancetype contains the CPU related configuration of a given VirtualMachineInstancetypeSpec.
@@ -260,6 +279,16 @@ type VirtualMachinePreferenceSpec struct {
 	//
 	//+optional
 	Requirements *PreferenceRequirements `json:"requirements,omitempty"`
+
+	// Optionally defines preferred Annotations to be applied to the VirtualMachineInstance
+	//
+	//+optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.
+	//
+	//+optional
+	PreferSpreadSocketToCoreRatio uint32 `json:"preferSpreadSocketToCoreRatio,omitempty"`
 }
 
 type VolumePreferences struct {
@@ -283,6 +312,14 @@ const (
 
 	// Prefer vCPUs to be exposed as threads to the guest
 	PreferThreads PreferredCPUTopology = "preferThreads"
+
+	// Prefer vCPUs to be spread evenly between cores and sockets with any remaining vCPUs being presented as cores
+	PreferSpread PreferredCPUTopology = "preferSpread"
+
+	// Prefer vCPUs to be spread according to VirtualMachineInstanceTemplateSpec
+	//
+	// If used with VirtualMachineInstanceType it will use sockets as default
+	PreferAny PreferredCPUTopology = "preferAny"
 )
 
 // CPUPreferences contains various optional CPU preferences.

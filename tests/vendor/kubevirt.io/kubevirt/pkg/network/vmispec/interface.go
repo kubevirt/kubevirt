@@ -110,16 +110,6 @@ func IndexInterfaceSpecByName(interfaces []v1.Interface) map[string]v1.Interface
 	return ifacesByName
 }
 
-func IndexInterfaceSpecByMac(interfaces []v1.Interface) map[string]v1.Interface {
-	ifacesByMac := map[string]v1.Interface{}
-	for _, ifaceSpec := range interfaces {
-		if mac := ifaceSpec.MacAddress; mac != "" {
-			ifacesByMac[mac] = ifaceSpec
-		}
-	}
-	return ifacesByMac
-}
-
 func LookupInterfaceByName(ifaces []v1.Interface, name string) *v1.Interface {
 	for idx := range ifaces {
 		if ifaces[idx].Name == name {
@@ -127,4 +117,25 @@ func LookupInterfaceByName(ifaces []v1.Interface, name string) *v1.Interface {
 		}
 	}
 	return nil
+}
+
+func IndexInterfaceStatusByName(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
+	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+	for _, iface := range interfaces {
+		if p == nil || p(iface) {
+			indexedInterfaceStatus[iface.Name] = iface
+		}
+	}
+	return indexedInterfaceStatus
+}
+
+func FilterInterfacesByNetworks(interfaces []v1.Interface, networks []v1.Network) []v1.Interface {
+	var ifaces []v1.Interface
+	ifacesByName := IndexInterfaceSpecByName(interfaces)
+	for _, net := range networks {
+		if iface, exists := ifacesByName[net.Name]; exists {
+			ifaces = append(ifaces, iface)
+		}
+	}
+	return ifaces
 }

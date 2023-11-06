@@ -393,7 +393,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 	}
 
 	// Multiplying the ratio is expected to be the last calculation before returning overhead
-	if additionalOverheadRatio != nil {
+	if additionalOverheadRatio != nil && *additionalOverheadRatio != "" {
 		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
 		if err != nil {
 			// This error should never happen as it's already validated by webhooks
@@ -402,6 +402,10 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		}
 
 		overhead = multiplyMemory(overhead, ratio)
+	}
+
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		overhead.Add(resource.MustParse("100Mi"))
 	}
 
 	return overhead
@@ -507,6 +511,9 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
 		for _, dev := range hostDevs.MediatedDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, dev := range hostDevs.USB {
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
 		for _, hostDev := range spec.Domain.Devices.GPUs {

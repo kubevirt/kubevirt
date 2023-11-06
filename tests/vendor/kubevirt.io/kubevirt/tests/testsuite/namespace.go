@@ -284,6 +284,14 @@ func CleanNamespaces() {
 
 		// Remove events
 		util.PanicOnError(virtCli.CoreV1().Events(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
+
+		// Remove vmexports
+		vmexportList, err := virtCli.VirtualMachineExport(namespace).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		for _, export := range vmexportList.Items {
+			util.PanicOnError(virtCli.VirtualMachineExport(namespace).Delete(context.Background(), export.Name, metav1.DeleteOptions{}))
+		}
+
 	}
 }
 

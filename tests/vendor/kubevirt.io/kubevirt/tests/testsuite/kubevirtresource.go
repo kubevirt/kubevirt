@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libstorage"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -123,6 +125,11 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
 			PermitSlirpInterface: &testDefaultPermitSlirpInterface,
 		}
+	}
+
+	storageClass, exists := libstorage.GetRWXFileSystemStorageClass()
+	if exists {
+		kv.Spec.Configuration.VMStateStorageClass = storageClass
 	}
 
 	data, err := json.Marshal(kv.Spec)

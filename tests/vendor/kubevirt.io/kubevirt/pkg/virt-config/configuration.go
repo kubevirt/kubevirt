@@ -265,6 +265,9 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			},
 			DefaultArchitecture: runtime.GOARCH,
 		},
+		LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
+			MaxHotplugRatio: DefaultMaxHotplugRatio,
+		},
 	}
 }
 

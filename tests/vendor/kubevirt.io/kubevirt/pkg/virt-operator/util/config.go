@@ -93,9 +93,6 @@ const (
 	AdditionalPropertiesMonitorServiceAccount = "MonitorAccount"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesWorkloadUpdatesEnabled = "WorkloadUpdatesEnabled"
-
-	// lookup key in AdditionalProperties
 	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
 
 	// lookup key in AdditionalProperties
@@ -205,9 +202,6 @@ func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 
 func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
 	additionalProperties := getKVMapFromSpec(kv.Spec)
-	if len(kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods) > 0 {
-		additionalProperties[AdditionalPropertiesWorkloadUpdatesEnabled] = ""
-	}
 	if kv.Spec.Configuration.MigrationConfiguration != nil &&
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
@@ -605,11 +599,6 @@ func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectRefe
 		return data
 	}
 	return data
-}
-
-func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {
-	_, enabled := c.AdditionalProperties[AdditionalPropertiesWorkloadUpdatesEnabled]
-	return enabled
 }
 
 func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {

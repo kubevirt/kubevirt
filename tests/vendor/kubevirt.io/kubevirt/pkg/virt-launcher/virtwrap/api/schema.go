@@ -142,6 +142,11 @@ type InterfaceStatus struct {
 	InterfaceName string
 }
 
+type SEVNodeParameters struct {
+	PDH       string
+	CertChain string
+}
+
 type Timezone struct {
 	Zone   string
 	Offset int
@@ -189,6 +194,8 @@ type DomainSpec struct {
 	Name           string          `xml:"name"`
 	UUID           string          `xml:"uuid,omitempty"`
 	Memory         Memory          `xml:"memory"`
+	CurrentMemory  *Memory         `xml:"currentMemory,omitempty"`
+	MaxMemory      *MaxMemory      `xml:"maxMemory,omitempty"`
 	MemoryBacking  *MemoryBacking  `xml:"memoryBacking,omitempty"`
 	OS             OS              `xml:"os"`
 	SysInfo        *SysInfo        `xml:"sysinfo,omitempty"`
@@ -418,6 +425,12 @@ type Memory struct {
 	Unit  string `xml:"unit,attr"`
 }
 
+type MaxMemory struct {
+	Value uint64 `xml:",chardata"`
+	Unit  string `xml:"unit,attr"`
+	Slots uint64 `xml:"slots,attr"`
+}
+
 // MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
 type MemoryBacking struct {
 	HugePages    *HugePages           `xml:"hugepages,omitempty"`
@@ -460,6 +473,22 @@ type MemoryBackingAccess struct {
 type NoSharePages struct {
 }
 
+type MemoryTarget struct {
+	Size      Memory `xml:"size"`
+	Requested Memory `xml:"requested"`
+	Current   Memory `xml:"current"`
+	Node      string `xml:"node"`
+	Block     Memory `xml:"block"`
+}
+
+type MemoryDevice struct {
+	XMLName xml.Name      `xml:"memory"`
+	Model   string        `xml:"model,attr"`
+	Target  *MemoryTarget `xml:"target"`
+	Alias   *Alias        `xml:"alias,omitempty"`
+	Address *Address      `xml:"address,omitempty"`
+}
+
 type Devices struct {
 	Emulator    string             `xml:"emulator,omitempty"`
 	Interfaces  []Interface        `xml:"interface"`
@@ -473,13 +502,14 @@ type Devices struct {
 	Inputs      []Input            `xml:"input"`
 	Serials     []Serial           `xml:"serial"`
 	Consoles    []Console          `xml:"console"`
-	Watchdog    *Watchdog          `xml:"watchdog,omitempty"`
+	Watchdogs   []Watchdog         `xml:"watchdog,omitempty"`
 	Rng         *Rng               `xml:"rng,omitempty"`
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
 	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`
 	SoundCards  []SoundCard        `xml:"sound,omitempty"`
 	TPMs        []TPM              `xml:"tpm,omitempty"`
 	VSOCK       *VSOCK             `xml:"vsock,omitempty"`
+	Memory      *MemoryDevice      `xml:"memory,omitempty"`
 }
 
 type TPM struct {
@@ -652,15 +682,15 @@ type DiskTarget struct {
 }
 
 type DiskDriver struct {
-	Cache       string      `xml:"cache,attr,omitempty"`
-	ErrorPolicy string      `xml:"error_policy,attr,omitempty"`
-	IO          v1.DriverIO `xml:"io,attr,omitempty"`
-	Name        string      `xml:"name,attr"`
-	Type        string      `xml:"type,attr"`
-	IOThread    *uint       `xml:"iothread,attr,omitempty"`
-	Queues      *uint       `xml:"queues,attr,omitempty"`
-	Discard     string      `xml:"discard,attr,omitempty"`
-	IOMMU       string      `xml:"iommu,attr,omitempty"`
+	Cache       string             `xml:"cache,attr,omitempty"`
+	ErrorPolicy v1.DiskErrorPolicy `xml:"error_policy,attr,omitempty"`
+	IO          v1.DriverIO        `xml:"io,attr,omitempty"`
+	Name        string             `xml:"name,attr"`
+	Type        string             `xml:"type,attr"`
+	IOThread    *uint              `xml:"iothread,attr,omitempty"`
+	Queues      *uint              `xml:"queues,attr,omitempty"`
+	Discard     string             `xml:"discard,attr,omitempty"`
+	IOMMU       string             `xml:"iommu,attr,omitempty"`
 }
 
 type DiskSourceHost struct {
@@ -703,6 +733,7 @@ type Serial struct {
 	Target *SerialTarget `xml:"target,omitempty"`
 	Source *SerialSource `xml:"source,omitempty"`
 	Alias  *Alias        `xml:"alias,omitempty"`
+	Log    *SerialLog    `xml:"log,omitempty"`
 }
 
 type SerialTarget struct {
@@ -712,6 +743,11 @@ type SerialTarget struct {
 type SerialSource struct {
 	Mode string `xml:"mode,attr,omitempty"`
 	Path string `xml:"path,attr,omitempty"`
+}
+
+type SerialLog struct {
+	File   string `xml:"file,attr,omitempty"`
+	Append string `xml:"append,attr,omitempty"`
 }
 
 // END Serial -----------------------------
@@ -740,22 +776,43 @@ type ConsoleSource struct {
 // BEGIN Inteface -----------------------------
 
 type Interface struct {
-	Address             *Address         `xml:"address,omitempty"`
-	Type                string           `xml:"type,attr"`
-	TrustGuestRxFilters string           `xml:"trustGuestRxFilters,attr,omitempty"`
-	Source              InterfaceSource  `xml:"source"`
-	Target              *InterfaceTarget `xml:"target,omitempty"`
-	Model               *Model           `xml:"model,omitempty"`
-	MAC                 *MAC             `xml:"mac,omitempty"`
-	MTU                 *MTU             `xml:"mtu,omitempty"`
-	BandWidth           *BandWidth       `xml:"bandwidth,omitempty"`
-	BootOrder           *BootOrder       `xml:"boot,omitempty"`
-	LinkState           *LinkState       `xml:"link,omitempty"`
-	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
-	Alias               *Alias           `xml:"alias,omitempty"`
-	Driver              *InterfaceDriver `xml:"driver,omitempty"`
-	Rom                 *Rom             `xml:"rom,omitempty"`
-	ACPI                *ACPI            `xml:"acpi,omitempty"`
+	Address             *Address               `xml:"address,omitempty"`
+	Type                string                 `xml:"type,attr"`
+	TrustGuestRxFilters string                 `xml:"trustGuestRxFilters,attr,omitempty"`
+	Source              InterfaceSource        `xml:"source"`
+	Target              *InterfaceTarget       `xml:"target,omitempty"`
+	Model               *Model                 `xml:"model,omitempty"`
+	MAC                 *MAC                   `xml:"mac,omitempty"`
+	MTU                 *MTU                   `xml:"mtu,omitempty"`
+	BandWidth           *BandWidth             `xml:"bandwidth,omitempty"`
+	BootOrder           *BootOrder             `xml:"boot,omitempty"`
+	LinkState           *LinkState             `xml:"link,omitempty"`
+	FilterRef           *FilterRef             `xml:"filterref,omitempty"`
+	Alias               *Alias                 `xml:"alias,omitempty"`
+	Driver              *InterfaceDriver       `xml:"driver,omitempty"`
+	Rom                 *Rom                   `xml:"rom,omitempty"`
+	ACPI                *ACPI                  `xml:"acpi,omitempty"`
+	Backend             *InterfaceBackend      `xml:"backend,omitempty"`
+	PortForward         []InterfacePortForward `xml:"portForward,omitempty"`
+}
+
+type InterfacePortForward struct {
+	Proto   string                      `xml:"proto,attr"`
+	Address string                      `xml:"address,attr,omitempty"`
+	Dev     string                      `xml:"dev,attr,omitempty"`
+	Ranges  []InterfacePortForwardRange `xml:"range,omitempty"`
+}
+
+type InterfacePortForwardRange struct {
+	Start   uint   `xml:"start,attr"`
+	End     uint   `xml:"end,attr,omitempty"`
+	To      uint   `xml:"to,attr,omitempty"`
+	Exclude string `xml:"exclude,attr,omitempty"`
+}
+
+type InterfaceBackend struct {
+	Type    string `xml:"type,attr,omitempty"`
+	LogFile string `xml:"logFile,attr,omitempty"`
 }
 
 type ACPI struct {
@@ -944,6 +1001,8 @@ type LaunchSecurity struct {
 	Cbitpos         string `xml:"cbitpos,omitempty"`
 	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
 	Policy          string `xml:"policy,omitempty"`
+	DHCert          string `xml:"dhCert,omitempty"`
+	Session         string `xml:"session,omitempty"`
 }
 
 //END LaunchSecurity --------------------
@@ -1039,6 +1098,7 @@ type Address struct {
 	Target     string `xml:"target,attr,omitempty"`
 	Unit       string `xml:"unit,attr,omitempty"`
 	UUID       string `xml:"uuid,attr,omitempty"`
+	Device     string `xml:"device,attr,omitempty"`
 }
 
 //END Video -------------------

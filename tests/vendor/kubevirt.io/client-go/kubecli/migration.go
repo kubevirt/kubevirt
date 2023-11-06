@@ -107,19 +107,19 @@ func (o *migration) Delete(name string, options *k8smetav1.DeleteOptions) error 
 
 // List all VirtualMachineInstanceMigrations in given namespace
 func (o *migration) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error) {
-	newVmList := &v1.VirtualMachineInstanceMigrationList{}
+	newVmiMigrationList := &v1.VirtualMachineInstanceMigrationList{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
 		Do(context.Background()).
-		Into(newVmList)
+		Into(newVmiMigrationList)
 
-	for _, migration := range newVmList.Items {
-		migration.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
+	for i := range newVmiMigrationList.Items {
+		newVmiMigrationList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 	}
 
-	return newVmList, err
+	return newVmiMigrationList, err
 }
 
 func (v *migration) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error) {

@@ -53,16 +53,16 @@ func (v *vmiPresets) Get(name string, options k8smetav1.GetOptions) (vmi *v1.Vir
 	return
 }
 
-func (v *vmiPresets) List(options k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstancePresetList, err error) {
-	vmiList = &v1.VirtualMachineInstancePresetList{}
+func (v *vmiPresets) List(options k8smetav1.ListOptions) (vmiPresetList *v1.VirtualMachineInstancePresetList, err error) {
+	vmiPresetList = &v1.VirtualMachineInstancePresetList{}
 	err = v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do(context.Background()).
-		Into(vmiList)
-	for _, vmi := range vmiList.Items {
-		vmi.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
+		Into(vmiPresetList)
+	for i := range vmiPresetList.Items {
+		vmiPresetList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	}
 
 	return

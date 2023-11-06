@@ -230,7 +230,25 @@ Msg "make sure that we don't have outdated VMs"
 INFRASTRUCTURETOPOLOGY=$(${CMD} get infrastructure.config.openshift.io cluster -o json | jq -j '.status.infrastructureTopology')
 UPDATE_METHODS=$(${CMD} get hco ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.spec .workloadUpdateStrategy .workloadUpdateMethods}')
 
-if [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
+##### HACK: skip outdatedLauncherImage test on CRI-O >= v1.28 since live-migration is not working there,
+##### see: https://github.com/kubevirt/kubevirt/issues/10616
+##### TODO: remove once #10616 gets fixed!
+CRI_MINOR=0
+CRI_VERSION=$(oc get node $(oc get pods -n ${VMS_NAMESPACE} -l=kubevirt.io/domain=testvm -o=jsonpath='{.items[0].spec.nodeName}') -o=jsonpath='{.status.nodeInfo.containerRuntimeVersion}')
+echo "CRI_VERSION: ${CRI_VERSION}"
+if [[ ${CRI_VERSION} =~ ^cri-o://([0-9]+)\.([0-9]+)\..*$ ]];
+then
+  CRI_MINOR=${BASH_REMATCH[2]} ;
+  echo "CRI_MINOR: ${CRI_MINOR}";
+else
+  echo "Unable to match CRI-O version";
+fi
+if [[ $CRI_MINOR -ge 28 ]];
+then
+  echo "Skipping on CRI-O >= 1.28 since live-migration is broken there, see: https://github.com/kubevirt/kubevirt/issues/10616";
+# if [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
+elif [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
+#######
   echo "Skipping the check on SNO clusters"
 elif [[ "${UPDATE_METHODS}" == "" || "${UPDATE_METHODS}" == "[]" ]]; then
   echo "Skipping while workloadUpdateMethods methods are empty "

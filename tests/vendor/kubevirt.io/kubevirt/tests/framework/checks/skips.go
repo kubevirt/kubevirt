@@ -202,16 +202,6 @@ func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
 	}
 }
 
-// SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
-func SkipIfVersionBelow(message string, expectedVersion string) {
-	curVersion, err := cluster.GetKubernetesVersion()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	if curVersion < expectedVersion {
-		ginkgo.Skip(message)
-	}
-}
-
 func SkipIfOpenShift(message string) {
 	if IsOpenShift() {
 		ginkgo.Skip("Openshift detected: " + message)
