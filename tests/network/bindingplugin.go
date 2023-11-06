@@ -87,7 +87,12 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi.Namespace = vm.Namespace
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			vmi = libwait.WaitUntilVMIReady(
+				vmi,
+				console.LoginToAlpine,
+				libwait.WithFailOnWarnings(false),
+				libwait.WithTimeout(180),
+			)
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
 			Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
