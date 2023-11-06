@@ -83,6 +83,7 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 	if expectedImagesFromConfig := tests.GetConfig().DataImportCron.ExpectedDataImportCrons; len(expectedImagesFromConfig) > 0 {
 		expectedImages = expectedImagesFromConfig
 	}
+	sort.Strings(expectedImages)
 
 	if expectedISFromConfig := tests.GetConfig().DataImportCron.ExpectedImageStream; len(expectedISFromConfig) > 0 {
 		expectedImageStreams = expectedISFromConfig
@@ -147,12 +148,12 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 		It("should propagate the DICT to SSP", func() {
 			Eventually(func(g Gomega) []string {
 				unstructured, err := cli.DynamicClient().Resource(sspGVR).Namespace(flags.KubeVirtInstallNamespace).Get(ctx, "ssp-kubevirt-hyperconverged", metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(err).ShouldNot(HaveOccurred())
 
 				ssp := &v1beta2.SSP{}
-				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, ssp)).To(Succeed())
+				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, ssp)).To(Succeed())
 
-				Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(len(expectedImages)))
+				g.Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(len(expectedImages)))
 
 				imageNames := make([]string, len(expectedImages))
 				for i, image := range ssp.Spec.CommonTemplates.DataImportCronTemplates {
@@ -167,7 +168,7 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 			Eventually(func(g Gomega) []string {
 				hco := tests.GetHCO(ctx, cli)
 
-				Expect(hco.Status.DataImportCronTemplates).Should(HaveLen(len(expectedImages)))
+				g.Expect(hco.Status.DataImportCronTemplates).Should(HaveLen(len(expectedImages)))
 
 				imageNames := make([]string, len(expectedImages))
 				for i, image := range hco.Status.DataImportCronTemplates {
