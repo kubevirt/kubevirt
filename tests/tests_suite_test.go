@@ -123,6 +123,14 @@ func getMaxFailsFromEnv() int {
 	return maxFails
 }
 
+var _ = ReportAfterSuite("Collect cluster data", func(report Report) {
+	artifactPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter", "suite")
+	kvReport := reporter.NewKubernetesReporter(artifactPath, 1)
+	kvReport.Cleanup()
+
+	kvReport.Report(report)
+})
+
 var _ = ReportAfterSuite("TestTests", func(report Report) {
 	for _, reporter := range afterSuiteReporters {
 		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, report)

@@ -87,6 +87,20 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 	}
 }
 
+func (r *KubernetesReporter) Report(report types.Report) {
+	if report.SuiteSucceeded {
+		return
+	}
+
+	if r.artifactsDir == "" {
+		return
+	}
+
+	fmt.Fprintf(GinkgoWriter, "Test suite failed, collect artifacts in %s\n", r.artifactsDir)
+
+	r.dumpNamespaces(report.RunTime, testsuite.TestNamespaces)
+}
+
 func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
 
