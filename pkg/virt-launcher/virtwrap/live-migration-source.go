@@ -20,11 +20,13 @@
 package virtwrap
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -967,6 +969,10 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 	err := l.migrateHelper(vmi, options)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
+		qemuLogs, err := dumpQemuLogsAfterMigration(vmi.Namespace, vmi.Name)
+		if err == nil {
+			log.Log.Object(vmi).Reason(err).Error(qemuLogs)
+		}
 		migrationErrorChan <- err
 		return
 	}
@@ -979,4 +985,34 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 		migrationMetadata.Mode = mode
 	})
 	log.Log.V(4).Infof("Migration mode set in metadata: %s", l.metadataCache.Migration.String())
+}
+
+func dumpQemuLogsAfterMigration(vmNamespace, vmName string) (string, error) {
+	//TODO: use const and golang filepath.Join
+	logReader, err := os.Open("/var/run/kubevirt-private/libvirt/qemu/log/" + vmNamespace + "-" + vmName + ".log")
+	if err != nil {
+		return "", err
+	}
+	return filterQemuLogsAfterMigration(logReader)
+}
+
+func filterQemuLogsAfterMigration(qemuLogReader io.Reader) (string, error) {
+	qemuLogBufReader := bufio.NewReader(qemuLogReader)
+	var filteredQemuLogs bytes.Buffer
+	initiatingMigrationFound := false
+	for {
+		line, err := qemuLogBufReader.ReadString('\n')
+		if strings.Contains(line, "initiating migration") {
+			initiatingMigrationFound = true
+		}
+		if initiatingMigrationFound {
+			filteredQemuLogs.WriteString(line)
+		}
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return "", err
+		}
+	}
+	return filteredQemuLogs.String(), nil
 }
