@@ -140,11 +140,6 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 			mType:       "Gauge",
 		},
 		{
-			name:        domainstats.MigrateVmiDiskTransferRateMetricName,
-			description: "The rate at which the disk is being transferred.",
-			mType:       "Gauge",
-		},
-		{
 			name:        "kubevirt_vmi_phase_count",
 			description: "Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
 			mType:       "Gauge",

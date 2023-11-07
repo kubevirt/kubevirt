@@ -184,8 +184,6 @@ type DomainJobInfo struct {
 	DataProcessed    uint64
 	MemoryBpsSet     bool
 	MemoryBps        uint64
-	DiskBpsSet       bool
-	DiskBps          uint64
 	DataRemainingSet bool
 	DataRemaining    uint64
 	MemDirtyRateSet  bool

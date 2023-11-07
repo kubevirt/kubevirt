@@ -199,9 +199,7 @@ var Testdataexpected = `{
      "MemDirtyRate": 0,
      "MemDirtyRateSet": false,
      "MemoryBpsSet": false,
-     "MemoryBps": 0,
-     "DiskBpsSet": false,
-     "DiskBps": 0
+     "MemoryBps": 0
    },
    "Name": "testName", 
    "Net": [
