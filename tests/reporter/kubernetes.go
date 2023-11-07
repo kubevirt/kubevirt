@@ -1091,13 +1091,6 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 	fmt.Fprintln(f, prettyJson.String())
 }
 
-func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
-	if setupSummary.State.Is(types.SpecStateFailureStates) {
-		r.failureCount++
-		r.DumpTestNamespaces(setupSummary.RunTime)
-	}
-}
-
 func (r *KubernetesReporter) logClusterOverview() {
 	binary := ""
 	if flags.KubeVirtKubectlPath != "" {
