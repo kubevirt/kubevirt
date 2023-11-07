@@ -745,6 +745,18 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
+		Context("with guest memory greater than request memory", func() {
+			It("should successfully start the VM when no VFIO device requested", func() {
+				vmi := libvmi.NewCirros(
+					libvmi.WithGuestMemory("512Mi"),
+				)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			})
+		})
+
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
 			It("[test_id:3115]should show the memory request inside the VMI", func() {
 				vmi := libvmi.NewCirros(
