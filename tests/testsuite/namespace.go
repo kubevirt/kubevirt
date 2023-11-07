@@ -298,17 +298,25 @@ func CleanNamespaces() {
 func removeNamespaces() {
 	virtCli := kubevirt.Client()
 
+	notFoundNamespaces := make(map[string]struct{})
 	// First send an initial delete to every namespace
 	for _, namespace := range TestNamespaces {
+		fmt.Printf("sending initial delete of namespace %s\n", namespace)
 		err := virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		if !errors.IsNotFound(err) {
 			util.PanicOnError(err)
+		} else if err != nil {
+			fmt.Printf("namespace %s has not been found\n", namespace)
+			notFoundNamespaces[namespace] = struct{}{}
 		}
 	}
 
 	// Wait until the namespaces are terminated
 	fmt.Println("")
 	for _, namespace := range TestNamespaces {
+		if _, exists := notFoundNamespaces[namespace]; exists {
+			continue
+		}
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
 		EventuallyWithOffset(1, func() error {
 			return virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
