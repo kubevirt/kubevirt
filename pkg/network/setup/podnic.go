@@ -136,21 +136,8 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 }
 
 func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtSpecGenerator {
-	if l.vmiSpecIface.Bridge != nil {
-		cachedDomainIface, err := l.cachedDomainInterface()
-		if err != nil {
-			return nil
-		}
-		if cachedDomainIface == nil {
-			cachedDomainIface = &api.Interface{}
-		}
-		return domainspec.NewBridgeLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface, l.podInterfaceName, l.handler)
-	}
-	if l.vmiSpecIface.Masquerade != nil {
-		return domainspec.NewMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
-	}
-	if l.vmiSpecIface.Macvtap != nil {
-		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+	if l.vmiSpecIface.Bridge != nil || l.vmiSpecIface.Masquerade != nil || l.vmiSpecIface.Macvtap != nil {
+		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
 	}
 	if l.vmiSpecIface.Passt != nil {
 		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.vmi)

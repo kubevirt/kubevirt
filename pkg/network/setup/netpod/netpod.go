@@ -353,12 +353,13 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	}
 
 	dummyIface := nmstate.Interface{
-		Name:     podIfaceName,
-		TypeName: nmstate.TypeDummy,
-		MTU:      podStatusIface.MTU,
-		IPv4:     podStatusIface.IPv4,
-		IPv6:     podStatusIface.IPv6,
-		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+		Name:       podIfaceName,
+		TypeName:   nmstate.TypeDummy,
+		MacAddress: podStatusIface.MacAddress,
+		MTU:        podStatusIface.MTU,
+		IPv4:       podStatusIface.IPv4,
+		IPv6:       podStatusIface.IPv6,
+		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
 	return []nmstate.Interface{bridgeIface, podIface, tapIface, dummyIface}, nil
