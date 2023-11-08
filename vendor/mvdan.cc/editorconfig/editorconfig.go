@@ -1,7 +1,7 @@
 // Copyright (c) 2019, Daniel Martí <mvdan@mvdan.cc>
 // See LICENSE for licensing information
 
-// Pakage editorconfig allows parsing and using EditorConfig files, as defined
+// Package editorconfig allows parsing and using EditorConfig files, as defined
 // in https://editorconfig.org/.
 package editorconfig
 
@@ -328,7 +328,11 @@ func Parse(r io.Reader) (*File, error) {
 			"charset", "trim_trailing_whitespace", "insert_final_newline":
 			value = strings.ToLower(value)
 		}
-		if len(key) > 50 || len(value) > 255 {
+		// The spec tests require supporting at least these lengths.
+		// Larger lengths rarely make sense,
+		// and they could mean holding onto lots of memory,
+		// so use them as limits.
+		if len(key) > 1024 || len(value) > 4096 {
 			continue
 		}
 		if section != nil {

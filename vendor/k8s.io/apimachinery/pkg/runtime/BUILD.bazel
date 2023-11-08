@@ -20,6 +20,7 @@ go_library(
         "register.go",
         "scheme.go",
         "scheme_builder.go",
+        "splice.go",
         "swagger_doc_generator.go",
         "types.go",
         "types_proto.go",

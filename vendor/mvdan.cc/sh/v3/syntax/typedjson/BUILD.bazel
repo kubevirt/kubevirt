@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["json.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/mvdan.cc/sh/v3/syntax/typedjson",
+    importpath = "mvdan.cc/sh/v3/syntax/typedjson",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/mvdan.cc/sh/v3/syntax:go_default_library"],
+)
