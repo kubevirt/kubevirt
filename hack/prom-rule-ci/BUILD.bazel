@@ -5,7 +5,7 @@ go_library(
     srcs = ["rule-spec-dumper.go"],
     importpath = "kubevirt.io/kubevirt/hack/prom-rule-ci",
     visibility = ["//visibility:private"],
-    deps = ["//pkg/virt-operator/resource/generate/components:go_default_library"],
+    deps = ["//pkg/monitoring/rules:go_default_library"],
 )
 
 go_binary(

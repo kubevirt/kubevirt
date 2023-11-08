@@ -29,7 +29,7 @@ done
     echo $_sync_only
     cd staging/src/kubevirt.io/client-go
     if [ "${_sync_only}" == "false" ]; then go get $@ ./...; fi
-    go mod tidy
+    go mod tidy -compat=1.17
 )
 
 (

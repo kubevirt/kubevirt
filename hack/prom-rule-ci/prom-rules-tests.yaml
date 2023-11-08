@@ -3,7 +3,8 @@ rule_files:
   - /tmp/rules.verify
 
 group_eval_order:
-  - kubevirt.rules
+  - recordingRules.rules
+  - alerts.rules
 #information about this format can be found in: https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/
 tests:
   # Pod is using more CPU than expected

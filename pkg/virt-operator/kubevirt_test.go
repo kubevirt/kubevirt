@@ -73,6 +73,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -363,6 +364,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.deleteFromCache = true
 	k.addToCache = true
+
+	err = rules.SetupRules(k.defaultConfig.Namespace)
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func (k *KubeVirtTestData) AfterTest() {
@@ -1250,7 +1254,9 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		all = append(all, crd)
 	}
 	// cr
-	all = append(all, components.NewPrometheusRuleCR(config.GetNamespace()))
+	pr, err := rules.BuildPrometheusRule(config.GetNamespace())
+	Expect(err).ToNot(HaveOccurred())
+	all = append(all, pr)
 	// sccs
 	all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 	all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))

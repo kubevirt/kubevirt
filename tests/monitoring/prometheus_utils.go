@@ -333,13 +333,14 @@ func reduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
 	var re = regexp.MustCompile("\\[\\d+m\\]")
 
 	var gs []promv1.RuleGroup
+	zeroMinutes := promv1.Duration("0m")
 	for _, group := range newRules.Spec.Groups {
 		var rs []promv1.Rule
 		for _, rule := range group.Rules {
 			var r promv1.Rule
 			rule.DeepCopyInto(&r)
 			if r.Alert != "" {
-				r.For = "0m"
+				r.For = &zeroMinutes
 				r.Expr = intstr.FromString(re.ReplaceAllString(r.Expr.String(), `[1m]`))
 				r.Expr = intstr.FromString(strings.ReplaceAll(r.Expr.String(), ">= 300", ">= 0"))
 			}

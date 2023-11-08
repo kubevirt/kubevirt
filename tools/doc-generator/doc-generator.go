@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 
 	_ "kubevirt.io/kubevirt/pkg/monitoring/configuration"
 	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
@@ -181,11 +181,14 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 		},
 	}
 
-	for _, rule := range components.GetRecordingRules("") {
+	err := rules.SetupRules("")
+	checkError(err)
+
+	for _, rule := range rules.ListRecordingRules() {
 		metrics = append(metrics, metric{
-			name:        rule.Rule.Record,
-			description: rule.Description,
-			mType:       strings.Title(string(rule.MType)),
+			name:        rule.GetOpts().Name,
+			description: rule.GetOpts().Help,
+			mType:       string(rule.GetType()),
 		})
 	}
 
