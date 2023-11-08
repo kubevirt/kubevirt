@@ -7,6 +7,7 @@ go_library(
         "basecredentials.go",
         "clientauth.go",
         "err.go",
+        "executablecredsource.go",
         "filecredsource.go",
         "impersonate.go",
         "sts_exchange.go",
