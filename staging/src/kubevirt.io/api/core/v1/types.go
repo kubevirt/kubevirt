@@ -1026,6 +1026,9 @@ const (
 	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
 	// Must be a float >= 1.
 	AutoMemoryLimitsRatioLabel string = "alpha.kubevirt.io/auto-memory-limits-ratio"
+
+	// CPUManagerPolicyBetaOptionsAnnotation indicates the CPU-Manager policy that the pod adheres to.
+	CPUManagerPolicyBetaOptionsAnnotation string = "kubevirt.io/CPUManagerPolicyBetaOptions"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -2242,6 +2245,13 @@ type VirtualMachineMemoryDumpRequest struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 }
+
+type CPUManagerPolicyBetaOptions string
+
+const (
+	// full-pcpus-only static policy allows only full physical CPUs to be scheduled to a pod
+	CPUManagerPolicyBetaOptionFullpCPUsOnly CPUManagerPolicyBetaOptions = "full-pcpus-only"
+)
 
 type MemoryDumpPhase string
 
