@@ -3,8 +3,8 @@ package apply
 import (
 	"encoding/json"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	jsonpatch "github.com/evanphx/json-patch"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 

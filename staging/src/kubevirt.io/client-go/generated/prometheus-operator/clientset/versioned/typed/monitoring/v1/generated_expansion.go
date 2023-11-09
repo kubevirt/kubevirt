@@ -22,6 +22,8 @@ type AlertmanagerExpansion interface{}
 
 type PodMonitorExpansion interface{}
 
+type ProbeExpansion interface{}
+
 type PrometheusExpansion interface{}
 
 type PrometheusRuleExpansion interface{}
