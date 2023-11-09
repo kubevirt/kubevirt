@@ -47,7 +47,6 @@ const (
 	MigrateVmiDataProcessedMetricName      = "kubevirt_vmi_migration_data_processed_bytes"
 	MigrateVmiDirtyMemoryRateMetricName    = "kubevirt_vmi_migration_dirty_memory_rate_bytes"
 	MigrateVmiMemoryTransferRateMetricName = "kubevirt_vmi_migration_disk_transfer_rate_bytes"
-	MigrateVmiDiskTransferRateMetricName   = "kubevirt_vmi_migration_memory_transfer_rate_bytes"
 )
 
 var (
@@ -109,15 +108,6 @@ func (metrics *vmiMetrics) updateMigrateInfo(jobInfo *stats.DomainJobInfo) {
 			"Network throughput used while migrating memory in Bytes per second.",
 			prometheus.GaugeValue,
 			float64(jobInfo.MemoryBps),
-		)
-	}
-
-	if jobInfo.DiskBpsSet {
-		metrics.pushCommonMetric(
-			MigrateVmiDiskTransferRateMetricName,
-			"Network throughput used while migrating disks in Bytes per second.",
-			prometheus.GaugeValue,
-			float64(jobInfo.DiskBps),
 		)
 	}
 }

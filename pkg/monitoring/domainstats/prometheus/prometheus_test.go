@@ -396,12 +396,6 @@ var _ = Describe("Prometheus", func() {
 					MemoryBpsSet: true,
 					MemoryBps:    1,
 				}),
-			Entry("should handle DiskBps metrics for VMs",
-				MigrateVmiDiskTransferRateMetricName,
-				&stats.DomainJobInfo{
-					DiskBpsSet: true,
-					DiskBps:    1,
-				}),
 		)
 
 		It("should handle vcpu metrics", func() {

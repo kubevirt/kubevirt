@@ -147,9 +147,6 @@ The rate at which the memory is being transferred. Type: Gauge.
 ### kubevirt_vmi_migration_failed
 Indicates if the VMI migration failed. Type: Gauge.
 
-### kubevirt_vmi_migration_memory_transfer_rate_bytes
-The rate at which the disk is being transferred. Type: Gauge.
-
 ### kubevirt_vmi_migration_phase_transition_time_from_creation_seconds
 Histogram of VM migration phase transitions duration from creation time in seconds. Type: Histogram.
 
