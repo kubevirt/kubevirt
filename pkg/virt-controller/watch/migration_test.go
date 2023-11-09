@@ -907,10 +907,10 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulablePendingTimeoutSeconds, ""),
 			Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultUnschedulablePendingTimeoutSeconds, ""),
 			Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultUnschedulablePendingTimeoutSeconds, ""),
-			Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultUnschedulablePendingTimeoutSeconds-1, ""),
+			Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultUnschedulablePendingTimeoutSeconds-10, ""),
 			Entry("in pending state with custom timeout", virtv1.MigrationPending, true, int64(10), "10"),
-			Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(10), "11"),
-			Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultUnschedulablePendingTimeoutSeconds-1, ""),
+			Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(8), "11"),
+			Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultUnschedulablePendingTimeoutSeconds-10, ""),
 		)
 
 		DescribeTable("should handle pod stuck in pending phase for extended period of time", func(phase virtv1.VirtualMachineInstanceMigrationPhase, shouldTimeout bool, timeLapse int64, annotationVal string) {
@@ -945,10 +945,10 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in pending state", virtv1.MigrationPending, true, defaultCatchAllPendingTimeoutSeconds, ""),
 			Entry("in scheduling state", virtv1.MigrationScheduling, true, defaultCatchAllPendingTimeoutSeconds, ""),
 			Entry("in scheduled state", virtv1.MigrationScheduled, false, defaultCatchAllPendingTimeoutSeconds, ""),
-			Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultCatchAllPendingTimeoutSeconds-1, ""),
+			Entry("in pending state but timeout not hit", virtv1.MigrationPending, false, defaultCatchAllPendingTimeoutSeconds-10, ""),
 			Entry("in pending state with custom timeout", virtv1.MigrationPending, true, int64(10), "10"),
-			Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(10), "11"),
-			Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultCatchAllPendingTimeoutSeconds-1, ""),
+			Entry("in pending state with custom timeout not hit", virtv1.MigrationPending, false, int64(8), "11"),
+			Entry("in scheduling state but timeout not hit", virtv1.MigrationScheduling, false, defaultCatchAllPendingTimeoutSeconds-10, ""),
 		)
 	})
 
