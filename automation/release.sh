@@ -66,8 +66,9 @@ function update_github_release() {
         "_out/manifests/release/olm/bundle/kubevirtoperator.$DOCKER_TAG.clusterserviceversion.yaml" \
         _out/tests/tests.test \
         _out/manifests/release/conformance.yaml \
-        _out/manifests/testing/*
-        _out/cmd/dump/dump*
+        _out/manifests/testing/* \
+        _out/cmd/dump/dump* \
+        _out/cmd/cniplugins/*
 }
 
 function upload_testing_manifests() {

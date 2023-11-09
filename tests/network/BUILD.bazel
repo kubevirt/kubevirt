@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "bindingplugin.go",
         "dual_stack_cluster.go",
         "expose.go",
         "framework.go",
@@ -56,6 +57,7 @@ go_library(
         "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libkvconfig:go_default_library",
         "//tests/libmigration:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnet/cluster:go_default_library",

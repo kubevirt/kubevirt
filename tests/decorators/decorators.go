@@ -43,6 +43,7 @@ var (
 	Istio                        = []interface{}{Label("Istio")}
 	InPlaceHotplugNICs           = []interface{}{Label("in-place-hotplug-NICs")}
 	MigrationBasedHotplugNICs    = []interface{}{Label("migration-based-hotplug-NICs")}
+	NetCustomBindingPlugins      = []interface{}{Label("netCustomBindingPlugins")}
 	RequiresTwoSchedulableNodes  = []interface{}{Label("requires-two-schedulable-nodes")}
 	VMLiveUpdateFeaturesGate     = []interface{}{Label("VMLiveUpdateFeaturesGate")}
 	RequiresRWXFilesystemStorage = []interface{}{Label("rwxfs")}
