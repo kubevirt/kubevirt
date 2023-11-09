@@ -47,7 +47,7 @@ var noAuthEndpoints = map[string]struct{}{
 	"/":           {},
 	"/apis":       {},
 	"/healthz":    {},
-	"/openapi/v3": {},
+	"/openapi/v2": {},
 	// The endpoints with just the version are needed for api aggregation discovery
 	// Test with e.g. kubectl get --raw /apis/subresources.kubevirt.io/v1
 	"/apis/subresources.kubevirt.io/v1":               {},

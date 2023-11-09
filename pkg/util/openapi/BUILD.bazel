@@ -15,8 +15,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/builder:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
-        "//vendor/k8s.io/kube-openapi/pkg/openapiconv:go_default_library",
-        "//vendor/k8s.io/kube-openapi/pkg/spec3:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/validation/errors:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/validation/spec:go_default_library",
     ],

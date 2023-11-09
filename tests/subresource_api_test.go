@@ -290,7 +290,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources", func() {
 		It("[test_id:3177]should be aggregated into the apiserver openapi spec", func() {
 			Eventually(func() string {
-				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v3").DoRaw(context.Background())
+				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 				return string(spec)
 				// The first item in the SubresourceGroupVersions array is the preferred version

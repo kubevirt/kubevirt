@@ -225,7 +225,7 @@ var _ = Describe("Authorizer", func() {
 				Entry("root", "/"),
 				Entry("apis", "/apis"),
 				Entry("healthz", "/healthz"),
-				Entry("openapi", "/openapi/v3"),
+				Entry("openapi", "/openapi/v2"),
 				Entry("start profiler", "/start-profiler"),
 				Entry("stop profiler", "/stop-profiler"),
 				Entry("dump profiler", "/dump-profiler"),

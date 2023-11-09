@@ -1157,6 +1157,7 @@ k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistr
 # k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 => k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 ## explicit; go 1.19
 k8s.io/kube-openapi/pkg/builder
+k8s.io/kube-openapi/pkg/builder3
 k8s.io/kube-openapi/pkg/builder3/util
 k8s.io/kube-openapi/pkg/cached
 k8s.io/kube-openapi/pkg/common
@@ -1164,7 +1165,6 @@ k8s.io/kube-openapi/pkg/common/restfuladapter
 k8s.io/kube-openapi/pkg/handler3
 k8s.io/kube-openapi/pkg/internal
 k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json
-k8s.io/kube-openapi/pkg/openapiconv
 k8s.io/kube-openapi/pkg/schemaconv
 k8s.io/kube-openapi/pkg/schemamutation
 k8s.io/kube-openapi/pkg/spec3
