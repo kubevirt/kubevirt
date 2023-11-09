@@ -377,9 +377,10 @@ var _ = Describe("netpod", func() {
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:     "eth0",
-						TypeName: nmstate.TypeDummy,
-						MTU:      1500,
+						Name:       "eth0",
+						TypeName:   nmstate.TypeDummy,
+						MacAddress: podIfaceOrignalMAC,
+						MTU:        1500,
 						IPv4: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{
@@ -484,10 +485,11 @@ var _ = Describe("netpod", func() {
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
-						Name:     "eth0",
-						TypeName: nmstate.TypeDummy,
-						MTU:      1500,
-						IPv4:     ipDisabled,
+						Name:       "eth0",
+						TypeName:   nmstate.TypeDummy,
+						MacAddress: podIfaceOrignalMAC,
+						MTU:        1500,
+						IPv4:       ipDisabled,
 						IPv6: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{
@@ -522,6 +524,8 @@ var _ = Describe("netpod", func() {
 			secondaryNetworkName = "secondnetwork"
 
 			hotplugEnabled = true
+
+			secondaryPodIfaceOrignalMAC = "12:34:56:78:90:cd"
 		)
 		var (
 			specNetworks   []v1.Network
@@ -561,7 +565,7 @@ var _ = Describe("netpod", func() {
 						Index:      secondaryPodInterfaceIndex,
 						TypeName:   nmstate.TypeVETH,
 						State:      nmstate.IfaceStateUp,
-						MacAddress: "12:34:56:78:90:cd",
+						MacAddress: secondaryPodIfaceOrignalMAC,
 						MTU:        1500,
 						IPv4:       ipDisabled,
 						IPv6:       ipDisabled,
@@ -689,12 +693,13 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
-							Name:     secondaryPodInterfaceName,
-							TypeName: nmstate.TypeDummy,
-							MTU:      1500,
-							IPv4:     ipDisabled,
-							IPv6:     ipDisabled,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
+							Name:       secondaryPodInterfaceName,
+							TypeName:   nmstate.TypeDummy,
+							MacAddress: secondaryPodIfaceOrignalMAC,
+							MTU:        1500,
+							IPv4:       ipDisabled,
+							IPv6:       ipDisabled,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{
@@ -779,13 +784,14 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
-							Name:     secondaryPodInterfaceName,
-							TypeName: nmstate.TypeDummy,
-							State:    nmstate.IfaceStateAbsent,
-							MTU:      1500,
-							IPv4:     ipDisabled,
-							IPv6:     ipDisabled,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
+							Name:       secondaryPodInterfaceName,
+							TypeName:   nmstate.TypeDummy,
+							MacAddress: secondaryPodIfaceOrignalMAC,
+							State:      nmstate.IfaceStateAbsent,
+							MTU:        1500,
+							IPv4:       ipDisabled,
+							IPv6:       ipDisabled,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{
@@ -869,12 +875,13 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
-							Name:     secondaryPodInterfaceOrderedName,
-							TypeName: nmstate.TypeDummy,
-							MTU:      1500,
-							IPv4:     ipDisabled,
-							IPv6:     ipDisabled,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
+							Name:       secondaryPodInterfaceOrderedName,
+							TypeName:   nmstate.TypeDummy,
+							MacAddress: secondaryPodIfaceOrignalMAC,
+							MTU:        1500,
+							IPv4:       ipDisabled,
+							IPv6:       ipDisabled,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{
@@ -1109,11 +1116,12 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:     "pod7087ef4cd1f",
-							TypeName: nmstate.TypeDummy,
-							State:    nmstate.IfaceStateAbsent,
-							MTU:      1500,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+							Name:       "pod7087ef4cd1f",
+							TypeName:   nmstate.TypeDummy,
+							State:      nmstate.IfaceStateAbsent,
+							MacAddress: "22:34:56:78:90:ab",
+							MTU:        1500,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
 						{
@@ -1142,10 +1150,11 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:     "podbc6cc93fa1e",
-							TypeName: nmstate.TypeDummy,
-							MTU:      1500,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+							Name:       "podbc6cc93fa1e",
+							TypeName:   nmstate.TypeDummy,
+							MacAddress: "32:34:56:78:90:ab",
+							MTU:        1500,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{},
@@ -1221,11 +1230,12 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:     "pod7087ef4cd1f",
-							TypeName: nmstate.TypeDummy,
-							State:    nmstate.IfaceStateAbsent,
-							MTU:      1500,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+							Name:       "pod7087ef4cd1f",
+							TypeName:   nmstate.TypeDummy,
+							State:      nmstate.IfaceStateAbsent,
+							MacAddress: "22:34:56:78:90:ab",
+							MTU:        1500,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
 						{
@@ -1245,11 +1255,12 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:     "podbc6cc93fa1e",
-							TypeName: nmstate.TypeDummy,
-							State:    nmstate.IfaceStateAbsent,
-							MTU:      1500,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+							Name:       "podbc6cc93fa1e",
+							TypeName:   nmstate.TypeDummy,
+							State:      nmstate.IfaceStateAbsent,
+							MacAddress: "32:34:56:78:90:ab",
+							MTU:        1500,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{},
@@ -1342,10 +1353,11 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
-							Name:     "pod7087ef4cd1f",
-							TypeName: nmstate.TypeDummy,
-							MTU:      1500,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+							Name:       "pod7087ef4cd1f",
+							TypeName:   nmstate.TypeDummy,
+							MacAddress: "22:34:56:78:90:ab",
+							MTU:        1500,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						// Third network.
 						{
@@ -1365,11 +1377,12 @@ var _ = Describe("netpod", func() {
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
-							Name:     "podbc6cc93fa1e",
-							TypeName: nmstate.TypeDummy,
-							State:    nmstate.IfaceStateAbsent,
-							MTU:      1500,
-							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+							Name:       "podbc6cc93fa1e",
+							TypeName:   nmstate.TypeDummy,
+							State:      nmstate.IfaceStateAbsent,
+							MacAddress: "32:34:56:78:90:ab",
+							MTU:        1500,
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 					},
 					LinuxStack: nmstate.LinuxStack{},
@@ -1538,10 +1551,11 @@ var _ = Describe("netpod", func() {
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					{
-						Name:     "pod7087ef4cd1f",
-						TypeName: nmstate.TypeDummy,
-						MTU:      1500,
-						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						Name:       "pod7087ef4cd1f",
+						TypeName:   nmstate.TypeDummy,
+						MacAddress: "22:34:56:78:90:ab",
+						MTU:        1500,
+						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					// Third network.
 					{
@@ -1561,11 +1575,12 @@ var _ = Describe("netpod", func() {
 						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 					},
 					{
-						Name:     "podbc6cc93fa1e",
-						TypeName: nmstate.TypeDummy,
-						State:    nmstate.IfaceStateAbsent,
-						MTU:      1500,
-						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						Name:       "podbc6cc93fa1e",
+						TypeName:   nmstate.TypeDummy,
+						State:      nmstate.IfaceStateAbsent,
+						MacAddress: "32:34:56:78:90:ab",
+						MTU:        1500,
+						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 					},
 				},
 				LinuxStack: nmstate.LinuxStack{},
