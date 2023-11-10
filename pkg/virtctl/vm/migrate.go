@@ -33,8 +33,13 @@ import (
 
 const COMMAND_MIGRATE = "migrate"
 
+type migrateCommand struct {
+	command           string
+	addedNodeSelector map[string]string
+}
+
 func NewMigrateCommand() *cobra.Command {
-	c := Command{command: COMMAND_MIGRATE}
+	c := migrateCommand{command: COMMAND_MIGRATE}
 	cmd := &cobra.Command{
 		Use:     "migrate (VM)",
 		Short:   "Migrate a virtual machine.",
@@ -42,12 +47,14 @@ func NewMigrateCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    c.migrateRun,
 	}
+
+	cmd.Flags().StringToStringVar(&c.addedNodeSelector, "addedNodeSelector", nil, "--addedNodeSelector=key=value1,key2=value2: configure an additional node selector for the one-off migration attempt. AddedNodeSelector can only restrict constraints already set on the VM. By default the scheduler is responsible for finding the best Node, which is the recommended way of migrating VMs.")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
+func (c *migrateCommand) migrateRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 
 	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
@@ -57,12 +64,17 @@ func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
 
 	dryRunOption := setDryRunOption(dryRun)
 
-	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
+	options := &v1.MigrateOptions{
+		DryRun:            dryRunOption,
+		AddedNodeSelector: c.addedNodeSelector,
+	}
+
+	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, options)
 	if err != nil {
 		return fmt.Errorf("Error migrating VirtualMachine %v", err)
 	}
 
-	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
+	fmt.Printf("VM %s was scheduled to %s\n", vmiName, c.command)
 
 	return nil
 }
