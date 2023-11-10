@@ -43,7 +43,7 @@ var _ = Describe("cgroup manager", func() {
 		if version == V1 {
 			return newCustomizedV1Manager(mockRuncCgroupManager, false, execVirtChrootFunc, getCurrentlyDefinedRulesFunc)
 		} else {
-			return newCustomizedV2Manager(mockRuncCgroupManager, false, execVirtChrootFunc)
+			return newCustomizedV2Manager(mockRuncCgroupManager, false, nil, execVirtChrootFunc)
 		}
 	}
 
@@ -85,10 +85,11 @@ var _ = Describe("cgroup manager", func() {
 
 		Expect(rulesDefined).To(ContainElement(fakeRule), "defined rule is expected to exist")
 
-		for _, defaultRule := range GenerateDefaultDeviceRules() {
+		defaultDeviceRules := GenerateDefaultDeviceRules()
+		for _, defaultRule := range defaultDeviceRules {
 			Expect(rulesDefined).To(ContainElement(defaultRule), "default rules are expected to be defined")
 		}
-
+		Expect(rulesDefined).To(HaveLen(len(defaultDeviceRules) + 1))
 	},
 		Entry("for v1", V1),
 		Entry("for v2", V2),

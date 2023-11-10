@@ -16,12 +16,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-var rulesPerPid = make(map[string][]*devices.Rule)
-
 type v2Manager struct {
 	runc_cgroups.Manager
 	dirPath        string
 	isRootless     bool
+	deviceRules    []*devices.Rule
 	execVirtChroot execVirtChrootFunc
 }
 
@@ -31,14 +30,20 @@ func newV2Manager(config *runc_configs.Cgroup, dirPath string) (Manager, error) 
 		return nil, err
 	}
 
-	return newCustomizedV2Manager(runcManager, config.Rootless, execVirtChrootCgroups)
+	return newCustomizedV2Manager(runcManager, config.Rootless, config.Resources.Devices, execVirtChrootCgroups)
 }
 
-func newCustomizedV2Manager(runcManager runc_cgroups.Manager, isRootless bool, execVirtChroot execVirtChrootFunc) (Manager, error) {
+func newCustomizedV2Manager(
+	runcManager runc_cgroups.Manager,
+	isRootless bool,
+	deviceRules []*devices.Rule,
+	execVirtChroot execVirtChrootFunc,
+) (Manager, error) {
 	manager := v2Manager{
 		runcManager,
 		runcManager.GetPaths()[""],
 		isRootless,
+		append(deviceRules, GenerateDefaultDeviceRules()...),
 		execVirtChroot,
 	}
 
@@ -53,18 +58,20 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 	// We want to keep given resources untouched
 	resourcesToSet := *r
 
-	//Add default rules
-	resourcesToSet.Devices = append(resourcesToSet.Devices, GenerateDefaultDeviceRules()...)
-
-	rulesToSet, err := addCurrentRules(rulesPerPid[v.dirPath], resourcesToSet.Devices)
+	rulesToSet, err := addCurrentRules(v.deviceRules, resourcesToSet.Devices)
 	if err != nil {
 		return err
 	}
-	rulesPerPid[v.dirPath] = rulesToSet
+	v.deviceRules = rulesToSet
 	resourcesToSet.Devices = rulesToSet
+	for _, rule := range rulesToSet {
+		if rule == nil {
+			continue
+		}
+		log.Log.V(5).Infof("cgroupsv2 device allowlist: rule after appending current+new: type: %d permissions: %s allow: %t major: %d minor: %d", rule.Type, rule.Permissions, rule.Allow, rule.Major, rule.Minor)
+	}
 
-	err = v.execVirtChroot(&resourcesToSet, map[string]string{"": v.dirPath}, v.isRootless, v.GetCgroupVersion())
-	return err
+	return v.execVirtChroot(&resourcesToSet, map[string]string{"": v.dirPath}, v.isRootless, v.GetCgroupVersion())
 }
 
 func (v *v2Manager) GetCgroupVersion() CgroupVersion {
