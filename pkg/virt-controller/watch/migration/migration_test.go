@@ -21,6 +21,7 @@ package migration
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -97,6 +98,19 @@ var _ = Describe("Migration watcher", func() {
 		if expectedNodeAffinityCount > 0 {
 			Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(expectedNodeAffinityCount))
 		}
+	}
+
+	getTargetPod := func(namespace string, uid types.UID, migrationUid types.UID) (*k8sv1.Pod, error) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migrationUid), virtv1.CreatedByLabel, string(uid)),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(pods.Items) == 1 {
+			return &pods.Items[0], nil
+		}
+		return nil, errors.New("Failed identifying target pod")
 	}
 
 	expectPodDoesNotExist := func(namespace, uid, migrationUid string) {
@@ -882,6 +896,86 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 2, 1, 1)
+		})
+
+		It("should create target pod merging addedNodeSelector and preserving the labels in the existing NodeSelector and NodeAffinity", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+
+			vmiNodeSelector := map[string]string{
+				"topology.kubernetes.io/region": "us-east-1",
+				"vmiLabel1":                     "vmiValue1",
+				"vmiLabel2":                     "vmiValue2",
+			}
+			nodeAffinityRule := &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      k8sv1.LabelHostname,
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"somenode"},
+								},
+							},
+						},
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      k8sv1.LabelHostname,
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"anothernode-ORed"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			vmi.Spec.NodeSelector = vmiNodeSelector
+			vmi.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
+
+			addedNodeSelector := map[string]string{
+				"topology.kubernetes.io/region": "us-west-1",
+				"additionaLabel1":               "additionalValue1",
+				"additionaLabel2":               "additionalValue2",
+			}
+
+			Expect(vmiNodeSelector).To(HaveKey("topology.kubernetes.io/region"))
+			Expect(addedNodeSelector).To(HaveKey("topology.kubernetes.io/region"))
+
+			migration := newMigrationWithAddedNodeSelector("testmigration", vmi.Name, virtv1.MigrationPending, addedNodeSelector)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 2)
+			targetPod, err := getTargetPod(vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetPod).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(targetPod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
+
+			By("Expecting migration target pod to contain all the NodeSelector labels defined on the VM")
+			for k, v := range vmiNodeSelector {
+				Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(k, v))
+			}
+			for k, v := range addedNodeSelector {
+				vmiVal, ok := vmiNodeSelector[k]
+				if ok {
+					Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(k, vmiVal))
+				} else {
+					Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(k, v))
+				}
+			}
+
 		})
 
 		It("should place migration in scheduling state if pod exists", func() {
@@ -2273,6 +2367,12 @@ func newMigration(name string, vmiName string, phase virtv1.VirtualMachineInstan
 	}
 	migration.UID = types.UID(name)
 	migration.Status.Phase = phase
+	return migration
+}
+
+func newMigrationWithAddedNodeSelector(name string, vmiName string, phase virtv1.VirtualMachineInstanceMigrationPhase, addedNodeSelector map[string]string) *virtv1.VirtualMachineInstanceMigration {
+	migration := newMigration(name, vmiName, phase)
+	migration.Spec.AddedNodeSelector = addedNodeSelector
 	return migration
 }
 

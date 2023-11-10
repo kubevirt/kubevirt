@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -744,6 +745,11 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	} else {
 		templatePod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(templatePod.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, antiAffinityTerm)
 	}
+
+	nodeSelector := make(map[string]string)
+	maps.Copy(nodeSelector, migration.Spec.AddedNodeSelector)
+	maps.Copy(nodeSelector, templatePod.Spec.NodeSelector)
+	templatePod.Spec.NodeSelector = nodeSelector
 
 	templatePod.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
