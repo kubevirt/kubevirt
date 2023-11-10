@@ -34,10 +34,10 @@ const COMMAND_MIGRATE = "migrate"
 
 func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "migrate (VM)",
+		Use:     "migrate (VM) [Node]",
 		Short:   "Migrate a virtual machine.",
 		Example: usage(COMMAND_MIGRATE),
-		Args:    templates.ExactArgs("migrate", 1),
+		Args:    templates.ExactMoreArgs("migrate", 1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
 			return c.migrateRun(args)
