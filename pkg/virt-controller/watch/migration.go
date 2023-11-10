@@ -410,7 +410,6 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	var pod *k8sv1.Pod = nil
 	var attachmentPod *k8sv1.Pod = nil
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
-	vmiConditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	migrationCopy := migration.DeepCopy()
 
 	podExists, attachmentPodExists := len(pods) > 0, false
@@ -499,89 +498,9 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because target attachment pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target attachment pod %s/%s shutdown during migration", attachmentPod.Namespace, attachmentPod.Name)
 	} else {
-
-		switch migration.Status.Phase {
-		case virtv1.MigrationPhaseUnset:
-			canMigrate, err := c.canMigrateVMI(migration, vmi)
-			if err != nil {
-				return err
-			}
-
-			if canMigrate {
-				migrationCopy.Status.Phase = virtv1.MigrationPending
-			} else {
-				// can not migrate because there is an active migration already
-				// in progress for this VMI.
-				migrationCopy.Status.Phase = virtv1.MigrationFailed
-				c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
-				log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
-			}
-		case virtv1.MigrationPending:
-			if podExists {
-				if controller.VMIHasHotplugVolumes(vmi) {
-					if attachmentPodExists {
-						migrationCopy.Status.Phase = virtv1.MigrationScheduling
-					}
-				} else {
-					migrationCopy.Status.Phase = virtv1.MigrationScheduling
-				}
-			} else if syncError != nil && strings.Contains(syncError.Error(), "exceeded quota") && !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
-				condition := virtv1.VirtualMachineInstanceMigrationCondition{
-					Type:          virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota,
-					Status:        k8sv1.ConditionTrue,
-					LastProbeTime: v1.Now(),
-				}
-				migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
-			}
-		case virtv1.MigrationScheduling:
-			if conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
-				conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
-			}
-			if isPodReady(pod) {
-				if controller.VMIHasHotplugVolumes(vmi) {
-					if attachmentPodExists && isPodReady(attachmentPod) {
-						log.Log.Object(migration).Infof("Attachment pod %s for vmi %s/%s is ready", attachmentPod.Name, vmi.Namespace, vmi.Name)
-						migrationCopy.Status.Phase = virtv1.MigrationScheduled
-					}
-				} else {
-					migrationCopy.Status.Phase = virtv1.MigrationScheduled
-				}
-			}
-		case virtv1.MigrationScheduled:
-			if vmi.Status.MigrationState != nil &&
-				vmi.Status.MigrationState.MigrationUID == migration.UID &&
-				vmi.Status.MigrationState.TargetNode != "" {
-				migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
-			}
-		case virtv1.MigrationPreparingTarget:
-			if vmi.Status.MigrationState.TargetNode != "" && vmi.Status.MigrationState.TargetNodeAddress != "" {
-				migrationCopy.Status.Phase = virtv1.MigrationTargetReady
-			}
-		case virtv1.MigrationTargetReady:
-			if vmi.Status.MigrationState.StartTimestamp != nil {
-				migrationCopy.Status.Phase = virtv1.MigrationRunning
-			}
-		case virtv1.MigrationRunning:
-			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
-			if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
-				key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
-				patchOps := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`,
-					key,
-					vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
-
-				_, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, []byte(patchOps), v1.PatchOptions{})
-				if err != nil {
-					return err
-				}
-			}
-
-			if vmi.Status.MigrationState.Completed &&
-				!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
-				!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange) {
-				migrationCopy.Status.Phase = virtv1.MigrationSucceeded
-				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
-				log.Log.Object(migration).Infof("VMI reported migration succeeded.")
-			}
+		err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -600,6 +519,100 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		}
 	}
 
+	return nil
+}
+
+func (c *MigrationController) processMigrationPhase(
+	migration, migrationCopy *virtv1.VirtualMachineInstanceMigration,
+	pod, attachmentPod *k8sv1.Pod,
+	vmi *virtv1.VirtualMachineInstance,
+	syncError error,
+) error {
+	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	vmiConditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	switch migration.Status.Phase {
+	case virtv1.MigrationPhaseUnset:
+		canMigrate, err := c.canMigrateVMI(migration, vmi)
+		if err != nil {
+			return err
+		}
+
+		if canMigrate {
+			migrationCopy.Status.Phase = virtv1.MigrationPending
+		} else {
+			// can not migrate because there is an active migration already
+			// in progress for this VMI.
+			migrationCopy.Status.Phase = virtv1.MigrationFailed
+			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
+			log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
+		}
+	case virtv1.MigrationPending:
+		if pod != nil {
+			if controller.VMIHasHotplugVolumes(vmi) {
+				if attachmentPod != nil {
+					migrationCopy.Status.Phase = virtv1.MigrationScheduling
+				}
+			} else {
+				migrationCopy.Status.Phase = virtv1.MigrationScheduling
+			}
+		} else if syncError != nil && strings.Contains(syncError.Error(), "exceeded quota") && !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
+			condition := virtv1.VirtualMachineInstanceMigrationCondition{
+				Type:          virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota,
+				Status:        k8sv1.ConditionTrue,
+				LastProbeTime: v1.Now(),
+			}
+			migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
+		}
+	case virtv1.MigrationScheduling:
+		if conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
+			conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
+		}
+		if isPodReady(pod) {
+			if controller.VMIHasHotplugVolumes(vmi) {
+				if attachmentPod != nil && isPodReady(attachmentPod) {
+					log.Log.Object(migration).Infof("Attachment pod %s for vmi %s/%s is ready", attachmentPod.Name, vmi.Namespace, vmi.Name)
+					migrationCopy.Status.Phase = virtv1.MigrationScheduled
+				}
+			} else {
+				migrationCopy.Status.Phase = virtv1.MigrationScheduled
+			}
+		}
+	case virtv1.MigrationScheduled:
+		if vmi.Status.MigrationState != nil &&
+			vmi.Status.MigrationState.MigrationUID == migration.UID &&
+			vmi.Status.MigrationState.TargetNode != "" {
+			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
+		}
+	case virtv1.MigrationPreparingTarget:
+		if vmi.Status.MigrationState.TargetNode != "" && vmi.Status.MigrationState.TargetNodeAddress != "" {
+			migrationCopy.Status.Phase = virtv1.MigrationTargetReady
+		}
+	case virtv1.MigrationTargetReady:
+		if vmi.Status.MigrationState.StartTimestamp != nil {
+			migrationCopy.Status.Phase = virtv1.MigrationRunning
+		}
+	case virtv1.MigrationRunning:
+		_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
+		if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+			key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
+			patchOps := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`,
+				key,
+				vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
+
+			_, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, []byte(patchOps), v1.PatchOptions{})
+			if err != nil {
+				return err
+			}
+		}
+
+		if vmi.Status.MigrationState.Completed &&
+			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
+			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange) {
+			migrationCopy.Status.Phase = virtv1.MigrationSucceeded
+			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
+			log.Log.Object(migration).Infof("VMI reported migration succeeded.")
+		}
+	}
 	return nil
 }
 
@@ -1259,33 +1272,8 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				return nil
 			}
 
-			var patches []string
-			if !c.clusterConfig.RootEnabled() {
-				// The cluster is configured for non-root VMs, ensure the VMI is non-root.
-				// If the VMI is root, the migration will be a root -> non-root migration.
-				if vmi.Status.RuntimeUser != util.NonRootUID {
-					patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
-				}
-
-				// This is required in order to be able to update from v0.43-v0.51 to v0.52+
-				if vmi.Annotations == nil {
-					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
-				} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
-					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
-				}
-			} else {
-				// The cluster is configured for root VMs, ensure the VMI is root.
-				// If the VMI is non-root, the migration will be a non-root -> root migration.
-				if vmi.Status.RuntimeUser != util.RootUser {
-					patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.RootUser))
-				}
-
-				if vmi.Annotations != nil {
-					if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
-						patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
-					}
-				}
-			}
+			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
+			patches := c.setupVMIRuntimeUser(vmi)
 			if len(patches) != 0 {
 				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
 				if err != nil {
@@ -1347,6 +1335,37 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 	}
 
 	return nil
+}
+
+func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) []string {
+	var patches []string
+	if !c.clusterConfig.RootEnabled() {
+		// The cluster is configured for non-root VMs, ensure the VMI is non-root.
+		// If the VMI is root, the migration will be a root -> non-root migration.
+		if vmi.Status.RuntimeUser != util.NonRootUID {
+			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
+		}
+
+		// This is required in order to be able to update from v0.43-v0.51 to v0.52+
+		if vmi.Annotations == nil {
+			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
+		} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
+			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+		}
+	} else {
+		// The cluster is configured for root VMs, ensure the VMI is root.
+		// If the VMI is non-root, the migration will be a non-root -> root migration.
+		if vmi.Status.RuntimeUser != util.RootUser {
+			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.RootUser))
+		}
+
+		if vmi.Annotations != nil {
+			if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
+				patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+			}
+		}
+	}
+	return patches
 }
 
 func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
