@@ -313,7 +313,8 @@ func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"vmiName": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"vmiName":  "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"nodeName": "The name of the destination node to perform the migration on. NodeName does not need to exist in the migration objects namespace",
 	}
 }
 

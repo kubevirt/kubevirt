@@ -13717,6 +13717,10 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        nodeName:
+          description: The name of the destination node to perform the migration on.
+            NodeName does not need to exist in the migration objects namespace
+          type: string
         vmiName:
           description: The name of the VMI to perform the migration on. VMI must exist
             in the migration objects namespace

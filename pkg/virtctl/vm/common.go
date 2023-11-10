@@ -61,6 +61,10 @@ func usage(cmd string) string {
 		return fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n  {{ProgramName}} %s myvm", strings.Title(cmd), cmd)
 	}
 
+	if cmd == COMMAND_MIGRATE {
+		return fmt.Sprintf("  # %s a virtual machine called 'myvm':\n  {{ProgramName}} %s myvm\n  # %s a virtual machine called 'myvm' to node called 'worker1':\n  {{ProgramName}} %s myvm worker1", strings.Title(cmd), cmd, strings.Title(cmd), cmd)
+	}
+
 	return fmt.Sprintf("  # %s a virtual machine called 'myvm':\n  {{ProgramName}} %s myvm", strings.Title(cmd), cmd)
 }
 

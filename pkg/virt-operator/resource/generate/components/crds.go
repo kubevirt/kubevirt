@@ -330,6 +330,8 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 				Description: "The current phase of VM instance migration"},
 			{Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
 				Description: "The name of the VMI to perform the migration on"},
+			{Name: "NodeName", Type: "string", JSONPath: ".spec.nodeName",
+				Description: "The name of the the destination node to perform the migration on"},
 		}, &extv1.CustomResourceSubresources{
 			Status: &extv1.CustomResourceSubresourceStatus{},
 		})

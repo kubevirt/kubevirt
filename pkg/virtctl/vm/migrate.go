@@ -34,10 +34,10 @@ const COMMAND_MIGRATE = "migrate"
 
 func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "migrate (VM)",
-		Short:   "Migrate a virtual machine.",
+		Use:     "migrate (VM) [Node]",
+		Short:   "Migrate a virtual machine can specify node migration or random migration.",
 		Example: usage(COMMAND_MIGRATE),
-		Args:    templates.ExactArgs("migrate", 1),
+		Args:    templates.ExactMoreArgs("migrate", 1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
 			return c.migrateRun(args)
@@ -50,6 +50,10 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func (o *Command) migrateRun(args []string) error {
 	vmiName := args[0]
+	nodeName := ""
+	if len(args) == 2 {
+		nodeName = args[1]
+	}
 
 	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
 	if err != nil {
@@ -58,7 +62,7 @@ func (o *Command) migrateRun(args []string) error {
 
 	dryRunOption := setDryRunOption(dryRun)
 
-	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
+	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption, NodeName: nodeName})
 	if err != nil {
 		return fmt.Errorf("Error migrating VirtualMachine %v", err)
 	}

@@ -678,6 +678,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	templatePod.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
+	templatePod.Spec.NodeName = migration.Spec.NodeName
 
 	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {

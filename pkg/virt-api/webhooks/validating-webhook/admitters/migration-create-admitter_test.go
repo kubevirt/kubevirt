@@ -22,6 +22,7 @@ package admitters
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -30,12 +31,12 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"kubevirt.io/client-go/api"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
@@ -50,6 +51,8 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	var migrationCreateAdmitter *MigrationCreateAdmitter
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
+	//var nodeSource *framework.FakeControllerSource
+	//var nodeInformer cache.SharedIndexInformer
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
@@ -126,7 +129,6 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 
 		BeforeEach(func() {
 			migrationInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
-
 		})
 
 		AfterEach(func() {
@@ -299,6 +301,159 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			resp := migrationCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
+		})
+
+		It("accept Migration spec on create when destination node exists", func() {
+			vmiName := "testmigratevmi6"
+			nodeName := "destmigratenode6"
+			vmi := api.NewMinimalVMI(vmiName)
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceReady,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
+
+			kubeClient := fake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("not found")
+			})
+
+			migration := v1.VirtualMachineInstanceMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceMigrationSpec{
+					VMIName:  vmiName,
+					NodeName: nodeName,
+				},
+			}
+			migrationBytes, _ := json.Marshal(&migration)
+
+			enableFeatureGate(deprecation.LiveMigrationGate)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.MigrationGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: migrationBytes,
+					},
+				},
+			}
+
+			resp := migrationCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("not found"))
+		})
+
+		It("should reject Migration spec on create when the source and destination are the same node", func() {
+			vmiName := "testmigratevmi7"
+			nodeName := "destmigratenode7"
+			vmi := api.NewMinimalVMI(vmiName)
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceReady,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+			vmi.Status.NodeName = nodeName
+
+			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
+
+			kubeClient := fake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &k8sv1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeName,
+					},
+				}, nil
+			})
+
+			migration := v1.VirtualMachineInstanceMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceMigrationSpec{
+					VMIName:  vmiName,
+					NodeName: nodeName,
+				},
+			}
+			migrationBytes, _ := json.Marshal(&migration)
+
+			enableFeatureGate(deprecation.LiveMigrationGate)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.MigrationGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: migrationBytes,
+					},
+				},
+			}
+
+			resp := migrationCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("the same source and destination node"))
+		})
+
+		It("should accept Migration spec on create when the source and destination are not the same node", func() {
+			vmiName := "testmigratevmi7"
+			nodeName := "destmigratenode7"
+			vmi := api.NewMinimalVMI(vmiName)
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceReady,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+			vmi.Status.NodeName = "sourcemigratenode"
+
+			mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
+
+			kubeClient := fake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &k8sv1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nodeName,
+					},
+				}, nil
+			})
+
+			migration := v1.VirtualMachineInstanceMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceMigrationSpec{
+					VMIName:  vmiName,
+					NodeName: nodeName,
+				},
+			}
+			migrationBytes, _ := json.Marshal(&migration)
+
+			enableFeatureGate(deprecation.LiveMigrationGate)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.MigrationGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: migrationBytes,
+					},
+				},
+			}
+
+			resp := migrationCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {

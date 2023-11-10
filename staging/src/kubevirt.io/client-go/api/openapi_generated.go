@@ -24831,6 +24831,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSpec(ref commo
 							Format:      "",
 						},
 					},
+					"nodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the destination node to perform the migration on. NodeName does not need to exist in the migration objects namespace",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

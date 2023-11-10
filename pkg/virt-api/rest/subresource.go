@@ -303,7 +303,8 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 				GenerateName: "kubevirt-migrate-vm-",
 			},
 			Spec: v1.VirtualMachineInstanceMigrationSpec{
-				VMIName: name,
+				VMIName:  name,
+				NodeName: bodyStruct.NodeName,
 			},
 		}, k8smetav1.CreateOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
