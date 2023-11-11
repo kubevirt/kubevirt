@@ -286,7 +286,7 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 		go func() {
 			logfile := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", domainName)
 			if nonRoot {
-				logfile = filepath.Join("/var", "run", "libvirt", "qemu", "log", fmt.Sprintf("%s.log", domainName))
+				logfile = filepath.Join("/var", "run", "kubevirt-private", "libvirt", "qemu", "log", fmt.Sprintf("%s.log", domainName))
 			}
 
 			// It can take a few seconds to the log file to be created
