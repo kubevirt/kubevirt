@@ -195,6 +195,10 @@ Version: 1.2.3`)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 				WithHostPassthroughCPU: ptr.To(true),
 			}
+			bindingPlugins := map[string]kubevirtcorev1.InterfaceBindingPlugin{
+				"binding1": {SidecarImage: "image1", NetworkAttachmentDefinition: "nad1"},
+			}
+			hco.Spec.NetworkBinding = bindingPlugins
 
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
@@ -240,6 +244,7 @@ Version: 1.2.3`)
 
 			Expect(foundResource.Spec.Configuration.NetworkConfiguration).ToNot(BeNil())
 			Expect(foundResource.Spec.Configuration.NetworkConfiguration.NetworkInterface).Should(Equal(string(kubevirtcorev1.MasqueradeInterface)))
+			Expect(foundResource.Spec.Configuration.NetworkConfiguration.Binding).Should(Equal(bindingPlugins))
 
 			// LiveMigration Configurations
 			mc := foundResource.Spec.Configuration.MigrationConfiguration

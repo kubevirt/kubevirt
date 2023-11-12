@@ -220,6 +220,11 @@ type HyperConvergedSpec struct {
 	// the enabling the KSM in the nodes (if available).
 	// +optional
 	KSMConfiguration *v1.KSMConfiguration `json:"ksmConfiguration,omitempty"`
+
+	// NetworkBinding defines the network binding plugins.
+	// Those bindings can be used when defining virtual machine interfaces.
+	// +optional
+	NetworkBinding map[string]v1.InterfaceBindingPlugin `json:"networkBinding,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.

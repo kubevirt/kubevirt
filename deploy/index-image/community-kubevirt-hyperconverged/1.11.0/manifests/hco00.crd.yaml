@@ -2361,6 +2361,23 @@ spec:
                     or mediatedDevicesTypes(deprecated) is required
                   rule: (has(self.mediatedDeviceTypes) && size(self.mediatedDeviceTypes)>0)
                     || (has(self.mediatedDevicesTypes) && size(self.mediatedDevicesTypes)>0)
+              networkBinding:
+                additionalProperties:
+                  properties:
+                    networkAttachmentDefinition:
+                      description: 'NetworkAttachmentDefinition references to a NetworkAttachmentDefinition
+                        CR object. Format: <name>, <namespace>/<name>. If namespace
+                        is not specified, VMI namespace is assumed. version: 1alphav1'
+                      type: string
+                    sidecarImage:
+                      description: 'SidecarImage references a container image that
+                        runs in the virt-launcher pod. The sidecar handles (libvirt)
+                        domain configuration and optional services. version: 1alphav1'
+                      type: string
+                  type: object
+                description: NetworkBinding defines the network binding plugins. Those
+                  bindings can be used when defining virtual machine interfaces.
+                type: object
               obsoleteCPUs:
                 description: ObsoleteCPUs allows avoiding scheduling of VMs for obsolete
                   CPU models

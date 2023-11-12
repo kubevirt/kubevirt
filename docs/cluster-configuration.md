@@ -759,6 +759,25 @@ spec:
   kubeSecondaryDNSNameServerIP: "127.0.0.1"
 ```
 
+## Network Binding plugin
+In order to set NetworkBinding, set it on HyperConverged CR under spec.networkBinding field.
+Default: empty map (no binding plugins).
+
+### Network Binding plugin example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  networkBinding:
+    custom-binding1:
+      sidecarImage: quay.io/custom-binding1-image
+    custom-binding2:
+      sidecarImage: quay.io/custom-binding2-image
+      networkAttachmentDefinition: customBinding2Nad
+```
+
 ## Modify common golden images
 Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it is possible to modify them, if needed.
 
