@@ -1757,6 +1757,15 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 		}
 	}
 
+	if _, exists := annotations[v1.CPUManagerPolicyBetaOptionsAnnotation]; exists && !config.CPUManagerPolicyBetaOptionsEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("CPUManagerPolicyBetaOptions feature gate is not enabled in kubevirt-config, invalid entry %s",
+				field.Child("annotations").Child(v1.CPUManagerPolicyBetaOptionsAnnotation).String()),
+			Field: field.Child("annotations").String(),
+		})
+	}
+
 	return causes
 }
 
