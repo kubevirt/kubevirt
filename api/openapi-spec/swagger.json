@@ -17343,6 +17343,10 @@
    "v1.InterfaceBindingPlugin": {
     "type": "object",
     "properties": {
+     "domainAttachmentType": {
+      "description": "DomainAttachmentType is a standard domain network attachment method kubevirt supports. Supported values: \"tap\". The standard domain attachment can be used instead or in addition to the sidecarImage. version: 1alphav1",
+      "type": "string"
+     },
      "networkAttachmentDefinition": {
       "description": "NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object. Format: \u003cname\u003e, \u003cnamespace\u003e/\u003cname\u003e. If namespace is not specified, VMI namespace is assumed. version: 1alphav1",
       "type": "string"

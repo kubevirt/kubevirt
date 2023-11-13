@@ -2683,7 +2683,20 @@ type InterfaceBindingPlugin struct {
 	// If namespace is not specified, VMI namespace is assumed.
 	// version: 1alphav1
 	NetworkAttachmentDefinition string `json:"networkAttachmentDefinition,omitempty"`
+	// DomainAttachmentType is a standard domain network attachment method kubevirt supports.
+	// Supported values: "tap".
+	// The standard domain attachment can be used instead or in addition to the sidecarImage.
+	// version: 1alphav1
+	DomainAttachmentType DomainAttachmentType `json:"domainAttachmentType,omitempty"`
 }
+
+type DomainAttachmentType string
+
+const (
+	// Tap domain attachment type is a generic way to bind ethernet connection into guests using tap device
+	// https://libvirt.org/formatdomain.html#generic-ethernet-connection.
+	Tap DomainAttachmentType = "tap"
+)
 
 // GuestAgentPing configures the guest-agent based ping probe
 type GuestAgentPing struct {
