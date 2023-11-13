@@ -149,7 +149,9 @@ go_test(
         "vnc_test.go",
         "windows_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    embedsrcs = ["testdata/sidecar-hook-configmap.sh"],
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
