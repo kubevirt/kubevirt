@@ -12,6 +12,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/cgroup",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/safepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -23,6 +24,7 @@ go_library(
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
     ],
 )
 
