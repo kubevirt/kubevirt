@@ -96,15 +96,10 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should ignore invalid requests", func() {
-				hco := &hcov1beta1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "invalid",
-						Namespace: "invalid",
-					},
-					Spec: hcov1beta1.HyperConvergedSpec{},
-					Status: hcov1beta1.HyperConvergedStatus{
-						Conditions: []metav1.Condition{},
-					},
+				hco := commontestutils.NewHco()
+				hco.ObjectMeta = metav1.ObjectMeta{
+					Name:      "invalid",
+					Namespace: "invalid",
 				}
 				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 				r := initReconciler(cl, nil)

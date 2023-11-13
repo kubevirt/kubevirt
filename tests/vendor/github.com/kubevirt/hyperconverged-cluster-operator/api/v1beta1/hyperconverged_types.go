@@ -205,6 +205,8 @@ type HyperConvergedSpec struct {
 	VMStateStorageClass *string `json:"vmStateStorageClass,omitempty"`
 
 	// VirtualMachineOptions holds the cluster level information regarding the virtual machine.
+	// +kubebuilder:default={"disableFreePageReporting": false, "disableSerialConsoleLog": false}
+	// +default={"disableFreePageReporting": false, "disableSerialConsoleLog": false}
 	// +optional
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 
@@ -352,7 +354,17 @@ type VirtualMachineOptions struct {
 	// This will have effect only if AutoattachMemBalloon is not false and the vmi is not
 	// requesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.
 	// +optional
-	DisableFreePageReporting bool `json:"disableFreePageReporting,omitempty"`
+	// +kubebuilder:default=false
+	// +default=false
+	DisableFreePageReporting *bool `json:"disableFreePageReporting,omitempty"`
+
+	// DisableSerialConsoleLog disables logging the auto-attached default serial console.
+	// If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`.
+	// The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled for the VM.
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	DisableSerialConsoleLog *bool `json:"disableSerialConsoleLog,omitempty"`
 }
 
 // HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled
@@ -738,7 +750,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

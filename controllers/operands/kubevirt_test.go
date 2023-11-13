@@ -2884,12 +2884,133 @@ Version: 1.2.3`)
 		})
 
 		Context("Virtual machine options", func() {
-			It("should not set disableFreePageReporting by default", func() {
+			It("should not set VirtualMachineOptions by default", func() {
 				kv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Spec.Configuration).To(Not(BeNil()))
 				Expect(kv.Spec.Configuration.VirtualMachineOptions).To(BeNil())
 			})
+
+			DescribeTable("Should set VirtualMachineOptions according to HCO CR options", func(hcoVMOptions *hcov1beta1.VirtualMachineOptions, kvVMOptions *kubevirtcorev1.VirtualMachineOptions) {
+				hco.Spec.VirtualMachineOptions = hcoVMOptions
+				kv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Spec.Configuration).To(Not(BeNil()))
+				Expect(kv.Spec.Configuration.VirtualMachineOptions).To(BeEquivalentTo(kvVMOptions))
+			},
+				Entry("nil VirtualMachineOptions",
+					nil,
+					nil,
+				),
+				Entry("disableFreePageReporting only, false",
+					&hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(false)},
+					nil,
+				),
+				Entry("disableFreePageReporting only, true",
+					&hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(true)},
+					&kubevirtcorev1.VirtualMachineOptions{DisableFreePageReporting: &kubevirtcorev1.DisableFreePageReporting{}},
+				),
+				Entry("disableSerialConsoleLog only, false",
+					&hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(false)},
+					nil,
+				),
+				Entry("disableSerialConsoleLog only, true",
+					&hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(true)},
+					&kubevirtcorev1.VirtualMachineOptions{DisableSerialConsoleLog: &kubevirtcorev1.DisableSerialConsoleLog{}},
+				),
+				Entry("disableFreePageReporting false, disableSerialConsoleLog false",
+					&hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(false), DisableSerialConsoleLog: ptr.To(false)},
+					nil,
+				),
+				Entry("disableFreePageReporting true, disableSerialConsoleLog false",
+					&hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(true), DisableSerialConsoleLog: ptr.To(false)},
+					&kubevirtcorev1.VirtualMachineOptions{DisableFreePageReporting: &kubevirtcorev1.DisableFreePageReporting{}},
+				),
+				Entry("disableFreePageReporting false, disableSerialConsoleLog true",
+					&hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(false), DisableSerialConsoleLog: ptr.To(true)},
+					&kubevirtcorev1.VirtualMachineOptions{DisableSerialConsoleLog: &kubevirtcorev1.DisableSerialConsoleLog{}},
+				),
+				Entry("disableFreePageReporting true, disableSerialConsoleLog true",
+					&hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(true), DisableSerialConsoleLog: ptr.To(true)},
+					&kubevirtcorev1.VirtualMachineOptions{DisableFreePageReporting: &kubevirtcorev1.DisableFreePageReporting{}, DisableSerialConsoleLog: &kubevirtcorev1.DisableSerialConsoleLog{}},
+				),
+			)
+
+			DescribeTable("should modify disableFreePageReporting according to HCO CR", func(virtualMachineOptions *hcov1beta1.VirtualMachineOptions, updated, expectDisableFreePageReporting bool) {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Modify HCO's virtual machine options configuration")
+				hco.Spec.VirtualMachineOptions = virtualMachineOptions
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				if updated {
+					Expect(res.Updated).To(BeTrue())
+				} else {
+					Expect(res.Updated).To(BeFalse())
+				}
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				if expectDisableFreePageReporting {
+					Expect(foundResource.Spec.Configuration.VirtualMachineOptions).ToNot(BeNil())
+					Expect(foundResource.Spec.Configuration.VirtualMachineOptions.DisableFreePageReporting).ToNot(BeNil())
+				} else {
+					Expect(foundResource.Spec.Configuration.VirtualMachineOptions).To(BeNil())
+				}
+
+			},
+				Entry("with virtualMachineOptions containing disableFreePageReporting false", &hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(false)}, false, false),
+				Entry("with virtualMachineOptions containing disableFreePageReporting true", &hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(true)}, true, true),
+				Entry("with empty virtualMachineOptions", &hcov1beta1.VirtualMachineOptions{}, false, false),
+			)
+
+			DescribeTable("should modify disableSerialConsoleLog according to HCO CR", func(virtualMachineOptions *hcov1beta1.VirtualMachineOptions, updated, expectDisableSerialConsoleLog bool) {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Modify HCO's virtual machine options configuration")
+				hco.Spec.VirtualMachineOptions = virtualMachineOptions
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				if updated {
+					Expect(res.Updated).To(BeTrue())
+				} else {
+					Expect(res.Updated).To(BeFalse())
+				}
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				if expectDisableSerialConsoleLog {
+					Expect(foundResource.Spec.Configuration.VirtualMachineOptions).ToNot(BeNil())
+					Expect(foundResource.Spec.Configuration.VirtualMachineOptions.DisableSerialConsoleLog).ToNot(BeNil())
+				} else {
+					Expect(foundResource.Spec.Configuration.VirtualMachineOptions).To(BeNil())
+				}
+			},
+				Entry("with virtualMachineOptions containing disableSerialConsoleLog false", &hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(false)}, false, false),
+				Entry("with virtualMachineOptions containing disableSerialConsoleLog true", &hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(true)}, true, true),
+				Entry("with empty virtualMachineOptions", &hcov1beta1.VirtualMachineOptions{}, false, false),
+			)
+
 		})
 
 		Context("VmiCPUAllocationRatio", func() {

@@ -459,8 +459,16 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		config.VMStateStorageClass = *hc.Spec.VMStateStorageClass
 	}
 
-	if hc.Spec.VirtualMachineOptions != nil && hc.Spec.VirtualMachineOptions.DisableFreePageReporting {
+	if hc.Spec.VirtualMachineOptions != nil && hc.Spec.VirtualMachineOptions.DisableFreePageReporting != nil && *hc.Spec.VirtualMachineOptions.DisableFreePageReporting {
 		config.VirtualMachineOptions = &kubevirtcorev1.VirtualMachineOptions{DisableFreePageReporting: &kubevirtcorev1.DisableFreePageReporting{}}
+	}
+
+	if hc.Spec.VirtualMachineOptions != nil && hc.Spec.VirtualMachineOptions.DisableSerialConsoleLog != nil && *hc.Spec.VirtualMachineOptions.DisableSerialConsoleLog {
+		if config.VirtualMachineOptions == nil {
+			config.VirtualMachineOptions = &kubevirtcorev1.VirtualMachineOptions{DisableSerialConsoleLog: &kubevirtcorev1.DisableSerialConsoleLog{}}
+		} else {
+			config.VirtualMachineOptions.DisableSerialConsoleLog = &kubevirtcorev1.DisableSerialConsoleLog{}
+		}
 	}
 
 	if hc.Spec.ResourceRequirements != nil {

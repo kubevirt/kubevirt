@@ -29,11 +29,12 @@
       ]
     },
     {
-      "semverRange": "<1.11.0",
+      "semverRange": ">=1.10.0 <1.11.0",
       "jsonPatch": [
         {
-          "op": "remove",
-          "path": "/spec/virtualMachineOptions/disableFreePageReporting"
+          "op": "replace",
+          "path": "/spec/virtualMachineOptions/disableFreePageReporting",
+	  "value": false
         }
       ],
       "jsonPatchApplyOptions": {

@@ -31,6 +31,9 @@ spec:
     parallelOutboundMigrationsPerNode: 2
     progressTimeout: 150
   uninstallStrategy: BlockUninstallIfWorkloadsExist
+  virtualMachineOptions:
+    disableFreePageReporting: false
+    disableSerialConsoleLog: false
   workloadUpdateStrategy:
     batchEvictionInterval: 1m0s
     batchEvictionSize: 10

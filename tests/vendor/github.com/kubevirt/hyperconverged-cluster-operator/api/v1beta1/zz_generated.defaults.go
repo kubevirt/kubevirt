@@ -147,6 +147,21 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 	if in.Spec.UninstallStrategy == "" {
 		in.Spec.UninstallStrategy = "BlockUninstallIfWorkloadsExist"
 	}
+	if in.Spec.VirtualMachineOptions == nil {
+		if err := json.Unmarshal([]byte(`{"disableFreePageReporting": false, "disableSerialConsoleLog": false}`), &in.Spec.VirtualMachineOptions); err != nil {
+			panic(err)
+		}
+	}
+	if in.Spec.VirtualMachineOptions != nil {
+		if in.Spec.VirtualMachineOptions.DisableFreePageReporting == nil {
+			var ptrVar1 bool = false
+			in.Spec.VirtualMachineOptions.DisableFreePageReporting = &ptrVar1
+		}
+		if in.Spec.VirtualMachineOptions.DisableSerialConsoleLog == nil {
+			var ptrVar1 bool = false
+			in.Spec.VirtualMachineOptions.DisableSerialConsoleLog = &ptrVar1
+		}
+	}
 }
 
 func SetObjectDefaults_HyperConvergedList(in *HyperConvergedList) {

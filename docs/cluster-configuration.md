@@ -998,6 +998,8 @@ VM pods using more than 1 CPU per vCPU.
 
 `VirtualMachineOptions` holds the cluster level information regarding the virtual machine.
 This defines the default behavior of some features related to the virtual machines.
+
+
 - `DisableFreePageReporting`
   With freePageReporting the guest OS informs the hypervisor about pages which are not
 in use by the guest anymore. The hypervisor can use this information for freeing these pages.
@@ -1010,7 +1012,22 @@ OR which are requesting any high performance components. A vmi is considered as 
   - the vmi requests hugepages.
   
   With `DisableFreePageReporting` freePageReporting will never be enabled in any vmi.
-`DisableFreePageReporting` is a boolean and freePageReporting is disabled by default.  
+`DisableFreePageReporting` is a boolean and freePageReporting is enabled by default (disableFreePageReporting=false).
+
+- `disableSerialConsoleLog`
+  DisableSerialConsoleLog disables logging the auto-attached default serial console.
+  If not set, serial console logs will be written to a file in the virt-launcher pod and then streamed from a container named `guest-console-log` so that they can be consumed or aggregated according to the standard k8s logging architecture.
+  VM logs streamed over the serial console contain really useful debug/troubleshooting info.  
+  The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled for the VM.
+
+> Caution
+> 
+> If the serial console is used for interactive access, its output will also be streamed to the log system.
+> Passwords are normally not echoed on the screen so they are not going to be collected on the logs.
+> However, if you type by mistake a password for a command or if you have to pass it as a clear text parameter it will be written in the logs along with all other visible text.
+> If you are inputting any data or commands that contain sensisitive information please consider using SSH unless the serial console is absolutely necessary for troubleshooting.
+
+  `disableSerialConsoleLog` is a boolean, logging of serial console is enabled by default (disableSerialConsoleLog=false).
 
 Example
 ```yaml
@@ -1020,6 +1037,7 @@ metadata:
 spec:
   virtualMachineOptions:
     disableFreePageReporting: false
+    disableSerialConsoleLog: true
 ```
 
 ## KSM Configuration
