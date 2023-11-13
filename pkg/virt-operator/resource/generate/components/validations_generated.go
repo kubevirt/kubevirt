@@ -1224,6 +1224,12 @@ var CRDsValidation map[string]string = map[string]string{
                 binding:
                   additionalProperties:
                     properties:
+                      domainAttachmentType:
+                        description: 'DomainAttachmentType is a standard domain network
+                          attachment method kubevirt supports. Supported values: "tap".
+                          The standard domain attachment can be used instead or in
+                          addition to the sidecarImage. version: 1alphav1'
+                        type: string
                       networkAttachmentDefinition:
                         description: 'NetworkAttachmentDefinition references to a
                           NetworkAttachmentDefinition CR object. Format: <name>, <namespace>/<name>.
