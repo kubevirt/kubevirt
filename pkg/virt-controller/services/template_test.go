@@ -4070,7 +4070,7 @@ var _ = Describe("Template", func() {
 			Expect(memLimit).To(Equal(expMemLimitQ.Value()))
 			expCpuReqQ := resource.MustParse("100m")
 			Expect(cpuReq).To(Equal(expCpuReqQ.Value()))
-			expMemReqQ := resource.MustParse("80M")
+			expMemReqQ := resource.MustParse("2M")
 			Expect(memReq).To(Equal(expMemReqQ.Value()))
 		}
 
