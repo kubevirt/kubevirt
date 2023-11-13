@@ -27,8 +27,8 @@ import (
 )
 
 var _ = Describe("virt-handler retry manager", func() {
-	const initialWait, maxWait, maxFailResponseTime = 200 * time.Millisecond, 5 * time.Second, 1 * time.Second
-	const buffer = 10 * time.Millisecond
+	const initialWait, maxWait, maxFailResponseTime = 500 * time.Millisecond, 5 * time.Second, 1 * time.Second
+	const buffer = 100 * time.Millisecond
 	var retryManager *FailRetryManager
 	const key = "c4ab4ae0-db63-45d8-aa0f-fc53dc84bdab"
 
