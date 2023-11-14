@@ -4059,17 +4059,17 @@ var _ = Describe("Template", func() {
 			Entry("when volume is a filesystem", false),
 		)
 
-		verifyPodRequestLimits1to1Ratio := func(pod *k8sv1.Pod) {
-			cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().Value()
+		verifyPodRequestLimits := func(pod *k8sv1.Pod) {
+			cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
 			memLimit := pod.Spec.Containers[0].Resources.Limits.Memory().Value()
-			cpuReq := pod.Spec.Containers[0].Resources.Requests.Cpu().Value()
+			cpuReq := pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()
 			memReq := pod.Spec.Containers[0].Resources.Requests.Memory().Value()
 			expCpuLimitQ := resource.MustParse("100m")
-			Expect(cpuLimit).To(Equal(expCpuLimitQ.Value()))
+			Expect(cpuLimit).To(Equal(expCpuLimitQ.MilliValue()))
 			expMemLimitQ := resource.MustParse("80M")
 			Expect(memLimit).To(Equal(expMemLimitQ.Value()))
-			expCpuReqQ := resource.MustParse("100m")
-			Expect(cpuReq).To(Equal(expCpuReqQ.Value()))
+			expCpuReqQ := resource.MustParse("10m")
+			Expect(cpuReq).To(Equal(expCpuReqQ.MilliValue()))
 			expMemReqQ := resource.MustParse("2M")
 			Expect(memReq).To(Equal(expMemReqQ.Value()))
 		}
@@ -4093,7 +4093,7 @@ var _ = Describe("Template", func() {
 			claimMap := map[string]*k8sv1.PersistentVolumeClaim{}
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
 			Expect(err).ToNot(HaveOccurred())
-			verifyPodRequestLimits1to1Ratio(pod)
+			verifyPodRequestLimits(pod)
 		})
 
 		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
@@ -4114,7 +4114,7 @@ var _ = Describe("Template", func() {
 			}
 			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", isBlock, false)
 			Expect(err).ToNot(HaveOccurred())
-			verifyPodRequestLimits1to1Ratio(pod)
+			verifyPodRequestLimits(pod)
 		},
 			Entry("when volume is a block device", true),
 			Entry("when volume is a filesystem", false),
