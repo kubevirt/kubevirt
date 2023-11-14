@@ -31,6 +31,7 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -758,7 +759,7 @@ func (app *virtAPIApp) Compose() {
 func (app *virtAPIApp) ConfigureOpenAPIService() {
 	config := openapi.CreateConfig()
 	config.GetDefinitions = v12.GetOpenAPIDefinitions
-	spec, err := builderv3.BuildOpenAPISpec(restful.RegisteredWebServices(), config)
+	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
 	if err != nil {
 		panic(err)
 	}
