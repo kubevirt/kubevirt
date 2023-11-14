@@ -266,7 +266,7 @@ func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
 			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
 			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
 				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: "/tmp/hostImages/mount_hp/test",
+					Path: "/mnt/local-storage/mount_hp/test",
 				},
 			},
 			StorageClassName: StorageClassHostPathSeparateDevice,

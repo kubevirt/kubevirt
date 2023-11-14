@@ -50,18 +50,18 @@ ls -al /local-storage/hp_file.img
 LOOP_DEVICE_HP=$(chroot /host losetup --verbose --find --show /mnt/local-storage/hp_file.img)
 echo LOOP_DEVICE_HP=${LOOP_DEVICE_HP} >>/etc/bashrc
 chroot /host mkfs.ext4 $LOOP_DEVICE_HP
-mkdir -p /hostImages/mount_hp
+mkdir -p /local-storage/mount_hp
 ls -al /host${LOOP_DEVICE_HP}
-chroot /host mount ${LOOP_DEVICE_HP} /tmp/hostImages/mount_hp
-mkdir -p /host/tmp/hostImages/mount_hp/test
+chroot /host mount ${LOOP_DEVICE_HP} /mnt/local-storage/mount_hp
+mkdir -p /host/mnt/local-storage/mount_hp/test
 # When the host is ubuntu, by default, selinux is not used, so chcon is not necessary.
 # If selinux tag is set, use chcon to change /hostImages privileges.
 if [ ${SELINUX_TAG:0:1} != "?" ]; then
     chcon -Rt svirt_sandbox_file_t /host/tmp/hostImages
     chcon -R unconfined_u:object_r:svirt_sandbox_file_t:s0 /host/mnt/local-storage/
 fi
-chmod 777 /host/tmp/hostImages/mount_hp
-chmod 777 /host/tmp/hostImages/mount_hp/test
+chmod 777 /host/mnt/local-storage/mount_hp
+chmod 777 /host/mnt/local-storage/mount_hp/test
 
 cat /etc/bashrc
 
