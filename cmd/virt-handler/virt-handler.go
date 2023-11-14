@@ -239,9 +239,22 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	node, err := app.virtCli.CoreV1().Nodes().Get(context.TODO(), app.HostOverride, metav1.GetOptions{})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to register node, %s", err))
+	}
+
 	_, err = app.virtCli.ShadowNodeClient().Create(context.TODO(), &v1.ShadowNode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: app.HostOverride,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Node",
+					Name:       node.Name,
+					UID:        node.UID,
+				},
+			},
 		},
 	}, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
