@@ -69,11 +69,11 @@ func createSerialConsoleTermFile(uid, suffix string) (bool, error) {
 		if _, err := os.Stat(logSigPath); os.IsNotExist(err) {
 			file, err := os.Create(logSigPath)
 			if err != nil {
-				log.Log.Reason(err).Errorf("could not create up serial console term file: %s", logSigPath)
+				log.Log.V(4).Infof("could not create up serial console term file: %s", logSigPath)
 				return false, err
 			}
 			if err = file.Close(); err != nil {
-				log.Log.Reason(err).Errorf("could not create up serial console term file: %s", logSigPath)
+				log.Log.V(4).Infof("could not create up serial console term file: %s", logSigPath)
 				return false, err
 			}
 			log.Log.V(3).Infof("serial console term file created: %s", logSigPath)
@@ -103,7 +103,9 @@ func removeSerialConsoleTermFile(uid string) {
 	// Create a second termination file for the unlikely case where virt-launcher-monitor
 	// has enough time to create and remove the termination file before virt-tail (asynchronously started)
 	// notices it.
-	createSerialConsoleTermFile(uid, "-done")
+	if _, err := createSerialConsoleTermFile(uid, "-done"); err != nil {
+		log.Log.Reason(err).Errorf("could not delete serial console term file")
+	}
 }
 
 func main() {
@@ -155,12 +157,16 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 	go func() {
 		created := false
 		i := 0
+		var err error
 		for i < 100 && !created {
 			i = i + 1
-			created, err := createSerialConsoleTermFile(uid, "")
+			created, err = createSerialConsoleTermFile(uid, "")
 			if err != nil || !created {
 				time.Sleep(100 * time.Millisecond)
 			}
+		}
+		if !created {
+			log.Log.Reason(err).Errorf("could not create up serial console term file")
 		}
 	}()
 
