@@ -3255,7 +3255,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 	})
 
-	Context("[Serial] with a dedicated migration network", Serial, func() {
+	Context("[Serial][QUARANTINE] with a dedicated migration network", Serial, func() {
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
