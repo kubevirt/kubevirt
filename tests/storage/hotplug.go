@@ -568,6 +568,119 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
+	Context("Offline VM with a block volume", func() {
+		var (
+			vm *v1.VirtualMachine
+			sc string
+		)
+
+		BeforeEach(func() {
+			var exists bool
+
+			sc, exists = libstorage.GetRWXBlockStorageClass()
+			if !exists {
+				Skip("Skip test when RWXBlock storage class is not present")
+			}
+
+			vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(
+				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+				testsuite.GetTestNamespace(nil),
+				corev1.ReadWriteMany,
+			)
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+			By("Creating VirtualMachine")
+			vm, err = virtClient.VirtualMachine(vmi.Namespace).Create(context.Background(), tests.NewRandomVirtualMachine(vmi, false))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		DescribeTable("Should start with a hotplug block", func(addVolumeFunc addVolumeFunction) {
+			dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
+
+			By("Adding a hotplug block volume")
+			addVolumeFunc(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume has been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
+
+			By("Starting the VM")
+			vm = tests.StartVirtualMachine(vm)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the volume is attached and usable")
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
+			getVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1))
+		},
+			Entry("DataVolume", addDVVolumeVM),
+			Entry("PersistentVolume", addPVCVolumeVM),
+		)
+
+		It("[Serial]Should preserve access to block devices if virt-handler crashes", Serial, func() {
+			blockDevices := []string{"/dev/disk0"}
+
+			By("Adding a hotplug block volume")
+			dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
+			blockDevices = append(blockDevices, fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", dv.Name))
+			addDVVolumeVM(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume has been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, dv.Name)
+
+			By("Starting the VM")
+			vm = tests.StartVirtualMachine(vm)
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the volume is attached and usable")
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
+			getVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1))
+
+			By("Deleting virt-handler pod")
+			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				err := virtClient.CoreV1().
+					Pods(virtHandlerPod.GetObjectMeta().GetNamespace()).
+					Delete(context.Background(), virtHandlerPod.GetObjectMeta().GetName(), metav1.DeleteOptions{})
+				return errors.IsNotFound(err)
+			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be deleted")
+
+			By("Waiting for virt-handler pod to restart")
+			Eventually(func() bool {
+				virtHandlerPod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+				return err == nil && virtHandlerPod.Status.Phase == corev1.PodRunning
+			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be restarted")
+
+			By("Adding another hotplug block volume")
+			dv = createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
+			blockDevices = append(blockDevices, fmt.Sprintf("/var/run/kubevirt/hotplug-disks/%s", dv.Name))
+			addDVVolumeVM(vm.Name, vm.Namespace, dv.Name, dv.Name, v1.DiskBusSCSI, false, "")
+
+			By("Verifying the volume is attached and usable")
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, dv.Name)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
+			getVmiConsoleAndLogin(vmi)
+			targets = verifyHotplugAttachedAndUseable(vmi, []string{dv.Name})
+			Expect(targets).To(HaveLen(1))
+
+			By("Verifying the block devices are still accessible")
+			for _, dev := range blockDevices {
+				By(fmt.Sprintf("Verifying %s", dev))
+				output := tests.RunCommandOnVmiPod(vmi, []string{
+					"dd", fmt.Sprintf("if=%s", dev), "of=/dev/null", "bs=1", "count=1", "status=none",
+				})
+				Expect(output).To(BeEmpty())
+			}
+		})
+	})
+
 	Context("WFFC storage", func() {
 		var (
 			vm *v1.VirtualMachine
@@ -963,14 +1076,31 @@ var _ = SIGDescribe("Hotplug", func() {
 				sc  string
 
 				numberOfMigrations int
+				hotplugLabelKey    string
 				sourceNode         string
 				targetNode         string
 			)
 
 			const (
-				hotplugLabelKey   = "kubevirt-test-migration-with-hotplug-disks"
 				hotplugLabelValue = "true"
 			)
+
+			containerDiskVMIFunc := func() *v1.VirtualMachineInstance {
+				return libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+			}
+			persistentDiskVMIFunc := func() *v1.VirtualMachineInstance {
+				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+					testsuite.GetTestNamespace(nil),
+					corev1.ReadWriteMany,
+				)
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				return vmi
+			}
 
 			BeforeEach(func() {
 				exists := false
@@ -1004,14 +1134,8 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 				// Ensure the virt-launcher pod is scheduled on the chosen source node and then
 				// migrated to the proper target.
+				hotplugLabelKey = fmt.Sprintf("%s-hotplug-disk-migration", testsuite.GetTestNamespace(nil))
 				libnode.AddLabelToNode(sourceNode, hotplugLabelKey, hotplugLabelValue)
-				vmi = libvmi.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				)
-				vmi.Spec.NodeSelector = map[string]string{hotplugLabelKey: hotplugLabelValue}
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-				libnode.AddLabelToNode(targetNode, hotplugLabelKey, hotplugLabelValue)
 			})
 
 			AfterEach(func() {
@@ -1020,7 +1144,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				libnode.RemoveLabelFromNode(targetNode, hotplugLabelKey)
 			})
 
-			It("should allow live migration with attached hotplug volumes", func() {
+			DescribeTable("should allow live migration with attached hotplug volumes", func(vmiFunc func() *v1.VirtualMachineInstance) {
+				vmi = vmiFunc()
+				vmi.Spec.NodeSelector = map[string]string{hotplugLabelKey: hotplugLabelValue}
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				libnode.AddLabelToNode(targetNode, hotplugLabelKey, hotplugLabelValue)
 				volumeName := "testvolume"
 				volumeMode := corev1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI
@@ -1083,7 +1211,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(virtClient, vmi, volumeName)
 				verifyVolumeStatus(vmi, v1.VolumeReady, "", volumeName)
-			})
+			},
+				Entry("containerDisk VMI", containerDiskVMIFunc),
+				Entry("persistent disk VMI", persistentDiskVMIFunc),
+			)
 		})
 
 		Context("disk mutating sidecar", func() {

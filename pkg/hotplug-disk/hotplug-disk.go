@@ -53,21 +53,18 @@ type HotplugDiskManagerInterface interface {
 
 func NewHotplugDiskManager(kubeletPodsDir string) *hotplugDiskManager {
 	return &hotplugDiskManager{
-		podsBaseDir:       filepath.Join(util.HostRootMount, kubeletPodsDir),
-		targetPodBasePath: TargetPodBasePath,
+		podsBaseDir: filepath.Join(util.HostRootMount, kubeletPodsDir),
 	}
 }
 
 func NewHotplugDiskWithOptions(podsBaseDir string) *hotplugDiskManager {
 	return &hotplugDiskManager{
-		podsBaseDir:       podsBaseDir,
-		targetPodBasePath: TargetPodBasePath,
+		podsBaseDir: podsBaseDir,
 	}
 }
 
 type hotplugDiskManager struct {
-	podsBaseDir       string
-	targetPodBasePath func(podBaseDir string, podUID types.UID) string
+	podsBaseDir string
 }
 
 // GetHotplugTargetPodPathOnHost retrieves the target pod (virt-launcher) path on the host.
