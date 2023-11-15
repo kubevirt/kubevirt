@@ -130,14 +130,16 @@ func WithTerminationGracePeriod(seconds int64) Option {
 
 // WithRng adds `rng` to the vmi devices.
 func WithRng() Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-	}
+	return withRNGSetTo(&v1.Rng{})
 }
 
-func WithNoRNG() Option {
+func WithoutRNG() Option {
+	return withRNGSetTo(nil)
+}
+
+func withRNGSetTo(rng *v1.Rng) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Rng = nil
+		vmi.Spec.Domain.Devices.Rng = rng
 	}
 }
 

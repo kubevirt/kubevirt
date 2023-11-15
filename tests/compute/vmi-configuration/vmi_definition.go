@@ -1019,17 +1019,17 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 	})
 
 	Context("[rfe_id:893][crit:medium][vendor:cnv-qe@redhat.com][level:component]with rng", func() {
-		var rngVmi *v1.VirtualMachineInstance
+		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			rngVmi = libvmi.NewAlpine(libvmi.WithNoRNG())
+			vmi = libvmi.NewAlpine(libvmi.WithoutRNG())
 		})
 
 		It("[test_id:1674]should have the virtio rng device present when present", func() {
-			rngVmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 			By("Starting a VirtualMachineInstance")
-			rngVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rngVmi)).Create(context.Background(), rngVmi)
+			rngVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(rngVmi)
 
@@ -1045,7 +1045,7 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 
 		It("[test_id:1675]should not have the virtio rng device when not present", func() {
 			By("Starting a VirtualMachineInstance")
-			rngVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rngVmi)).Create(context.Background(), rngVmi)
+			rngVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(rngVmi)
 
