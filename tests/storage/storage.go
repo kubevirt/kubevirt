@@ -56,6 +56,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/tests"
@@ -144,6 +145,12 @@ var _ = SIGDescribe("Storage", func() {
 				pvc *k8sv1.PersistentVolumeClaim
 				pv  *k8sv1.PersistentVolume
 			)
+			cleanUp := func(vmi *virtv1.VirtualMachineInstance) {
+				By("Cleaning up")
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+			}
 
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
@@ -154,6 +161,8 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			AfterEach(func() {
+				// In order to remove the scsi debug module, the SCSI device cannot be in used by the VM.
+				// For this reason, we manually clean-up the VM  before removing the kernel module.
 				tests.RemoveSCSIDisk(nodeName, address)
 				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
@@ -190,10 +199,30 @@ var _ = SIGDescribe("Storage", func() {
 				By("Expecting VMI to NOT be paused")
 				Eventually(ThisVMI(vmi), 100*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
-				By("Cleaning up")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+				cleanUp(vmi)
+			})
+
+			It("should report IO errors in the guest with errorPolicy set to report", func() {
+				const diskName = "disk1"
+				By("Creating VMI with faulty disk")
+				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
+				for i, d := range vmi.Spec.Domain.Devices.Disks {
+					if d.Name == diskName {
+						vmi.Spec.Domain.Devices.Disks[i].ErrorPolicy = pointer.P(v1.DiskErrorPolicyReport)
+					}
+				}
+
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
+
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+
+				By("Writing to disk")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
+				tests.CheckResultShellCommandOnVmi(vmi, "dd if=/dev/zero of=/dev/vdb",
+					"dd: error writing '/dev/vdb': I/O error", 20)
+
+				cleanUp(vmi)
 			})
 
 		})

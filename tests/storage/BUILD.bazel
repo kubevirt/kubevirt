@@ -22,6 +22,7 @@ go_library(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/host-disk:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/virt-config:go_default_library",
