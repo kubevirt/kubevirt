@@ -24,6 +24,7 @@ import (
 	"flag"
 	"os"
 	"sync"
+	"time"
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
@@ -139,6 +140,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
+	config.Timeout = 10 * time.Second
 
 	restClient, err := rest.RESTClientFor(config)
 	if err != nil {
@@ -330,6 +332,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 	shallowCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
 	shallowCopy.APIPath = "/apis"
 	shallowCopy.ContentType = runtime.ContentTypeJSON
+	shallowCopy.Timeout = 10 * time.Second
 	if config.UserAgent == "" {
 		config.UserAgent = restclient.DefaultKubernetesUserAgent()
 	}
