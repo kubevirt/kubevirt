@@ -328,6 +328,13 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 	defaultRequest := func() kubev1.ResourceList {
 		return kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("10m"),
+			kubev1.ResourceMemory: resource.MustParse("2M"),
+		}
+	}
+
+	defaultLimit := func() kubev1.ResourceList {
+		return kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("100m"),
 			kubev1.ResourceMemory: resource.MustParse("80M"),
 		}
@@ -355,7 +362,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 		Expect(res.Requests).To(BeEquivalentTo(expectedReq))
 		Expect(res.Limits).To(BeEquivalentTo(expectedLim))
 	},
-		Entry("empty request/limit", kubev1.ResourceList{}, kubev1.ResourceList{}, defaultRequest(), defaultRequest()),
+		Entry("empty request/limit", kubev1.ResourceList{}, kubev1.ResourceList{}, defaultRequest(), defaultLimit()),
 		Entry("empty request, set limit", kubev1.ResourceList{}, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("25m"),
 			kubev1.ResourceMemory: resource.MustParse("32M"),
@@ -369,7 +376,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 		}, kubev1.ResourceList{}, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("140m"),
 			kubev1.ResourceMemory: resource.MustParse("1024M"),
-		}, defaultRequest()),
+		}, defaultLimit()),
 		Entry("set request, set limit", kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("25m"),
 			kubev1.ResourceMemory: resource.MustParse("32M"),
@@ -389,7 +396,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			kubev1.ResourceCPU:    resource.MustParse("140m"),
 			kubev1.ResourceMemory: resource.MustParse("1024M"),
 		}, kubev1.ResourceList{
-			kubev1.ResourceCPU:    resource.MustParse("100m"),
+			kubev1.ResourceCPU:    resource.MustParse("10m"),
 			kubev1.ResourceMemory: resource.MustParse("32M"),
 		}, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("140m"),
@@ -402,7 +409,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			kubev1.ResourceMemory: resource.MustParse("1024M"),
 		}, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("25m"),
-			kubev1.ResourceMemory: resource.MustParse("80M"),
+			kubev1.ResourceMemory: resource.MustParse("2M"),
 		}, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("140m"),
 			kubev1.ResourceMemory: resource.MustParse("1024M"),

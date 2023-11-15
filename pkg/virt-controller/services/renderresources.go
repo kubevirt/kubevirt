@@ -650,11 +650,11 @@ func hotplugContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList
 }
 
 func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
-	cpuQuantity := resource.MustParse("100m")
+	cpuQuantity := resource.MustParse("10m")
 	if cpu := config.GetSupportContainerRequest(v1.HotplugAttachment, k8sv1.ResourceCPU); cpu != nil {
 		cpuQuantity = *cpu
 	}
-	memQuantity := resource.MustParse("80M")
+	memQuantity := resource.MustParse("2M")
 	if mem := config.GetSupportContainerRequest(v1.HotplugAttachment, k8sv1.ResourceMemory); mem != nil {
 		memQuantity = *mem
 	}
