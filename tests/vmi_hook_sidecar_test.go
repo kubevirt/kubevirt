@@ -75,10 +75,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
-			libvmi.WithExampleHookSideCarAndVersion(hooksv1alpha1.Version),
-			libvmi.WithBaseBoardManufacturer(),
+		vmi = tests.NewRandomVMIWithEphemeralDisk(
+			cd.ContainerDiskFor(cd.ContainerDiskAlpine),
+			libvmi.WithExampleHookSideCarAndVersionAnnotation(hooksv1alpha1.Version),
+			libvmi.WithBaseBoardManufacturerAnnotation(),
 		)
 	})
 
@@ -163,11 +163,12 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		Context("with SM BIOS hook sidecar", func() {
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-				vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
-					libvmi.WithExampleHookSideCarAndVersion(hooksv1alpha2.Version),
-					libvmi.WithBaseBoardManufacturer(),
+				applyVMIOptions(
+					vmi,
+					libvmi.WithExampleHookSideCarAndVersionAnnotation(hooksv1alpha2.Version),
+					libvmi.WithBaseBoardManufacturerAnnotation(),
 				)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -202,9 +203,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
-				vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
-					libvmi.WithExampleHookSideCarAndNoVersion(),
-					libvmi.WithBaseBoardManufacturer(),
+				applyVMIOptions(
+					vmi,
+					libvmi.WithExampleHookSideCarAndNoVersionAnnotation(),
+					libvmi.WithBaseBoardManufacturerAnnotation(),
 				)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
@@ -235,18 +237,15 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("should update domain XML with SM BIOS properties", func() {
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
-					libvmi.WithHookSideCar(
-						fmt.Sprintf(
-							`[{"args": ["--version", "%s"], "image":"%s/%s:%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
-							hooksv1alpha2.Version,
-							flags.KubeVirtUtilityRepoPrefix,
-							sidecarShimImage,
-							flags.KubeVirtUtilityVersionTag,
-							cm.Name,
-							configMapKey),
-					),
-				)
+				applyVMIOptions(vmi, libvmi.WithHookSideCarAnnotation(fmt.Sprintf(
+					`[{"args": ["--version", "%s"], "image":"%s/%s:%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+					hooksv1alpha2.Version,
+					flags.KubeVirtUtilityRepoPrefix,
+					sidecarShimImage,
+					flags.KubeVirtUtilityVersionTag,
+					cm.Name,
+					configMapKey,
+				)))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
 				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
@@ -270,6 +269,12 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		})
 	})
 })
+
+func applyVMIOptions(vmi *v1.VirtualMachineInstance, opts ...libvmi.Option) {
+	for _, f := range opts {
+		f(vmi)
+	}
+}
 
 func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()

@@ -144,7 +144,12 @@ var _ = ConfigDescribe("", func() {
 		})
 
 		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {
-			vmi := libvmi.NewAlpine()
+			By("adding a sidecar to ensure it gets limits assigned too")
+			vmi := libvmi.NewAlpine(
+				libvmi.WithExampleHookSideCarAndVersionAnnotation(kubevirt_hooks_v1alpha2.Version),
+				libvmi.WithBaseBoardManufacturerAnnotation(),
+			)
+
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{
@@ -157,11 +162,6 @@ var _ = ConfigDescribe("", func() {
 				},
 			}
 
-			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
-				libvmi.WithExampleHookSideCarAndVersion(kubevirt_hooks_v1alpha2.Version),
-				libvmi.WithBaseBoardManufacturer(),
-			)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() kubev1.PodQOSClass {
@@ -176,7 +176,12 @@ var _ = ConfigDescribe("", func() {
 		})
 
 		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", func() {
-			vmi := libvmi.NewAlpine()
+			By("adding a sidecar to ensure it gets limits assigned too")
+			vmi := libvmi.NewAlpine(
+				libvmi.WithExampleHookSideCarAndVersionAnnotation(kubevirt_hooks_v1alpha2.Version),
+				libvmi.WithBaseBoardManufacturerAnnotation(),
+			)
+
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{},
@@ -185,12 +190,6 @@ var _ = ConfigDescribe("", func() {
 					kubev1.ResourceMemory: resource.MustParse("64M"),
 				},
 			}
-
-			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
-				libvmi.WithExampleHookSideCarAndVersion(kubevirt_hooks_v1alpha2.Version),
-				libvmi.WithBaseBoardManufacturer(),
-			)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() kubev1.PodQOSClass {

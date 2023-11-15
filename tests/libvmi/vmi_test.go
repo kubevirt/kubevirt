@@ -26,14 +26,14 @@ import (
 
 var _ = Describe("libvmi annotations", func() {
 	Context("common test cases", func() {
-		It("creates empty map", func() {
-			Expect(NewAnnotations()).To(BeEquivalentTo(map[string]string{}))
+		It("creates map with hooksidecars key", func() {
+			Expect(New(WithExampleHookSideCarAndVersionAnnotation("")).Annotations).To(HaveKey(annotationKeyHookSideCars))
 		})
 		It("creates map with hooksidecars key", func() {
-			Expect(NewAnnotations(WithExampleHookSideCarAndVersion(""))).To(HaveKey(annotationKeyHookSideCars))
+			Expect(New(WithExampleHookSideCarAndNoVersionAnnotation()).Annotations).To(HaveKey(annotationKeyHookSideCars))
 		})
 		It("creates map with base board manufacturer key", func() {
-			Expect(NewAnnotations(WithBaseBoardManufacturer())).To(HaveKey(annotationKeyBaseBoardManufacturer))
+			Expect(New(WithBaseBoardManufacturerAnnotation()).Annotations).To(HaveKey(annotationKeyBaseBoardManufacturer))
 		})
 	})
 })

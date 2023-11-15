@@ -548,13 +548,13 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-func NewRandomVMI() *v1.VirtualMachineInstance {
-	// To avoid mac address issue in the tests change the pod interface binding to masquerade
-	// https://github.com/kubevirt/kubevirt/issues/1494
-	vmi := libvmi.New(
+func NewRandomVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	options := []libvmi.Option{
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-	)
+	}
+	options = append(options, opts...)
+	vmi := libvmi.New(options...)
 	vmi.ObjectMeta.Namespace = testsuite.GetTestNamespace(vmi)
 	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 
@@ -677,8 +677,8 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 	}
 }
 
-func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+func NewRandomVMIWithEphemeralDisk(containerImage string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI(opts...)
 
 	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {

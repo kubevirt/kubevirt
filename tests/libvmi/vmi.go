@@ -20,13 +20,23 @@
 package libvmi
 
 import (
+	"fmt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/tests/flags"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
+)
+
+const (
+	hookSidecarImage                   = "example-hook-sidecar"
+	annotationKeyHookSideCars          = "hooks.kubevirt.io/hookSidecars"
+	annotationKeyBaseBoardManufacturer = "smbios.vm.kubevirt.io/baseBoardManufacturer"
 )
 
 // Option represents an action that enables an option.
@@ -69,6 +79,40 @@ func WithAnnotation(key, value string) Option {
 		}
 		vmi.Annotations[key] = value
 	}
+}
+
+func WithBaseBoardManufacturerAnnotation() Option {
+	return WithAnnotation(
+		annotationKeyBaseBoardManufacturer,
+		"Radical Edward",
+	)
+}
+
+func WithHookSideCarAnnotation(value string) Option {
+	return WithAnnotation(annotationKeyHookSideCars, value)
+}
+
+func WithExampleHookSideCarAndVersionAnnotation(version string) Option {
+	return WithHookSideCarAnnotation(
+		fmt.Sprintf(
+			`[{"args": ["--version", %q],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+			version,
+			flags.KubeVirtUtilityRepoPrefix,
+			hookSidecarImage,
+			flags.KubeVirtUtilityVersionTag,
+		),
+	)
+}
+
+func WithExampleHookSideCarAndNoVersionAnnotation() Option {
+	return WithHookSideCarAnnotation(
+		fmt.Sprintf(
+			`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+			flags.KubeVirtUtilityRepoPrefix,
+			hookSidecarImage,
+			flags.KubeVirtUtilityVersionTag,
+		),
+	)
 }
 
 func WithNamespace(namespace string) Option {
