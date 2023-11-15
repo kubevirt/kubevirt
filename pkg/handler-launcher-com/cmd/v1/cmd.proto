@@ -109,6 +109,7 @@ message VirtualMachineOptions {
   // Deprecated, use clusterConfig.ExpandDisksEnabled
   bool ExpandDisksEnabled = 6;
   ClusterConfig clusterConfig = 7;
+  map<string, string> interfaceDomainAttachment = 8;
 }
 
 message VMIRequest {

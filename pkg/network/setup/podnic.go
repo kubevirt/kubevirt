@@ -51,7 +51,7 @@ type podNIC struct {
 	domainGenerator  domainspec.LibvirtSpecGenerator
 }
 
-func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain) (*podNIC, error) {
+func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain, domainAttachment string) (*podNIC, error) {
 	podnic, err := newPodNIC(vmi, network, iface, handler, cacheCreator, nil)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 	}
 
 	podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
-	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain)
+	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain, domainAttachment)
 
 	return podnic, nil
 }
@@ -135,12 +135,17 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 	return dhcpConfigurator
 }
 
-func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtSpecGenerator {
+func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain, domainAttachment string) domainspec.LibvirtSpecGenerator {
 	if l.vmiSpecIface.Bridge != nil || l.vmiSpecIface.Masquerade != nil || l.vmiSpecIface.Macvtap != nil {
 		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
 	}
 	if l.vmiSpecIface.Passt != nil {
 		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.vmi)
+	}
+	if l.vmiSpecIface.Binding != nil {
+		if domainAttachment == string(v1.Tap) {
+			return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+		}
 	}
 	return nil
 }
