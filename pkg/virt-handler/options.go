@@ -47,6 +47,41 @@ func virtualMachineOptions(
 	return options
 }
 
+func virtualMachineOptionsWithNetworkConfig(
+	smbios *v1.SMBiosConfiguration,
+	period uint32,
+	preallocatedVolumes []string,
+	capabilities *api.Capabilities,
+	disksInfo map[string]*containerdisk.DiskInfo,
+	clusterConfig *virtconfig.ClusterConfig,
+	vmiSpecIfaces []v1.Interface,
+) (*cmdv1.VirtualMachineOptions, error) {
+	options := virtualMachineOptions(smbios, period, preallocatedVolumes, capabilities, disksInfo, clusterConfig)
+	if clusterConfig == nil {
+		return options, nil
+	}
+
+	domainAttachmentByPluginName := map[string]string{}
+	networkBindings := clusterConfig.GetNetworkBindings()
+	if networkBindings != nil {
+		for name, binding := range networkBindings {
+			if binding.DomainAttachmentType != "" {
+				domainAttachmentByPluginName[name] = string(binding.DomainAttachmentType)
+			}
+		}
+	}
+
+	domainAttachmentByInterfaceName := map[string]string{}
+	for _, iface := range vmiSpecIfaces {
+		if iface.Binding != nil {
+			domainAttachmentByInterfaceName[iface.Name] = domainAttachmentByPluginName[iface.Binding.Name]
+		}
+	}
+
+	options.InterfaceDomainAttachment = domainAttachmentByInterfaceName
+	return options, nil
+}
+
 func capabilitiesToTopology(capabilities *api.Capabilities) *cmdv1.Topology {
 	topology := &cmdv1.Topology{}
 	if capabilities == nil {
