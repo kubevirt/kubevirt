@@ -187,7 +187,7 @@ func (c *JobController) execute(key string) error {
 	}
 
 	// mark MachineTypeRestartRequired as false
-	patchString := fmt.Sprintf(`[{ "op": "replace", "path": "/status/machineTypeRestartRequired", "value": %t }]`, false)
+	patchString := `[{ "op": "replace", "path": "/status/machineTypeRestartRequired", "value": false }]`
 	err = c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patchString), &k8sv1.PatchOptions{})
 	if err != nil {
 		fmt.Println(err)

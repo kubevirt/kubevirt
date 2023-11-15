@@ -2,7 +2,6 @@ package convertmachinetype
 
 import (
 	"context"
-	"fmt"
 	"path"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,7 +75,7 @@ func (c *JobController) UpdateMachineType(vm *v1.VirtualMachine, running bool) e
 
 		// adding the warning label to the running VMs to indicate to the user
 		// they must manually be restarted
-		patchString := fmt.Sprintf(`[{ "op": "add", "path": "/status/machineTypeRestartRequired", "value": %t }]`, true)
+		patchString := `[{ "op": "add", "path": "/status/machineTypeRestartRequired", "value": true }]`
 		return c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patchString), &metav1.PatchOptions{})
 	}
 	return nil

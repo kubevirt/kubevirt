@@ -34,10 +34,9 @@ const (
 	machineTypeGlob        = "*rhel8.*"
 	update                 = "update"
 	machineTypes           = "machine-types"
-	machineTypeFlag        = "which-matches-glob"
 	namespaceFlag          = "namespace"
 	labelSelectorFlag      = "label-selector"
-	forceRestartFlag       = "restart-now"
+	forceRestartFlag       = "--restart-now"
 	testLabel              = "testing-label="
 )
 
@@ -96,18 +95,18 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 			vmNeedsUpdateRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 			vmNoUpdate := createVM(machineTypeNoUpdate, util.NamespaceTestDefault, false, false)
 
-			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, setFlag(machineTypeFlag, machineTypeGlob))()
+			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob)()
 			Expect(err).ToNot(HaveOccurred())
 
 			job = expectJobExists(virtClient)
 
-			Eventually(ThisVM(vmNeedsUpdateStopped), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNeedsUpdateRunning), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNoUpdate), 60*time.Second, 1*time.Second).Should(haveOriginalMachineType(machineTypeNoUpdate))
+			Eventually(ThisVM(vmNeedsUpdateStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNoUpdate), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNoUpdate))
 
-			Eventually(ThisVM(vmNeedsUpdateRunning), 60*time.Second, 1*time.Second).Should(haveRestartRequiredStatus())
+			Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveRestartRequiredStatus())
 
-			Consistently(thisJob(virtClient, job), 60*time.Second, 1*time.Second).ShouldNot(haveCompletionTime())
+			Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
 		})
 
 		It("Example with namespace flag", func() {
@@ -116,22 +115,21 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 			vmNamespaceOtherStopped := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, false, false)
 			vmNamespaceOtherRunning := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, false, true)
 
-			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes,
-				setFlag(machineTypeFlag, machineTypeGlob),
+			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob,
 				setFlag(namespaceFlag, util.NamespaceTestDefault))()
 			Expect(err).ToNot(HaveOccurred())
 
 			job = expectJobExists(virtClient)
 
-			Eventually(ThisVM(vmNamespaceDefaultStopped), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceDefaultRunning), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceOtherStopped), 60*time.Second, 1*time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNamespaceOtherRunning), 60*time.Second, 1*time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
+			Eventually(ThisVM(vmNamespaceDefaultStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNamespaceDefaultRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNamespaceOtherStopped), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
+			Eventually(ThisVM(vmNamespaceOtherRunning), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
 
-			Eventually(ThisVM(vmNamespaceDefaultRunning), 60*time.Second, 1*time.Second).Should(haveRestartRequiredStatus())
-			Eventually(ThisVM(vmNamespaceOtherRunning), 60*time.Second, 1*time.Second).ShouldNot(haveRestartRequiredStatus())
+			Eventually(ThisVM(vmNamespaceDefaultRunning), time.Minute, time.Second).Should(haveRestartRequiredStatus())
+			Eventually(ThisVM(vmNamespaceOtherRunning), time.Minute, time.Second).ShouldNot(haveRestartRequiredStatus())
 
-			Consistently(thisJob(virtClient, job), 60*time.Second, 1*time.Second).ShouldNot(haveCompletionTime())
+			Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
 		})
 
 		It("Example with label-selector flag", func() {
@@ -140,22 +138,21 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 			vmNoLabelStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
 			vmNoLabelRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 
-			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes,
-				setFlag(machineTypeFlag, machineTypeGlob),
+			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob,
 				setFlag(labelSelectorFlag, testLabel))()
 			Expect(err).ToNot(HaveOccurred())
 
 			job = expectJobExists(virtClient)
 
-			Eventually(ThisVM(vmWithLabelStopped), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmWithLabelRunning), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNoLabelStopped), 60*time.Second, 1*time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNoLabelRunning), 60*time.Second, 1*time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
+			Eventually(ThisVM(vmWithLabelStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmWithLabelRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNoLabelStopped), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
+			Eventually(ThisVM(vmNoLabelRunning), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
 
 			Eventually(ThisVM(vmWithLabelRunning)).Should(haveRestartRequiredStatus())
 			Eventually(ThisVM(vmNoLabelRunning)).ShouldNot(haveRestartRequiredStatus())
 
-			Consistently(thisJob(virtClient, job), 60*time.Second, 1*time.Second).ShouldNot(haveCompletionTime())
+			Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
 		})
 
 		It("Example with force-restart flag", func() {
@@ -166,23 +163,21 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Sending virtctl update machine type cmd with automatic restart flag.")
-			err = clientcmd.NewRepeatableVirtctlCommand(update, machineTypes,
-				setFlag(machineTypeFlag, machineTypeGlob),
-				setFlag(forceRestartFlag, "true"))()
+			err = clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob, forceRestartFlag)()
 			Expect(err).ToNot(HaveOccurred())
 
 			job = expectJobExists(virtClient)
 
 			By("Ensuring the machine types of both VMs have been updated to the default.")
-			Eventually(ThisVM(vmNeedsUpdateStopped), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNeedsUpdateRunning), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNeedsUpdateStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
 
 			By("Ensuring the VM has been restarted and the VMI has the default machine type.")
-			Eventually(ThisVMI(vmiNeedsUpdateRunning), 120*time.Second, 1*time.Second).Should(beRestarted(vmiNeedsUpdateRunning.UID))
+			Eventually(ThisVMI(vmiNeedsUpdateRunning), 120*time.Second, time.Second).Should(beRestarted(vmiNeedsUpdateRunning.UID))
 			Eventually(ThisVMI(vmiNeedsUpdateRunning)).Should(haveDefaultMachineType())
 
 			By("Ensuring the job terminates since there are no VMs pending restart.")
-			Eventually(thisJob(virtClient, job), 60*time.Second, 1*time.Second).Should(haveCompletionTime())
+			Eventually(thisJob(virtClient, job), time.Minute, time.Second).Should(haveCompletionTime())
 		})
 
 		It("Complex example", func() {
@@ -199,20 +194,18 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 			vmiNamespaceDefaultWithLabelRunning, err := virtClient.VirtualMachineInstance(vmNamespaceDefaultWithLabelRunning.Namespace).Get(context.Background(), vmNamespaceDefaultWithLabelRunning.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			err = clientcmd.NewRepeatableVirtctlCommand(update, machineTypes,
-				setFlag(machineTypeFlag, machineTypeGlob),
+			err = clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob, forceRestartFlag,
 				setFlag(namespaceFlag, util.NamespaceTestDefault),
-				setFlag(labelSelectorFlag, testLabel),
-				setFlag(forceRestartFlag, "true"))()
+				setFlag(labelSelectorFlag, testLabel))()
 			Expect(err).ToNot(HaveOccurred())
 
 			job = expectJobExists(virtClient)
 
 			// the only VMs that should be updated are the ones in the default test namespace and with the test label
 			// with force-restart flag, the restart-vm-required label should not be applied to the running VM
-			Eventually(ThisVM(vmNamespaceDefaultWithLabelStopped), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceDefaultWithLabelRunning), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceDefaultWithLabelRunning), 60*time.Second, 1*time.Second).ShouldNot(haveRestartRequiredStatus())
+			Eventually(ThisVM(vmNamespaceDefaultWithLabelStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNamespaceDefaultWithLabelRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNamespaceDefaultWithLabelRunning), time.Minute, time.Second).ShouldNot(haveRestartRequiredStatus())
 
 			// all other VM machine types should remain unchanged
 			Eventually(ThisVM(vmNamespaceDefaultStopped)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
@@ -223,10 +216,10 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 			Eventually(ThisVM(vmNamespaceOtherWithLabelRunning)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
 			Eventually(ThisVM(vmNoUpdateStopped)).Should(haveOriginalMachineType(machineTypeNoUpdate))
 
-			Eventually(ThisVMI(vmiNamespaceDefaultWithLabelRunning), 120*time.Second, 1*time.Second).Should(beRestarted(vmiNamespaceDefaultWithLabelRunning.UID))
-			Eventually(ThisVMI(vmiNamespaceDefaultWithLabelRunning), 60*time.Second, 1*time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVMI(vmiNamespaceDefaultWithLabelRunning), 120*time.Second, time.Second).Should(beRestarted(vmiNamespaceDefaultWithLabelRunning.UID))
+			Eventually(ThisVMI(vmiNamespaceDefaultWithLabelRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
 
-			Eventually(thisJob(virtClient, job), 60*time.Second, 1*time.Second).Should(haveCompletionTime())
+			Eventually(thisJob(virtClient, job), time.Minute, time.Second).Should(haveCompletionTime())
 		})
 	})
 })
@@ -240,7 +233,7 @@ func expectJobExists(virtClient kubecli.KubevirtClient) *batchv1.Job {
 		Expect(err).ToNot(HaveOccurred())
 		job, ok = hasJob(jobs)
 		return ok
-	}, 120*time.Second, 1*time.Second).Should(BeTrue())
+	}, 120*time.Second, time.Second).Should(BeTrue())
 
 	return job
 }

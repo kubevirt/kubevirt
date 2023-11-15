@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	//	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/utils/pointer"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -32,8 +31,6 @@ var _ = Describe("JobController", func() {
 	var kubeClient *fake.Clientset
 	var vmInformer cache.SharedIndexInformer
 	var vmiInformer cache.SharedIndexInformer
-	// var vmSource *framework.FakeControllerSource
-	// var vmiSource *framework.FakeControllerSource
 	var mockQueue *testutils.MockWorkQueue
 	var controller *JobController
 	var stop chan struct{}
@@ -58,16 +55,6 @@ var _ = Describe("JobController", func() {
 			return true, create.GetObject(), nil
 		})
 	}
-
-	// shouldExpectVMIDeletion := func(vmi *virtv1.VirtualMachineInstance) {
-	// 	kubeClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-	// 		delete, ok := action.(testing.DeleteAction)
-	// 		Expect(ok).To(BeTrue())
-	// 		Expect(delete.GetName()).To(Equal(vmi.Name))
-
-	// 		return true, nil, nil
-	// 	})
-	// }
 
 	shouldExpectUpdateVMStatus := func(vm *virtv1.VirtualMachine) {
 		patchData := `[{ "op": "replace", "path": "/status/machineTypeRestartRequired", "value": false }]`
@@ -140,22 +127,6 @@ var _ = Describe("JobController", func() {
 			Testing = true
 		})
 
-		// Context("if VM machine type has not been updated", func() {
-		// 	It("should not remove MachineTypeRestartRequired from VM Status", func() {
-		// 		vm = newVMRestartRequired(machineTypeNeedsUpdate)
-		// 		vmi = newVMIWithMachineType(machineTypeNeedsUpdate, vm.Name)
-		// 		addVm(vm)
-		// 		addVmi(vmi)
-
-		// 		shouldExpectVMCreation(vm)
-		// 		shouldExpectVMICreation(vmi)
-		// 		//shouldExpectVMIDeletion(vmi)
-
-		// 		stopVM(vm)
-		// 		controller.Execute()
-		// 	})
-		// })
-
 		Context("if VM machine type has been updated", func() {
 			It("should set MachineTypeRestartRequired to false in VM Status", func() {
 				vm = newVMRestartRequired("q35")
@@ -165,7 +136,6 @@ var _ = Describe("JobController", func() {
 
 				shouldExpectVMCreation(vm)
 				shouldExpectVMICreation(vmi)
-				//	shouldExpectVMIDeletion(vmi)
 				shouldExpectUpdateVMStatus(vm)
 
 				stopVM(vm)
