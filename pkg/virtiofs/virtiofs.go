@@ -7,6 +7,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 // This is empty dir
@@ -18,10 +19,10 @@ func VirtioFSSocketPath(volumeName string) string {
 	return filepath.Join(VirtioFSContainersMountBaseDir, socketName)
 }
 
-// RequiresRootPrivileges Returns true if the volume requires the virtiofs
-// container to run as user root
-func RequiresRootPrivileges(volume *v1.Volume) bool {
-	// only config volumes can be shared with an unprivileged container
-	return volume.ConfigMap == nil && volume.Secret == nil &&
+// CanRunWithPrivileges returns true if the virtiofs container of the volume
+// can run as user root
+func CanRunWithPrivileges(config *virtconfig.ClusterConfig, volume *v1.Volume) bool {
+	// config volumes does not require a privileged container
+	return config.VirtiofsEnabled() && volume.ConfigMap == nil && volume.Secret == nil &&
 		volume.ServiceAccount == nil && volume.DownwardAPI == nil
 }

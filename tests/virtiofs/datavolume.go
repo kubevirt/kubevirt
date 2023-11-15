@@ -30,7 +30,6 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -75,25 +74,24 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 	Context("VirtIO-FS with multiple PVCs", func() {
 		pvc1 := "pvc-1"
 		pvc2 := "pvc-2"
-		createPVC := func(name string) {
+		createPVC := func(namespace, name string) {
 			sc, _ := libstorage.GetRWXFileSystemStorageClass()
 			pvc := libstorage.NewPVC(name, "1Gi", sc)
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespacePrivileged).Create(context.Background(), pvc, metav1.CreateOptions{})
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 		}
 
-		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
-			createPVC(pvc1)
-			createPVC(pvc2)
-		})
+		DescribeTable("[Serial] should be successfully started and accessible", Serial, func(namespace string, option1, option2 libvmi.Option) {
+			if namespace == testsuite.NamespacePrivileged {
+				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+			} else {
+				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+			}
 
-		AfterEach(func() {
-			libstorage.DeletePVC(pvc1, testsuite.NamespacePrivileged)
-			libstorage.DeletePVC(pvc2, testsuite.NamespacePrivileged)
-		})
-
-		DescribeTable("should be successfully started and accessible", func(option1, option2 libvmi.Option) {
+			createPVC(namespace, pvc1)
+			createPVC(namespace, pvc2)
+			defer libstorage.DeletePVC(pvc1, namespace)
+			defer libstorage.DeletePVC(pvc2, namespace)
 
 			virtiofsMountPath := func(pvcName string) string { return fmt.Sprintf("/mnt/virtiofs_%s", pvcName) }
 			virtiofsTestFile := func(virtiofsMountPath string) string { return fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath) }
@@ -112,7 +110,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithCloudInitNoCloudUserData(mountVirtiofsCommands, true),
 				libvmi.WithFilesystemPVC(pvc1),
 				libvmi.WithFilesystemPVC(pvc2),
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				libvmi.WithNamespace(namespace),
 				option1, option2,
 			)
 
@@ -146,8 +144,10 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 		},
-			Entry("", func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
-			Entry("with passt enabled", libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
+			Entry("(privileged virtiofsd)", testsuite.NamespacePrivileged, func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
+			Entry("with passt enabled (privileged virtiofsd)", testsuite.NamespacePrivileged, libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
+			Entry("(unprivileged virtiofsd)", util.NamespaceTestDefault, func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
+			Entry("with passt enabled (unprivileged virtiofsd)", util.NamespaceTestDefault, libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
 		)
 	})
 
@@ -158,19 +158,34 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 		)
 
 		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 			originalConfig = *util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
-			libstorage.CreateHostPathPv(pvc, testsuite.NamespacePrivileged, filepath.Join(testsuite.HostPathBase, pvc))
-			libstorage.CreateHostPathPVC(pvc, testsuite.NamespacePrivileged, "1G")
 		})
 
 		AfterEach(func() {
 			tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
-			libstorage.DeletePVC(pvc, testsuite.NamespacePrivileged)
-			libstorage.DeletePV(pvc)
 		})
 
-		It("[Serial] should be successfully started and virtiofs could be accessed", Serial, func() {
+		createHostPathPV := func(pvc, namespace string) {
+			pvhostpath := filepath.Join(testsuite.HostPathBase, pvc)
+			node := libstorage.CreateHostPathPv(pvc, namespace, pvhostpath)
+
+			// We change the owner to qemu regardless of virtiofsd's privileges,
+			// because the root user will be able to access the directory anyway
+			nodeSelector := map[string]string{"kubernetes.io/hostname": node}
+			args := []string{fmt.Sprintf(`chown 107 %s`, pvhostpath)}
+			pod := tests.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+			pod.Spec.NodeSelector = nodeSelector
+			tests.RunPodAndExpectCompletion(pod)
+		}
+
+		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
+			createHostPathPV(pvc, namespace)
+			libstorage.CreateHostPathPVC(pvc, namespace, "1G")
+			defer func() {
+				libstorage.DeletePVC(pvc, namespace)
+				libstorage.DeletePV(pvc)
+			}()
+
 			resources := k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    resource.MustParse("2m"),
@@ -189,6 +204,12 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				},
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(*config)
+			if namespace == testsuite.NamespacePrivileged {
+				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+			} else {
+				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+			}
+
 			pvcName := fmt.Sprintf("disk-%s", pvc)
 			virtiofsMountPath := fmt.Sprintf("/mnt/virtiofs_%s", pvcName)
 			virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
@@ -201,7 +222,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			vmi = libvmi.NewFedora(
 				libvmi.WithCloudInitNoCloudUserData(mountVirtiofsCommands, true),
 				libvmi.WithFilesystemPVC(pvcName),
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				libvmi.WithNamespace(namespace),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
@@ -251,34 +272,42 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				}
 			}
 			Expect(foundContainer).To(BeTrue())
-		})
+		},
+			Entry("unprivileged virtiofsd", util.NamespaceTestDefault),
+			Entry("privileged virtiofsd", testsuite.NamespacePrivileged),
+		)
 	})
 
 	Context("Run a VMI with VirtIO-FS and a datavolume", func() {
-		var dataVolume *cdiv1.DataVolume
+		var sc string
+
 		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 			if !libstorage.HasCDI() {
 				Skip("Skip DataVolume tests when CDI is not present")
 			}
 
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			var exists bool
+			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
+		})
 
-			dataVolume = libdv.NewDataVolume(
+		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
+			if namespace == testsuite.NamespacePrivileged {
+				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+			} else {
+				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+			}
+
+			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+				libdv.WithNamespace(namespace),
 			)
-		})
+			defer libstorage.DeleteDataVolume(&dataVolume)
 
-		AfterEach(func() {
-			libstorage.DeleteDataVolume(&dataVolume)
-		})
-
-		It("should be successfully started and virtiofs could be accessed", func() {
-			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("Waiting until the DataVolume is ready")
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
@@ -296,7 +325,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			vmi = libvmi.NewFedora(
 				libvmi.WithCloudInitNoCloudUserData(mountVirtiofsCommands, true),
 				libvmi.WithFilesystemDV(dataVolume.Name),
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				libvmi.WithNamespace(namespace),
 			)
 			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 			// import and start
@@ -328,7 +357,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-		})
+		},
+			Entry("unprivileged virtiofsd", util.NamespaceTestDefault),
+			Entry("privileged virtiofsd", testsuite.NamespacePrivileged),
+		)
 	})
 })

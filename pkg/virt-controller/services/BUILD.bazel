@@ -63,6 +63,7 @@ go_test(
         "rendervolumes_test.go",
         "services_suite_test.go",
         "template_test.go",
+        "virtiofs_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
