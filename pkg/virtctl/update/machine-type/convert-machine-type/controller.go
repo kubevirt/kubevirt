@@ -144,7 +144,6 @@ func (c *JobController) execute(key string) error {
 	}
 
 	vm := obj.(*v1.VirtualMachine)
-	fmt.Println(vm)
 
 	// check if VM is running
 	isRunning, err := vmIsRunning(vm)

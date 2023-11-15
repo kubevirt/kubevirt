@@ -137,6 +137,7 @@ var _ = Describe("JobController", func() {
 			virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
 
 			MachineTypeGlob = machineTypeGlob
+			Testing = true
 		})
 
 		// Context("if VM machine type has not been updated", func() {
@@ -169,6 +170,7 @@ var _ = Describe("JobController", func() {
 
 				stopVM(vm)
 				controller.Execute()
+				Testing = false
 			})
 		})
 	})

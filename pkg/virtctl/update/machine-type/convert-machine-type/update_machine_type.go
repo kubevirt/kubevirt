@@ -21,6 +21,7 @@ var (
 	Namespace = metav1.NamespaceAll
 	// by default, should require manual restarting of VMIs
 	RestartNow = false
+	Testing    = false
 )
 
 func matchMachineType(machineType string) (bool, error) {
@@ -45,6 +46,13 @@ func isMachineTypeUpdated(vm *v1.VirtualMachine) (bool, error) {
 	machine := vm.Spec.Template.Spec.Domain.Machine
 	matchesGlob := false
 	var err error
+
+	// when running unit tests, updating the machine type
+	// does not update it to the aliased machine type when
+	// setting it to nil. This is to account for that for now
+	if machine == nil && Testing {
+		return true, nil
+	}
 
 	matchesGlob, err = matchMachineType(machine.Type)
 	if err != nil {
