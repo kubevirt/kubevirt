@@ -24,9 +24,9 @@ import (
 )
 
 func ConfigDescribe(text string, args ...interface{}) bool {
-	return compute.SIGDescribe("Configurations"+text, args)
+	return compute.SIGDescribe("Configurations "+text, args)
 }
 
 func FConfigDescribe(text string, args ...interface{}) bool {
-	return compute.SIGDescribe("Configurations"+text, args)
+	return compute.FSIGDescribe("Configurations "+text, args)
 }

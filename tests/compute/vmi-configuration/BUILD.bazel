@@ -3,12 +3,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "cpu-pinning.go",
-        "cpu-spec.go",
+        "cpu_pinning.go",
+        "cpu_spec.go",
         "framework.go",
-        "requests-and-limits.go",
-        "vmi-configuration.go",
-        "vmi-definition.go",
+        "requests_and_limits.go",
+        "vmi_configuration.go",
+        "vmi_definition.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/compute/vmi-configuration",
     visibility = ["//visibility:public"],
