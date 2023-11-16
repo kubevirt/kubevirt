@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
+	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -229,6 +230,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.RestartOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Restart").
@@ -241,6 +243,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("migrate")).
 			To(subresourceApp.MigrateVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.MigrateOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Migrate").
@@ -251,6 +254,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("start")).
 			To(subresourceApp.StartVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.StartOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Start").
@@ -261,6 +265,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		stopRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("stop")).
 			To(subresourceApp.StopVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.StopOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Stop").
@@ -283,6 +288,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("freeze")).
 			To(subresourceApp.FreezeVMIRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.FreezeUnfreezeTimeout{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Freeze").
@@ -308,6 +314,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("pause")).
 			To(subresourceApp.PauseVMIRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.PauseOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Pause").
@@ -318,6 +325,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("unpause")).
 			To(subresourceApp.UnpauseVMIRequestHandler). // handles VMIs as well
+			Consumes(mime.MIME_ANY).
 			Reads(v1.UnpauseOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Unpause").
@@ -457,6 +465,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMIAddVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.AddVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-addvolume").
@@ -466,6 +475,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("removevolume")).
 			To(subresourceApp.VMIRemoveVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.RemoveVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-removevolume").
@@ -475,6 +485,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("addvolume")).
 			To(subresourceApp.VMAddVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.AddVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-addvolume").
@@ -484,6 +495,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("removevolume")).
 			To(subresourceApp.VMRemoveVolumeRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.RemoveVolumeOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-removevolume").
@@ -493,6 +505,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("memorydump")).
 			To(subresourceApp.MemoryDumpVMRequestHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.VirtualMachineMemoryDumpRequest{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"MemoryDump").
@@ -531,6 +544,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/setupsession")).
 			To(subresourceApp.SEVSetupSessionHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.SEVSessionOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"SEVSetupSession").
@@ -540,6 +554,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/injectlaunchsecret")).
 			To(subresourceApp.SEVInjectLaunchSecretHandler).
+			Consumes(mime.MIME_ANY).
 			Reads(v1.SEVSecretOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"SEVInjectLaunchSecret").
