@@ -104,6 +104,8 @@ const (
 	exporterImage       = "virt-exportserver"
 	launcherQemuTimeout = 240
 
+	migrationControllerRestTimeout = 30 * time.Second
+
 	imagePullSecret = ""
 
 	virtShareDir = "/var/run/kubevirt"
@@ -634,6 +636,11 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		panic(err)
 	}
+	// Adding a timeout to the clientSet of the migration controller, to avoid potential deadlocks
+	clientSet, err := vca.clientSet.SetRestTimeout(migrationControllerRestTimeout)
+	if err != nil {
+		panic(err)
+	}
 	vca.migrationController, err = NewMigrationController(
 		vca.templateService,
 		vca.vmiInformer,
@@ -645,7 +652,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.migrationPolicyInformer,
 		vca.resourceQuotaInformer,
 		vca.vmiRecorder,
-		vca.clientSet,
+		clientSet,
 		vca.clusterConfig,
 	)
 	if err != nil {

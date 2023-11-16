@@ -955,6 +955,17 @@ func (_mr *_MockKubevirtClientRecorder) Config() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Config")
 }
 
+func (_m *MockKubevirtClient) SetRestTimeout(timeout time.Duration) (KubevirtClient, error) {
+	ret := _m.ctrl.Call(_m, "SetRestTimeout", timeout)
+	ret0, _ := ret[0].(KubevirtClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubevirtClientRecorder) SetRestTimeout(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetRestTimeout", arg0)
+}
+
 // Mock of StreamInterface interface
 type MockStreamInterface struct {
 	ctrl     *gomock.Controller
