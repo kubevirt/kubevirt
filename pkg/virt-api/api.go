@@ -386,6 +386,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourceBasePath(expandvmspecGVR)).
 			To(subresourceApp.ExpandSpecRequestHandler).
+			Param(definitions.NamespaceParam(subws)).
 			Operation(version.Version+"ExpandSpec").
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
@@ -438,6 +439,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.UserList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Userlist").
 			Doc("Get list of active users via guest agent").
 			Writes(v1.VirtualMachineInstanceGuestOSUserList{}).
@@ -447,6 +449,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.FilesystemList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"Filesystemlist").
 			Doc("Get list of active filesystems on guest machine via guest agent").
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
