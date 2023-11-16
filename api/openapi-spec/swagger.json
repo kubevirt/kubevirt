@@ -11254,6 +11254,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1vmi-addvolume",
      "parameters": [
       {
@@ -11375,6 +11378,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze": {
     "put": {
      "description": "Freeze a VirtualMachineInstance object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1Freeze",
      "parameters": [
       {
@@ -11467,6 +11473,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1Pause",
      "parameters": [
       {
@@ -11606,6 +11615,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1vmi-removevolume",
      "parameters": [
       {
@@ -11698,6 +11710,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/injectlaunchsecret": {
     "put": {
      "description": "Inject SEV launch secret into a Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1SEVInjectLaunchSecret",
      "parameters": [
       {
@@ -11790,6 +11805,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/setupsession": {
     "put": {
      "description": "Setup SEV session parameters for a Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1SEVSetupSession",
      "parameters": [
       {
@@ -11923,6 +11941,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause": {
     "put": {
      "description": "Unpause a VirtualMachineInstance object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1Unpause",
      "parameters": [
       {
@@ -12159,6 +12180,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1vm-addvolume",
      "parameters": [
       {
@@ -12260,6 +12284,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/memorydump": {
     "put": {
      "description": "Dumps a VirtualMachineInstance memory.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1MemoryDump",
      "parameters": [
       {
@@ -12311,6 +12338,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/migrate": {
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1Migrate",
      "parameters": [
       {
@@ -12491,6 +12521,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1vm-removevolume",
      "parameters": [
       {
@@ -12542,6 +12575,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/restart": {
     "put": {
      "description": "Restart a VirtualMachine object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1Restart",
      "parameters": [
       {
@@ -12598,6 +12634,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/start": {
     "put": {
      "description": "Start a VirtualMachine object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1Start",
      "parameters": [
       {
@@ -12655,6 +12694,9 @@
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/stop": {
     "put": {
      "description": "Stop a VirtualMachine object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1Stop",
      "parameters": [
       {
@@ -12888,6 +12930,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3vmi-addvolume",
      "parameters": [
       {
@@ -13009,6 +13054,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/freeze": {
     "put": {
      "description": "Freeze a VirtualMachineInstance object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3Freeze",
      "parameters": [
       {
@@ -13101,6 +13149,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3Pause",
      "parameters": [
       {
@@ -13240,6 +13291,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3vmi-removevolume",
      "parameters": [
       {
@@ -13332,6 +13386,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/injectlaunchsecret": {
     "put": {
      "description": "Inject SEV launch secret into a Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3SEVInjectLaunchSecret",
      "parameters": [
       {
@@ -13424,6 +13481,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/setupsession": {
     "put": {
      "description": "Setup SEV session parameters for a Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3SEVSetupSession",
      "parameters": [
       {
@@ -13557,6 +13617,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/unpause": {
     "put": {
      "description": "Unpause a VirtualMachineInstance object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3Unpause",
      "parameters": [
       {
@@ -13793,6 +13856,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3vm-addvolume",
      "parameters": [
       {
@@ -13894,6 +13960,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/memorydump": {
     "put": {
      "description": "Dumps a VirtualMachineInstance memory.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3MemoryDump",
      "parameters": [
       {
@@ -13945,6 +14014,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/migrate": {
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3Migrate",
      "parameters": [
       {
@@ -14125,6 +14197,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3vm-removevolume",
      "parameters": [
       {
@@ -14176,6 +14251,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/restart": {
     "put": {
      "description": "Restart a VirtualMachine object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3Restart",
      "parameters": [
       {
@@ -14232,6 +14310,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/start": {
     "put": {
      "description": "Start a VirtualMachine object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3Start",
      "parameters": [
       {
@@ -14289,6 +14370,9 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/stop": {
     "put": {
      "description": "Stop a VirtualMachine object.",
+     "consumes": [
+      "*/*"
+     ],
      "operationId": "v1alpha3Stop",
      "parameters": [
       {
