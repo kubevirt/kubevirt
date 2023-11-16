@@ -16008,6 +16008,17 @@
      }
     }
    },
+   "v1.ContainerDiskInfo": {
+    "description": "ContainerDiskInfo shows info about the containerdisk",
+    "type": "object",
+    "properties": {
+     "checksum": {
+      "description": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
    "v1.ContainerDiskSource": {
     "description": "Represents a docker image with an embedded disk.",
     "type": "object",
@@ -17052,6 +17063,17 @@
      }
     }
    },
+   "v1.InitrdInfo": {
+    "description": "InitrdInfo show info about the initrd file",
+    "type": "object",
+    "properties": {
+     "checksum": {
+      "description": "Checksum is the checksum of the initrd file",
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
    "v1.Input": {
     "type": "object",
     "required": [
@@ -17259,6 +17281,31 @@
      "kernelPath": {
       "description": "The fully-qualified path to the kernel image in the host OS",
       "type": "string"
+     }
+    }
+   },
+   "v1.KernelBootStatus": {
+    "description": "KernelBootStatus contains info about the kernelBootContainer",
+    "type": "object",
+    "properties": {
+     "initrdInfo": {
+      "description": "InitrdInfo show info about the initrd file",
+      "$ref": "#/definitions/v1.InitrdInfo"
+     },
+     "kernelInfo": {
+      "description": "KernelInfo show info about the kernel image",
+      "$ref": "#/definitions/v1.KernelInfo"
+     }
+    }
+   },
+   "v1.KernelInfo": {
+    "description": "KernelInfo show info about the kernel image",
+    "type": "object",
+    "properties": {
+     "checksum": {
+      "description": "Checksum is the checksum of the kernel image",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },
@@ -20011,6 +20058,10 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceNetworkInterface"
       }
      },
+     "kernelBootStatus": {
+      "description": "KernelBootStatus contains info about the kernelBootContainer",
+      "$ref": "#/definitions/v1.KernelBootStatus"
+     },
      "launcherContainerImageVersion": {
       "description": "LauncherContainerImageVersion indicates what container image is currently active for the vmi.",
       "type": "string"
@@ -20481,6 +20532,10 @@
      "target"
     ],
     "properties": {
+     "containerDiskVolume": {
+      "description": "ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk",
+      "$ref": "#/definitions/v1.ContainerDiskInfo"
+     },
      "hotplugVolume": {
       "description": "If the volume is hotplug, this will contain the hotplug status.",
       "$ref": "#/definitions/v1.HotplugVolumeStatus"

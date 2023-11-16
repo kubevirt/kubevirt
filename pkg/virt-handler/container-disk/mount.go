@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +36,12 @@ const (
 	failedUnmountFmt         = "failed to unmount containerDisk %v: %v : %v"
 )
 
+var (
+	ErrChecksumMissing   = errors.New("missing checksum")
+	ErrChecksumMismatch  = errors.New("checksum mismatch")
+	ErrDiskContainerGone = errors.New("disk container is gone")
+)
+
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type mounter struct {
@@ -51,6 +59,7 @@ type Mounter interface {
 	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
 	MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error)
 	Unmount(vmi *v1.VirtualMachineInstance) error
+	ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error)
 }
 
 type vmiMountTargetEntry struct {
@@ -61,6 +70,21 @@ type vmiMountTargetEntry struct {
 type vmiMountTargetRecord struct {
 	MountTargetEntries []vmiMountTargetEntry `json:"mountTargetEntries"`
 	UsesSafePaths      bool                  `json:"usesSafePaths"`
+}
+
+type kernelArtifacts struct {
+	kernel *safepath.Path
+	initrd *safepath.Path
+}
+
+type DiskChecksums struct {
+	KernelBootChecksum     KernelBootChecksum
+	ContainerDiskChecksums map[string]uint32
+}
+
+type KernelBootChecksum struct {
+	Initrd *uint32
+	Kernel *uint32
 }
 
 func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
@@ -608,4 +632,199 @@ func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return fmt.Errorf("kernel artifacts record wasn't found")
+}
+
+func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v1.Volume, volumeIndex int) (*safepath.Path, error) {
+	sock, err := m.socketPathGetter(vmi, volumeIndex)
+	if err != nil {
+		return nil, ErrDiskContainerGone
+	}
+
+	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
+	}
+
+	nodeRes := isolation.NodeIsolationResult()
+	mountPoint, err := isolation.ParentPathForRootMount(nodeRes, res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
+	}
+
+	return containerdisk.GetImage(mountPoint, volume.ContainerDisk.Path)
+}
+
+func (m *mounter) getKernelArtifactPaths(vmi *v1.VirtualMachineInstance) (*kernelArtifacts, error) {
+	sock, err := m.kernelBootSocketPathGetter(vmi)
+	if err != nil {
+		return nil, ErrDiskContainerGone
+	}
+
+	res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect socket for kernelboot container: %v", err)
+	}
+
+	mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect root mount point of kernel/initrd container on the node: %v", err)
+	}
+
+	kernelContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+	kernelArtifacts := &kernelArtifacts{}
+
+	if kernelContainer.KernelPath != "" {
+		kernelPath, err := containerdisk.GetImage(mountPoint, kernelContainer.KernelPath)
+		if err != nil {
+			return nil, err
+		}
+		kernelArtifacts.kernel = kernelPath
+	}
+	if kernelContainer.InitrdPath != "" {
+		initrdPath, err := containerdisk.GetImage(mountPoint, kernelContainer.InitrdPath)
+		if err != nil {
+			return nil, err
+		}
+		kernelArtifacts.initrd = initrdPath
+	}
+
+	return kernelArtifacts, nil
+}
+
+func getDigest(imageFile *safepath.Path) (uint32, error) {
+	digest := crc32.NewIEEE()
+
+	err := imageFile.ExecuteNoFollow(func(path string) (err error) {
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		// 32 MiB chunks
+		chunk := make([]byte, 1024*1024*32)
+
+		_, err = io.CopyBuffer(digest, f, chunk)
+		return err
+	})
+
+	return digest.Sum32(), err
+}
+
+func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error) {
+
+	diskChecksums := &DiskChecksums{
+		ContainerDiskChecksums: map[string]uint32{},
+	}
+
+	// compute for containerdisks
+	for i, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.ContainerDisk == nil {
+			continue
+		}
+
+		path, err := m.getContainerDiskPath(vmi, &volume, i)
+		if err != nil {
+			return nil, err
+		}
+
+		checksum, err := getDigest(path)
+		if err != nil {
+			return nil, err
+		}
+
+		diskChecksums.ContainerDiskChecksums[volume.Name] = checksum
+	}
+
+	// kernel and initrd
+	if util.HasKernelBootContainerImage(vmi) {
+		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
+		if err != nil {
+			return nil, err
+		}
+
+		if kernelArtifacts.kernel != nil {
+			checksum, err := getDigest(kernelArtifacts.kernel)
+			if err != nil {
+				return nil, err
+			}
+
+			diskChecksums.KernelBootChecksum.Kernel = &checksum
+		}
+
+		if kernelArtifacts.initrd != nil {
+			checksum, err := getDigest(kernelArtifacts.initrd)
+			if err != nil {
+				return nil, err
+			}
+
+			diskChecksums.KernelBootChecksum.Initrd = &checksum
+		}
+	}
+
+	return diskChecksums, nil
+}
+
+func compareChecksums(expectedChecksum, computedChecksum uint32) error {
+	if expectedChecksum == 0 {
+		return ErrChecksumMissing
+	}
+	if expectedChecksum != computedChecksum {
+		return ErrChecksumMismatch
+	}
+	// checksum ok
+	return nil
+}
+
+func VerifyChecksums(mounter Mounter, vmi *v1.VirtualMachineInstance) error {
+	diskChecksums, err := mounter.ComputeChecksums(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to compute checksums: %s", err)
+	}
+
+	// verify containerdisks
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.ContainerDiskVolume == nil {
+			continue
+		}
+
+		expectedChecksum := volumeStatus.ContainerDiskVolume.Checksum
+		computedChecksum := diskChecksums.ContainerDiskChecksums[volumeStatus.Name]
+		if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
+			return fmt.Errorf("checksum error for volume %s: %w", volumeStatus.Name, err)
+		}
+	}
+
+	// verify kernel and initrd
+	if util.HasKernelBootContainerImage(vmi) {
+		if vmi.Status.KernelBootStatus == nil {
+			return ErrChecksumMissing
+		}
+
+		if diskChecksums.KernelBootChecksum.Kernel != nil {
+			if vmi.Status.KernelBootStatus.KernelInfo == nil {
+				return fmt.Errorf("checksum missing for kernel image: %w", ErrChecksumMissing)
+			}
+
+			expectedChecksum := vmi.Status.KernelBootStatus.KernelInfo.Checksum
+			computedChecksum := *diskChecksums.KernelBootChecksum.Kernel
+			if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
+				return fmt.Errorf("checksum error for kernel image: %w", err)
+			}
+		}
+
+		if diskChecksums.KernelBootChecksum.Initrd != nil {
+			if vmi.Status.KernelBootStatus.InitrdInfo == nil {
+				return fmt.Errorf("checksum missing for initrd image: %w", ErrChecksumMissing)
+			}
+
+			expectedChecksum := vmi.Status.KernelBootStatus.InitrdInfo.Checksum
+			computedChecksum := *diskChecksums.KernelBootChecksum.Initrd
+			if err := compareChecksums(expectedChecksum, computedChecksum); err != nil {
+				return fmt.Errorf("checksum error for initrd image: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
