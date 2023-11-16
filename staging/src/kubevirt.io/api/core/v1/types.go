@@ -247,6 +247,10 @@ type VirtualMachineInstanceStatus struct {
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
 
+	// KernelBootStatus contains info about the kernelBootContainer
+	// +optional
+	KernelBootStatus *KernelBootStatus `json:"kernelBootStatus,omitempty"`
+
 	// FSFreezeStatus is the state of the fs of the guest
 	// it can be either frozen or thawed
 	// +optional
@@ -336,6 +340,28 @@ type VolumeStatus struct {
 	Size int64 `json:"size,omitempty"`
 	// If the volume is memorydump volume, this will contain the memorydump info.
 	MemoryDumpVolume *DomainMemoryDumpInfo `json:"memoryDumpVolume,omitempty"`
+	// ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk
+	ContainerDiskVolume *ContainerDiskInfo `json:"containerDiskVolume,omitempty"`
+}
+
+// KernelInfo show info about the kernel image
+type KernelInfo struct {
+	// Checksum is the checksum of the kernel image
+	Checksum uint32 `json:"checksum,omitempty"`
+}
+
+// InitrdInfo show info about the initrd file
+type InitrdInfo struct {
+	// Checksum is the checksum of the initrd file
+	Checksum uint32 `json:"checksum,omitempty"`
+}
+
+// KernelBootStatus contains info about the kernelBootContainer
+type KernelBootStatus struct {
+	// KernelInfo show info about the kernel image
+	KernelInfo *KernelInfo `json:"kernelInfo,omitempty"`
+	// InitrdInfo show info about the initrd file
+	InitrdInfo *InitrdInfo `json:"initrdInfo,omitempty"`
 }
 
 // DomainMemoryDumpInfo represents the memory dump information
@@ -356,6 +382,12 @@ type HotplugVolumeStatus struct {
 	AttachPodName string `json:"attachPodName,omitempty"`
 	// AttachPodUID is the UID of the pod used to attach the volume to the node.
 	AttachPodUID types.UID `json:"attachPodUID,omitempty"`
+}
+
+// ContainerDiskInfo shows info about the containerdisk
+type ContainerDiskInfo struct {
+	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
+	Checksum uint32 `json:"checksum,omitempty"`
 }
 
 // VolumePhase indicates the current phase of the hotplug process.
