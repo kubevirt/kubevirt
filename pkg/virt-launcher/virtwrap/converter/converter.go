@@ -303,6 +303,10 @@ func setReservation(disk *api.Disk) {
 }
 
 func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
+	if diskDevice.LUN != nil && diskDevice.LUN.Reservation && diskDevice.ErrorPolicy == nil {
+		disk.Driver.ErrorPolicy = v1.DiskErrorPolicyReport
+		return nil
+	}
 	if diskDevice.ErrorPolicy == nil {
 		disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 		return nil
