@@ -329,7 +329,7 @@
      }
     }
    },
-   "/apis/clone.kubevirt.io/v1alpha1/virtualmachineclones/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/clone.kubevirt.io/v1alpha1/virtualmachineclones/{name}": {
     "get": {
      "description": "Get a VirtualMachineClone object.",
      "produces": [
@@ -647,7 +647,7 @@
      }
     }
    },
-   "/apis/export.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineexports": {
+   "/apis/export.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachineexports": {
     "get": {
      "description": "Get a list of VirtualMachineExport objects.",
      "produces": [
@@ -874,7 +874,7 @@
      }
     }
    },
-   "/apis/export.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineexports/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/export.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachineexports/{name}": {
     "get": {
      "description": "Get a VirtualMachineExport object.",
      "produces": [
@@ -1150,7 +1150,7 @@
      }
     ]
    },
-   "/apis/export.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineexports": {
+   "/apis/export.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachineexports": {
     "get": {
      "description": "Watch a VirtualMachineExport object.",
      "produces": [
@@ -1372,7 +1372,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachineinstancetypes": {
     "get": {
      "description": "Get a list of VirtualMachineInstancetype objects.",
      "produces": [
@@ -1599,7 +1599,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachineinstancetypes/{name}": {
     "get": {
      "description": "Get a VirtualMachineInstancetype object.",
      "produces": [
@@ -1792,7 +1792,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinepreferences": {
     "get": {
      "description": "Get a list of VirtualMachinePreference objects.",
      "produces": [
@@ -2019,7 +2019,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinepreferences/{name}": {
     "get": {
      "description": "Get a VirtualMachinePreference object.",
      "produces": [
@@ -2423,7 +2423,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/virtualmachineclusterinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1beta1/virtualmachineclusterinstancetypes/{name}": {
     "get": {
      "description": "Get a VirtualMachineClusterInstancetype object.",
      "produces": [
@@ -2819,7 +2819,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/virtualmachineclusterpreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1beta1/virtualmachineclusterpreferences/{name}": {
     "get": {
      "description": "Get a VirtualMachineClusterPreference object.",
      "produces": [
@@ -3170,7 +3170,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachineinstancetypes": {
     "get": {
      "description": "Watch a VirtualMachineInstancetype object.",
      "produces": [
@@ -3259,7 +3259,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1beta1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachinepreferences": {
     "get": {
      "description": "Watch a VirtualMachinePreference object.",
      "produces": [
@@ -3807,7 +3807,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/kubevirt": {
     "get": {
      "description": "Get a list of KubeVirt objects.",
      "produces": [
@@ -4034,7 +4034,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/kubevirt/{name}": {
     "get": {
      "description": "Get a KubeVirt object.",
      "produces": [
@@ -4227,7 +4227,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstancemigrations": {
     "get": {
      "description": "Get a list of VirtualMachineInstanceMigration objects.",
      "produces": [
@@ -4454,7 +4454,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstancemigrations/{name}": {
     "get": {
      "description": "Get a VirtualMachineInstanceMigration object.",
      "produces": [
@@ -4647,7 +4647,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstancepresets": {
     "get": {
      "description": "Get a list of VirtualMachineInstancePreset objects.",
      "produces": [
@@ -4874,7 +4874,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstancepresets/{name}": {
     "get": {
      "description": "Get a VirtualMachineInstancePreset object.",
      "produces": [
@@ -5067,7 +5067,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstancereplicasets": {
     "get": {
      "description": "Get a list of VirtualMachineInstanceReplicaSet objects.",
      "produces": [
@@ -5294,7 +5294,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstancereplicasets/{name}": {
     "get": {
      "description": "Get a VirtualMachineInstanceReplicaSet object.",
      "produces": [
@@ -5487,7 +5487,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances": {
     "get": {
      "description": "Get a list of VirtualMachineInstance objects.",
      "produces": [
@@ -5714,7 +5714,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}": {
     "get": {
      "description": "Get a VirtualMachineInstance object.",
      "produces": [
@@ -5907,7 +5907,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachines": {
     "get": {
      "description": "Get a list of VirtualMachine objects.",
      "produces": [
@@ -6134,7 +6134,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}": {
     "get": {
      "description": "Get a VirtualMachine object.",
      "produces": [
@@ -6823,7 +6823,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace}/kubevirt": {
     "get": {
      "description": "Watch a KubeVirt object.",
      "produces": [
@@ -6912,7 +6912,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachineinstancemigrations": {
     "get": {
      "description": "Watch a VirtualMachineInstanceMigration object.",
      "produces": [
@@ -7001,7 +7001,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachineinstancepresets": {
     "get": {
      "description": "Watch a VirtualMachineInstancePreset object.",
      "produces": [
@@ -7090,7 +7090,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachineinstancereplicasets": {
     "get": {
      "description": "Watch a VirtualMachineInstanceReplicaSet object.",
      "produces": [
@@ -7179,7 +7179,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachineinstances": {
     "get": {
      "description": "Watch a VirtualMachineInstance object.",
      "produces": [
@@ -7268,7 +7268,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace}/virtualmachines": {
     "get": {
      "description": "Watch a VirtualMachine object.",
      "produces": [
@@ -8025,7 +8025,7 @@
      }
     }
    },
-   "/apis/migrations.kubevirt.io/v1alpha1/migrationpolicies/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/migrations.kubevirt.io/v1alpha1/migrationpolicies/{name}": {
     "get": {
      "description": "Get a MigrationPolicy object.",
      "produces": [
@@ -8343,7 +8343,7 @@
      }
     }
    },
-   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepools": {
+   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinepools": {
     "get": {
      "description": "Get a list of VirtualMachinePool objects.",
      "produces": [
@@ -8570,7 +8570,7 @@
      }
     }
    },
-   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepools/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinepools/{name}": {
     "get": {
      "description": "Get a VirtualMachinePool object.",
      "produces": [
@@ -8846,7 +8846,7 @@
      }
     ]
    },
-   "/apis/pool.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepools": {
+   "/apis/pool.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinepools": {
     "get": {
      "description": "Watch a VirtualMachinePool object.",
      "produces": [
@@ -9068,7 +9068,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinerestores": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinerestores": {
     "get": {
      "description": "Get a list of VirtualMachineRestore objects.",
      "produces": [
@@ -9295,7 +9295,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinerestores/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinerestores/{name}": {
     "get": {
      "description": "Get a VirtualMachineRestore object.",
      "produces": [
@@ -9488,7 +9488,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinesnapshotcontents": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshotcontents": {
     "get": {
      "description": "Get a list of VirtualMachineSnapshotContent objects.",
      "produces": [
@@ -9715,7 +9715,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinesnapshotcontents/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshotcontents/{name}": {
     "get": {
      "description": "Get a VirtualMachineSnapshotContent object.",
      "produces": [
@@ -9908,7 +9908,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinesnapshots": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshots": {
     "get": {
      "description": "Get a list of VirtualMachineSnapshot objects.",
      "produces": [
@@ -10135,7 +10135,7 @@
      }
     }
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinesnapshots/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshots/{name}": {
     "get": {
      "description": "Get a VirtualMachineSnapshot object.",
      "produces": [
@@ -10577,7 +10577,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinerestores": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinerestores": {
     "get": {
      "description": "Watch a VirtualMachineRestore object.",
      "produces": [
@@ -10666,7 +10666,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinesnapshotcontents": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinesnapshotcontents": {
     "get": {
      "description": "Watch a VirtualMachineSnapshotContent object.",
      "produces": [
@@ -10755,7 +10755,7 @@
      }
     ]
    },
-   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinesnapshots": {
+   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinesnapshots": {
     "get": {
      "description": "Watch a VirtualMachineSnapshot object.",
      "produces": [
@@ -11206,7 +11206,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/expand-vm-spec": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/expand-vm-spec": {
     "put": {
      "description": "Expands instancetype and preference into the passed VirtualMachine object.",
      "consumes": [
@@ -11241,7 +11241,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
      "operationId": "v1vmi-addvolume",
@@ -11292,7 +11292,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/console": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
      "operationId": "v1Console",
@@ -11321,7 +11321,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/filesystemlist": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist": {
     "get": {
      "description": "Get list of active filesystems on guest machine via guest agent",
      "consumes": [
@@ -11344,7 +11344,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/freeze": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze": {
     "put": {
      "description": "Freeze a VirtualMachineInstance object.",
      "operationId": "v1Freeze",
@@ -11395,7 +11395,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/guestosinfo": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo": {
     "get": {
      "description": "Get guest agent os information",
      "consumes": [
@@ -11436,7 +11436,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/pause": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
      "operationId": "v1Pause",
@@ -11493,7 +11493,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port.",
      "operationId": "v1vmi-PortForward",
@@ -11530,7 +11530,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}/{protocol:tcp|udp}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}/{protocol}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachineInstance and port.",
      "operationId": "v1vmi-PortForwardWithProtocol",
@@ -11575,7 +11575,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
      "operationId": "v1vmi-removevolume",
@@ -11626,7 +11626,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/fetchcertchain": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain": {
     "get": {
      "description": "Fetch SEV certificate chain from the node where Virtual Machine is scheduled",
      "consumes": [
@@ -11667,7 +11667,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/injectlaunchsecret": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/injectlaunchsecret": {
     "put": {
      "description": "Inject SEV launch secret into a Virtual Machine",
      "operationId": "v1SEVInjectLaunchSecret",
@@ -11718,7 +11718,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/querylaunchmeasurement": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/querylaunchmeasurement": {
     "get": {
      "description": "Query SEV launch measurement from a Virtual Machine",
      "consumes": [
@@ -11759,7 +11759,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/setupsession": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/setupsession": {
     "put": {
      "description": "Setup SEV session parameters for a Virtual Machine",
      "operationId": "v1SEVSetupSession",
@@ -11810,7 +11810,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/softreboot": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot": {
     "put": {
      "description": "Soft reboot a VirtualMachineInstance object.",
      "operationId": "v1SoftReboot",
@@ -11851,7 +11851,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/unfreeze": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze": {
     "put": {
      "description": "Unfreeze a VirtualMachineInstance object.",
      "operationId": "v1Unfreeze",
@@ -11892,7 +11892,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/unpause": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause": {
     "put": {
      "description": "Unpause a VirtualMachineInstance object.",
      "operationId": "v1Unpause",
@@ -11949,7 +11949,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/usbredir": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir": {
     "get": {
      "description": "Open a websocket connection to connect to USB device on the specified VirtualMachineInstance.",
      "operationId": "v1usbredir",
@@ -11978,7 +11978,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/userlist": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/userlist": {
     "get": {
      "description": "Get list of active users via guest agent",
      "consumes": [
@@ -12001,7 +12001,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc": {
     "get": {
      "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
      "operationId": "v1VNC",
@@ -12030,7 +12030,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc/screenshot": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot": {
     "get": {
      "description": "Get a PNG VNC screenshot of the specified VirtualMachineInstance.",
      "operationId": "v1VNCScreenshot",
@@ -12066,7 +12066,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vsock": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vsock": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port via VSOCK.",
      "operationId": "v1VSOCK",
@@ -12110,7 +12110,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
      "operationId": "v1vm-addvolume",
@@ -12161,7 +12161,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/expand-spec": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
     "get": {
      "description": "Get VirtualMachine object with expanded instancetype and preference.",
      "produces": [
@@ -12211,7 +12211,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/memorydump": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/memorydump": {
     "put": {
      "description": "Dumps a VirtualMachineInstance memory.",
      "operationId": "v1MemoryDump",
@@ -12262,7 +12262,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/migrate": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/migrate": {
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
      "operationId": "v1Migrate",
@@ -12319,7 +12319,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
      "operationId": "v1vm-PortForward",
@@ -12356,7 +12356,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}/{protocol:tcp|udp}": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}/{protocol}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port.",
      "operationId": "v1vm-PortForwardWithProtocol",
@@ -12401,7 +12401,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/removememorydump": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/removememorydump": {
     "put": {
      "description": "Remove memory dump association.",
      "operationId": "v1RemoveMemoryDump",
@@ -12442,7 +12442,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
      "operationId": "v1vm-removevolume",
@@ -12493,7 +12493,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/restart": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/restart": {
     "put": {
      "description": "Restart a VirtualMachine object.",
      "operationId": "v1Restart",
@@ -12549,7 +12549,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/start": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/start": {
     "put": {
      "description": "Start a VirtualMachine object.",
      "operationId": "v1Start",
@@ -12606,7 +12606,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/stop": {
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/stop": {
     "put": {
      "description": "Stop a VirtualMachine object.",
      "operationId": "v1Stop",
@@ -12794,7 +12794,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/expand-vm-spec": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/expand-vm-spec": {
     "put": {
      "description": "Expands instancetype and preference into the passed VirtualMachine object.",
      "consumes": [
@@ -12829,7 +12829,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
      "operationId": "v1alpha3vmi-addvolume",
@@ -12880,7 +12880,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/console": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
      "operationId": "v1alpha3Console",
@@ -12909,7 +12909,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/filesystemlist": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist": {
     "get": {
      "description": "Get list of active filesystems on guest machine via guest agent",
      "consumes": [
@@ -12932,7 +12932,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/freeze": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/freeze": {
     "put": {
      "description": "Freeze a VirtualMachineInstance object.",
      "operationId": "v1alpha3Freeze",
@@ -12983,7 +12983,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/guestosinfo": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo": {
     "get": {
      "description": "Get guest agent os information",
      "consumes": [
@@ -13024,7 +13024,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/pause": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
      "operationId": "v1alpha3Pause",
@@ -13081,7 +13081,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port.",
      "operationId": "v1alpha3vmi-PortForward",
@@ -13118,7 +13118,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}/{protocol:tcp|udp}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/portforward/{port}/{protocol}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachineInstance and port.",
      "operationId": "v1alpha3vmi-PortForwardWithProtocol",
@@ -13163,7 +13163,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
      "operationId": "v1alpha3vmi-removevolume",
@@ -13214,7 +13214,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/fetchcertchain": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain": {
     "get": {
      "description": "Fetch SEV certificate chain from the node where Virtual Machine is scheduled",
      "consumes": [
@@ -13255,7 +13255,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/injectlaunchsecret": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/injectlaunchsecret": {
     "put": {
      "description": "Inject SEV launch secret into a Virtual Machine",
      "operationId": "v1alpha3SEVInjectLaunchSecret",
@@ -13306,7 +13306,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/querylaunchmeasurement": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/querylaunchmeasurement": {
     "get": {
      "description": "Query SEV launch measurement from a Virtual Machine",
      "consumes": [
@@ -13347,7 +13347,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/sev/setupsession": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/setupsession": {
     "put": {
      "description": "Setup SEV session parameters for a Virtual Machine",
      "operationId": "v1alpha3SEVSetupSession",
@@ -13398,7 +13398,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/softreboot": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot": {
     "put": {
      "description": "Soft reboot a VirtualMachineInstance object.",
      "operationId": "v1alpha3SoftReboot",
@@ -13439,7 +13439,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/unfreeze": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze": {
     "put": {
      "description": "Unfreeze a VirtualMachineInstance object.",
      "operationId": "v1alpha3Unfreeze",
@@ -13480,7 +13480,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/unpause": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/unpause": {
     "put": {
      "description": "Unpause a VirtualMachineInstance object.",
      "operationId": "v1alpha3Unpause",
@@ -13537,7 +13537,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/usbredir": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir": {
     "get": {
      "description": "Open a websocket connection to connect to USB device on the specified VirtualMachineInstance.",
      "operationId": "v1alpha3usbredir",
@@ -13566,7 +13566,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/userlist": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/userlist": {
     "get": {
      "description": "Get list of active users via guest agent",
      "consumes": [
@@ -13589,7 +13589,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vnc": {
     "get": {
      "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
      "operationId": "v1alpha3VNC",
@@ -13618,7 +13618,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc/screenshot": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot": {
     "get": {
      "description": "Get a PNG VNC screenshot of the specified VirtualMachineInstance.",
      "operationId": "v1alpha3VNCScreenshot",
@@ -13654,7 +13654,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vsock": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vsock": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the specified VirtualMachineInstance and port via VSOCK.",
      "operationId": "v1alpha3VSOCK",
@@ -13698,7 +13698,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
      "operationId": "v1alpha3vm-addvolume",
@@ -13749,7 +13749,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/expand-spec": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
     "get": {
      "description": "Get VirtualMachine object with expanded instancetype and preference.",
      "produces": [
@@ -13799,7 +13799,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/memorydump": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/memorydump": {
     "put": {
      "description": "Dumps a VirtualMachineInstance memory.",
      "operationId": "v1alpha3MemoryDump",
@@ -13850,7 +13850,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/migrate": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/migrate": {
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
      "operationId": "v1alpha3Migrate",
@@ -13907,7 +13907,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic to the running VMI for the specified VirtualMachine and port.",
      "operationId": "v1alpha3vm-PortForward",
@@ -13944,7 +13944,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/portforward/{port:[0-9]+}/{protocol:tcp|udp}": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/portforward/{port}/{protocol}": {
     "get": {
      "description": "Open a websocket connection forwarding traffic of the specified protocol (either tcp or udp) to the specified VirtualMachine and port.",
      "operationId": "v1alpha3vm-PortForwardWithProtocol",
@@ -13989,7 +13989,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/removememorydump": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/removememorydump": {
     "put": {
      "description": "Remove memory dump association.",
      "operationId": "v1alpha3RemoveMemoryDump",
@@ -14030,7 +14030,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
      "operationId": "v1alpha3vm-removevolume",
@@ -14081,7 +14081,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/restart": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/restart": {
     "put": {
      "description": "Restart a VirtualMachine object.",
      "operationId": "v1alpha3Restart",
@@ -14137,7 +14137,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/start": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/start": {
     "put": {
      "description": "Start a VirtualMachine object.",
      "operationId": "v1alpha3Start",
@@ -14194,7 +14194,7 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/stop": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/stop": {
     "put": {
      "description": "Stop a VirtualMachine object.",
      "operationId": "v1alpha3Stop",
