@@ -2462,6 +2462,15 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			})
 		}
 
+		// Verify if error_policy is valid
+		if disk.ErrorPolicy != nil && *disk.ErrorPolicy != v1.DiskErrorPolicyStop && *disk.ErrorPolicy != v1.DiskErrorPolicyIgnore && *disk.ErrorPolicy != v1.DiskErrorPolicyReport && *disk.ErrorPolicy != v1.DiskErrorPolicyEnospace {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s has invalid value \"%s\"", field.Index(idx).Child("errorPolicy").String(), *disk.ErrorPolicy),
+				Field:   field.Index(idx).Child("errorPolicy").String(),
+			})
+		}
+
 		// Verify disk and volume name can be a valid container name since disk
 		// name can become a container name which will fail to schedule if invalid
 		errs := validation.IsDNS1123Label(disk.Name)
