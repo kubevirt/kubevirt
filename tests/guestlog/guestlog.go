@@ -91,12 +91,13 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 		})
 
 		Context("fetch logs", func() {
-			var cirrosLogo = strings.Replace(` ____               ____  ____
+			var cirrosLogo = `
+  ____               ____  ____
  / __/ __ ____ ____ / __ \/ __/
 / /__ / // __// __// /_/ /\ \ 
 \___//_//_/  /_/   \____/___/ 
    http://cirros-cloud.net
-`, "\n", "\r\n", 5)
+`
 
 			It("it should fetch logs for a running VM with logs API", func() {
 				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
@@ -143,8 +144,8 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				// Expect(outputString).ToNot(ContainSubstring("Password: gocubsgo"))
 
 				By("Ensuring that logs contain the test command and its output")
-				Expect(logs).To(ContainSubstring("echo " + testString + "\r\n"))
-				Expect(logs).To(ContainSubstring("\r\n" + testString + "\r\n"))
+				Expect(logs).To(ContainSubstring("echo " + testString + "\n"))
+				Expect(logs).To(ContainSubstring("\n" + testString + "\n"))
 			})
 
 			It("it should rotate the internal log files", func() {
@@ -194,7 +195,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that log lines are sequential with no gaps")
-				outputLines := strings.Split(logs, "\r\n")
+				outputLines := strings.Split(logs, "\n")
 				Expect(len(outputLines)).To(BeNumerically(">", 1000))
 				matchingLines := 0
 				prevSeqn := -1
@@ -249,5 +250,5 @@ func getConsoleLogs(virtClient kubecli.KubevirtClient, virtlauncherPod *k8sv1.Po
 			Container: "guest-console-log",
 		}).
 		DoRaw(context.Background())
-	return string(logsRaw), err
+	return strings.ReplaceAll(string(logsRaw), "\r\n", "\n"), err
 }
