@@ -295,7 +295,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		getKubevirtVMMetrics = tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 	})
 
-	PIt("[test_id:4136][flaky] should find one leading virt-controller and two ready", func() {
+	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
 		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		foundMetrics := map[string]int{
