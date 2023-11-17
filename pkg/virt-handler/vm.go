@@ -899,6 +899,9 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	if len(vmi.Status.VolumeStatus) > 0 {
 		diskDeviceMap := make(map[string]string)
 		for _, disk := range domain.Spec.Devices.Disks {
+			if disk.Alias == nil {
+				continue
+			}
 			diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
 		}
 		specVolumeMap := make(map[string]v1.Volume)
