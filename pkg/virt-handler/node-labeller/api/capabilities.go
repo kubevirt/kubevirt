@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 
-	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
+	"k8s.io/utils/cpuset"
 )
 
 type yesnobool bool
@@ -107,8 +107,8 @@ func (b *yesnobool) UnmarshalXMLAttr(attr xml.Attr) error {
 
 func (b *CPUSiblings) UnmarshalXMLAttr(attr xml.Attr) error {
 	if attr.Value != "" {
-		if list, err := hwutil.ParseCPUSetLine(attr.Value, 100); err == nil {
-			for _, cpu := range list {
+		if cpuSet, err := cpuset.Parse(attr.Value); err == nil {
+			for _, cpu := range cpuSet.List() {
 				*b = append(*b, uint32(cpu))
 			}
 		} else {

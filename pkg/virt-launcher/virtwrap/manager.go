@@ -459,7 +459,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			useIOThreads = true
 		}
 
-		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet, useIOThreads)
+		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet.List(), useIOThreads)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
@@ -931,7 +931,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		Architecture:          runtime.GOARCH,
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
-		CPUSet:                podCPUSet,
+		CPUSet:                podCPUSet.List(),
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
 		EFIConfiguration:      efiConf,

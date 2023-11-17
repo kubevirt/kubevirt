@@ -26,58 +26,16 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
-
-	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	"k8s.io/utils/cpuset"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 const (
 	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2})\.([0-7]{1})$`
 )
-
-// Parse linux cpuset into an array of ints
-// See: http://man7.org/linux/man-pages/man7/cpuset.7.html#FORMATS
-func ParseCPUSetLine(cpusetLine string, limit int) (cpusList []int, err error) {
-	elements := strings.Split(cpusetLine, ",")
-	for _, item := range elements {
-		cpuRange := strings.Split(item, "-")
-		// provided a range: 1-3
-		if len(cpuRange) > 1 {
-			start, err := strconv.Atoi(cpuRange[0])
-			if err != nil {
-				return nil, err
-			}
-			end, err := strconv.Atoi(cpuRange[1])
-			if err != nil {
-				return nil, err
-			}
-			// Add cpus to the list. Assuming it's a valid range.
-			for cpuNum := start; cpuNum <= end; cpuNum++ {
-				if cpusList, err = safeAppend(cpusList, cpuNum, limit); err != nil {
-					return nil, err
-				}
-			}
-		} else {
-			cpuNum, err := strconv.Atoi(cpuRange[0])
-			if err != nil {
-				return nil, err
-			}
-			if cpusList, err = safeAppend(cpusList, cpuNum, limit); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return
-}
-
-func safeAppend(cpusList []int, cpu int, limit int) ([]int, error) {
-	if len(cpusList) > limit {
-		return nil, fmt.Errorf("rejecting expanding CPU array for safety reasons, limit is %v", limit)
-	}
-	return append(cpusList, cpu), nil
-}
 
 // GetNumberOfVCPUs returns number of vCPUs
 // It counts sockets*cores*threads
@@ -130,31 +88,27 @@ func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
 	return &numaNode, nil
 }
 
-func GetDeviceAlignedCPUs(pciAddress string) ([]int, error) {
+func GetDeviceAlignedCPUs(pciAddress string) (cpuset.CPUSet, error) {
 	numaNode, err := GetDeviceNumaNode(pciAddress)
 	if err != nil {
-		return nil, err
+		return cpuset.New(), err
 	}
-	cpuList, err := GetNumaNodeCPUList(int(*numaNode))
-	if err != nil {
-		return nil, err
-	}
-	return cpuList, err
+	cpuSet, err := GetNumaNodeCPUList(int(*numaNode))
+	return cpuSet, err
 }
 
-func GetNumaNodeCPUList(numaNode int) ([]int, error) {
+func GetNumaNodeCPUList(numaNode int) (cpuset.CPUSet, error) {
 	filePath := fmt.Sprintf("/sys/bus/node/devices/node%d/cpulist", numaNode)
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return cpuset.New(), err
 	}
 	content = bytes.TrimSpace(content)
-	cpusList, err := ParseCPUSetLine(string(content[:]), 50000)
+	cpuSet, err := cpuset.Parse(string(content[:]))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse cpulist file: %v", err)
+		return cpuSet, fmt.Errorf("failed to parse cpulist file: %v", err)
 	}
-
-	return cpusList, nil
+	return cpuSet, nil
 }
 
 func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]uint32, error) {
@@ -171,9 +125,9 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 		p2vCPUMap[vcpuPin.CPUSet] = vcpuPin.VCPU
 	}
 
-	for _, pcpu := range alignedPhysicalCPUs {
-		if vCPU, exist := p2vCPUMap[strconv.Itoa(int(pcpu))]; exist {
-			alignedVCPUList = append(alignedVCPUList, uint32(vCPU))
+	for _, pcpu := range alignedPhysicalCPUs.List() {
+		if vCPU, exist := p2vCPUMap[strconv.Itoa(pcpu)]; exist {
+			alignedVCPUList = append(alignedVCPUList, vCPU)
 		}
 	}
 	return alignedVCPUList, nil

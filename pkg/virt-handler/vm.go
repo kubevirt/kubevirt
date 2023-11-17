@@ -62,6 +62,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/cpuset"
 
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -3387,12 +3388,12 @@ func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 		return err
 	}
 
-	cpuSet, err := hardware.ParseCPUSetLine(cpusetStr, 50000)
+	cpuSet, err := cpuset.Parse(cpusetStr)
 	if err != nil {
 		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
 	}
 
-	vmi.Status.MigrationState.TargetCPUSet = cpuSet
+	vmi.Status.MigrationState.TargetCPUSet = cpuSet.List()
 
 	return nil
 }

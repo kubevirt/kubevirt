@@ -25,27 +25,28 @@ import (
 	"os"
 
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+
+	"k8s.io/utils/cpuset"
 )
 
-func GetPodCPUSet() ([]int, error) {
-	var cpuset string
+func GetPodCPUSet() (cpuset.CPUSet, error) {
+	var cpusetLine string
 	file, err := os.Open(cgroup.GetGlobalCpuSetPath())
 	if err != nil {
-		return nil, err
+		return cpuset.New(), err
 	}
 	defer util.CloseIOAndCheckErr(file, nil)
 	scanner := bufio.NewScanner(file)
 	if scanner.Scan() {
-		cpuset = scanner.Text()
+		cpusetLine = scanner.Text()
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return cpuset.New(), err
 	}
-	cpusList, err := hardware.ParseCPUSetLine(cpuset, 50000)
+	cpuSet, err := cpuset.Parse(cpusetLine)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse cpuset file: %v", err)
+		return cpuSet, fmt.Errorf("failed to parse cpuset file: %v", err)
 	}
-	return cpusList, nil
+	return cpuSet, nil
 }

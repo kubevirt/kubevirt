@@ -57,7 +57,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -80,6 +79,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/cpuset"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -3090,14 +3090,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			return parseVCPUPinOutput(stdout)
 		}
 
-		parseSysCpuSet := func(cpuset string) []int {
-			set, err := hardware.ParseCPUSetLine(cpuset, 5000)
+		parseSysCPUSet := func(cpusetLine string) []int {
+			cpuSet, err := cpuset.Parse(cpusetLine)
 			Expect(err).ToNot(HaveOccurred())
-			return set
+			return cpuSet.List()
 		}
 
 		getPodCPUSet := func(pod *k8sv1.Pod) []int {
-
 			var cpusetPath string
 			if cgroupVersion == cgroup.V2 {
 				cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
@@ -3112,7 +3111,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stderr).To(BeEmpty())
 
-			return parseSysCpuSet(strings.TrimSpace(stdout))
+			return parseSysCPUSet(strings.TrimSpace(stdout))
 		}
 
 		getVirtLauncherCPUSet := func(vmi *v1.VirtualMachineInstance) []int {

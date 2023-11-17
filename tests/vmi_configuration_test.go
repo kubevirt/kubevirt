@@ -47,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/cpuset"
 	"k8s.io/utils/pointer"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -68,7 +69,6 @@ import (
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -2504,10 +2504,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
-				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
+				pinnedCPUSet, err := cpuset.Parse(output)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores)))
+				Expect(pinnedCPUSet.List()).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
@@ -2621,7 +2621,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
-				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
+				pinnedCPUSet, err := cpuset.Parse(output)
 				Expect(err).ToNot(HaveOccurred())
 
 				output, err = tests.ListCgroupThreads(readyPod)
@@ -2645,7 +2645,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(getProcessNameErrors).Should(BeNumerically("<=", 1))
 
 				// 1 additioan pcpus should be allocated on the pod for the emulation threads
-				Expect(pinnedCPUsList).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
+				Expect(pinnedCPUSet.List()).To(HaveLen(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())

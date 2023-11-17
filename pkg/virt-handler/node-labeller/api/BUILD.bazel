@@ -5,5 +5,5 @@ go_library(
     srcs = ["capabilities.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api",
     visibility = ["//visibility:public"],
-    deps = ["//pkg/util/hardware:go_default_library"],
+    deps = ["//vendor/k8s.io/utils/cpuset:go_default_library"],
 )

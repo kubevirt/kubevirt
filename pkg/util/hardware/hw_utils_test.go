@@ -27,25 +27,6 @@ import (
 )
 
 var _ = Describe("Hardware utils test", func() {
-
-	Context("cpuset parser", func() {
-		It("shoud parse cpuset correctly", func() {
-			expectedList := []int{0, 1, 2, 7, 12, 13, 14}
-			cpusetLine := "0-2,7,12-14"
-			lst, err := ParseCPUSetLine(cpusetLine, 100)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(lst).To(HaveLen(7))
-			Expect(lst).To(Equal(expectedList))
-		})
-
-		It("should reject expanding arbitrary ranges which would overload a machine", func() {
-			cpusetLine := "0-100000000000"
-			_, err := ParseCPUSetLine(cpusetLine, 100)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("safety"))
-		})
-	})
-
 	Context("count vCPUs", func() {
 		It("shoud count vCPUs correctly", func() {
 			vCPUs := GetNumberOfVCPUs(&v1.CPU{
