@@ -131,7 +131,7 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 	if err := m.nftable.AddRule(family, natTable, postroutingChain, string(family), "saddr", guestIP, "counter", "masquerade"); err != nil {
 		return err
 	}
-	if err := m.nftable.AddRule(family, natTable, preroutingChain, "iifname", podIfaceSpec.Name, "counter", "jump", kubevirtPreInboundChain); err != nil {
+	if err := m.nftable.AddRule(family, natTable, preroutingChain, "fib", "daddr", "type", "local", "counter", "jump", kubevirtPreInboundChain); err != nil {
 		return err
 	}
 	if err := m.nftable.AddRule(family, natTable, postroutingChain, "oifname", bridgeIfaceSpec.Name, "counter", "jump", kubevirtPostInboundChain); err != nil {
