@@ -37,6 +37,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/errors"
 
+	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -2746,9 +2747,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
-	options, err := virtualMachineOptionsWithNetworkConfig(nil, 0, nil, d.capabilities, disksInfo, d.clusterConfig, vmi.Spec.Domain.Devices.Interfaces)
-	if err != nil {
-		return err
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, disksInfo, d.clusterConfig)
+	if d.clusterConfig != nil {
+		options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
 	}
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
@@ -3046,9 +3047,9 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	smbios := d.clusterConfig.GetSMBIOS()
 	period := d.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options, err := virtualMachineOptionsWithNetworkConfig(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig, vmi.Spec.Domain.Devices.Interfaces)
-	if err != nil {
-		return err
+	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig)
+	if d.clusterConfig != nil {
+		options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
 	}
 
 	err = client.SyncVirtualMachine(vmi, options)
