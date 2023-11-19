@@ -969,6 +969,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.BochsForEFIGuests = options.GetClusterConfig().GetBochsDisplayForEFIGuests()
 			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
 		}
+
+		c.DomainAttachmentByInterfaceName = options.GetInterfaceDomainAttachment()
 	}
 	c.DisksInfo = l.disksInfo
 

@@ -108,31 +108,32 @@ type EFIConfiguration struct {
 }
 
 type ConverterContext struct {
-	Architecture          string
-	AllowEmulation        bool
-	Secrets               map[string]*k8sv1.Secret
-	VirtualMachine        *v1.VirtualMachineInstance
-	CPUSet                []int
-	IsBlockPVC            map[string]bool
-	IsBlockDV             map[string]bool
-	HotplugVolumes        map[string]v1.VolumeStatus
-	PermanentVolumes      map[string]v1.VolumeStatus
-	DisksInfo             map[string]*cmdv1.DiskInfo
-	SMBios                *cmdv1.SMBios
-	SRIOVDevices          []api.HostDevice
-	GenericHostDevices    []api.HostDevice
-	GPUHostDevices        []api.HostDevice
-	EFIConfiguration      *EFIConfiguration
-	MemBalloonStatsPeriod uint
-	UseVirtioTransitional bool
-	EphemeraldiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
-	VolumesDiscardIgnore  []string
-	Topology              *cmdv1.Topology
-	ExpandDisksEnabled    bool
-	UseLaunchSecurity     bool
-	FreePageReporting     bool
-	BochsForEFIGuests     bool
-	SerialConsoleLog      bool
+	Architecture                    string
+	AllowEmulation                  bool
+	Secrets                         map[string]*k8sv1.Secret
+	VirtualMachine                  *v1.VirtualMachineInstance
+	CPUSet                          []int
+	IsBlockPVC                      map[string]bool
+	IsBlockDV                       map[string]bool
+	HotplugVolumes                  map[string]v1.VolumeStatus
+	PermanentVolumes                map[string]v1.VolumeStatus
+	DisksInfo                       map[string]*cmdv1.DiskInfo
+	SMBios                          *cmdv1.SMBios
+	SRIOVDevices                    []api.HostDevice
+	GenericHostDevices              []api.HostDevice
+	GPUHostDevices                  []api.HostDevice
+	EFIConfiguration                *EFIConfiguration
+	MemBalloonStatsPeriod           uint
+	UseVirtioTransitional           bool
+	EphemeraldiskCreator            ephemeraldisk.EphemeralDiskCreatorInterface
+	VolumesDiscardIgnore            []string
+	Topology                        *cmdv1.Topology
+	ExpandDisksEnabled              bool
+	UseLaunchSecurity               bool
+	FreePageReporting               bool
+	BochsForEFIGuests               bool
+	SerialConsoleLog                bool
+	DomainAttachmentByInterfaceName map[string]string
 }
 
 func contains(volumes []string, name string) bool {

@@ -52,7 +52,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if iface.Binding != nil || iface.SRIOV != nil || iface.Slirp != nil {
+		if (iface.Binding != nil && c.DomainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil || iface.Slirp != nil {
 			continue
 		}
 
@@ -81,7 +81,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 		}
 
-		if iface.Bridge != nil || iface.Masquerade != nil || iface.Macvtap != nil {
+		if c.DomainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
 			// use "ethernet" interface type, since we're using pre-configured tap devices
 			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
 			domainIface.Type = "ethernet"
