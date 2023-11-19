@@ -160,7 +160,7 @@ func createUSBHostDevice(device HostDeviceMetaData, usbAddress string) (*api.Hos
 	bus, deviceNumber := strs[0], strs[1]
 
 	return &api.HostDevice{
-		Type:  "usb",
+		Type:  api.HostDeviceUSB,
 		Mode:  "subsystem",
 		Alias: api.NewUserDefinedAlias("usb-host-" + device.Name),
 		Source: api.HostDeviceSource{
