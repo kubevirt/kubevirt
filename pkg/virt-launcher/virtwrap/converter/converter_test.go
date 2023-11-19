@@ -1560,24 +1560,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(lastToBoot), "the interface whose boot order is higher should be the last to boot")
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder.Order).To(Equal(firstToBoot), "the interface whose boot order is lower should be the first to boot")
 		})
-		Specify("macvtap interface binding must be used on a multus network", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name1 := "net1"
-
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
-
-			podNetwork := v1.Network{
-				Name: name1,
-				NetworkSource: v1.NetworkSource{
-					Pod: &v1.PodNetwork{},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{podNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-
-			domain := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
-		})
 		It("creates SRIOV hostdev", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			domain := &api.Domain{}

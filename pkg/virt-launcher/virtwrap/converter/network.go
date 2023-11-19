@@ -47,7 +47,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 	networks := indexNetworksByName(nonAbsentNets)
 
 	for i, iface := range nonAbsentIfaces {
-		net, isExist := networks[iface.Name]
+		_, isExist := networks[iface.Name]
 		if !isExist {
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
@@ -81,23 +81,9 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 		}
 
-		if iface.Bridge != nil || iface.Masquerade != nil {
-			// TODO:(ihar) consider abstracting interface type conversion /
-			// detection into drivers
-
+		if iface.Bridge != nil || iface.Masquerade != nil || iface.Macvtap != nil {
 			// use "ethernet" interface type, since we're using pre-configured tap devices
 			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-			domainIface.Type = "ethernet"
-			if iface.BootOrder != nil {
-				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else {
-				domainIface.Rom = &api.Rom{Enabled: "no"}
-			}
-		} else if iface.Macvtap != nil {
-			if net.Multus == nil {
-				return nil, fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
-			}
-
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
