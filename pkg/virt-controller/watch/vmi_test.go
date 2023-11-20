@@ -3280,10 +3280,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		Context("k8s API is down", func() {
 			BeforeEach(func() {
-				vmi = appendNetworkToVMI(
-					appendNetworkToVMI(
-						api.NewMinimalVMI(vmName), firstVMNetwork, firstVMInterface),
-					secondVMNetwork, secondVMInterface)
+				vmi = api.NewMinimalVMI(vmName)
+				vmi.Spec.Networks = append(
+					vmi.Spec.Networks,
+					newNetwork(firstVMNetwork, firstVMInterface), newNetwork(secondVMNetwork, secondVMInterface),
+				)
+				vmi.Spec.Domain.Devices.Interfaces = append(
+					vmi.Spec.Domain.Devices.Interfaces,
+					virtv1.Interface{Name: firstVMInterface}, virtv1.Interface{Name: secondVMInterface},
+				)
 
 				var err error
 				pod, err = NewPodForVirtualMachineWithMultusAnnotations(vmi, k8sv1.PodRunning, config)
@@ -3294,7 +3299,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			It("pod multus status cannot be updated", func() {
 				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(HaveOccurred())
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod)).To(HaveOccurred())
 			})
 		})
 
@@ -3737,18 +3742,15 @@ func newMultusNetwork(name, networkName string) virtv1.Network {
 	}
 }
 
-func appendNetworkToVMI(vmi *virtv1.VirtualMachineInstance, netAttachDefName string, name string) *virtv1.VirtualMachineInstance {
-	vmi.Spec.Networks = append(
-		vmi.Spec.Networks,
-		virtv1.Network{
-			Name: name,
-			NetworkSource: virtv1.NetworkSource{
-				Multus: &virtv1.MultusNetwork{
-					NetworkName: netAttachDefName,
-				},
+func newNetwork(netAttachDefName string, name string) virtv1.Network {
+	return virtv1.Network{
+		Name: name,
+		NetworkSource: virtv1.NetworkSource{
+			Multus: &virtv1.MultusNetwork{
+				NetworkName: netAttachDefName,
 			},
-		})
-	return vmi
+		},
+	}
 }
 
 func newVMIWithOneIface(vmi *virtv1.VirtualMachineInstance, networkName string, ifaceName string) *virtv1.VirtualMachineInstance {
