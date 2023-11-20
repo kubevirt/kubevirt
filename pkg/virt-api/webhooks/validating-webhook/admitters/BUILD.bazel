@@ -30,6 +30,7 @@ go_library(
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/monitoring/virt-api/metrics:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
