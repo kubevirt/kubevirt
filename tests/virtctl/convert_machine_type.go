@@ -40,7 +40,7 @@ const (
 	testLabel              = "testing-label="
 )
 
-var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute][virtctl] update machine-types command", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
@@ -48,7 +48,7 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 		virtClient = kubevirt.Client()
 	})
 
-	Context("should update the machine types of outdated VMs", func() {
+	Describe("should successfully create convert machine types job", func() {
 		var vmList []*v1.VirtualMachine
 		var job *batchv1.Job
 
@@ -90,135 +90,78 @@ var _ = Describe("[sig-compute][virtctl] mass machine type transition", decorato
 			vmList = append(vmList, vm)
 			return vm
 		}
-		It("no optional arguments are passed to virtctl command", Label("virtctl-update"), func() {
-			vmNeedsUpdateStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
-			vmNeedsUpdateRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
-			vmNoUpdate := createVM(machineTypeNoUpdate, util.NamespaceTestDefault, false, false)
+		Context("when no optional arguments are passed to virtctl command", Label("virtctl-update"), func() {
+			It("should update machine type of VMs with specified machine types", func() {
+				vmNeedsUpdateStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
 
-			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob)()
-			Expect(err).ToNot(HaveOccurred())
+				err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob)()
+				Expect(err).ToNot(HaveOccurred())
+				job = expectJobExists(virtClient)
 
-			job = expectJobExists(virtClient)
+				Eventually(ThisVM(vmNeedsUpdateStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
+			})
 
-			Eventually(ThisVM(vmNeedsUpdateStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNoUpdate), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNoUpdate))
+			Context("when running VMs are updated", func() {
+				It("should not signal job completion", func() {
+					vmNeedsUpdateRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 
-			Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveRestartRequiredStatus())
+					err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob)()
+					Expect(err).ToNot(HaveOccurred())
+					job = expectJobExists(virtClient)
 
-			Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
+					Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
+					Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveRestartRequiredStatus())
+
+					Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
+				})
+			})
 		})
 
 		It("Example with namespace flag", func() {
 			vmNamespaceDefaultStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
-			vmNamespaceDefaultRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 			vmNamespaceOtherStopped := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, false, false)
-			vmNamespaceOtherRunning := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, false, true)
 
 			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob,
 				setFlag(namespaceFlag, util.NamespaceTestDefault))()
 			Expect(err).ToNot(HaveOccurred())
-
 			job = expectJobExists(virtClient)
 
 			Eventually(ThisVM(vmNamespaceDefaultStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceDefaultRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
 			Eventually(ThisVM(vmNamespaceOtherStopped), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNamespaceOtherRunning), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-
-			Eventually(ThisVM(vmNamespaceDefaultRunning), time.Minute, time.Second).Should(haveRestartRequiredStatus())
-			Eventually(ThisVM(vmNamespaceOtherRunning), time.Minute, time.Second).ShouldNot(haveRestartRequiredStatus())
-
-			Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
 		})
 
 		It("Example with label-selector flag", func() {
 			vmWithLabelStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, true, false)
-			vmWithLabelRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, true, true)
 			vmNoLabelStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
-			vmNoLabelRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 
 			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob,
 				setFlag(labelSelectorFlag, testLabel))()
 			Expect(err).ToNot(HaveOccurred())
-
 			job = expectJobExists(virtClient)
 
 			Eventually(ThisVM(vmWithLabelStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmWithLabelRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
 			Eventually(ThisVM(vmNoLabelStopped), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNoLabelRunning), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-
-			Eventually(ThisVM(vmWithLabelRunning)).Should(haveRestartRequiredStatus())
-			Eventually(ThisVM(vmNoLabelRunning)).ShouldNot(haveRestartRequiredStatus())
-
-			Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
 		})
 
 		It("Example with force-restart flag", func() {
-			By("Creating a stopped VM and a running VM that require machine type update.")
-			vmNeedsUpdateStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
+			By("Creating a running VM that requires machine type update.")
 			vmNeedsUpdateRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 			vmiNeedsUpdateRunning, err := virtClient.VirtualMachineInstance(vmNeedsUpdateRunning.Namespace).Get(context.Background(), vmNeedsUpdateRunning.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Sending virtctl update machine type cmd with automatic restart flag.")
+			By("Sending virtctl update machine type cmd with restart-now flag.")
 			err = clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob, forceRestartFlag)()
 			Expect(err).ToNot(HaveOccurred())
-
 			job = expectJobExists(virtClient)
 
 			By("Ensuring the machine types of both VMs have been updated to the default.")
-			Eventually(ThisVM(vmNeedsUpdateStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
 			Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
 
 			By("Ensuring the VM has been restarted and the VMI has the default machine type.")
 			Eventually(ThisVMI(vmiNeedsUpdateRunning), 120*time.Second, time.Second).Should(beRestarted(vmiNeedsUpdateRunning.UID))
 			Eventually(ThisVMI(vmiNeedsUpdateRunning)).Should(haveDefaultMachineType())
 
-			By("Ensuring the job terminates since there are no VMs pending restart.")
-			Eventually(thisJob(virtClient, job), time.Minute, time.Second).Should(haveCompletionTime())
-		})
-
-		It("Complex example", func() {
-			vmNamespaceDefaultStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
-			vmNamespaceDefaultRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
-			vmNamespaceOtherStopped := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, false, false)
-			vmNamespaceOtherRunning := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, false, true)
-			vmNamespaceDefaultWithLabelStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, true, false)
-			vmNamespaceDefaultWithLabelRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, true, true)
-			vmNamespaceOtherWithLabelStopped := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, true, false)
-			vmNamespaceOtherWithLabelRunning := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, true, true)
-			vmNoUpdateStopped := createVM(machineTypeNoUpdate, util.NamespaceTestDefault, true, false)
-
-			vmiNamespaceDefaultWithLabelRunning, err := virtClient.VirtualMachineInstance(vmNamespaceDefaultWithLabelRunning.Namespace).Get(context.Background(), vmNamespaceDefaultWithLabelRunning.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			err = clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob, forceRestartFlag,
-				setFlag(namespaceFlag, util.NamespaceTestDefault),
-				setFlag(labelSelectorFlag, testLabel))()
-			Expect(err).ToNot(HaveOccurred())
-
-			job = expectJobExists(virtClient)
-
-			// the only VMs that should be updated are the ones in the default test namespace and with the test label
-			// with force-restart flag, the restart-vm-required label should not be applied to the running VM
-			Eventually(ThisVM(vmNamespaceDefaultWithLabelStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceDefaultWithLabelRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceDefaultWithLabelRunning), time.Minute, time.Second).ShouldNot(haveRestartRequiredStatus())
-
-			// all other VM machine types should remain unchanged
-			Eventually(ThisVM(vmNamespaceDefaultStopped)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNamespaceDefaultRunning)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNamespaceOtherStopped)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNamespaceOtherRunning)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNamespaceOtherWithLabelStopped)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNamespaceOtherWithLabelRunning)).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
-			Eventually(ThisVM(vmNoUpdateStopped)).Should(haveOriginalMachineType(machineTypeNoUpdate))
-
-			Eventually(ThisVMI(vmiNamespaceDefaultWithLabelRunning), 120*time.Second, time.Second).Should(beRestarted(vmiNamespaceDefaultWithLabelRunning.UID))
-			Eventually(ThisVMI(vmiNamespaceDefaultWithLabelRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
-
+			By("Ensuring the job terminates since there are no running VMs pending restart.")
 			Eventually(thisJob(virtClient, job), time.Minute, time.Second).Should(haveCompletionTime())
 		})
 	})

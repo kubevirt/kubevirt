@@ -30,7 +30,6 @@ go_test(
     srcs = [
         "controller_test.go",
         "convert_machine_type_suite_test.go",
-        "update_machine_type_test.go",
     ],
     deps = [
         ":go_default_library",

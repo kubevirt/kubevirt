@@ -108,7 +108,6 @@ func (c *JobController) run(stopCh <-chan struct{}) {
 
 func (c *JobController) runWorker() {
 	for c.Execute() {
-		c.exitJob()
 	}
 }
 
@@ -125,6 +124,7 @@ func (c *JobController) Execute() bool {
 		c.Queue.AddRateLimited(key)
 	} else {
 		c.Queue.Forget(key)
+		c.exitJob()
 	}
 
 	return true

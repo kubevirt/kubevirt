@@ -53,8 +53,6 @@ func Run() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		req, selectable := LabelSelector.Requirements()
-		fmt.Printf("%v, %t\n", req, selectable)
 	}
 
 	// set up JobController
