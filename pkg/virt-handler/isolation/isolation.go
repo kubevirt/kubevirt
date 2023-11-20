@@ -105,21 +105,6 @@ func IsMounted(mountPoint *safepath.Path) (isMounted bool, err error) {
 	}
 }
 
-// AreMounted checks if given paths are mounted by calling IsMounted.
-// If error occurs, the first error is returned.
-func (r *RealIsolationResult) AreMounted(mountPoints ...*safepath.Path) (isMounted bool, err error) {
-	for _, mountPoint := range mountPoints {
-		if mountPoint != nil {
-			isMounted, err = IsMounted(mountPoint)
-			if !isMounted || err != nil {
-				return
-			}
-		}
-	}
-
-	return true, nil
-}
-
 // IsBlockDevice checks if the given path is a block device or not.
 func IsBlockDevice(path *safepath.Path) (bool, error) {
 	fileInfo, err := safepath.StatAtNoFollow(path)
