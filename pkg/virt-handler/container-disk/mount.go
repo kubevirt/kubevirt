@@ -53,6 +53,7 @@ type mounter struct {
 	socketPathGetter           containerdisk.SocketPathGetter
 	kernelBootSocketPathGetter containerdisk.KernelBootSocketPathGetter
 	clusterConfig              *virtconfig.ClusterConfig
+	nodeIsolationResult        isolation.IsolationResult
 }
 
 type Mounter interface {
@@ -96,6 +97,7 @@ func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
 		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
 		clusterConfig:              clusterConfig,
+		nodeIsolationResult:        isolation.NodeIsolationResult(),
 	}
 }
 
@@ -305,8 +307,6 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 				return nil, err
 			}
 
-			nodeRes := isolation.NodeIsolationResult()
-
 			if isMounted, err := isolation.IsMounted(targetFile); err != nil {
 				return nil, fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
@@ -319,7 +319,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 				if err != nil {
 					return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 				}
-				mountPoint, err := isolation.ParentPathForRootMount(nodeRes, res)
+				mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
 				if err != nil {
 					return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 				}
@@ -470,8 +470,6 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 		return err
 	}
 
-	nodeRes := isolation.NodeIsolationResult()
-
 	var targetInitrdPath *safepath.Path
 	var targetKernelPath *safepath.Path
 
@@ -504,8 +502,15 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 			return false, err
 		}
 
-		mounted, err := nodeRes.AreMounted(artifactFiles...)
-		return mounted, err
+		for _, mountPoint := range artifactFiles {
+			if mountPoint != nil {
+				isMounted, err := isolation.IsMounted(mountPoint)
+				if !isMounted || err != nil {
+					return isMounted, err
+				}
+			}
+		}
+		return true, nil
 	}
 
 	if isMounted, err := areKernelArtifactsMounted(targetDir, targetInitrdPath, targetKernelPath); err != nil {
@@ -517,7 +522,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 		if err != nil {
 			return fmt.Errorf("failed to detect socket for containerDisk %v: %v", kernelBootName, err)
 		}
-		mountRootPath, err := isolation.ParentPathForRootMount(nodeRes, res)
+		mountRootPath, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
 		if err != nil {
 			return fmt.Errorf("failed to detect root mount point of %v on the node: %v", kernelBootName, err)
 		}
@@ -645,8 +650,7 @@ func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v
 		return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 	}
 
-	nodeRes := isolation.NodeIsolationResult()
-	mountPoint, err := isolation.ParentPathForRootMount(nodeRes, res)
+	mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 	}
