@@ -146,17 +146,11 @@ func contains(volumes []string, name string) bool {
 }
 
 func isAMD64(arch string) bool {
-	if arch == "amd64" {
-		return true
-	}
-	return false
+	return arch == "amd64"
 }
 
 func isARM64(arch string) bool {
-	if arch == "arm64" {
-		return true
-	}
-	return false
+	return arch == "arm64"
 }
 
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
