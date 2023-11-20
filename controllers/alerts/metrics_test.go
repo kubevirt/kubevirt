@@ -21,7 +21,7 @@ import (
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -124,7 +124,7 @@ var _ = Describe("alert tests", func() {
 
 	Context("test PrometheusRule", func() {
 		BeforeEach(func() {
-			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)
+			currentMetric, _ = metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)
 		})
 
 		AfterEach(func() {
@@ -157,7 +157,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(pr.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should add the labels if it's missing", func() {
@@ -174,7 +174,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(pr.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -203,7 +203,7 @@ var _ = Describe("alert tests", func() {
 			Expect(pr.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; not HCO triggered", func() {
@@ -242,7 +242,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -265,7 +265,7 @@ var _ = Describe("alert tests", func() {
 			Expect(pr.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the spec if modified", func() {
@@ -289,7 +289,7 @@ var _ = Describe("alert tests", func() {
 			Expect(pr.Spec).Should(Equal(*NewPrometheusRuleSpec()))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the spec if it's missing", func() {
@@ -307,7 +307,7 @@ var _ = Describe("alert tests", func() {
 			Expect(pr.Spec).Should(Equal(*NewPrometheusRuleSpec()))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should use the default runbook URL template when no ENV Variable is set", func() {
@@ -363,7 +363,7 @@ var _ = Describe("alert tests", func() {
 			pr := &monitoringv1.PrometheusRule{}
 			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
 
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric + expectedCountDelta))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric + expectedCountDelta))
 		},
 			Entry("should not increase the counter if it HCO triggered, in upgrade mode and in the first loop", true, true, true, float64(0)), // can't really happen
 			Entry("should not increase the counter if it HCO triggered, not in upgrade mode but in the first loop", true, false, true, float64(0)),
@@ -379,7 +379,7 @@ var _ = Describe("alert tests", func() {
 
 	Context("test Role", func() {
 		BeforeEach(func() {
-			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)
+			currentMetric, _ = metrics.GetOverwrittenModificationsCount("Role", roleName)
 		})
 
 		expectedEvents := []commontestutils.MockEvent{
@@ -408,7 +408,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(role.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -425,7 +425,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(role.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -454,7 +454,7 @@ var _ = Describe("alert tests", func() {
 			Expect(role.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; not HCO triggered", func() {
@@ -493,7 +493,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -516,7 +516,7 @@ var _ = Describe("alert tests", func() {
 			Expect(role.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Rules if modified", func() {
@@ -547,7 +547,7 @@ var _ = Describe("alert tests", func() {
 			Expect(role.Rules[0].Verbs).Should(Equal([]string{"get", "list", "watch"}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Rules if it's missing", func() {
@@ -568,13 +568,13 @@ var _ = Describe("alert tests", func() {
 			Expect(role.Rules[0].Verbs).Should(Equal([]string{"get", "list", "watch"}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 	})
 
 	Context("test RoleBinding", func() {
 		BeforeEach(func() {
-			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)
+			currentMetric, _ = metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)
 		})
 
 		expectedEvents := []commontestutils.MockEvent{
@@ -603,7 +603,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(rb.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -620,7 +620,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(rb.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -649,7 +649,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; not HCO triggered", func() {
@@ -688,7 +688,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -711,7 +711,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the RoleRef if modified", func() {
@@ -735,7 +735,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.RoleRef.Name).Should(Equal(roleName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the RoleRef if it's missing", func() {
@@ -755,7 +755,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.RoleRef.Name).Should(Equal(roleName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Subjects if modified", func() {
@@ -787,7 +787,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.Subjects[0].Namespace).Should(Equal(getMonitoringNamespace(ci)))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Subjects if it's missing", func() {
@@ -809,13 +809,13 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.Subjects[0].Namespace).Should(Equal(getMonitoringNamespace(ci)))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
 		})
 	})
 
 	Context("test Service", func() {
 		BeforeEach(func() {
-			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)
+			currentMetric, _ = metrics.GetOverwrittenModificationsCount("Service", serviceName)
 		})
 
 		expectedEvents := []commontestutils.MockEvent{
@@ -844,7 +844,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(svc.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -861,7 +861,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(svc.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -890,7 +890,7 @@ var _ = Describe("alert tests", func() {
 			Expect(svc.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; No HCO triggered", func() {
@@ -929,7 +929,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -952,7 +952,7 @@ var _ = Describe("alert tests", func() {
 			Expect(svc.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if modified", func() {
@@ -990,7 +990,7 @@ var _ = Describe("alert tests", func() {
 			Expect(svc.Spec.Ports[0].TargetPort).Should(Equal(intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.MetricsPort}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if it's missing", func() {
@@ -1012,13 +1012,13 @@ var _ = Describe("alert tests", func() {
 			Expect(svc.Spec.Ports[0].TargetPort).Should(Equal(intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.MetricsPort}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 	})
 
 	Context("test ServiceMonitor", func() {
 		BeforeEach(func() {
-			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)
+			currentMetric, _ = metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)
 		})
 
 		expectedEvents := []commontestutils.MockEvent{
@@ -1047,7 +1047,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(sm.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -1064,7 +1064,7 @@ var _ = Describe("alert tests", func() {
 
 			Expect(sm.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -1093,7 +1093,7 @@ var _ = Describe("alert tests", func() {
 			Expect(sm.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; no HCO triggered", func() {
@@ -1132,7 +1132,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -1155,7 +1155,7 @@ var _ = Describe("alert tests", func() {
 			Expect(sm.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if modified", func() {
@@ -1182,7 +1182,7 @@ var _ = Describe("alert tests", func() {
 			Expect(sm.Spec.Endpoints[0].Port).Should(Equal(operatorPortName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if it's missing", func() {
@@ -1201,7 +1201,7 @@ var _ = Describe("alert tests", func() {
 			Expect(sm.Spec.Endpoints[0].Port).Should(Equal(operatorPortName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
 		})
 	})
 

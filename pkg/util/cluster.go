@@ -5,24 +5,22 @@ import (
 	"errors"
 	"os"
 
-	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/client-go/discovery"
-	"k8s.io/utils/net"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
-
-	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
-
 	"github.com/go-logr/logr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/client-go/discovery"
+	"k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 )
 
 type ClusterInfo interface {
@@ -89,9 +87,7 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 		return err
 	}
 	if c.runningInOpenshift && c.singlestackipv6 {
-		if err := metrics.HcoMetrics.SetHCOMetricSingleStackIPv6True(); err != nil {
-			return err
-		}
+		metrics.SetHCOMetricSingleStackIPv6True()
 	}
 
 	uiPluginVarValue, uiPluginVarExists := os.LookupEnv(KVUIPluginImageEnvV)

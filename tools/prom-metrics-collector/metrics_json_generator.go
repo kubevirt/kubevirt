@@ -21,16 +21,41 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"strings"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+	"github.com/kubevirt/monitoring/pkg/metrics/parser"
 )
 
+// This should be used only for very rare cases where the naming conventions that are explained in the best practices:
+// https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
+// should be ignored.
+var excludedMetrics = map[string]struct{}{
+	"kubevirt_hyperconverged_operator_health_status": struct{}{},
+}
+
 func main() {
-	metricFamilies := ReadMetrics()
+	err := metrics.SetupMetrics()
+	if err != nil {
+		panic(err)
+	}
+
+	metricsList := metrics.ListMetrics()
+
+	var metricFamilies []parser.Metric
+	for _, m := range metricsList {
+		if _, isExcludedMetric := excludedMetrics[m.GetOpts().Name]; !isExcludedMetric {
+			metricFamilies = append(metricFamilies, parser.Metric{
+				Name: m.GetOpts().Name,
+				Help: m.GetOpts().Help,
+				Type: strings.ToUpper(string(m.GetBaseType())),
+			})
+		}
+	}
 
 	jsonBytes, err := json.Marshal(metricFamilies)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	fmt.Println(string(jsonBytes)) // Write the JSON string to standard output

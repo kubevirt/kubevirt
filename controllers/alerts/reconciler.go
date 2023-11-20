@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -128,11 +128,7 @@ func (r *MonitoringReconciler) handleUpdatedResource(req *common.HcoRequest, rec
 	} else {
 		r.eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", reconciler.Kind(), reconciler.ResourceName()))
 		if !firstLoop && !req.UpgradeMode {
-			err := metrics.HcoMetrics.IncOverwrittenModifications(reconciler.Kind(), reconciler.ResourceName())
-			if err != nil {
-				req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")
-				return err
-			}
+			metrics.IncOverwrittenModifications(reconciler.Kind(), reconciler.ResourceName())
 		}
 	}
 	return nil

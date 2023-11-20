@@ -15,7 +15,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -179,10 +179,7 @@ func (h *OperandHandler) handleUpdatedOperand(req *common.HcoRequest, res *Ensur
 	} else {
 		h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", res.Type, res.Name))
 		if !req.UpgradeMode {
-			err := metrics.HcoMetrics.IncOverwrittenModifications(res.Type, res.Name)
-			if err != nil {
-				req.Logger.Error(err, "couldn't update 'OverwrittenModifications' metric")
-			}
+			metrics.IncOverwrittenModifications(res.Type, res.Name)
 		}
 	}
 }

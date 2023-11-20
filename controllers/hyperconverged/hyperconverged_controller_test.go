@@ -37,7 +37,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
@@ -738,7 +738,7 @@ var _ = Describe("HyperconvergedController", func() {
 				rq := request
 				rq.NamespacedName = ph
 
-				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
+				counterValueBefore, err := metrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Do the reconcile
@@ -763,7 +763,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
 				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
 
-				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
+				counterValueAfter, err := metrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(counterValueAfter).To(Equal(counterValueBefore + 1))
 
@@ -792,7 +792,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco, existingResource})
 				r := initReconciler(cl, nil)
 
-				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
+				counterValueBefore, err := metrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Do the reconcile triggered by HCO
@@ -817,7 +817,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
 				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
 
-				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
+				counterValueAfter, err := metrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(counterValueAfter).To(Equal(counterValueBefore))
 
@@ -1481,7 +1481,7 @@ var _ = Describe("HyperconvergedController", func() {
 					NamespacedName: ph,
 				}
 
-				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
+				counterValueBefore, err := metrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				result, err := r.Reconcile(context.Background(), rq)
@@ -1500,7 +1500,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
-				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
+				counterValueAfter, err := metrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(counterValueAfter).To(Equal(counterValueBefore))
 			})
@@ -3273,7 +3273,7 @@ var _ = Describe("HyperconvergedController", func() {
 							}
 						]`,
 					}
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3326,7 +3326,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3366,7 +3366,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -3428,7 +3428,7 @@ var _ = Describe("HyperconvergedController", func() {
 				]`,
 					}
 
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3485,7 +3485,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3525,7 +3525,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -3579,7 +3579,7 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3632,7 +3632,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Reason:  taintedConfigurationReason,
 						Message: taintedConfigurationMessage,
 					})
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3669,7 +3669,7 @@ var _ = Describe("HyperconvergedController", func() {
 						// Set bad json
 						common.JSONPatchKVAnnotationName: `[{`,
 					}
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3713,7 +3713,7 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3764,7 +3764,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Reason:  taintedConfigurationReason,
 						Message: taintedConfigurationMessage,
 					})
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3801,7 +3801,7 @@ var _ = Describe("HyperconvergedController", func() {
 						// Set bad json
 						common.JSONPatchSSPAnnotationName: `[{`,
 					}
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3875,10 +3875,10 @@ var _ = Describe("HyperconvergedController", func() {
 							}
 						]`,
 					}
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)).To(Succeed())
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)).To(Succeed())
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
-					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
+					metrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)
 
 					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3972,19 +3972,19 @@ var _ = Describe("HyperconvergedController", func() {
 })
 
 func verifyUnsafeMetrics(expected int, annotation string) {
-	count, err := metrics.HcoMetrics.GetUnsafeModificationsCount(annotation)
+	count, err := metrics.GetUnsafeModificationsCount(annotation)
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 	ExpectWithOffset(1, count).Should(BeEquivalentTo(expected))
 }
 
 func verifyHyperConvergedCRExistsMetricTrue() {
-	hcExists, err := metrics.HcoMetrics.IsHCOMetricHyperConvergedExists()
+	hcExists, err := metrics.IsHCOMetricHyperConvergedExists()
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 	ExpectWithOffset(1, hcExists).Should(BeTrue())
 }
 
 func verifyHyperConvergedCRExistsMetricFalse() {
-	hcExists, err := metrics.HcoMetrics.IsHCOMetricHyperConvergedExists()
+	hcExists, err := metrics.IsHCOMetricHyperConvergedExists()
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 	ExpectWithOffset(1, hcExists).Should(BeFalse())
 }
@@ -3992,7 +3992,7 @@ func verifyHyperConvergedCRExistsMetricFalse() {
 func verifySystemHealthStatusHealthy(hco *hcov1beta1.HyperConverged) {
 	ExpectWithOffset(1, hco.Status.SystemHealthStatus).To(Equal(systemHealthStatusHealthy))
 
-	systemHealthStatusMetric, err := metrics.HcoMetrics.GetHCOMetricSystemHealthStatus()
+	systemHealthStatusMetric, err := metrics.GetHCOMetricSystemHealthStatus()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, systemHealthStatusMetric).To(Equal(metrics.SystemHealthStatusHealthy))
 }
@@ -4000,7 +4000,7 @@ func verifySystemHealthStatusHealthy(hco *hcov1beta1.HyperConverged) {
 func verifySystemHealthStatusError(hco *hcov1beta1.HyperConverged) {
 	ExpectWithOffset(1, hco.Status.SystemHealthStatus).To(Equal(systemHealthStatusError))
 
-	systemHealthStatusMetric, err := metrics.HcoMetrics.GetHCOMetricSystemHealthStatus()
+	systemHealthStatusMetric, err := metrics.GetHCOMetricSystemHealthStatus()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, systemHealthStatusMetric).To(Equal(metrics.SystemHealthStatusError))
 }

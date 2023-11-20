@@ -44,7 +44,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
@@ -542,18 +542,14 @@ func (r *ReconcileHyperConverged) getHyperConverged(req *common.HcoRequest) (*hc
 
 	// Green path first
 	if err == nil {
-		if metricErr := metrics.HcoMetrics.SetHCOMetricHyperConvergedExists(); metricErr != nil {
-			req.Logger.Error(metricErr, "failed to update the HyperConvergedCRExists metric")
-		}
+		metrics.SetHCOMetricHyperConvergedExists()
 		return instance, nil
 	}
 
 	// Error path
 	if apierrors.IsNotFound(err) {
 		req.Logger.Info("No HyperConverged resource")
-		if metricErr := metrics.HcoMetrics.SetHCOMetricHyperConvergedNotExists(); metricErr != nil {
-			req.Logger.Error(metricErr, "failed to update the HyperConvergedCRExists metric")
-		}
+		metrics.SetHCOMetricHyperConvergedNotExists()
 
 		// Request object not found, could have been deleted after reconcile request.
 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -1014,9 +1010,7 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
 		req.StatusDirty = true
 	}
 
-	if metricErr := metrics.HcoMetrics.SetHCOMetricSystemHealthStatus(getNumericalHealthStatus(systemHealthStatus)); metricErr != nil {
-		req.Logger.Error(metricErr, "failed to update the systemHealthStatus metric")
-	}
+	metrics.SetHCOMetricSystemHealthStatus(getNumericalHealthStatus(systemHealthStatus))
 }
 
 func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
@@ -1043,10 +1037,7 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 				tainted = true
 			}
 		}
-		err := metrics.HcoMetrics.SetUnsafeModificationCount(NumOfChanges, jpa)
-		if err != nil {
-			req.Logger.Error(err, "couldn't update 'UnsafeModification' metric")
-		}
+		metrics.SetUnsafeModificationCount(NumOfChanges, jpa)
 	}
 
 	if tainted {
