@@ -401,11 +401,11 @@ var _ = Describe("ContainerDisk", func() {
 
 			DescribeTable("It should detect the image ID from", func(imageID string) {
 				expected := "myregistry.io/myimage@sha256:4gjffGJlg4"
-				res := toImageWithDigest("myregistry.io/myimage", imageID)
+				res := toPullableImageReference("myregistry.io/myimage", imageID)
 				Expect(res).To(Equal(expected))
-				res = toImageWithDigest("myregistry.io/myimage:1234", imageID)
+				res = toPullableImageReference("myregistry.io/myimage:1234", imageID)
 				Expect(res).To(Equal(expected))
-				res = toImageWithDigest("myregistry.io/myimage:latest", imageID)
+				res = toPullableImageReference("myregistry.io/myimage:latest", imageID)
 				Expect(res).To(Equal(expected))
 			},
 				Entry("docker", "docker://sha256:4gjffGJlg4"),
@@ -414,7 +414,7 @@ var _ = Describe("ContainerDisk", func() {
 			)
 
 			DescribeTable("It should detect the base image from", func(given, expected string) {
-				res := toImageWithDigest(given, "docker://sha256:4gjffGJlg4")
+				res := toPullableImageReference(given, "docker://sha256:4gjffGJlg4")
 				Expect(strings.Split(res, "@sha256:")[0]).To(Equal(expected))
 			},
 				Entry("image with registry and no tags or shasum", "myregistry.io/myimage", "myregistry.io/myimage"),
