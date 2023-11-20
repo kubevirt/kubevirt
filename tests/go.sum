@@ -1581,8 +1581,8 @@ kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4 h1:fZYvD3/Vnitfkx6IJxjL
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4/go.mod h1:018lASpFYBsYN6XwmA2TIrPCx6e0gviTd/ZNtSitKgc=
 kubevirt.io/kubevirt v1.1.0 h1:tW1badwkR2KWT32VJd4Ua+VWed9eofOB4cchnHaQWYY=
 kubevirt.io/kubevirt v1.1.0/go.mod h1:qpiFdiyRQVzSyekotGD4WdF9kwFFWgjyPVQsRnOnCoA=
-kubevirt.io/managed-tenant-quota v1.1.10 h1:WKM2/JY0X0fWu24hhj+3l4KMqRD+xjeM1k/k/O5goYY=
-kubevirt.io/managed-tenant-quota v1.1.10/go.mod h1:E5CkhJR9WPj44suhmhJAuWdEHcdKnbh2cKSf5D5jMvk=
+kubevirt.io/managed-tenant-quota v1.1.11 h1:OQf8DLqWdlFmCqz9dWSADNorNdqCz195hvk9wK/sB84=
+kubevirt.io/managed-tenant-quota v1.1.11/go.mod h1:PfX8K97vz2mtAigYki0UY6KtQddVirvZiZEd7Uqp4Ak=
 kubevirt.io/qe-tools v0.1.8 h1:Ar7qicmzHdd+Ia+6rjHDg3D7GReIyq7QFXoC4F7TjhQ=
 kubevirt.io/ssp-operator/api v0.19.0-rc.0 h1:K/lSX6hYBOsVX5ljmwxza85g8ewkpR55FQ8sX+biiZk=
 kubevirt.io/ssp-operator/api v0.19.0-rc.0/go.mod h1:Rm+RReQuQkhRwXCkAHPGIuHjA3G6IkMnLOMJ2mqYzJk=

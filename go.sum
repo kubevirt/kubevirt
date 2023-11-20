@@ -441,8 +441,8 @@ kubevirt.io/containerized-data-importer-api v1.58.0-rc1 h1:PbZBWEbCh3M2sffNnhD/B
 kubevirt.io/containerized-data-importer-api v1.58.0-rc1/go.mod h1:Y/8ETgHS1GjO89bl682DPtQOYEU/1ctPFBz6Sjxm4DM=
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4 h1:fZYvD3/Vnitfkx6IJxjLAk8ugnZQ7CXVYcRfkSKmuZY=
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4/go.mod h1:018lASpFYBsYN6XwmA2TIrPCx6e0gviTd/ZNtSitKgc=
-kubevirt.io/managed-tenant-quota v1.1.10 h1:WKM2/JY0X0fWu24hhj+3l4KMqRD+xjeM1k/k/O5goYY=
-kubevirt.io/managed-tenant-quota v1.1.10/go.mod h1:E5CkhJR9WPj44suhmhJAuWdEHcdKnbh2cKSf5D5jMvk=
+kubevirt.io/managed-tenant-quota v1.1.11 h1:OQf8DLqWdlFmCqz9dWSADNorNdqCz195hvk9wK/sB84=
+kubevirt.io/managed-tenant-quota v1.1.11/go.mod h1:PfX8K97vz2mtAigYki0UY6KtQddVirvZiZEd7Uqp4Ak=
 kubevirt.io/ssp-operator/api v0.19.0-rc.0 h1:K/lSX6hYBOsVX5ljmwxza85g8ewkpR55FQ8sX+biiZk=
 kubevirt.io/ssp-operator/api v0.19.0-rc.0/go.mod h1:Rm+RReQuQkhRwXCkAHPGIuHjA3G6IkMnLOMJ2mqYzJk=
 sigs.k8s.io/controller-runtime v0.16.3 h1:2TuvuokmfXvDUamSx1SuAOO3eTyye+47mJCigwG62c4=

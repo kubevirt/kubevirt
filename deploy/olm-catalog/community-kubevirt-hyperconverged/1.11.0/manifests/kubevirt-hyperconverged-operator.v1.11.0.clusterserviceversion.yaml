@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-    createdAt: "2023-11-13 05:13:35"
+    createdAt: "2023-11-20 05:13:05"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -2993,7 +2993,7 @@ spec:
                 - name: HPPO_VERSION
                   value: v0.18.0
                 - name: MTQ_VERSION
-                  value: v1.1.10
+                  value: v1.1.11
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:e79027973b09aac75860f267c7d7f830599978c38a081001f404b9a1c3d2990f
                 - name: KV_CONSOLE_PROXY_IMAGE
@@ -3683,17 +3683,17 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v1.1.10
+                  value: v1.1.11
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/mtq-controller@sha256:a88e8c1e8b32ff9cc7341430aa94bba7569c083a577421c0fe5771e6845eda29
+                  value: quay.io/kubevirt/mtq-controller@sha256:96dd73ea0d7847d9f6322192559747bd85655e25ee25482d112e6e3c6fef21b2
                 - name: MTQ_LOCK_SERVER_IMAGE
-                  value: quay.io/kubevirt/mtq-lock-server@sha256:ed80db5db8d8b2a65dd7a85f969ac4649dde823131bce469b50f662f605a3e3c
+                  value: quay.io/kubevirt/mtq-lock-server@sha256:9614df0d5af7c998bcceaf73b548f2e3b29ff8ee4ca64c32613bfbdd6e452f6c
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
                 - name: MONITORING_NAMESPACE
-                image: quay.io/kubevirt/mtq-operator@sha256:edbaf1d80c60ac30e3f8e8ed133467446f11f8bbe50bc21fd47b0dc8a6c882d5
+                image: quay.io/kubevirt/mtq-operator@sha256:ef5c4bb1fa72f9e6e75d5585ca352f7563720389e6c9876aa8b07d12d1be6194
                 imagePullPolicy: IfNotPresent
                 name: mtq-operator
                 ports:
@@ -4386,11 +4386,11 @@ spec:
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
     name: macvtap-cni
-  - image: quay.io/kubevirt/mtq-controller@sha256:a88e8c1e8b32ff9cc7341430aa94bba7569c083a577421c0fe5771e6845eda29
+  - image: quay.io/kubevirt/mtq-controller@sha256:96dd73ea0d7847d9f6322192559747bd85655e25ee25482d112e6e3c6fef21b2
     name: mtq-controller
-  - image: quay.io/kubevirt/mtq-lock-server@sha256:ed80db5db8d8b2a65dd7a85f969ac4649dde823131bce469b50f662f605a3e3c
+  - image: quay.io/kubevirt/mtq-lock-server@sha256:9614df0d5af7c998bcceaf73b548f2e3b29ff8ee4ca64c32613bfbdd6e452f6c
     name: mtq-lock-server
-  - image: quay.io/kubevirt/mtq-operator@sha256:edbaf1d80c60ac30e3f8e8ed133467446f11f8bbe50bc21fd47b0dc8a6c882d5
+  - image: quay.io/kubevirt/mtq-operator@sha256:ef5c4bb1fa72f9e6e75d5585ca352f7563720389e6c9876aa8b07d12d1be6194
     name: mtq-operator
   - image: ghcr.io/k8snetworkplumbingwg/multus-cni@sha256:3fbcc32bd4e4d15bd93c96def784a229cd84cca27942bf4858b581f31c97ee02
     name: multus-cni
