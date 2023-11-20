@@ -303,6 +303,26 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 				Expect(err).NotTo(HaveOccurred())
 				assertInterfaceUnplugedFromVM(g, vm, linuxBridgeNetworkName2)
 			}, 30*time.Second, 3*time.Second).Should(Succeed())
+
+			By("Unplug the last secondary interface")
+			Expect(removeInterface(vm, linuxBridgeNetworkName1)).To(Succeed())
+
+			if plugMethod == migrationBased {
+				migrate(vmi)
+			}
+
+			By("verify unplugged iface cleared from VM & VMI")
+			Eventually(func(g Gomega) {
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				assertInterfaceUnplugedFromVMI(g, vmi, linuxBridgeNetworkName1)
+			}, 30*time.Second, 3*time.Second).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				vm, err = kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				assertInterfaceUnplugedFromVM(g, vm, linuxBridgeNetworkName1)
+			}, 30*time.Second, 3*time.Second).Should(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
