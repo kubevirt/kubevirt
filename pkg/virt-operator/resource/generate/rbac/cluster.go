@@ -518,6 +518,17 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
+					GroupName,
+				},
+				Resources: []string{
+					"kubevirts",
+				},
+				Verbs: []string{
+					"get", "list",
+				},
+			},
+			{
+				APIGroups: []string{
 					GroupNameSubresources,
 				},
 				Resources: []string{
