@@ -1884,6 +1884,14 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		}
 	}
 
+	if d.isMigrationSource(vmi) && d.isHotplugInProgress(vmi) {
+		// The updated VMI spec can be sent via the SyncVMI
+		// to the live-migration source virt-launcher and it can fail
+		// because the source launcher uses its current container cpuset
+		// in order to build the topology, and it won't fit into VMI spec topology.
+		shouldUpdate = false
+	}
+
 	// NOTE: This must be the last check that occurs before checking the sync booleans!
 	//
 	// Special logic for domains migrated from a source node.
@@ -3529,6 +3537,20 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 
 	vmi.Status.Memory.GuestRequested = vmi.Spec.Domain.Memory.Guest
 	return nil
+}
+
+func (d *VirtualMachineController) isHotplugInProgress(vmi *v1.VirtualMachineInstance) (InProgress bool) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+
+	InProgress = vmiConditions.HasCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
+	if !InProgress {
+		// The condition may not yet patched, but the VMI spec has already patched
+		if vmi.Spec.Domain.CPU != nil && vmi.Status.CurrentCPUTopology != nil {
+			InProgress = vmi.Spec.Domain.CPU.Sockets != vmi.Status.CurrentCPUTopology.Sockets
+		}
+	}
+
+	return
 }
 
 func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
