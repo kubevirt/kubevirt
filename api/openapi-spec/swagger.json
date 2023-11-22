@@ -15733,6 +15733,15 @@
     "type": "string",
     "format": "int-or-string"
    },
+   "v1.ACPI": {
+    "type": "object",
+    "properties": {
+     "slicNameRef": {
+      "description": "SlicNameRef should match the volume name of a secret object. The data in the secret should be a binary blob that follows the ACPI SLIC standard, see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)",
+      "type": "string"
+     }
+    }
+   },
    "v1.AccessCredential": {
     "description": "AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.",
     "type": "object",
@@ -16950,6 +16959,10 @@
    "v1.Firmware": {
     "type": "object",
     "properties": {
+     "acpi": {
+      "description": "Information that can be set in the ACPI table",
+      "$ref": "#/definitions/v1.ACPI"
+     },
      "bootloader": {
       "description": "Settings to control the bootloader that is used.",
       "$ref": "#/definitions/v1.Bootloader"

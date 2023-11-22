@@ -307,6 +307,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneSpec":                                     schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpec(ref),
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneStatus":                                   schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneStatus(ref),
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneTemplateFilters":                          schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneTemplateFilters(ref),
+		"kubevirt.io/api/core/v1.ACPI":                                                               schema_kubevirtio_api_core_v1_ACPI(ref),
 		"kubevirt.io/api/core/v1.AccessCredential":                                                   schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		"kubevirt.io/api/core/v1.AccessCredentialSecretSource":                                       schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
 		"kubevirt.io/api/core/v1.AddVolumeOptions":                                                   schema_kubevirtio_api_core_v1_AddVolumeOptions(ref),
@@ -15524,6 +15525,25 @@ func schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneTemplateFilters(ref
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ACPI(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"slicNameRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SlicNameRef should match the volume name of a secret object. The data in the secret should be a binary blob that follows the ACPI SLIC standard, see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_AccessCredential(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17870,11 +17890,17 @@ func schema_kubevirtio_api_core_v1_Firmware(ref common.ReferenceCallback) common
 							Ref:         ref("kubevirt.io/api/core/v1.KernelBoot"),
 						},
 					},
+					"acpi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Information that can be set in the ACPI table",
+							Ref:         ref("kubevirt.io/api/core/v1.ACPI"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.Bootloader", "kubevirt.io/api/core/v1.KernelBoot"},
+			"kubevirt.io/api/core/v1.ACPI", "kubevirt.io/api/core/v1.Bootloader", "kubevirt.io/api/core/v1.KernelBoot"},
 	}
 }
 
