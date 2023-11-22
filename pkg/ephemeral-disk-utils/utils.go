@@ -119,8 +119,6 @@ func FileExists(path string) (bool, error) {
 }
 
 type OwnershipManagerInterface interface {
-	// Deprecated: UnsafeSetFileOwnership should not be used. Use SetFileOwnership instead.
-	UnsafeSetFileOwnership(file string) error
 	SetFileOwnership(file *safepath.Path) error
 }
 

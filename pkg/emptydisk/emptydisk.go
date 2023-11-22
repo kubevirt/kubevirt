@@ -8,6 +8,8 @@ import (
 	"path"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -47,7 +49,12 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 			} else if err != nil {
 				return err
 			}
-			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(file); err != nil {
+
+			filePath, err := safepath.NewPathNoFollow(file)
+			if err != nil {
+				return err
+			}
+			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(filePath); err != nil {
 				return err
 			}
 		}

@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -111,7 +113,11 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			logger.Reason(err).Error("failed to create the migration sockets directory")
 			return err
 		}
-		if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(migrationSocketsPath); err != nil {
+		migrationSocketsSafePath, err := safepath.NewPathNoFollow(migrationSocketsPath)
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(migrationSocketsSafePath); err != nil {
 			logger.Reason(err).Error("failed to change ownership on migration sockets directory")
 			return err
 		}

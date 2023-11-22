@@ -30,6 +30,8 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -417,7 +419,11 @@ func (m *migrationProxy) createUnixListener() error {
 		m.logger.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
 	}
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(m.unixSocketPath); err != nil {
+	unixSocketPath, err := safepath.NewPathNoFollow(m.unixSocketPath)
+	if err != nil {
+		return err
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(unixSocketPath); err != nil {
 		log.Log.Reason(err).Error("failed to change ownership on migration unix socket")
 		return err
 	}

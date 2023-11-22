@@ -25,6 +25,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -221,8 +223,11 @@ func createIsoDisksForConfigVolumes(vmi *v1.VirtualMachineInstance, emptyIso boo
 		if err := createIsoConfigImage(isoPath, label, filesPath, vmiIsoSize); err != nil {
 			return err
 		}
-
-		if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoPath); err != nil {
+		isoSagePath, err := safepath.NewPathNoFollow(isoPath)
+		if err != nil {
+			return err
+		}
+		if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(isoSagePath); err != nil {
 			return err
 		}
 	}

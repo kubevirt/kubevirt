@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"kubevirt.io/kubevirt/pkg/safepath"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -557,7 +558,11 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 		return err
 	}
 
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
+	isoStagingPath, err := safepath.NewPathNoFollow(isoStaging)
+	if err != nil {
+		return err
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStagingPath); err != nil {
 		return err
 	}
 	err = os.Rename(isoStaging, iso)
@@ -677,7 +682,11 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		return err
 	}
 
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
+	isoStagingPath, err := safepath.NewPathNoFollow(isoStaging)
+	if err != nil {
+		return err
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStagingPath); err != nil {
 		return err
 	}
 

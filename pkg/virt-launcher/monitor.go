@@ -29,6 +29,8 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 
 	"kubevirt.io/client-go/log"
@@ -61,18 +63,28 @@ func InitializePrivateDirectories(baseDir string) error {
 	if err := util.MkdirAllWithNosec(baseDir); err != nil {
 		return err
 	}
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(baseDir); err != nil {
+	dirPath, err := safepath.NewPathNoFollow(baseDir)
+	if err != nil {
+		return err
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(dirPath); err != nil {
 		return err
 	}
 	return nil
 }
 
 func InitializeConsoleLogFile(baseDir string) error {
-	logPath := filepath.Join(baseDir, "virt-serial0-log")
-
-	_, err := os.Stat(logPath)
+	dirPath, err := safepath.NewPathNoFollow(baseDir)
+	if err != nil {
+		return err
+	}
+	logPath, err := safepath.JoinNoFollow(dirPath, "virt-serial0-log")
+	if err != nil {
+		return err
+	}
+	_, err = os.Stat(logPath.String())
 	if errors.Is(err, os.ErrNotExist) {
-		file, err := os.Create(logPath)
+		file, err := os.Create(logPath.String())
 		if err != nil {
 			return err
 		}
@@ -82,14 +94,19 @@ func InitializeConsoleLogFile(baseDir string) error {
 	} else if err != nil {
 		return err
 	}
-	if err = diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(logPath); err != nil {
+	if err = diskutils.DefaultOwnershipManager.SetFileOwnership(logPath); err != nil {
 		return err
 	}
 	return nil
 }
 
 func InitializeDisksDirectories(baseDir string) error {
-	err := os.MkdirAll(baseDir, 0750)
+	dirPath, err := safepath.NewPathNoFollow(baseDir)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(baseDir, 0750)
 	if err != nil {
 		return err
 	}
@@ -99,7 +116,7 @@ func InitializeDisksDirectories(baseDir string) error {
 	if err != nil {
 		return err
 	}
-	err = diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(baseDir)
+	err = diskutils.DefaultOwnershipManager.SetFileOwnership(dirPath)
 	if err != nil {
 		return err
 	}

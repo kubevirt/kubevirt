@@ -254,7 +254,11 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 		}
 	}
 	// Change file ownership to the qemu user.
-	if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(diskPath); err != nil {
+	diskSafePath, err := safepath.NewPathNoFollow(diskPath)
+	if err != nil {
+		return err
+	}
+	if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskSafePath); err != nil {
 		log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", diskPath, err)
 		return err
 	}

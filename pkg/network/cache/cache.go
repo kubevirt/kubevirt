@@ -27,6 +27,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
+
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 )
@@ -100,7 +102,11 @@ func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}
-	return dutils.DefaultOwnershipManager.UnsafeSetFileOwnership(fileName)
+	filePath, err := safepath.NewPathNoFollow(fileName)
+	if err != nil {
+		return err
+	}
+	return dutils.DefaultOwnershipManager.SetFileOwnership(filePath)
 }
 
 func readFromCachedFile(fs cacheFS, obj interface{}, fileName string) error {
