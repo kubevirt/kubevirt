@@ -62,13 +62,13 @@ func NewPrometheusService(namespace string) *corev1.Service {
 			Namespace: namespace,
 			Name:      "kubevirt-prometheus-metrics",
 			Labels: map[string]string{
-				virtv1.AppLabel:    "",
-				prometheusLabelKey: prometheusLabelValue,
+				virtv1.AppLabel:     "",
+				PROMETHUS_LABEL_KEY: prometheusLabelValue,
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				prometheusLabelKey: prometheusLabelValue,
+				PROMETHUS_LABEL_KEY: prometheusLabelValue,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -160,8 +160,8 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
 	podTemplateSpec := &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				virtv1.AppLabel:    podName,
-				prometheusLabelKey: prometheusLabelValue,
+				virtv1.AppLabel:     podName,
+				PROMETHUS_LABEL_KEY: prometheusLabelValue,
 			},
 			Name: podName,
 		},
@@ -522,9 +522,9 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						virtv1.AppLabel:    VirtOperatorName,
-						virtv1.AppName:     VirtOperatorName,
-						prometheusLabelKey: prometheusLabelValue,
+						virtv1.AppLabel:     VirtOperatorName,
+						virtv1.AppName:      VirtOperatorName,
+						PROMETHUS_LABEL_KEY: prometheusLabelValue,
 					},
 					Name: VirtOperatorName,
 				},

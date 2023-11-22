@@ -53,6 +53,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const (
@@ -1522,6 +1523,7 @@ func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]strin
 	labels[v1.AppLabel] = "virt-launcher"
 	labels[v1.CreatedByLabel] = string(vmi.UID)
 	labels[v1.VirtualMachineNameLabel] = hostName
+	labels[components.PROMETHUS_LABEL_KEY] = "true"
 	return labels
 }
 
