@@ -2407,9 +2407,20 @@ spec:
 			}
 		})
 
-		It("[test_id:3153][QUARANTINE] Ensure infra can handle dynamically detecting DataVolume Support", decorators.Quarantine, func() {
+		It("[test_id:3153] Ensure infra can handle dynamically detecting DataVolume Support", func() {
 			if !libstorage.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
+			}
+
+			virtAPIStabilized := func() {
+				apiDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtAPIName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				replicas := *apiDeployment.Spec.Replicas
+				Eventually(func(g Gomega) int32 {
+					apiDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtAPIName, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					return apiDeployment.Status.ReadyReplicas
+				}, 2*time.Minute, time.Second).Should(Equal(replicas))
 			}
 			// This tests starting infrastructure with and without the DataVolumes feature gate
 			var foundSC bool
@@ -2443,21 +2454,23 @@ spec:
 
 			}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-			// wait for virt-api and virt-controller to pick up the change that CDI no longer exists.
-			time.Sleep(30 * time.Second)
+			// wait for virt-api and virt-controller to pick up the change that CDI no longer exists & stabilize
+			time.Sleep(10 * time.Second)
+			virtAPIStabilized()
 
 			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
 			// feature gate is disabled
 			By("Expecting Error to Occur when posting VM with DataVolume")
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("DataVolume api is not present in cluster")))
 
 			// Enable DataVolumes by reinstalling CDI
 			By("Enabling CDI install")
 			createCdi()
 
-			// wait for virt-api to pick up the change.
-			time.Sleep(30 * time.Second)
+			// wait for virt-api to pick up the change & stabilize
+			time.Sleep(10 * time.Second)
+			virtAPIStabilized()
 
 			// Verify we can post a VM with DataVolumeTemplates successfully
 			By("Expecting Error to not occur when posting VM with DataVolume")
