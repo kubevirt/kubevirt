@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -2407,19 +2408,55 @@ spec:
 			}
 		})
 
+		// Best effort to speed up this test. The problem is that cdi changes triggers shutdown
+		// of virt-api. The Pod is then restarted and the shutdown is counted towards failures.
+		// This triggeres a backoff which is at max 5 minutes.
+		deleteApiPods := func() {
+			pods, err := virtClient.CoreV1().
+				Pods(flags.KubeVirtInstallNamespace).
+				List(context.Background(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"),
+				})
+			Expect(err).ToNot(HaveOccurred())
+			for _, pod := range pods.Items {
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.RestartCount != 0 {
+						err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).
+							Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+						Expect(err).To(Succeed())
+						break
+					}
+				}
+			}
+		}
+
 		It("[test_id:3153][QUARANTINE] Ensure infra can handle dynamically detecting DataVolume Support", decorators.Quarantine, func() {
 			if !libstorage.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
 			// This tests starting infrastructure with and without the DataVolumes feature gate
-			var foundSC bool
-			vm, foundSC = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
-			if !foundSC {
+
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
+			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(imageUrl),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+			)
+			vmi := libvmi.New(
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithGuestMemory("512M"),
+			)
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			libstorage.AddDataVolumeTemplate(vm, dataVolume)
+
 			running := false
 			vm.Spec.Running = &running
+
+			deleteApiPods()
 
 			// Delete CDI object
 			By("Deleting CDI install")
@@ -2443,29 +2480,34 @@ spec:
 
 			}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-			// wait for virt-api and virt-controller to pick up the change that CDI no longer exists.
-			time.Sleep(30 * time.Second)
-
 			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
 			// feature gate is disabled
+			// Eventually, because there is no way to know if we picked up the cdi change
 			By("Expecting Error to Occur when posting VM with DataVolume")
-			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
-			Expect(err).To(HaveOccurred())
+			Eventually(func() error {
+				_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+				if err == nil {
+					_ = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+				}
+				return err
+			}, 30*time.Second, time.Second).Should(HaveOccurred())
 
 			// Enable DataVolumes by reinstalling CDI
 			By("Enabling CDI install")
+			deleteApiPods()
 			createCdi()
 
-			// wait for virt-api to pick up the change.
-			time.Sleep(30 * time.Second)
-
 			// Verify we can post a VM with DataVolumeTemplates successfully
+			// Eventually, because there is no way to know if we picked up the cdi change
+			var createdVM *v1.VirtualMachine
 			By("Expecting Error to not occur when posting VM with DataVolume")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				createdVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+				return err
+			}, 30*time.Second, time.Second).Should(Succeed())
 
 			By("Expecting VM to start successfully")
-			tests.StartVirtualMachine(vm)
+			tests.StartVirtualMachine(createdVM)
 		})
 	})
 
