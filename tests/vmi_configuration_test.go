@@ -619,6 +619,70 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
+		Context("with ACPI SLIC table", func() {
+			It("Should configure guest APCI SLIC with Secret file", func() {
+				const (
+					volumeSlicSecretName = "volume-slic-secret"
+					secretWithSlicName   = "secret-with-slic-data"
+				)
+				var slicTable = []byte{
+					0x53, 0x4c, 0x49, 0x43, 0x24, 0x00, 0x00, 0x00, 0x01, 0x49, 0x43, 0x52,
+					0x41, 0x53, 0x48, 0x20, 0x4d, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+					0x88, 0x04, 0x00, 0x00, 0x71, 0x65, 0x6d, 0x75, 0x00, 0x00, 0x00, 0x00,
+				}
+				// To easily compare with console output
+				var hexData string
+				for _, b := range slicTable {
+					hexData += fmt.Sprintf("%02x", b)
+				}
+
+				vmi := libvmi.NewAlpine()
+
+				By("Creating a secret with the binary ACPI SLIC table")
+				secret, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(
+					context.Background(),
+					&k8sv1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      secretWithSlicName,
+							Namespace: testsuite.GetTestNamespace(vmi),
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							"slic.bin": slicTable,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(secret).ToNot(BeNil())
+
+				By("Configuring the volume with the secret")
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: volumeSlicSecretName,
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{
+							SecretName: secretWithSlicName,
+						},
+					},
+				})
+
+				// The firmware needs to reference the volume name of slic secret
+				By("Configuring the firmware option with volume name that contains the secret")
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					ACPI: &v1.ACPI{
+						SlicNameRef: volumeSlicSecretName,
+					},
+				}
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Checking the guest ACPI SLIC table matches the one provided")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "xxd -p -c 40 /sys/firmware/acpi/tables/SLIC\n"},
+					&expect.BExp{R: console.RetValue(hexData)},
+				}, 3)).To(Succeed())
+			})
+		})
+
 		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction, msg string, fileName string) {
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
