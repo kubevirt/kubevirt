@@ -76,7 +76,7 @@ var _ = DescribeInfra("tls configuration", func() {
 
 	})
 
-	It("[test_id:9306][QUARANTINE]should result only connections with the correct client-side tls configurations are accepted by the components", func() {
+	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components", func() {
 		labelSelectorList := []string{"kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy"}
 
 		var podsToTest []k8sv1.Pod
