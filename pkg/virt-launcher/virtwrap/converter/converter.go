@@ -1368,6 +1368,18 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
 	}
 
+	if firmware.ACPI != nil {
+		if slicNameRef := firmware.ACPI.SlicNameRef; slicNameRef != "" {
+			path := fmt.Sprintf("/var/run/kubevirt-private/secret/%s/slic.bin", slicNameRef)
+			domain.Spec.OS.ACPI = &api.OSACPI{
+				Table: api.ACPITable{
+					Type: "slic",
+					Path: path,
+				},
+			}
+		}
+	}
+
 	return nil
 }
 

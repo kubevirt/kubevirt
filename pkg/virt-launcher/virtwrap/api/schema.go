@@ -933,6 +933,7 @@ func (alias *Alias) UnmarshalJSON(data []byte) error {
 
 type OS struct {
 	Type       OSType    `xml:"type"`
+	ACPI       *OSACPI   `xml:"acpi,omitempty"`
 	SMBios     *SMBios   `xml:"smbios,omitempty"`
 	BootOrder  []Boot    `xml:"boot"`
 	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
@@ -948,6 +949,15 @@ type OSType struct {
 	OS      string `xml:",chardata"`
 	Arch    string `xml:"arch,attr,omitempty"`
 	Machine string `xml:"machine,attr,omitempty"`
+}
+
+type OSACPI struct {
+	Table ACPITable `xml:"table,omitempty"`
+}
+
+type ACPITable struct {
+	Path string `xml:",chardata"`
+	Type string `xml:"type,attr,omitempty"`
 }
 
 type SMBios struct {
