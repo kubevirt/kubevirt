@@ -1302,6 +1302,75 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	return nil
 }
 
+func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) error {
+	firmware := vmi.Spec.Domain.Firmware
+	if firmware == nil {
+		return nil
+	}
+
+	domain.Spec.SysInfo.System = []api.Entry{
+		{
+			Name:  "uuid",
+			Value: string(firmware.UUID),
+		},
+	}
+
+	if util.IsEFIVMI(vmi) {
+		domain.Spec.OS.BootLoader = &api.Loader{
+			Path:     c.EFIConfiguration.EFICode,
+			ReadOnly: "yes",
+			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+			Type:     "pflash",
+		}
+
+		domain.Spec.OS.NVRam = &api.NVRam{
+			Template: c.EFIConfiguration.EFIVars,
+			NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+		}
+	}
+
+	if firmware.Bootloader != nil && firmware.Bootloader.BIOS != nil {
+		if firmware.Bootloader.BIOS.UseSerial != nil && *firmware.Bootloader.BIOS.UseSerial {
+			domain.Spec.OS.BIOS = &api.BIOS{
+				UseSerial: "yes",
+			}
+		}
+	}
+
+	if len(firmware.Serial) > 0 {
+		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, api.Entry{
+			Name:  "serial",
+			Value: string(firmware.Serial),
+		})
+	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		kb := firmware.KernelBoot
+
+		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
+		if kb.Container.KernelPath != "" {
+			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
+			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: " + kernelPath)
+			domain.Spec.OS.Kernel = kernelPath
+		}
+
+		if kb.Container.InitrdPath != "" {
+			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
+			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: " + initrdPath)
+			domain.Spec.OS.Initrd = initrdPath
+		}
+
+	}
+
+	// Define custom command-line arguments even if kernel-boot container is not defined
+	if firmware.KernelBoot != nil {
+		log.Log.Object(vmi).Infof("setting custom kernel arguments: " + firmware.KernelBoot.KernelArgs)
+		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
+	}
+
+	return nil
+}
+
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
 	var controllerDriver *api.ControllerDriver
 
@@ -1372,65 +1441,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	domain.Spec.SysInfo = &api.SysInfo{}
-	if vmi.Spec.Domain.Firmware != nil {
-		domain.Spec.SysInfo.System = []api.Entry{
-			{
-				Name:  "uuid",
-				Value: string(vmi.Spec.Domain.Firmware.UUID),
-			},
-		}
 
-		if util.IsEFIVMI(vmi) {
-			domain.Spec.OS.BootLoader = &api.Loader{
-				Path:     c.EFIConfiguration.EFICode,
-				ReadOnly: "yes",
-				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-				Type:     "pflash",
-			}
-
-			domain.Spec.OS.NVRam = &api.NVRam{
-				Template: c.EFIConfiguration.EFIVars,
-				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
-			}
-		}
-
-		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.BIOS != nil {
-			if vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial != nil && *vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial {
-				domain.Spec.OS.BIOS = &api.BIOS{
-					UseSerial: "yes",
-				}
-			}
-		}
-
-		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
-			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, api.Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
-		}
-
-		if util.HasKernelBootContainerImage(vmi) {
-			kb := vmi.Spec.Domain.Firmware.KernelBoot
-
-			log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
-			if kb.Container.KernelPath != "" {
-				kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
-				log.Log.Object(vmi).Infof("setting kernel path for kernel boot: " + kernelPath)
-				domain.Spec.OS.Kernel = kernelPath
-			}
-
-			if kb.Container.InitrdPath != "" {
-				initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
-				log.Log.Object(vmi).Infof("setting initrd path for kernel boot: " + initrdPath)
-				domain.Spec.OS.Initrd = initrdPath
-			}
-
-		}
-
-		// Define custom command-line arguments even if kernel-boot container is not defined
-		if f := vmi.Spec.Domain.Firmware; f != nil && f.KernelBoot != nil {
-			log.Log.Object(vmi).Infof("setting custom kernel arguments: " + f.KernelBoot.KernelArgs)
-			domain.Spec.OS.KernelArgs = f.KernelBoot.KernelArgs
-		}
-
+	err = Convert_v1_Firmware_To_related_apis(vmi, domain, c)
+	if err != nil {
+		return err
 	}
+
 	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
 	if c.UseLaunchSecurity {
 		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
