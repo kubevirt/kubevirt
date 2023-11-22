@@ -110,6 +110,9 @@ const (
 
 	// Enable using a plugin to bind the pod and the VM network
 	kvHNetworkBindingPluginsGate = "NetworkBindingPlugins"
+
+	// // CPUManagerPolicyBetaOptionsGate allows conforming VM to static CPU-Manager Policies.
+	CPUManagerPolicyBetaOptionsGate = "CPUManagerPolicyBetaOptions"
 )
 
 const (
@@ -136,6 +139,7 @@ var (
 		kvHotplugNicsGate,
 		kvVMPersistentState,
 		kvHNetworkBindingPluginsGate,
+		CPUManagerPolicyBetaOptionsGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of

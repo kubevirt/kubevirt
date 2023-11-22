@@ -32,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -40,9 +44,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 )
@@ -215,6 +216,7 @@ var _ = Describe("HyperconvergedController", func() {
 					"HotplugNICs",
 					"VMPersistentState",
 					"NetworkBindingPlugins",
+					"CPUManagerPolicyBetaOptions",
 				}
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}
