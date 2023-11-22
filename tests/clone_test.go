@@ -61,6 +61,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		vm = NewRandomVirtualMachine(vmi, false)
 		vm.Annotations = vmi.Annotations
 		vm.Labels = vmi.Labels
+		vm.Spec.Template.ObjectMeta.Annotations = vmi.Annotations
+		vm.Spec.Template.ObjectMeta.Labels = vmi.Labels
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
@@ -240,9 +242,16 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		expectEqualLabels := func(targetVM, sourceVM *virtv1.VirtualMachine, keysToExclude ...string) {
 			expectEqualStrMap(targetVM.Labels, sourceVM.Labels, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "labels"), keysToExclude...)
 		}
+		expectEqualTemplateLabels := func(targetVM, sourceVM *virtv1.VirtualMachine, keysToExclude ...string) {
+			expectEqualStrMap(targetVM.Spec.Template.ObjectMeta.Labels, sourceVM.Spec.Template.ObjectMeta.Labels, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "template.labels"), keysToExclude...)
+		}
 
 		expectEqualAnnotations := func(targetVM, sourceVM *virtv1.VirtualMachine, keysToExclude ...string) {
 			expectEqualStrMap(targetVM.Annotations, sourceVM.Annotations, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "annotations"), keysToExclude...)
+		}
+		expectEqualTemplateAnnotations := func(targetVM, sourceVM *virtv1.VirtualMachine, keysToExclude ...string) {
+			expectEqualStrMap(targetVM.Spec.Template.ObjectMeta.Annotations, sourceVM.Spec.Template.ObjectMeta.Annotations, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "template.annotations"), keysToExclude...)
+
 		}
 
 		expectSpecsToEqualExceptForMacAddress := func(vm1, vm2 *virtv1.VirtualMachine) {
@@ -296,6 +305,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				Expect(targetVM.Spec).To(Equal(sourceVM.Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec"))
 				expectEqualLabels(targetVM, sourceVM)
 				expectEqualAnnotations(targetVM, sourceVM)
+				expectEqualTemplateLabels(targetVM, sourceVM)
+				expectEqualTemplateAnnotations(targetVM, sourceVM)
 
 				By("Making sure snapshot and restore objects are cleaned up")
 				Expect(vmClone.Status.SnapshotName).To(BeNil())
@@ -366,6 +377,30 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				expectEqualAnnotations(targetVM, sourceVM, key2)
 			})
 
+			It("clone with only some of template.labels/template.annotations", func() {
+				sourceVM = createVM()
+				vmClone = generateCloneFromVM()
+
+				vmClone.Spec.Template.LabelFilters = []string{
+					"*",
+					"!" + key2,
+				}
+				vmClone.Spec.Template.AnnotationFilters = []string{
+					key1,
+				}
+				createCloneAndWaitForFinish(vmClone)
+
+				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By("Making sure target is runnable")
+				targetVM = expectVMRunnable(targetVM)
+
+				expectEqualTemplateLabels(targetVM, sourceVM, key2)
+				expectEqualTemplateAnnotations(targetVM, sourceVM, key2)
+			})
+
 			It("clone with changed MAC address", func() {
 				const newMacAddress = "BE-AD-00-00-BE-04"
 				sourceVM = createVM(
@@ -408,6 +443,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				expectSpecsToEqualExceptForMacAddress(targetVM, sourceVM)
 				expectEqualLabels(targetVM, sourceVM)
 				expectEqualAnnotations(targetVM, sourceVM)
+				expectEqualTemplateLabels(targetVM, sourceVM)
+				expectEqualTemplateAnnotations(targetVM, sourceVM)
 			})
 
 			Context("regarding domain Firmware", func() {
@@ -440,6 +477,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 					expectEqualLabels(targetVM, sourceVM)
 					expectEqualAnnotations(targetVM, sourceVM)
+					expectEqualTemplateLabels(targetVM, sourceVM)
+					expectEqualTemplateAnnotations(targetVM, sourceVM)
 				})
 
 				It("should strip firmware UUID", func() {
@@ -564,6 +603,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 					expectEqualLabels(targetVM, sourceVM)
 					expectEqualAnnotations(targetVM, sourceVM)
+					expectEqualTemplateLabels(targetVM, sourceVM)
+					expectEqualTemplateAnnotations(targetVM, sourceVM)
 				})
 
 				Context("[QUARANTINE] with instancetype and preferences", decorators.Quarantine, func() {
@@ -665,14 +706,16 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				})
 
 				It("double cloning: clone target as a clone source", func() {
-					addAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+					addCloneAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
 						filters := []string{"somekey/*"}
 						vmClone.Spec.LabelFilters = filters
 						vmClone.Spec.AnnotationFilters = filters
+						vmClone.Spec.Template.LabelFilters = filters
+						vmClone.Spec.Template.AnnotationFilters = filters
 					}
 					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
 						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
-						addAnnotationAndLabelFilters(vmclone)
+						addCloneAnnotationAndLabelFilters(vmclone)
 						return vmclone
 					}
 
@@ -691,13 +734,15 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					vmCloneFromClone.Name = "test-clone-from-clone"
 					createCloneAndWaitForFinish(vmCloneFromClone)
 
-					By(fmt.Sprintf("Getting the target VM %s", cloneFromCloneName))
+					By(fmt.Sprintf("Getting the target VM %s from clone", cloneFromCloneName))
 					targetVMCloneFromClone, err := virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), cloneFromCloneName, &v1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 
 					expectVMRunnable(targetVMCloneFromClone)
 					expectEqualLabels(targetVMCloneFromClone, sourceVM)
 					expectEqualAnnotations(targetVMCloneFromClone, sourceVM)
+					expectEqualTemplateLabels(targetVMCloneFromClone, sourceVM, "name")
+					expectEqualTemplateAnnotations(targetVMCloneFromClone, sourceVM)
 				})
 
 			})
