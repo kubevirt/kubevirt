@@ -350,6 +350,16 @@ type FeatureEnabled struct {
 
 type Shareable struct{}
 
+type Slice struct {
+	Slice SliceType `xml:"slice,omitempty"`
+}
+
+type SliceType struct {
+	Type   string `xml:"type,attr"`
+	Offset int64  `xml:"offset,attr"`
+	Size   int64  `xml:"size,attr"`
+}
+
 type FeatureState struct {
 	State string `xml:"state,attr,omitempty"`
 }
@@ -675,6 +685,7 @@ type DiskSource struct {
 	Name          string          `xml:"name,attr,omitempty"`
 	Host          *DiskSourceHost `xml:"host,omitempty"`
 	Reservations  *Reservations   `xml:"reservations,omitempty"`
+	Slices        []Slice         `xml:"slices,omitempty"`
 }
 
 type DiskTarget struct {
