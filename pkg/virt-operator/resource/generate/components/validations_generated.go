@@ -12864,6 +12864,9 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Capacity represents the capacity set on the corresponding
                       PVC status
                     type: object
+                  claimName:
+                    description: ClaimName is the name of the PVC
+                    type: string
                   filesystemOverhead:
                     description: Percentage of filesystem's size to be reserved when
                       resizing the PVC

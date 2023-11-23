@@ -158,18 +158,21 @@ func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.Persis
 	if vmi.Status.VolumeStatus == nil {
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
+	name := PVCForVMI(vmi)
 	for i := range vmi.Status.VolumeStatus {
-		if vmi.Status.VolumeStatus[i].Name == PVCForVMI(vmi) {
+		if vmi.Status.VolumeStatus[i].Name == name {
 			if vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo == nil {
 				vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = &corev1.PersistentVolumeClaimInfo{}
 			}
+			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.ClaimName = name
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = []v1.PersistentVolumeAccessMode{accessMode}
 			return
 		}
 	}
 	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, corev1.VolumeStatus{
-		Name: PVCForVMI(vmi),
+		Name: name,
 		PersistentVolumeClaimInfo: &corev1.PersistentVolumeClaimInfo{
+			ClaimName:   name,
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
 		},
 	})

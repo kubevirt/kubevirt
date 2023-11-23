@@ -20853,6 +20853,13 @@ func schema_kubevirtio_api_core_v1_PersistentVolumeClaimInfo(ref common.Referenc
 				Description: "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of the PVC",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"accessModes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
