@@ -2002,6 +2002,7 @@ var _ = Describe("Converter", func() {
 				"expected number of queues to equal number of requested vCPUs")
 		})
 	})
+
 	Context("Correctly handle iothreads with dedicated cpus", func() {
 		var vmi *v1.VirtualMachineInstance
 
@@ -2058,7 +2059,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, "0", c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "5,6,7"},
 				{IOThread: 2, CPUSet: "8,9,10"},
@@ -2090,7 +2091,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, "0", c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "6"},
 				{IOThread: 2, CPUSet: "5"},
