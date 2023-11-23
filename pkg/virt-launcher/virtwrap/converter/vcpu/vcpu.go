@@ -359,11 +359,11 @@ func isNumaPassthrough(vmi *v12.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.CPU.NUMA != nil && vmi.Spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil
 }
 
-func appendDomainEmulatorThreadPin(domain *api.Domain, allocatedCpu uint32) {
-	emulatorThread := api.CPUEmulatorPin{
-		CPUSet: strconv.Itoa(int(allocatedCpu)),
+func appendDomainEmulatorThreadPin(domain *api.Domain, cpuSet string) {
+	emulatorThreads := api.CPUEmulatorPin{
+		CPUSet: cpuSet,
 	}
-	domain.Spec.CPUTune.EmulatorPin = &emulatorThread
+	domain.Spec.CPUTune.EmulatorPin = &emulatorThreads
 }
 
 func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
@@ -373,14 +373,13 @@ func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
 	domain.Spec.CPUTune.IOThreadPin = append(domain.Spec.CPUTune.IOThreadPin, iothreadPin)
 }
 
-func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain, emulatorThread uint32, cpuset []int) error {
+func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain, emulatorThreadsCPUSet string, cpuset []int) error {
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(CalculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		// pin the IOThread on the same pCPU as the emulator thread
-		cpuset := strconv.Itoa(int(emulatorThread))
-		appendDomainIOThreadPin(domain, uint32(1), cpuset)
+		appendDomainIOThreadPin(domain, uint32(1), emulatorThreadsCPUSet)
 	} else if iothreads >= vcpus {
 		// pin an IOThread on a CPU
 		for thread := 1; thread <= iothreads; thread++ {
@@ -454,18 +453,22 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 		}
 	}
 
-	var emulatorThread uint32
+	var emulatorThreads []uint32
+	var emulatorThreadsCPUSet string
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		emulatorThread, err = cpuPool.FitThread()
+		availableThread, err := cpuPool.FitThread()
 		if err != nil {
 			e := fmt.Errorf("no CPU allocated for the emulation thread: %v", err)
 			log.Log.Reason(e).Error("failed to format emulation thread pin")
 			return e
 		}
-		appendDomainEmulatorThreadPin(domain, emulatorThread)
+		emulatorThreads = append(emulatorThreads, availableThread)
+
+		emulatorThreadsCPUSet = convertCPUListToCPUSet(emulatorThreads)
+		appendDomainEmulatorThreadPin(domain, emulatorThreadsCPUSet)
 	}
 	if useIOThreads {
-		if err := FormatDomainIOThreadPin(vmi, domain, emulatorThread, cpuset); err != nil {
+		if err := FormatDomainIOThreadPin(vmi, domain, emulatorThreadsCPUSet, cpuset); err != nil {
 			log.Log.Reason(err).Error("failed to format domain iothread pinning.")
 			return err
 		}
@@ -492,6 +495,15 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	}
 
 	return nil
+}
+
+func convertCPUListToCPUSet(allocatedCPUs []uint32) string {
+	const delimiter = ","
+	var allocatedCPUsString []string
+	for _, cpu := range allocatedCPUs {
+		allocatedCPUsString = append(allocatedCPUsString, strconv.Itoa(int(cpu)))
+	}
+	return strings.Join(allocatedCPUsString, delimiter)
 }
 
 func cpuToCell(topology *v1.Topology) map[uint32]*v1.Cell {
