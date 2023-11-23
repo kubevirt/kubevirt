@@ -673,9 +673,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		}
 	}
 
+	sourceLocked := false
 	if source != nil {
 		uid := source.UID()
 		vmSnapshotCpy.Status.SourceUID = &uid
+		sourceLocked = source.Locked()
 	}
 
 	content, err := ctrl.getContent(vmSnapshot)
@@ -686,7 +688,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	if vmSnapshotDeleting(vmSnapshotCpy) {
 		// Enable the vmsnapshot to be deleted only in case it completed
 		// or after waiting until the content is deleted if needed
-		if !vmSnapshotProgressing(vmSnapshot) || contentDeletedIfNeeded(vmSnapshotCpy, content) {
+		if !sourceLocked && (!vmSnapshotProgressing(vmSnapshot) || contentDeletedIfNeeded(vmSnapshotCpy, content)) {
 			controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 		}
 	} else {
