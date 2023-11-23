@@ -2407,7 +2407,19 @@ spec:
 			}
 		})
 
-		It("[test_id:3153][QUARANTINE] Ensure infra can handle dynamically detecting DataVolume Support", decorators.Quarantine, func() {
+		waitDeploymentsReady := func() {
+			for _, name := range []string{"virt-api", "virt-controller"} {
+				Eventually(func() bool {
+					deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return (deployment.Status.UpdatedReplicas == *(deployment.Spec.Replicas)) &&
+						(deployment.Status.Replicas == *(deployment.Spec.Replicas)) &&
+						(deployment.Status.AvailableReplicas == *(deployment.Spec.Replicas))
+				}, 120*time.Second, 1*time.Second).Should(BeTrue())
+			}
+		}
+
+		It("[test_id:3153] Ensure infra can handle dynamically detecting DataVolume Support", func() {
 			if !libstorage.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
@@ -2444,7 +2456,8 @@ spec:
 			}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			// wait for virt-api and virt-controller to pick up the change that CDI no longer exists.
-			time.Sleep(30 * time.Second)
+			time.Sleep(5 * time.Second)
+			waitDeploymentsReady()
 
 			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
 			// feature gate is disabled
@@ -2457,7 +2470,8 @@ spec:
 			createCdi()
 
 			// wait for virt-api to pick up the change.
-			time.Sleep(30 * time.Second)
+			time.Sleep(5 * time.Second)
+			waitDeploymentsReady()
 
 			// Verify we can post a VM with DataVolumeTemplates successfully
 			By("Expecting Error to not occur when posting VM with DataVolume")
