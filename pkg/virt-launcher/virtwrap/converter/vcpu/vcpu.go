@@ -409,7 +409,7 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 	return nil
 }
 
-func FormatEmulatorThreadPin(cpuPool VCPUPool) (string, error) {
+func FormatEmulatorThreadPin(cpuPool VCPUPool, CPUManagerPolicyBetaOption v12.CPUManagerPolicyBetaOptions) (string, error) {
 	var emulatorThreads []uint32
 
 	availableThread, err := cpuPool.FitThread()
@@ -419,6 +419,17 @@ func FormatEmulatorThreadPin(cpuPool VCPUPool) (string, error) {
 		return "", e
 	}
 	emulatorThreads = append(emulatorThreads, availableThread)
+
+	fullpCPUsOnly := CPUManagerPolicyBetaOption == v12.CPUManagerPolicyBetaOptionFullpCPUsOnly
+	if fullpCPUsOnly {
+		availableThread, err = cpuPool.FitThread()
+		if err != nil {
+			e := fmt.Errorf("no second CPU allocated for the emulation thread: %v", err)
+			log.Log.Reason(e).Error("failed to format emulation thread pin")
+			return "", e
+		}
+		emulatorThreads = append(emulatorThreads, availableThread)
+	}
 
 	return convertCPUListToCPUSet(emulatorThreads), nil
 }
@@ -469,7 +480,8 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 
 	var emulatorThreadsCPUSet string
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool); err != nil {
+		CPUManagerPolicyBetaOption := v12.CPUManagerPolicyBetaOptions(vmi.Annotations[v12.CPUManagerPolicyBetaOptionsAnnotation])
+		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption); err != nil {
 			log.Log.Reason(err).Error("failed to format emulation thread pin")
 			return err
 		}
