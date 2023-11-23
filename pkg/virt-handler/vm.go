@@ -2946,14 +2946,14 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 		return nil
 	}
 
-	hkcpu, err := strconv.Atoi(domain.Spec.CPUTune.EmulatorPin.CPUSet)
+	hkcpus, err := hardware.ParseCPUSetLine(domain.Spec.CPUTune.EmulatorPin.CPUSet, 100)
 	if err != nil {
 		return err
 	}
 
-	log.Log.V(3).Object(vmi).Infof("housekeeping cpu: %v", hkcpu)
+	log.Log.V(3).Object(vmi).Infof("housekeeping cpu: %v", hkcpus)
 
-	err = cgroupManager.SetCpuSet("housekeeping", []int{hkcpu})
+	err = cgroupManager.SetCpuSet("housekeeping", hkcpus)
 	if err != nil {
 		return err
 	}
