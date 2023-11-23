@@ -295,6 +295,7 @@ type VirtualMachineInstanceStatus struct {
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
 type PersistentVolumeClaimInfo struct {
+	ClaimName string `json:"claimName,omitempty"`
 	// AccessModes contains the desired access modes the volume should have.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
 	// +listType=atomic

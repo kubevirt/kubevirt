@@ -18710,6 +18710,9 @@
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
+     "claimName": {
+      "type": "string"
+     },
      "filesystemOverhead": {
       "description": "Percentage of filesystem's size to be reserved when resizing the PVC",
       "type": "string"

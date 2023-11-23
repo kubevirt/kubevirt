@@ -2701,6 +2701,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Message: truncateSprintf(message, index, index),
 					Reason:  reason,
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName: fmt.Sprintf("claim%d", index),
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
 							k8sv1.ReadOnlyMany,
 						},
@@ -3025,7 +3026,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"claimName":"existing","filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"claimName":"hotplug","filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -3115,7 +3116,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
+			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"claimName":"existing","filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
