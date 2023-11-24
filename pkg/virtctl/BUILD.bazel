@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virtctl/adm:go_default_library",
         "//pkg/virtctl/configuration:go_default_library",
         "//pkg/virtctl/console:go_default_library",
         "//pkg/virtctl/create:go_default_library",
