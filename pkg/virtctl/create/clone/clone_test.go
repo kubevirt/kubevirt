@@ -37,6 +37,14 @@ const (
 	vmKind, vmApiGroup             = "VirtualMachine", "kubevirt.io"
 	snapshotKind, snapshotApiGroup = "VirtualMachineSnapshot", "snapshot.kubevirt.io"
 )
+const (
+	LabelFilters = iota
+	AnnotationsFilters
+	LabelAndAnnotationsFilters
+	TemplateLabelFilters
+	TemplateAnnotationsFilters
+	TemplateLabelAndAnnotationsFilters
+)
 
 var _ = Describe("create clone", func() {
 	Context("required arguments", func() {
@@ -121,37 +129,63 @@ var _ = Describe("create clone", func() {
 	})
 
 	Context("label and annotation filters", func() {
-		const (
-			withLabelFilters, withoutLabelFilters           = true, false
-			withAnnotationFilters, withoutAnnotationFilters = true, false
-		)
 
-		DescribeTable("with", func(addLabelFilter, addAnnotationFilter bool) {
+		DescribeTable("with", func(filterType int) {
 			flags := getSourceNameFlags()
 
-			if addLabelFilter {
+			switch filterType {
+			case LabelFilters:
 				flags = addFlag(flags, clone.LabelFilterFlag, "*")
 				flags = addFlag(flags, clone.LabelFilterFlag, `"!some/key"`)
-			}
-			if addAnnotationFilter {
+			case AnnotationsFilters:
 				flags = addFlag(flags, clone.AnnotationFilterFlag, "*")
 				flags = addFlag(flags, clone.AnnotationFilterFlag, `"!some/key"`)
+			case LabelAndAnnotationsFilters:
+				flags = addFlag(flags, clone.LabelFilterFlag, "*")
+				flags = addFlag(flags, clone.LabelFilterFlag, `"!some/key"`)
+				flags = addFlag(flags, clone.AnnotationFilterFlag, "*")
+				flags = addFlag(flags, clone.AnnotationFilterFlag, `"!some/key"`)
+			case TemplateLabelFilters:
+				flags = addFlag(flags, clone.TemplateLabelFilterFlag, "*")
+				flags = addFlag(flags, clone.TemplateLabelFilterFlag, `"!some/key"`)
+			case TemplateAnnotationsFilters:
+				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, "*")
+				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, `"!some/key"`)
+			case TemplateLabelAndAnnotationsFilters:
+				flags = addFlag(flags, clone.TemplateLabelFilterFlag, "*")
+				flags = addFlag(flags, clone.TemplateLabelFilterFlag, `"!some/key"`)
+				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, "*")
+				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, `"!some/key"`)
 			}
 
 			cloneObj, err := newCommand(flags...)
 			Expect(err).ToNot(HaveOccurred())
-
 			const expectedLen = 2
-			if addLabelFilter {
+
+			switch filterType {
+			case LabelFilters:
 				Expect(cloneObj.Spec.LabelFilters).To(HaveLen(expectedLen))
-			}
-			if addAnnotationFilter {
+			case AnnotationsFilters:
 				Expect(cloneObj.Spec.AnnotationFilters).To(HaveLen(expectedLen))
+			case LabelAndAnnotationsFilters:
+				Expect(cloneObj.Spec.LabelFilters).To(HaveLen(expectedLen))
+				Expect(cloneObj.Spec.AnnotationFilters).To(HaveLen(expectedLen))
+			case TemplateLabelFilters:
+				Expect(cloneObj.Spec.Template.LabelFilters).To(HaveLen(expectedLen))
+			case TemplateAnnotationsFilters:
+				Expect(cloneObj.Spec.Template.AnnotationFilters).To(HaveLen(expectedLen))
+			case TemplateLabelAndAnnotationsFilters:
+				Expect(cloneObj.Spec.Template.LabelFilters).To(HaveLen(expectedLen))
+				Expect(cloneObj.Spec.Template.AnnotationFilters).To(HaveLen(expectedLen))
 			}
+
 		},
-			Entry("label filters", withLabelFilters, withoutAnnotationFilters),
-			Entry("annotation filters", withoutLabelFilters, withAnnotationFilters),
-			Entry("label and annotation filters", withLabelFilters, withAnnotationFilters),
+			Entry("label filters", LabelFilters),
+			Entry("annotation filters", AnnotationsFilters),
+			Entry("label and annotation filters", LabelAndAnnotationsFilters),
+			Entry("template-label filters", TemplateLabelFilters),
+			Entry("template-annotation filters", TemplateAnnotationsFilters),
+			Entry("template-label and template-annotation filters", TemplateLabelAndAnnotationsFilters),
 		)
 	})
 
