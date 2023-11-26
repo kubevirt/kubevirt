@@ -3,5 +3,18 @@
   "extends": [
     "github>platform-engineering-org/.github"
   ],
-  "automerge": false
+  "automerge": false,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "^CDI_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt/containerized-data-importer"
+    }
+  ]
 }
