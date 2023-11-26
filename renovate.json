@@ -14,7 +14,7 @@
         "^CDI_VERSION=\"(?<currentValue>.*)\""
       ],
       "datasourceTemplate": "github-releases",
-      "depNameTemplate": "github.com/kubevirt/containerized-data-importer"
+      "depNameTemplate": "kubevirt/containerized-data-importer"
     }
   ],
   "packageRules": [
