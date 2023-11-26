@@ -1,0 +1,6 @@
+# Snyk (https://snyk.io) policy file
+exclude:
+  global:
+    - vendor/**
+    - tools/digester/vendor**
+    - tests/vendor/**
