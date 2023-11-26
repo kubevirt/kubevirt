@@ -11,7 +11,7 @@
         "hack/config"
       ],
       "matchStrings": [
-        "^CDI_VERSION=\"(?<currentValue>.*)\""
+        "CDI_VERSION=\"(?<currentValue>.*)\""
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "kubevirt/containerized-data-importer"
@@ -21,6 +21,7 @@
     {
       "description": "Bump CNV Components",
       "matchPackageNames": ["kubevirt/containerized-data-importer"],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
       "groupName": null
     }
   ]
