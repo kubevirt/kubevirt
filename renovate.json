@@ -14,7 +14,14 @@
         "^CDI_VERSION=\"(?<currentValue>.*)\""
       ],
       "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/containerized-data-importer"
+      "depNameTemplate": "github.com/kubevirt/containerized-data-importer"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Bump CNV Components",
+      "matchPackageNames": ["kubevirt/containerized-data-importer"],
+      "groupName": null
     }
   ]
 }
