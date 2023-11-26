@@ -766,7 +766,7 @@ func (r *KubernetesReporter) logDaemonsets(virtCli kubecli.KubevirtClient) {
 }
 
 func (r *KubernetesReporter) logVolumeSnapshots(virtCli kubecli.KubevirtClient) {
-	volumeSnapshots, err := virtCli.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+	volumeSnapshots, err := virtCli.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch volume snapshots: %v\n", err)
 		return
@@ -796,7 +796,7 @@ func (r *KubernetesReporter) logVolumeSnapshotClasses(virtCli kubecli.KubevirtCl
 }
 
 func (r *KubernetesReporter) logVirtualMachineSnapshots(virtCli kubecli.KubevirtClient) {
-	volumeSnapshots, err := virtCli.VirtualMachineSnapshot(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+	volumeSnapshots, err := virtCli.VirtualMachineSnapshot(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch virtual machine snapshots: %v\n", err)
 		return
@@ -806,7 +806,7 @@ func (r *KubernetesReporter) logVirtualMachineSnapshots(virtCli kubecli.Kubevirt
 }
 
 func (r *KubernetesReporter) logVirtualMachineSnapshotContents(virtCli kubecli.KubevirtClient) {
-	volumeSnapshotContents, err := virtCli.VirtualMachineSnapshotContent(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
+	volumeSnapshotContents, err := virtCli.VirtualMachineSnapshotContent(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch virtual machine snapshot contents: %v\n", err)
 		return
