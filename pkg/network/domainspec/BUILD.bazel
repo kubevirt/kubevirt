@@ -24,6 +24,7 @@ go_test(
     srcs = [
         "domainspec_suite_test.go",
         "generators_test.go",
+        "interface_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

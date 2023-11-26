@@ -467,3 +467,11 @@ func (c *ClusterConfig) GetMaxHotplugRatio() uint32 {
 
 	return liveConfig.MaxHotplugRatio
 }
+
+func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
+	networkConfig := c.GetConfig().NetworkConfiguration
+	if networkConfig != nil {
+		return networkConfig.Binding
+	}
+	return nil
+}

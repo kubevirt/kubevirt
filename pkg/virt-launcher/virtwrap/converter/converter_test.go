@@ -640,14 +640,15 @@ var _ = Describe("Converter", func() {
 						},
 					},
 				},
-				AllowEmulation:        true,
-				IsBlockPVC:            isBlockPVCMap,
-				IsBlockDV:             isBlockDVMap,
-				SMBios:                TestSmbios,
-				MemBalloonStatsPeriod: 10,
-				EphemeraldiskCreator:  EphemeralDiskImageCreator,
-				FreePageReporting:     true,
-				SerialConsoleLog:      true,
+				AllowEmulation:                  true,
+				IsBlockPVC:                      isBlockPVCMap,
+				IsBlockDV:                       isBlockDVMap,
+				SMBios:                          TestSmbios,
+				MemBalloonStatsPeriod:           10,
+				EphemeraldiskCreator:            EphemeralDiskImageCreator,
+				FreePageReporting:               true,
+				SerialConsoleLog:                true,
+				DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap)},
 			}
 		})
 
@@ -1360,6 +1361,9 @@ var _ = Describe("Converter", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
 
+		const netName1 = "red1"
+		const netName2 = "red2"
+
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -1379,6 +1383,11 @@ var _ = Describe("Converter", func() {
 				},
 				AllowEmulation: true,
 				SMBios:         TestSmbios,
+				DomainAttachmentByInterfaceName: map[string]string{
+					"default": string(v1.Tap),
+					netName1:  string(v1.Tap),
+					netName2:  string(v1.Tap),
+				},
 			}
 		})
 
@@ -1389,18 +1398,18 @@ var _ = Describe("Converter", func() {
 				*v1.DefaultBridgeNetworkInterface(),
 				*v1.DefaultBridgeNetworkInterface(),
 			}
-			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
-			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
+			vmi.Spec.Domain.Devices.Interfaces[0].Name = netName1
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = netName2
 			// 3rd network is the default pod network, name is "default"
 			vmi.Spec.Networks = []v1.Network{
 				{
-					Name: "red1",
+					Name: netName1,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
 				{
-					Name: "red2",
+					Name: netName2,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
@@ -1426,17 +1435,17 @@ var _ = Describe("Converter", func() {
 				*v1.DefaultBridgeNetworkInterface(),
 				*v1.DefaultBridgeNetworkInterface(),
 			}
-			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
-			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
+			vmi.Spec.Domain.Devices.Interfaces[0].Name = netName1
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = netName2
 			vmi.Spec.Networks = []v1.Network{
 				{
-					Name: "red1",
+					Name: netName1,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red", Default: true},
 					},
 				},
 				{
-					Name: "red2",
+					Name: netName2,
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
@@ -1451,18 +1460,16 @@ var _ = Describe("Converter", func() {
 		})
 		It("should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name1 := "Name1"
-			name2 := "Name2"
 			iface1 := v1.DefaultBridgeNetworkInterface()
 			iface2 := v1.DefaultBridgeNetworkInterface()
 			net1 := v1.DefaultPodNetwork()
 			net2 := v1.DefaultPodNetwork()
-			iface1.Name = name1
-			iface2.Name = name2
+			iface1.Name = netName1
+			iface2.Name = netName2
 			bootOrder := uint(1)
 			iface1.BootOrder = &bootOrder
-			net1.Name = name1
-			net2.Name = name2
+			net1.Name = netName1
+			net2.Name = netName2
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface1, *iface2}
 			vmi.Spec.Networks = []v1.Network{*net1, *net2}
 			domain := vmiToDomain(vmi, c)
@@ -1474,11 +1481,10 @@ var _ = Describe("Converter", func() {
 		})
 		It("Should create network configuration for masquerade interface", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name1 := "Name"
 
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 			net1 := v1.DefaultPodNetwork()
-			net1.Name = name1
+			net1.Name = netName1
 
 			vmi.Spec.Networks = []v1.Network{*net1}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
@@ -1490,11 +1496,10 @@ var _ = Describe("Converter", func() {
 		})
 		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name1 := "Name"
 
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 			net1 := v1.DefaultPodNetwork()
-			net1.Name = name1
+			net1.Name = netName1
 
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, *v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red1"
@@ -1516,12 +1521,11 @@ var _ = Describe("Converter", func() {
 		It("Should create network configuration for macvtap interface and a multus network", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			multusNetworkName := "multusNet"
-			networkName := "net1"
 
-			iface1 := v1.Interface{Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
 
 			multusNetwork := v1.Network{
-				Name: networkName,
+				Name: netName1,
 				NetworkSource: v1.NetworkSource{
 					Multus: &v1.MultusNetwork{NetworkName: multusNetworkName},
 				},
@@ -1536,15 +1540,14 @@ var _ = Describe("Converter", func() {
 		})
 		It("Should create network configuration for the default pod network plus a secondary macvtap network interface using multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			secondaryNetworkName := "net1"
 
-			iface1 := v1.Interface{Name: secondaryNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
 
 			defaultPodNetwork := v1.DefaultPodNetwork()
 			multusNetwork := v1.Network{
-				Name: secondaryNetworkName,
+				Name: netName1,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: secondaryNetworkName},
+					Multus: &v1.MultusNetwork{NetworkName: netName1},
 				},
 			}
 			vmi.Spec.Networks = []v1.Network{*defaultPodNetwork, multusNetwork}
@@ -1555,26 +1558,57 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"), "Macvtap interfaces must be of type `ethernet`")
 		})
+		It("Should create network configuration for an interface using a binding plugin with tap domain attachment", func() {
+			bindingName := "BindingName"
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			iface1 := v1.Interface{Name: netName1, Binding: &v1.PluginBinding{Name: bindingName}}
+			net1 := v1.DefaultPodNetwork()
+			net1.Name = netName1
+
+			vmi.Spec.Networks = []v1.Network{*net1}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
+		})
+		It("Shouldn't create network configuration for an interface using a binding plugin with non-tap domain attachment", func() {
+			bindingName := "BindingName"
+			c.DomainAttachmentByInterfaceName[bindingName] = "non-tap"
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name1 := "Name"
+
+			iface1 := v1.Interface{Name: name1, Binding: &v1.PluginBinding{Name: bindingName}}
+			net1 := v1.DefaultPodNetwork()
+			net1.Name = name1
+
+			vmi.Spec.Networks = []v1.Network{*net1}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
+		})
 		It("Macvtap interfaces should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			firstMacvtapNetworkName := "net1"
-			secondMacvtapNetworkName := "net2"
 
 			firstToBoot := uint(1)
 			lastToBoot := uint(2)
-			iface1 := v1.Interface{Name: firstMacvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &lastToBoot}
-			iface2 := v1.Interface{Name: secondMacvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &firstToBoot}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &lastToBoot}
+			iface2 := v1.Interface{Name: netName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &firstToBoot}
 
 			firstMacvtapNetwork := v1.Network{
-				Name: firstMacvtapNetworkName,
+				Name: netName1,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: firstMacvtapNetworkName},
+					Multus: &v1.MultusNetwork{NetworkName: netName1},
 				},
 			}
 			secondMacvtapNetwork := v1.Network{
-				Name: secondMacvtapNetworkName,
+				Name: netName2,
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: secondMacvtapNetworkName},
+					Multus: &v1.MultusNetwork{NetworkName: netName2},
 				},
 			}
 			vmi.Spec.Networks = []v1.Network{firstMacvtapNetwork, secondMacvtapNetwork}
@@ -1585,24 +1619,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(lastToBoot), "the interface whose boot order is higher should be the last to boot")
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder.Order).To(Equal(firstToBoot), "the interface whose boot order is lower should be the first to boot")
-		})
-		Specify("macvtap interface binding must be used on a multus network", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name1 := "net1"
-
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
-
-			podNetwork := v1.Network{
-				Name: name1,
-				NetworkSource: v1.NetworkSource{
-					Pod: &v1.PodNetwork{},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{podNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-
-			domain := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
 		})
 		It("creates SRIOV hostdev", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
