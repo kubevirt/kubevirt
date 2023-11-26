@@ -100,6 +100,55 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			Expect(vmi.Status.Interfaces[0].MAC).To(Equal(macAddress))
 		})
 	})
+
+	Context("macvtap", func() {
+		const (
+			macvtapNetworkConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
+			macvtapBindingName    = "macvtap"
+			macvtapLowerDevice    = "eth0"
+			macvtapNetworkName    = "net1"
+		)
+
+		BeforeEach(func() {
+			macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, macvtapNetworkName, testsuite.GetTestNamespace(nil), macvtapLowerDevice, macvtapNetworkName)
+			namespace := testsuite.GetTestNamespace(nil)
+			Expect(createNetworkAttachmentDefinition(kubevirt.Client(), macvtapNetworkName, namespace, macvtapNad)).
+				To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
+		})
+
+		BeforeEach(func() {
+			err := libkvconfig.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.Tap})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("can run a virtual machine with one macvtap interface", func() {
+			var vmi *v1.VirtualMachineInstance
+			var chosenMAC string
+
+			chosenMACHW, err := GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+			chosenMAC = chosenMACHW.String()
+
+			ifaceName := "macvtapIface"
+			macvtapIface := libvmi.InterfaceDeviceWithBindingPlugin(
+				ifaceName, v1.PluginBinding{Name: macvtapBindingName},
+			)
+			vmi = libvmi.NewAlpineWithTestTooling(
+				libvmi.WithInterface(
+					*libvmi.InterfaceWithMac(&macvtapIface, chosenMAC)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
+
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			Expect(err).NotTo(HaveOccurred())
+			vmi = libwait.WaitUntilVMIReady(
+				vmi,
+				console.LoginToAlpine)
+
+			Expect(vmi.Status.Interfaces).To(HaveLen(1), "should have a single interface")
+			Expect(vmi.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
+		})
+
+	})
 })
 
 func createBasicNetworkAttachmentDefinition(namespace, nadName, typeName string) error {
