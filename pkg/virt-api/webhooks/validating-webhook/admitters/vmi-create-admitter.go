@@ -51,6 +51,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 )
 
 const requiredFieldFmt = "%s is a required field"
@@ -121,9 +122,23 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
+	return &admissionv1.AdmissionResponse{
+		Allowed:  true,
+		Warnings: warnDeprecatedAPIs(&vmi.Spec, admitter.ClusterConfig),
+	}
+}
+
+func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []string {
+	var warnings []string
+	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
+		deprecatedFeature := deprecation.FeatureGateInfo(fg)
+		if deprecatedFeature != nil && deprecatedFeature.State == deprecation.Deprecated && deprecatedFeature.VmiSpecUsed != nil {
+			if used := deprecatedFeature.VmiSpecUsed(spec); used {
+				warnings = append(warnings, deprecatedFeature.Message)
+			}
+		}
+	}
+	return warnings
 }
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {

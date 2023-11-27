@@ -80,9 +80,10 @@ func (admitter *VMPoolAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
+	return &admissionv1.AdmissionResponse{
+		Allowed:  true,
+		Warnings: warnDeprecatedAPIs(&pool.Spec.VirtualMachineTemplate.Spec.Template.Spec, admitter.ClusterConfig),
+	}
 }
 
 func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, pool *poolv1.VirtualMachinePool, config *virtconfig.ClusterConfig) []metav1.StatusCause {

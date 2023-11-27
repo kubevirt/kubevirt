@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -109,7 +109,7 @@ var istioTests = func(vmType VmType) {
 	BeforeEach(func() {
 		namespace = testsuite.GetTestNamespace(nil)
 		if vmType == Passt {
-			Expect(checks.HasFeature(virtconfig.PasstGate)).To(BeTrue())
+			Expect(checks.HasFeature(deprecation.PasstGate)).To(BeTrue())
 		}
 	})
 

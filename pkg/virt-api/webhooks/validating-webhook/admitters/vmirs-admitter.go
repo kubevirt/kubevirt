@@ -62,9 +62,10 @@ func (admitter *VMIRSAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
+	return &admissionv1.AdmissionResponse{
+		Allowed:  true,
+		Warnings: warnDeprecatedAPIs(&vmirs.Spec.Template.Spec, admitter.ClusterConfig),
+	}
 }
 
 func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {

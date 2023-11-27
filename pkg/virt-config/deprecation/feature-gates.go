@@ -17,31 +17,45 @@
  *
  */
 
-package virtconfig
+package deprecation
 
-import "fmt"
+import (
+	"fmt"
+
+	v1 "kubevirt.io/api/core/v1"
+)
 
 type State string
 
 const (
-	GA           = "Genraly Available" // By default, GAed feature gates are considered enabled and no-op.
-	Deprecated   = "Deprecated"        // The feature is going to be discontinued next release
+	GA           = "General Availability" // By default, GAed feature gates are considered enabled and no-op.
+	Deprecated   = "Deprecated"           // The feature is going to be discontinued next release
 	Discontinued = "Discontinued"
 )
 
-type DeprecatedFeatureGate struct {
-	Name    string
-	State   State
-	Message string
+const (
+	LiveMigrationGate      = "LiveMigration"      // Deprecated
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // Deprecated
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // Deprecated
+	PasstGate              = "Passt"              // Deprecated
+	NonRoot                = "NonRoot"            // Deprecated
+	PSA                    = "PSA"                // Deprecated
+)
+
+type FeatureGate struct {
+	Name        string
+	State       State
+	VmiSpecUsed func(spec *v1.VirtualMachineInstanceSpec) bool
+	Message     string
 }
 
-var featureGates = [...]DeprecatedFeatureGate{
+var featureGates = [...]FeatureGate{
 	{Name: LiveMigrationGate, State: GA},
 	{Name: SRIOVLiveMigrationGate, State: GA},
 	{Name: NonRoot, State: GA},
 	{Name: PSA, State: GA},
 	{Name: CPUNodeDiscoveryGate, State: GA},
-	{Name: PasstGate, State: Deprecated, Message: "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."},
+	{Name: PasstGate, State: Deprecated, Message: passtDeprecationMessage, VmiSpecUsed: passtApiUsed},
 }
 
 func init() {
@@ -54,28 +68,8 @@ func init() {
 	}
 }
 
-func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	deprectedFeature := DeprecatedFeatureGateInfo(featureGate)
-	if deprectedFeature != nil {
-		switch state := deprectedFeature.State; state {
-		case GA:
-			return true
-		case Discontinued:
-			return false
-		}
-	}
-
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-	return false
-}
-
-func DeprecatedFeatureGateInfo(featureGate string) *DeprecatedFeatureGate {
+func FeatureGateInfo(featureGate string) *FeatureGate {
 	for _, deprecatedFeature := range featureGates {
-
 		if featureGate == deprecatedFeature.Name {
 			deprecatedFeature := deprecatedFeature
 			return &deprecatedFeature

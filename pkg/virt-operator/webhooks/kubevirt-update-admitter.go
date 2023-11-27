@@ -28,6 +28,7 @@ import (
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 	"kubevirt.io/client-go/log"
 
@@ -448,7 +449,7 @@ func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 
 func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 	for _, featureGate := range featureGates {
-		deprectedFeature := virtconfig.DeprecatedFeatureGateInfo(featureGate)
+		deprectedFeature := deprecation.FeatureGateInfo(featureGate)
 		if deprectedFeature != nil {
 			warning := deprectedFeature.Message
 			warnings = append(warnings, warning)

@@ -36,7 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -52,7 +52,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.PasstGate)).To(BeTrue())
+		Expect(checks.HasFeature(deprecation.PasstGate)).To(BeTrue())
 	})
 
 	BeforeEach(func() {

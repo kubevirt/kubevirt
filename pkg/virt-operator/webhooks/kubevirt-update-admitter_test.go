@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -305,8 +305,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}))
 		},
-			Entry("with Passt", virtconfig.PasstGate, "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."),
-			Entry("with SRIOVLiveMigrationGate", virtconfig.SRIOVLiveMigrationGate, "feature gate SRIOVLiveMigration is deprecated, therefore it can be safely removed and is redundant. For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"),
+			Entry("with Passt", deprecation.PasstGate, "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."),
+			Entry("with SRIOVLiveMigrationGate", deprecation.SRIOVLiveMigrationGate, "feature gate SRIOVLiveMigration is deprecated, therefore it can be safely removed and is redundant. For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"),
 		)
 	})
 })
