@@ -381,7 +381,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"restoreInProgress":      "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
 		"created":                "Created indicates if the virtual machine is created in the cluster",
 		"ready":                  "Ready indicates if the virtual machine is running and ready",
-		"printableStatus":        "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
+		"printableStatus":        "PrintableStatus is a human readable, high-level representation of the status of the virtual machine\n+kubebuilder:default=Stopped",
 		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
 		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
