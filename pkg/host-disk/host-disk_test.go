@@ -415,6 +415,22 @@ var _ = Describe("HostDisk", func() {
 			}
 		})
 
+		assertHostDiskWithSize := func(expectedSize resource.Quantity) {
+			volume := vmi.Spec.Volumes[0]
+			Expect(volume.HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
+			Expect(volume.HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
+			Expect(volume.HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
+			Expect(volume.PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
+			Expect(volume.HostDisk.Capacity.Value()).To(Equal(expectedSize.Value()), "Hostdisk capacity is filled")
+		}
+
+		assertNoHostDisk := func() {
+			volume := vmi.Spec.Volumes[0]
+			Expect(volume.HostDisk).To(BeNil(), "There should be no hostdisk volume")
+			Expect(volume.PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
+			Expect(volume.PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
+		}
+
 		DescribeTable("in", func(mode k8sv1.PersistentVolumeMode, devices v1.Devices, capacity, requests k8sv1.ResourceList, validateFunc func()) {
 			vmi.Spec.Domain.Devices = devices
 			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.VolumeMode = &mode
@@ -427,43 +443,51 @@ var _ = Describe("HostDisk", func() {
 			validateFunc()
 		},
 
-			Entry("filemode", k8sv1.PersistentVolumeFilesystem,
+			Entry("filemode",
+				k8sv1.PersistentVolumeFilesystem,
 				v1.Devices{},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
 				func() {
-					ExpectedCapacity := resource.MustParse("2Gi")
-					Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
-					Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
-					Expect(vmi.Spec.Volumes[0].HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
-					Expect(vmi.Spec.Volumes[0].HostDisk.Capacity.Value()).To(Equal(ExpectedCapacity.Value()), "Hostdisk capacity is filled")
-					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
+					assertHostDiskWithSize(resource.MustParse("2Gi"))
 				},
 			),
-			Entry("filemode with smaller requested PVC size", k8sv1.PersistentVolumeFilesystem,
+			Entry("filemode with smaller requested PVC size",
+				k8sv1.PersistentVolumeFilesystem,
 				v1.Devices{},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")},
 				func() {
-					ExpectedCapacity := resource.MustParse("1Gi")
-					Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
-					Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
-					Expect(vmi.Spec.Volumes[0].HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
-					Expect(vmi.Spec.Volumes[0].HostDisk.Capacity.Value()).To(Equal(ExpectedCapacity.Value()), "Hostdisk capacity is filled")
-					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
+					assertHostDiskWithSize(resource.MustParse("1Gi"))
 				},
 			),
-			Entry("blockmode", k8sv1.PersistentVolumeBlock,
+			Entry("filemode without capacity PVC size",
+				k8sv1.PersistentVolumeFilesystem,
+				v1.Devices{},
+				k8sv1.ResourceList{},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")},
+				func() {
+					assertHostDiskWithSize(resource.MustParse("1Gi"))
+				},
+			),
+			Entry("filemode without requested PVC size",
+				k8sv1.PersistentVolumeFilesystem,
+				v1.Devices{},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				k8sv1.ResourceList{},
+				func() {
+					assertHostDiskWithSize(resource.MustParse("2Gi"))
+				},
+			),
+			Entry("blockmode",
+				k8sv1.PersistentVolumeBlock,
 				v1.Devices{},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
-				func() {
-					Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
-					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
-					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
-				},
+				assertNoHostDisk,
 			),
-			Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem,
+			Entry("filesystem passthrough",
+				k8sv1.PersistentVolumeFilesystem,
 				v1.Devices{
 					Filesystems: []v1.Filesystem{{
 						Name:     volumeName,
@@ -472,13 +496,16 @@ var _ = Describe("HostDisk", func() {
 				},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
 				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
-				func() {
-					Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
-					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
-					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
-				},
+				assertNoHostDisk,
 			),
 		)
-	})
 
+		It("in filemode without capacity or requested PVC size should fail", func() {
+			mode := k8sv1.PersistentVolumeFilesystem
+			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.VolumeMode = &mode
+			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.Capacity = k8sv1.ResourceList{}
+			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.Requests = k8sv1.ResourceList{}
+			Expect(ReplacePVCByHostDisk(vmi)).ToNot(Succeed())
+		})
+	})
 })
