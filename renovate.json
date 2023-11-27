@@ -23,6 +23,12 @@
       "matchPackageNames": ["kubevirt/containerized-data-importer"],
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
       "groupName": null
+    },
+    {
+       "description": "Group GitHub Actions dependencies",
+       "matchManagers": [ "github-actions" ],
+       "groupName": "github-actions",
+       "pinDigests": false
     }
   ]
 }
