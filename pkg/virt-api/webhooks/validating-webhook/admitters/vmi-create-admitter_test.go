@@ -1604,6 +1604,26 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
+		It("should raise warning when Passt interface API is used", func() {
+			enableFeatureGate(virtconfig.PasstGate)
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
+			vmi.Spec.Networks = []v1.Network{
+				{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmiJSON, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiJSON}}}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
+			Expect(resp.Warnings).To(Equal([]string{"Passt interface API is deprecated. Please refer to Kubevirt user guide for alternatives."}))
+		})
 		It("should reject networks with a pod network source and slirp interface without specific port", func() {
 			enableSlirpInterface()
 			vm := api.NewMinimalVMI("testvm")

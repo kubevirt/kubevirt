@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -123,7 +125,16 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
+	reviewResponse.Warnings = append(reviewResponse.Warnings, warnDeprecatedAPIs(vmi)...)
 	return &reviewResponse
+}
+
+func warnDeprecatedAPIs(vmi *v1.VirtualMachineInstance) []string {
+	var warnings []string
+	if util.IsPasstVMI(vmi) {
+		warnings = append(warnings, "Passt interface API is deprecated. Please refer to Kubevirt user guide for alternatives.")
+	}
+	return warnings
 }
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
