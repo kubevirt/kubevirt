@@ -115,6 +115,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
 		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
 		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates, admitter.ClusterConfig)...)
+		response.Warnings = append(response.Warnings, warnDiscontinuedFeatureGate(featureGates, admitter.ClusterConfig)...)
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -457,6 +458,17 @@ func warnDeprecatedFeatureGates(featureGates []string, config *virtconfig.Cluste
 		}
 	}
 
+	return warnings
+}
+
+func warnDiscontinuedFeatureGate(featureGates []string, config *virtconfig.ClusterConfig) []string {
+	var warnings []string
+	for _, featureGate := range featureGates {
+		if msg := config.DiscontinuedFeatureMessage(featureGate); msg != "" {
+			warnings = append(warnings, msg)
+			log.Log.Warningf(msg)
+		}
+	}
 	return warnings
 }
 

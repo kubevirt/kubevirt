@@ -277,5 +277,31 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 
 			Entry("should not warn if configuration nil", warnNotExpected, nil),
 		)
+
+		It("should raise warning when Passt feature-gate is enabled", func() {
+			kv := v1.KubeVirt{}
+			kvBytes, err := json.Marshal(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{FeatureGates: []string{"Passt"}}
+			kvUpdatedBytes, err := json.Marshal(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			request := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource:  KubeVirtGroupVersionResource,
+					Operation: admissionv1.Update,
+					OldObject: runtime.RawExtension{Raw: kvBytes},
+					Object:    runtime.RawExtension{Raw: kvUpdatedBytes},
+				},
+			}
+
+			Expect(admitter.Admit(request)).To(Equal(&admissionv1.AdmissionResponse{
+				Allowed: true,
+				Warnings: []string{
+					"Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives.",
+				},
+			}))
+		})
 	})
 })

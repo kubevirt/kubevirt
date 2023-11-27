@@ -30,18 +30,19 @@ const (
 	IgnitionGate      = "ExperimentalIgnitionSupport"
 	LiveMigrationGate = "LiveMigration"
 	// SRIOVLiveMigrationGate enables Live Migration for VM's with network SR-IOV interfaces.
-	SRIOVLiveMigrationGate     = "SRIOVLiveMigration"
-	CPUNodeDiscoveryGate       = "CPUNodeDiscovery"
-	HypervStrictCheckGate      = "HypervStrictCheck"
-	SidecarGate                = "Sidecar"
-	GPUGate                    = "GPU"
-	HostDevicesGate            = "HostDevices"
-	SnapshotGate               = "Snapshot"
-	VMExportGate               = "VMExport"
-	HotplugVolumesGate         = "HotplugVolumes"
-	HostDiskGate               = "HostDisk"
-	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
-	MacvtapGate                = "Macvtap"
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration"
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"
+	HypervStrictCheckGate  = "HypervStrictCheck"
+	SidecarGate            = "Sidecar"
+	GPUGate                = "GPU"
+	HostDevicesGate        = "HostDevices"
+	SnapshotGate           = "Snapshot"
+	VMExportGate           = "VMExport"
+	HotplugVolumesGate     = "HotplugVolumes"
+	HostDiskGate           = "HostDisk"
+	VirtIOFSGate           = "ExperimentalVirtiofsSupport"
+	MacvtapGate            = "Macvtap"
+	// Deprecated, please refer to Kubevirt user guide for alternatives.
 	PasstGate                  = "Passt"
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRoot                    = "NonRoot"
@@ -116,6 +117,14 @@ func (config *ClusterConfig) IsFeatureGateDeprecated(featureGate string) bool {
 	}
 
 	return false
+}
+
+var discontinuedFeaturesMessages = map[string]string{
+	"Passt": "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives.",
+}
+
+func (c *ClusterConfig) DiscontinuedFeatureMessage(featureGate string) string {
+	return discontinuedFeaturesMessages[featureGate]
 }
 
 func (config *ClusterConfig) ExpandDisksEnabled() bool {
