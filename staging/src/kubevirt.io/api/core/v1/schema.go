@@ -1327,7 +1327,9 @@ type InterfaceBindingMethod struct {
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
 	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
-	Passt      *InterfacePasst      `json:"passt,omitempty"`
+	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	// +optional
+	Passt *InterfacePasst `json:"passt,omitempty"`
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.
