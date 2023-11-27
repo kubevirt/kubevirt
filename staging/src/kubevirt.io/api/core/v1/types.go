@@ -1526,6 +1526,7 @@ type VirtualMachineStatus struct {
 	// Ready indicates if the virtual machine is running and ready
 	Ready bool `json:"ready,omitempty"`
 	// PrintableStatus is a human readable, high-level representation of the status of the virtual machine
+	// +kubebuilder:default=Stopped
 	PrintableStatus VirtualMachinePrintableStatus `json:"printableStatus,omitempty"`
 	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
