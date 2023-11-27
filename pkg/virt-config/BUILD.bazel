@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "configuration.go",
+        "deprecated-feature-gates.go",
         "feature-gates.go",
         "virt-config.go",
     ],

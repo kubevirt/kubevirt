@@ -30,18 +30,19 @@ const (
 	IgnitionGate      = "ExperimentalIgnitionSupport"
 	LiveMigrationGate = "LiveMigration"
 	// SRIOVLiveMigrationGate enables Live Migration for VM's with network SR-IOV interfaces.
-	SRIOVLiveMigrationGate     = "SRIOVLiveMigration"
-	CPUNodeDiscoveryGate       = "CPUNodeDiscovery"
-	HypervStrictCheckGate      = "HypervStrictCheck"
-	SidecarGate                = "Sidecar"
-	GPUGate                    = "GPU"
-	HostDevicesGate            = "HostDevices"
-	SnapshotGate               = "Snapshot"
-	VMExportGate               = "VMExport"
-	HotplugVolumesGate         = "HotplugVolumes"
-	HostDiskGate               = "HostDisk"
-	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
-	MacvtapGate                = "Macvtap"
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration"
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"
+	HypervStrictCheckGate  = "HypervStrictCheck"
+	SidecarGate            = "Sidecar"
+	GPUGate                = "GPU"
+	HostDevicesGate        = "HostDevices"
+	SnapshotGate           = "Snapshot"
+	VMExportGate           = "VMExport"
+	HotplugVolumesGate     = "HotplugVolumes"
+	HostDiskGate           = "HostDisk"
+	VirtIOFSGate           = "ExperimentalVirtiofsSupport"
+	MacvtapGate            = "Macvtap"
+	// Deprecated, please refer to Kubevirt user guide for alternatives.
 	PasstGate                  = "Passt"
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	NonRoot                    = "NonRoot"
@@ -84,39 +85,6 @@ const (
 	// CPUManagerPolicyBetaOptionsGate allows conforming VM to static CPU-Manager Policies.
 	CPUManagerPolicyBetaOptionsGate = "CPUManagerPolicyBetaOptions"
 )
-
-var deprecatedFeatureGates = [...]string{
-	LiveMigrationGate,
-	SRIOVLiveMigrationGate,
-	NonRoot,
-	PSA,
-	CPUNodeDiscoveryGate,
-}
-
-func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if config.IsFeatureGateDeprecated(featureGate) {
-		// Deprecated feature gates are considered enabled and no-op.
-		// For more info about deprecation policy: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md
-		return true
-	}
-
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-	return false
-}
-
-func (config *ClusterConfig) IsFeatureGateDeprecated(featureGate string) bool {
-	for _, deprecatedFeatureGate := range deprecatedFeatureGates {
-		if featureGate == deprecatedFeatureGate {
-			return true
-		}
-	}
-
-	return false
-}
 
 func (config *ClusterConfig) ExpandDisksEnabled() bool {
 	return config.isFeatureGateEnabled(ExpandDisksGate)

@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -276,6 +278,35 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			}),
 
 			Entry("should not warn if configuration nil", warnNotExpected, nil),
+		)
+
+		DescribeTable("should raise warning when a deprecated feature-gate is enabled", func(featureGate, expectedWarning string) {
+			kv := v1.KubeVirt{}
+			kvBytes, err := json.Marshal(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{FeatureGates: []string{featureGate}}
+			kvUpdatedBytes, err := json.Marshal(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			request := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource:  KubeVirtGroupVersionResource,
+					Operation: admissionv1.Update,
+					OldObject: runtime.RawExtension{Raw: kvBytes},
+					Object:    runtime.RawExtension{Raw: kvUpdatedBytes},
+				},
+			}
+
+			Expect(admitter.Admit(request)).To(Equal(&admissionv1.AdmissionResponse{
+				Allowed: true,
+				Warnings: []string{
+					expectedWarning,
+				},
+			}))
+		},
+			Entry("with Passt", virtconfig.PasstGate, "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."),
+			Entry("with SRIOVLiveMigrationGate", virtconfig.SRIOVLiveMigrationGate, "feature gate SRIOVLiveMigration is deprecated, therefore it can be safely removed and is redundant. For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"),
 		)
 	})
 })
