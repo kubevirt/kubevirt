@@ -17310,6 +17310,7 @@
       "default": ""
      },
      "passt": {
+      "description": "Deprecated, please refer to Kubevirt user guide for alternatives.",
       "$ref": "#/definitions/v1.InterfacePasst"
      },
      "pciAddress": {

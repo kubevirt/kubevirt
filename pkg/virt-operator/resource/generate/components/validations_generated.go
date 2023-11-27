@@ -5972,7 +5972,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   match the Name of a Network.
                                 type: string
                               passt:
-                                description: InterfacePasst connects to a given network.
+                                description: Deprecated, please refer to Kubevirt
+                                  user guide for alternatives.
                                 type: object
                               pciAddress:
                                 description: 'If specified, the virtual network interface
@@ -10531,7 +10532,8 @@ var CRDsValidation map[string]string = map[string]string{
                           to the associated networks. Must match the Name of a Network.
                         type: string
                       passt:
-                        description: InterfacePasst connects to a given network.
+                        description: Deprecated, please refer to Kubevirt user guide
+                          for alternatives.
                         type: object
                       pciAddress:
                         description: 'If specified, the virtual network interface
@@ -13260,7 +13262,8 @@ var CRDsValidation map[string]string = map[string]string{
                           to the associated networks. Must match the Name of a Network.
                         type: string
                       passt:
-                        description: InterfacePasst connects to a given network.
+                        description: Deprecated, please refer to Kubevirt user guide
+                          for alternatives.
                         type: object
                       pciAddress:
                         description: 'If specified, the virtual network interface
@@ -15445,7 +15448,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   match the Name of a Network.
                                 type: string
                               passt:
-                                description: InterfacePasst connects to a given network.
+                                description: Deprecated, please refer to Kubevirt
+                                  user guide for alternatives.
                                 type: object
                               pciAddress:
                                 description: 'If specified, the virtual network interface
@@ -19831,8 +19835,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           networks. Must match the Name of a Network.
                                         type: string
                                       passt:
-                                        description: InterfacePasst connects to a
-                                          given network.
+                                        description: Deprecated, please refer to Kubevirt
+                                          user guide for alternatives.
                                         type: object
                                       pciAddress:
                                         description: 'If specified, the virtual network
@@ -25004,8 +25008,8 @@ var CRDsValidation map[string]string = map[string]string{
                                               networks. Must match the Name of a Network.
                                             type: string
                                           passt:
-                                            description: InterfacePasst connects to
-                                              a given network.
+                                            description: Deprecated, please refer
+                                              to Kubevirt user guide for alternatives.
                                             type: object
                                           pciAddress:
                                             description: 'If specified, the virtual
