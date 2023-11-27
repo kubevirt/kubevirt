@@ -123,10 +123,10 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	reviewResponse.Warnings = append(reviewResponse.Warnings, warnDeprecatedAPIs(vmi)...)
-	return &reviewResponse
+	return &admissionv1.AdmissionResponse{
+		Allowed:  true,
+		Warnings: warnDeprecatedAPIs(vmi),
+	}
 }
 
 func warnDeprecatedAPIs(vmi *v1.VirtualMachineInstance) []string {
