@@ -14,12 +14,14 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
 	kubevirtNamespace = "kubevirt"
 	machineTypeCmd    = "machine-types"
+	defaultImageName  = "mass-machine-type-transition"
 )
 
 type MachineTypeCommand struct {
@@ -31,6 +33,7 @@ var (
 	namespaceFlag     string
 	restartNowFlag    bool
 	labelSelectorFlag string
+	image             string
 )
 
 // NewMachineTypeCommand generates a new "update machine-types" command
@@ -88,6 +91,12 @@ func (o *MachineTypeCommand) Run(args []string) error {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
+	// set the image name
+	err = setImage(virtClient)
+	if err != nil {
+		return err
+	}
+
 	job := generateMassMachineTypeTransitionJob(machineTypeGlob)
 	batch := virtClient.BatchV1()
 	job, err = batch.Jobs(kubevirtNamespace).Create(context.Background(), job, metav1.CreateOptions{})
@@ -118,7 +127,7 @@ func generateMassMachineTypeTransitionJob(machineTypeGlob string) *batchv1.Job {
 					Containers: []v1.Container{
 						{
 							Name:  machineTypeCmd,
-							Image: "registry:5000/kubevirt/mass-machine-type-transition:devel",
+							Image: image,
 							Env: []v1.EnvVar{
 								{
 									Name:  "MACHINE_TYPE",
@@ -158,4 +167,23 @@ func generateMassMachineTypeTransitionJob(machineTypeGlob string) *batchv1.Job {
 		},
 	}
 	return job
+}
+
+// setImage sets the image name based on the information retrieved by the KubeVirt server.
+func setImage(virtClient kubecli.KubevirtClient) error {
+	info, err := getImageInfo(virtClient)
+	if err != nil {
+		return fmt.Errorf("could not get guestfs image info: %v", err)
+	}
+	image = fmt.Sprintf("%s/%s%s%s", info.Registry, info.ImagePrefix, defaultImageName, components.AddVersionSeparatorPrefix(info.Tag))
+	return nil
+}
+
+func getImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
+	info, err := virtClient.GuestfsVersion().Get()
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }
