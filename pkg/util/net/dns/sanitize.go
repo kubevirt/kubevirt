@@ -31,14 +31,14 @@ import (
 // If the hostname is taken from vmi.Spec.Hostname
 // then it already passed DNS label validations.
 func SanitizeHostname(vmi *v1.VirtualMachineInstance) string {
-
-	hostName := strings.Split(vmi.Name, ".")[0]
+	var hostName string
+	if vmi.Spec.Hostname != "" {
+		hostName = vmi.Spec.Hostname
+	} else {
+		hostName = strings.Split(vmi.Name, ".")[0]
+	}
 	if len(hostName) > validation.DNS1123LabelMaxLength {
 		hostName = hostName[:validation.DNS1123LabelMaxLength]
 	}
-	if vmi.Spec.Hostname != "" {
-		hostName = vmi.Spec.Hostname
-	}
-
 	return hostName
 }
