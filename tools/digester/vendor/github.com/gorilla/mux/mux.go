@@ -31,24 +31,26 @@ func NewRouter() *Router {
 // It implements the http.Handler interface, so it can be registered to serve
 // requests:
 //
-//     var router = mux.NewRouter()
+//	var router = mux.NewRouter()
 //
-//     func main() {
-//         http.Handle("/", router)
-//     }
+//	func main() {
+//	    http.Handle("/", router)
+//	}
 //
 // Or, for Google App Engine, register it in a init() function:
 //
-//     func init() {
-//         http.Handle("/", router)
-//     }
+//	func init() {
+//	    http.Handle("/", router)
+//	}
 //
 // This will send all incoming requests to the router.
 type Router struct {
 	// Configurable Handler to be used when no route matches.
+	// This can be used to render your own 404 Not Found errors.
 	NotFoundHandler http.Handler
 
 	// Configurable Handler to be used when the request method does not match the route.
+	// This can be used to render your own 405 Method Not Allowed errors.
 	MethodNotAllowedHandler http.Handler
 
 	// Routes to be matched, in order.
@@ -435,8 +437,7 @@ func Vars(r *http.Request) map[string]string {
 // CurrentRoute returns the matched route for the current request, if any.
 // This only works when called inside the handler of the matched route
 // because the matched route is stored in the request context which is cleared
-// after the handler returns, unless the KeepContext option is set on the
-// Router.
+// after the handler returns.
 func CurrentRoute(r *http.Request) *Route {
 	if rv := r.Context().Value(routeKey); rv != nil {
 		return rv.(*Route)
