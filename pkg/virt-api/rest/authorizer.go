@@ -48,6 +48,9 @@ var noAuthEndpoints = map[string]struct{}{
 	"/apis":       {},
 	"/healthz":    {},
 	"/openapi/v2": {},
+	// Although KubeVirt does not publish v3, Kubernetes aggregator controller will
+	// handle v2 to v3 (lossy) conversion if KubeVirt returns 404 on this endpoint
+	"/openapi/v3": {},
 	// The endpoints with just the version are needed for api aggregation discovery
 	// Test with e.g. kubectl get --raw /apis/subresources.kubevirt.io/v1
 	"/apis/subresources.kubevirt.io/v1":               {},
