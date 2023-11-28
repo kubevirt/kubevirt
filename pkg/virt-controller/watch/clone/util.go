@@ -56,12 +56,12 @@ func generateNameWithRandomSuffix(names ...string) string {
 	return generatedName
 }
 
-func generateSnapshotName(cloneName, vmName string) string {
-	return generateNameWithRandomSuffix("clone", cloneName, "snapshot", vmName)
+func generateSnapshotName(vmCloneUID types.UID) string {
+	return fmt.Sprintf("tmp-snapshot-%s", string(vmCloneUID))
 }
 
-func generateRestoreName(cloneName, vmName string) string {
-	return generateNameWithRandomSuffix("clone", cloneName, "restore", vmName)
+func generateRestoreName(vmCloneUID types.UID) string {
+	return fmt.Sprintf("tmp-restore-%s", string(vmCloneUID))
 }
 
 func generateVolumeName(volumeName string) string {
@@ -79,7 +79,7 @@ func isInPhase(vmClone *clonev1alpha1.VirtualMachineClone, phase clonev1alpha1.V
 func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
 	return &v1alpha1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateSnapshotName(vmClone.Name, sourceVM.Name),
+			Name:      generateSnapshotName(vmClone.UID),
 			Namespace: sourceVM.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				getCloneOwnerReference(vmClone.Name, vmClone.UID),
@@ -103,7 +103,7 @@ func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName,
 
 	return &v1alpha1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateRestoreName(cloneName, sourceVMName),
+			Name:      generateRestoreName(cloneUID),
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				getCloneOwnerReference(cloneName, cloneUID),
