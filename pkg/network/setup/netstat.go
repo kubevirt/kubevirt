@@ -104,21 +104,13 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	)
 
 	var err error
-	if len(domain.Status.Interfaces) > 0 {
-		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
-
-		natedIfacesSpec := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
-			return i.Masquerade != nil || i.Slirp != nil || i.Passt != nil
-		})
-		if interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, natedIfacesSpec, vmi); err != nil {
-			return err
-		}
-	} else {
-		interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, vmi)
-		if err != nil {
-			return err
-		}
+	interfacesStatus, err = c.updateIfacesStatusFromPodCache(interfacesStatus, vmi.Spec.Domain.Devices.Interfaces, vmi)
+	if err != nil {
+		return err
 	}
+
+	// Guest Agent information will add and conditionally override data gathered from the cache.
+	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
 	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, netvmispec.LookupPodNetwork(vmi.Spec.Networks))
 	if primaryInterfaceStatus != nil {
@@ -282,8 +274,15 @@ func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.Inte
 
 func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
 	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
-	ifaceStatus.IP = guestAgentIface.Ip
-	ifaceStatus.IPs = guestAgentIface.IPs
+	// IP data from the Guest Agent overrides previous iface status information in the following cases:
+	// - No status IPs existed before, i.e. GA data is adding new information.
+	// - Status IPs exist, however, GA information does not include any IP.
+	// In other words, if IP data already existed in the status, GA IP data will not override it.
+	// However, in case GA does not include IP data, it will clear IP status data (guest is not reachable by any IP).
+	if ifaceStatus.IP == "" || guestAgentIface.Ip == "" {
+		ifaceStatus.IP = guestAgentIface.Ip
+		ifaceStatus.IPs = guestAgentIface.IPs
+	}
 }
 
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
