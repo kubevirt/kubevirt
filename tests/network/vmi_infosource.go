@@ -146,7 +146,7 @@ var _ = SIGDescribe("Infosource", func() {
 
 			networkInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceMac)
 			Expect(networkInterface).NotTo(BeNil(), "interface not found")
-			Expect(networkInterface.IP).To(BeEmpty())
+			Expect(networkInterface.IP).NotTo(BeEmpty())
 
 			guestInterface := netvmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, primaryInterfaceNewMac)
 			Expect(guestInterface).NotTo(BeNil(), "interface not found")
