@@ -6,13 +6,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout this repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: main
           path: hco
 
       - name: Checkout monitoring repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: kubevirt/monitoring
           ref: main
@@ -30,7 +30,7 @@ jobs:
           fi
 
       - name: Create a PR
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v5
         if: ${{ env.UPDATED }}
         with:
           path: hco

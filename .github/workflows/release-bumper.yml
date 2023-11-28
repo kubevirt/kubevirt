@@ -18,7 +18,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set_branches.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
@@ -37,11 +37,11 @@ jobs:
       matrix: ${{fromJson(needs.set_bump_branches.outputs.matrix)}}
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branches.branch }}
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.20' # The Go version to download (if necessary) and use.
 
@@ -74,7 +74,7 @@ jobs:
         if: ${{ env.CHANGED }}
         run: rm -f updated_component.txt updated_version.txt
 
-      - uses: peter-evans/create-pull-request@v3
+      - uses: peter-evans/create-pull-request@v5
         if: ${{ env.CHANGED }}
         with:
           token: ${{ secrets.HCO_BOT_TOKEN }}

@@ -17,12 +17,12 @@ jobs:
             echo "NEW_PR=true" >> $GITHUB_ENV
           fi
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: ${{ env.NEW_PR }}
         with:
           ref: main
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         if: ${{ env.NEW_PR }}
         with:
           go-version: '1.20' # The Go version to download (if necessary) and use.
@@ -54,7 +54,7 @@ jobs:
         if: ${{ env.CHANGED }}
         run: ./hack/build-manifests.sh
 
-      - uses: peter-evans/create-pull-request@v3
+      - uses: peter-evans/create-pull-request@v5
         if: ${{ env.CHANGED }}
         with:
           token: ${{ secrets.HCO_BOT_TOKEN }}
