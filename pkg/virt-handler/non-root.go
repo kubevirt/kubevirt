@@ -14,6 +14,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
@@ -106,21 +107,22 @@ func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func getTapDevices(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
-	macvtap := map[string]struct{}{}
+func getTapDevices(vmi *v1.VirtualMachineInstance, networkBindings map[string]v1.InterfaceBindingPlugin) (map[string]string, error) {
+	tapNetworks := map[string]struct{}{}
+	domainAttachmentByInterfaceName := domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, networkBindings)
 	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
-		if inf.Macvtap != nil {
-			macvtap[inf.Name] = struct{}{}
+		if domainAttachmentByInterfaceName[inf.Name] == string(v1.Tap) {
+			tapNetworks[inf.Name] = struct{}{}
 		}
 	}
 
 	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
 	tapDevices := map[string]string{}
 	for _, net := range vmi.Spec.Networks {
-		_, isMacvtapNetwork := macvtap[net.Name]
-		if podInterfaceName, exists := networkNameScheme[net.Name]; isMacvtapNetwork && exists {
+		_, isTapNetwork := tapNetworks[net.Name]
+		if podInterfaceName, exists := networkNameScheme[net.Name]; isTapNetwork && exists {
 			tapDevices[net.Name] = podInterfaceName
-		} else if isMacvtapNetwork && !exists {
+		} else if isTapNetwork && !exists {
 			return nil, fmt.Errorf("network %q not found in naming scheme: this should never happen", net.Name)
 		}
 	}
@@ -128,7 +130,7 @@ func getTapDevices(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 }
 
 func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	networkToTapDeviceNames, err := getTapDevices(vmi)
+	networkToTapDeviceNames, err := getTapDevices(vmi, d.clusterConfig.GetNetworkBindings())
 	if err != nil {
 		return err
 	}
@@ -156,6 +158,9 @@ func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, re
 
 		pathToTap, err := isolation.SafeJoin(res, "dev", fmt.Sprintf("tap%d", index))
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 
