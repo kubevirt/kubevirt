@@ -28,8 +28,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -119,6 +121,7 @@ var _ = Describe("Clone", func() {
 			Expect(ok).To(BeTrue())
 
 			snapshot := create.GetObject().(*snapshotv1alpha1.VirtualMachineSnapshot)
+			Expect(snapshot.Name).To(Equal("tmp-snapshot-clone-uid"))
 			Expect(snapshot.Spec.Source.Kind).To(Equal("VirtualMachine"))
 			Expect(snapshot.Spec.Source.Name).To(Equal(sourceVMName))
 			Expect(snapshot.OwnerReferences).To(HaveLen(1))
@@ -128,6 +131,21 @@ var _ = Describe("Clone", func() {
 		})
 	}
 
+	expectSnapshotCreateAlreadyExists := func(sourceVMName string, vmClone *clonev1alpha1.VirtualMachineClone, snapshot *snapshotv1alpha1.VirtualMachineSnapshot) {
+		client.Fake.PrependReactor("create", snapshotResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+
+			snapshotcreated := create.GetObject().(*snapshotv1alpha1.VirtualMachineSnapshot)
+			Expect(snapshotcreated.Spec.Source.Kind).To(Equal("VirtualMachine"))
+			Expect(snapshotcreated.Spec.Source.Name).To(Equal(sourceVMName))
+			Expect(snapshotcreated.OwnerReferences).To(HaveLen(1))
+			validateOwnerReference(snapshotcreated.OwnerReferences[0], vmClone)
+			Expect(snapshotcreated.Name).To(Equal(snapshot.Name))
+
+			return true, create.GetObject(), errors.NewAlreadyExists(schema.GroupResource{}, snapshot.Name)
+		})
+	}
 	expectRestoreCreate := func(restoreName string, vmClone *clonev1alpha1.VirtualMachineClone) {
 		client.Fake.PrependReactor("create", restoreResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
@@ -139,6 +157,19 @@ var _ = Describe("Clone", func() {
 			validateOwnerReference(restore.OwnerReferences[0], vmClone)
 
 			return true, create.GetObject(), nil
+		})
+	}
+	expectRestoreCreateAlreadyExists := func(snapshotName string, vmClone *clonev1alpha1.VirtualMachineClone, restoreName string) {
+		client.Fake.PrependReactor("create", restoreResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+
+			restorecreated := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			Expect(restorecreated.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
+			Expect(restorecreated.OwnerReferences).To(HaveLen(1))
+			validateOwnerReference(restorecreated.OwnerReferences[0], vmClone)
+
+			return true, create.GetObject(), errors.NewAlreadyExists(schema.GroupResource{}, restorecreated.Name)
 		})
 	}
 
@@ -447,6 +478,40 @@ var _ = Describe("Clone", func() {
 				controller.Execute()
 				expectEvent(SnapshotDeleted)
 			})
+			It("when snapshot is already exists and vmclone is not update yet- should create snapshot failed", func() {
+				vmClone.Status.Phase = clonev1alpha1.PhaseUnset
+
+				addVM(sourceVM)
+				addClone(vmClone)
+
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				addSnapshot(snapshot)
+
+				expectSnapshotCreateAlreadyExists(sourceVM.Name, vmClone, snapshot)
+				expectCloneUpdate(clonev1alpha1.SnapshotInProgress)
+
+				controller.Execute()
+
+			})
+			It("when restore is already exists and vmclone is not update yet - should create restore failed", func() {
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				snapshot.Status.ReadyToUse = pointer.Bool(true)
+
+				restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
+
+				vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
+
+				vmClone.Status.Phase = clonev1alpha1.SnapshotInProgress
+
+				addVM(sourceVM)
+				addClone(vmClone)
+				addSnapshot(snapshot)
+				addRestore(restore)
+				expectRestoreCreateAlreadyExists(snapshot.Name, vmClone, restore.Name)
+				expectCloneUpdate(clonev1alpha1.RestoreInProgress)
+
+				controller.Execute()
+			})
 		})
 
 		Context("with source snapshot", func() {
@@ -462,6 +527,27 @@ var _ = Describe("Clone", func() {
 				addVM(sourceVM)
 				addClone(vmClone)
 				addSnapshot(snapshot)
+
+				controller.Execute()
+			})
+			It("when restore is already exists and vmclone is not update yet - should create restore failed", func() {
+
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				snapshot.Status.ReadyToUse = pointer.Bool(true)
+
+				setSnapshotSource(vmClone, snapshot.Name)
+
+				restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
+
+				vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
+				vmClone.Status.Phase = clonev1alpha1.PhaseUnset
+
+				addVM(sourceVM)
+				addClone(vmClone)
+				addSnapshot(snapshot)
+				addRestore(restore)
+				expectRestoreCreateAlreadyExists(snapshot.Name, vmClone, restore.Name)
+				expectCloneUpdate(clonev1alpha1.RestoreInProgress)
 
 				controller.Execute()
 			})
@@ -768,7 +854,7 @@ var _ = Describe("Clone", func() {
 func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine) *snapshotv1alpha1.VirtualMachineSnapshot {
 	return &snapshotv1alpha1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-snapshot",
+			Name:      "tmp-snapshot-clone-uid",
 			Namespace: vm.Namespace,
 			UID:       "snapshot-UID",
 		},
@@ -786,7 +872,7 @@ func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine) *snapshotv1alpha1.V
 func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string) *snapshotv1alpha1.VirtualMachineRestore {
 	return &snapshotv1alpha1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-restore",
+			Name:      "tmp-restore-clone-uid",
 			Namespace: vm.Namespace,
 			UID:       "restore-UID",
 		},
