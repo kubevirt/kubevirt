@@ -135,8 +135,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		waitForKvWithTimeout                   func(*v1.KubeVirt, int)
 		waitForKv                              func(*v1.KubeVirt)
 		patchKvProductNameVersionAndComponent  func(string, string, string, string)
-		patchKvVersionAndRegistry              func(string, string, string)
-		patchKvVersion                         func(string, string)
 		patchKvNodePlacement                   func(string, string, string, *v1.ComponentConfig)
 		patchKvNodePlacementExpectError        func(string, string, string, *v1.ComponentConfig, string)
 		patchKvInfra                           func(*v1.ComponentConfig, bool, string)
@@ -159,11 +157,9 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		generateNonMigratableVMIs              func(int) []*v1.VirtualMachineInstance
 		startAllVMIs                           func([]*v1.VirtualMachineInstance)
 		deleteAllVMIs                          func([]*v1.VirtualMachineInstance)
 		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance, string)
-		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
 		fetchVirtHandlerCommand                func() string
 	)
 
@@ -399,24 +395,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				fmt.Sprintf(format, "/spec/productComponent", productComponent) +
 				"]")
 
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		patchKvVersionAndRegistry = func(name string, version string, registry string) {
-			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, version, registry))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		patchKvVersion = func(name string, version string) {
-			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, version))
 			Eventually(func() error {
 				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
 
@@ -783,21 +761,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			return vmis
 		}
 
-		generateNonMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
-
-			vmis := []*v1.VirtualMachineInstance{}
-			for i := 0; i < num; i++ {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				// Remove the masquerade interface to use the default bridge one
-				// bridge interface isn't allowed to migrate
-				vmi.Spec.Domain.Devices.Interfaces = nil
-				vmi.Spec.Networks = nil
-				vmis = append(vmis, vmi)
-			}
-
-			return vmis
-		}
-
 		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
@@ -811,22 +774,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
 			}
-		}
-
-		verifyVMIsEvicted = func(vmis []*v1.VirtualMachineInstance) {
-
-			Eventually(func() error {
-				for _, vmi := range vmis {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					if err == nil && !vmi.IsFinal() {
-						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", vmi.Namespace, vmi.Name)
-					} else if !errors.IsNotFound(err) {
-						return err
-					}
-				}
-				return nil
-			}, 320, 1).Should(BeNil(), "All VMIs should delete automatically")
-
 		}
 
 		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance, imageTag string) {
@@ -1623,12 +1570,12 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
+		It("[release-blocker][test_id:3145]from previous release to target tested release", func() {
 			if !libstorage.HasCDI() {
 				Skip("Skip update test when CDI is not present")
 			}
 
-			if updateOperator && flags.OperatorManifestPath == "" {
+			if flags.OperatorManifestPath == "" {
 				Skip("Skip operator update test when operator manifest path isn't configured")
 			}
 
@@ -1648,7 +1595,6 @@ spec:
 			}
 
 			previousImageTag := flags.PreviousReleaseTag
-			previousImageRegistry := flags.PreviousReleaseRegistry
 			if previousImageTag == "" {
 				previousImageTag, err = detectLatestUpstreamOfficialTag()
 				Expect(err).ToNot(HaveOccurred())
@@ -1666,9 +1612,6 @@ spec:
 				By(fmt.Sprintf("By Using user defined tag %s for previous utility containers", previousUtilityTag))
 			}
 
-			curVersion := originalKv.Status.ObservedKubeVirtVersion
-			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
-
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
@@ -1682,29 +1625,21 @@ spec:
 			By("Sanity Checking Deployments infrastructure is deleted")
 			sanityCheckDeploymentsDeleted()
 
-			if updateOperator {
-				By("Deleting testing manifests")
-				deleteTestingManifests(flags.TestingManifestPath)
+			By("Deleting testing manifests")
+			deleteTestingManifests(flags.TestingManifestPath)
 
-				By("Deleting virt-operator installation")
-				deleteOperator(flags.OperatorManifestPath)
+			By("Deleting virt-operator installation")
+			deleteOperator(flags.OperatorManifestPath)
 
-				By("Installing previous release of virt-operator")
-				manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
-				installOperator(manifestURL)
-			}
+			By("Installing previous release of virt-operator")
+			manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
+			installOperator(manifestURL)
 
 			// Install previous release of KubeVirt
 			By("Creating KubeVirt object")
 			kv := copyOriginalKv()
 			kv.Name = "kubevirt-release-install"
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
-
-			// If updating via the KubeVirt CR, explicitly specify the desired release.
-			if !updateOperator {
-				kv.Spec.ImageTag = previousImageTag
-				kv.Spec.ImageRegistry = previousImageRegistry
-			}
 
 			createKv(kv)
 
@@ -1778,16 +1713,11 @@ spec:
 			startAllVMIs(migratableVMIs)
 
 			// Update KubeVirt from the previous release to the testing target release.
-			if updateOperator {
-				By("Updating virt-operator installation")
-				installOperator(flags.OperatorManifestPath)
+			By("Updating virt-operator installation")
+			installOperator(flags.OperatorManifestPath)
 
-				By("Re-installing testing manifests")
-				installTestingManifests(flags.TestingManifestPath)
-			} else {
-				By("Updating KubeVirt object With current tag")
-				patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
-			}
+			By("Re-installing testing manifests")
+			installTestingManifests(flags.TestingManifestPath)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
@@ -1947,10 +1877,7 @@ spec:
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
-		},
-			Entry("by patching KubeVirt CR", false),
-			Entry("by updating virt-operator", true),
-		)
+		})
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
@@ -2023,44 +1950,6 @@ spec:
 			})
 		})
 
-		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
-
-			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
-			}
-
-			allPodsAreReady(originalKv)
-			sanityCheckDeploymentsExist()
-
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
-
-			// this is just verifying some common known components do in fact get deleted.
-			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
-
-			By("Creating KubeVirt Object")
-			kv := copyOriginalKv()
-			kv.Name = "kubevirt-alt-install"
-			kv.Spec = v1.KubeVirtSpec{
-				ImageTag:      flags.KubeVirtVersionTagAlt,
-				ImageRegistry: flags.KubeVirtRepoPrefix,
-			}
-			createKv(kv)
-
-			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(kv)
-
-			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
-			// We're just verifying that a few common components that
-			// should always exist get re-deployed.
-			sanityCheckDeploymentsExist()
-
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
-		})
-
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
 		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
@@ -2127,77 +2016,6 @@ spec:
 
 			By("Verifying infrastructure Is Restored to original version")
 			allPodsAreReady(kv)
-		})
-
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
-			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
-			}
-
-			var vmis []*v1.VirtualMachineInstance
-			if checks.HasAtLeastTwoNodes() {
-				vmis = generateMigratableVMIs(2)
-			}
-			vmisNonMigratable := generateNonMigratableVMIs(2)
-
-			allPodsAreReady(originalKv)
-			sanityCheckDeploymentsExist()
-
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
-
-			// this is just verifying some common known components do in fact get deleted.
-			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
-
-			By("Creating KubeVirt Object")
-			kv := copyOriginalKv()
-			kv.Name = "kubevirt-alt-install"
-			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-				PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(true),
-			}
-			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
-
-			createKv(kv)
-
-			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(kv)
-
-			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
-			// We're just verifying that a few common components that
-			// should always exist get re-deployed.
-			sanityCheckDeploymentsExist()
-
-			By("Starting multiple migratable VMIs before performing update")
-			startAllVMIs(vmis)
-			startAllVMIs(vmisNonMigratable)
-
-			By("Updating KubeVirtObject With Alt Tag")
-			patchKvVersion(kv.Name, flags.KubeVirtVersionTagAlt)
-
-			By("Wait for Updating Condition")
-			waitForUpdateCondition(kv)
-
-			By("Waiting for KV to stabilize")
-			waitForKv(kv)
-
-			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
-
-			By("Verifying all non-migratable vmi workloads are shutdown")
-			verifyVMIsEvicted(vmisNonMigratable)
-
-			By("Verifying all migratable vmi workloads are updated via live migration")
-			verifyVMIsUpdated(vmis, flags.KubeVirtVersionTagAlt)
-
-			By("Deleting VMIs")
-			deleteAllVMIs(vmis)
-			deleteAllVMIs(vmisNonMigratable)
-
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
-
 		})
 
 		// NOTE - this test verifies new operators can grab the leader election lease

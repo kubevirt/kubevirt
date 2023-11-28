@@ -1815,10 +1815,10 @@ type KubeVirtWorkloadUpdateStrategy struct {
 }
 
 type KubeVirtSpec struct {
-	// The image tag to use for the continer images installed.
+	// Deprecated. The image tag to use for the continer images installed.
 	// Defaults to the same tag as the operator's container image.
 	ImageTag string `json:"imageTag,omitempty"`
-	// The image registry to pull the container images from
+	// Deprecated. The image registry to pull the container images from
 	// Defaults to the same registry the operator's container image is pulled from.
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 

@@ -193,7 +193,7 @@ func GetConfigFromEnvWithEnvVarManager(envVarManager EnvVarManager) (*KubeVirtDe
 	additionalProperties := make(map[string]string)
 	additionalProperties[AdditionalPropertiesNamePullPolicy] = pullPolicy
 
-	return getConfig("", "", ns, additionalProperties, envVarManager), nil
+	return getConfig(ns, additionalProperties, envVarManager), nil
 }
 
 func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
@@ -215,11 +215,7 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
-	return getConfig(kv.Spec.ImageRegistry,
-		kv.Spec.ImageTag,
-		kv.Namespace,
-		additionalProperties,
-		envVarManager)
+	return getConfig(kv.Namespace, additionalProperties, envVarManager)
 }
 
 // retrieve imagePrefix from an existing deployment config (which is stored as JSON)
@@ -274,9 +270,10 @@ func GetOperatorImageWithEnvVarManager(envVarManager EnvVarManager) string {
 	return envVarManager.Getenv(OldOperatorImageEnvName)
 }
 
-func getConfig(registry, tag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
-
+func getConfig(namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
 	// get registry and tag/shasum from operator image
+	registry := ""
+	tag := ""
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
@@ -287,14 +284,10 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 
 	tagFromOperator := ""
 	operatorSha := ""
-	skipShasums := false
 	imagePrefix, useStoredImagePrefix := additionalProperties[ImagePrefixKey]
 
 	if len(matches) == 1 {
-		// only use registry from operator image if it was not given yet
-		if registry == "" {
-			registry = matches[0][1]
-		}
+		registry = matches[0][1]
 		if !useStoredImagePrefix {
 			imagePrefix = matches[0][2]
 		}
@@ -313,18 +306,10 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 
 		// only use tag from operator image if it was not given yet
 		// and if it was given, don't look for shasums
-		if tag == "" {
-			tag = tagFromOperator
-		} else {
-			skipShasums = true
-		}
+		tag = tagFromOperator
 	} else {
 		// operator image name has unexpected syntax.
-		if tag == "" {
-			tag = kubeVirtVersion
-		} else {
-			skipShasums = true
-		}
+		tag = kubeVirtVersion
 	}
 
 	passthroughEnv := GetPassthroughEnv()
@@ -340,9 +325,6 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 
 	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, GsImage, PrHelperImage, additionalProperties, passthroughEnv)
-	if skipShasums {
-		return config
-	}
 
 	// get shasums
 	apiSha := envVarManager.Getenv(VirtApiShasumEnvName)

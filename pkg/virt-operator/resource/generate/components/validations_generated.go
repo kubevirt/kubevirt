@@ -1577,12 +1577,13 @@ var CRDsValidation map[string]string = map[string]string{
           type: array
           x-kubernetes-list-type: atomic
         imageRegistry:
-          description: The image registry to pull the container images from Defaults
-            to the same registry the operator's container image is pulled from.
+          description: Deprecated. The image registry to pull the container images
+            from Defaults to the same registry the operator's container image is pulled
+            from.
           type: string
         imageTag:
-          description: The image tag to use for the continer images installed. Defaults
-            to the same tag as the operator's container image.
+          description: Deprecated. The image tag to use for the continer images installed.
+            Defaults to the same tag as the operator's container image.
           type: string
         infra:
           description: selectors and tolerations that should apply to KubeVirt infrastructure

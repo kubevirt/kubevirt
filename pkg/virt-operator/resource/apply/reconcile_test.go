@@ -67,15 +67,12 @@ const (
 	Id        = "42"
 )
 
-func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
+func getConfig() *util.KubeVirtDeploymentConfig {
 	return util.GetTargetConfigFromKV(&v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: Namespace,
 		},
-		Spec: v1.KubeVirtSpec{
-			ImageRegistry: registry,
-			ImageTag:      version,
-		},
+		Spec: v1.KubeVirtSpec{},
 	})
 }
 

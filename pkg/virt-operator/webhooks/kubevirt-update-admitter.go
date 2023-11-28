@@ -78,6 +78,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
+	results = append(results, validateRegistryAndTag(&currKV.Spec, &newKV.Spec)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -484,4 +485,15 @@ func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.Status
 	}
 
 	return
+}
+
+func validateRegistryAndTag(currKVSpec, newKVSpec *v1.KubeVirtSpec) (causes []metav1.StatusCause) {
+	if currKVSpec.ImageRegistry != newKVSpec.ImageRegistry || currKVSpec.ImageTag != newKVSpec.ImageTag {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "ImageRegistry and ImageTag are now immutable. To update, please install a new operator.",
+		})
+	}
+
+	return causes
 }

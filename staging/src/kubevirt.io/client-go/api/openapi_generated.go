@@ -19331,14 +19331,14 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 				Properties: map[string]spec.Schema{
 					"imageTag": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The image tag to use for the continer images installed. Defaults to the same tag as the operator's container image.",
+							Description: "Deprecated. The image tag to use for the continer images installed. Defaults to the same tag as the operator's container image.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"imageRegistry": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The image registry to pull the container images from Defaults to the same registry the operator's container image is pulled from.",
+							Description: "Deprecated. The image registry to pull the container images from Defaults to the same registry the operator's container image is pulled from.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

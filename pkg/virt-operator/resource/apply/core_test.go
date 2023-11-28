@@ -385,7 +385,7 @@ var _ = Describe("Apply", func() {
 
 	Context("should handle service endpoint updates", func() {
 
-		config := getConfig("fake-registry", "v9.9.9")
+		config := getConfig()
 
 		DescribeTable("with either patch",
 			func(cachedService *corev1.Service,
