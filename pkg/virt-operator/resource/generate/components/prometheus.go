@@ -426,7 +426,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 			Alert: "KubeVirtComponentExceedsRequestedMemory",
 			Expr: intstr.FromString(
 				// In 'container_memory_working_set_bytes', 'container=""' filters the accumulated metric for the pod slice to measure total Memory usage for all containers within the pod
-				fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_working_set_bytes{container="",namespace="%s"}) < 0`, ns, ns)),
+				fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_working_set_bytes{container=~"virt-controller|virt-api|virt-handler|virt-operator",namespace="%s"}) < 0`, ns, ns)),
 			For: "5m",
 			Annotations: map[string]string{
 				"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory usage exceeds the memory requested",
