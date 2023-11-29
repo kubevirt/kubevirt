@@ -32,8 +32,8 @@
     },
     {
        "description": "Group pip requirements dependencies",
-       "matchManagers": [ "pip-requirements" ],
-       "groupName": "pip-requirements"
+       "matchManagers": [ "pip_requirements" ],
+       "groupName": "pip_requirements"
     }
   ]
 }
