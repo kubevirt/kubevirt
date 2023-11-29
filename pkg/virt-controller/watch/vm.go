@@ -1789,6 +1789,12 @@ func (c *VMController) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1
 	//
 	// The actual precedence of these statuses are determined by the order
 	// of evaluation - first match wins.
+
+	vm.Status.PrintableStatus = virtv1.VirtualMachineStatusUnknown
+	if vm.Spec.Template == nil {
+		return
+	}
+
 	statuses := []struct {
 		statusType virtv1.VirtualMachinePrintableStatus
 		statusFunc func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool
