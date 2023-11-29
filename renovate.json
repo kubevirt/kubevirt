@@ -29,6 +29,11 @@
        "matchManagers": [ "github-actions" ],
        "groupName": "github-actions",
        "pinDigests": false
+    },
+    {
+       "description": "Group pip requirements dependencies",
+       "matchManagers": [ "pip-requirements" ],
+       "groupName": "pip-requirements"
     }
   ]
 }
