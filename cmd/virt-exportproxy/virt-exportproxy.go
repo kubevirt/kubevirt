@@ -97,6 +97,9 @@ func (app *exportProxyApp) Run() {
 		Addr:      app.Address(),
 		Handler:   mux,
 		TLSConfig: appTLSConfig,
+		// Disable HTTP/2
+		// See CVE-2023-44487
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
 
 	if err := server.ListenAndServeTLS("", ""); err != nil {
