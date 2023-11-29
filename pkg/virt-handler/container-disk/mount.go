@@ -310,20 +310,8 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 			if isMounted, err := isolation.IsMounted(targetFile); err != nil {
 				return nil, fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
-				sock, err := m.socketPathGetter(vmi, i)
-				if err != nil {
-					return nil, err
-				}
 
-				res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
-				if err != nil {
-					return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
-				}
-				mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
-				if err != nil {
-					return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
-				}
-				sourceFile, err := containerdisk.GetImage(mountPoint, volume.ContainerDisk.Path)
+				sourceFile, err := m.getContainerDiskPath(vmi, &volume, i)
 				if err != nil {
 					return nil, fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
@@ -518,39 +506,22 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	} else if !isMounted {
 		log.Log.Object(vmi).Infof("kernel artifacts are not mounted - mounting...")
 
-		res, err := m.podIsolationDetector.DetectForSocket(vmi, socketFilePath)
+		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
 		if err != nil {
-			return fmt.Errorf("failed to detect socket for containerDisk %v: %v", kernelBootName, err)
-		}
-		mountRootPath, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
-		if err != nil {
-			return fmt.Errorf("failed to detect root mount point of %v on the node: %v", kernelBootName, err)
+			return err
 		}
 
-		mount := func(artifactPath string, targetPath *safepath.Path) error {
-
-			sourcePath, err := containerdisk.GetImage(mountRootPath, artifactPath)
-			if err != nil {
-				return err
-			}
-
-			out, err := virt_chroot.MountChroot(sourcePath, targetPath, true).CombinedOutput()
+		if kernelArtifacts.kernel != nil {
+			out, err := virt_chroot.MountChroot(kernelArtifacts.kernel, targetKernelPath, true).CombinedOutput()
 			if err != nil {
 				return fmt.Errorf("failed to bindmount %v: %v : %v", kernelBootName, string(out), err)
 			}
-
-			return nil
 		}
 
-		if kb.InitrdPath != "" {
-			if err = mount(kb.InitrdPath, targetInitrdPath); err != nil {
-				return err
-			}
-		}
-
-		if kb.KernelPath != "" {
-			if err = mount(kb.KernelPath, targetKernelPath); err != nil {
-				return err
+		if kernelArtifacts.initrd != nil {
+			out, err := virt_chroot.MountChroot(kernelArtifacts.initrd, targetInitrdPath, true).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("failed to bindmount %v: %v : %v", kernelBootName, string(out), err)
 			}
 		}
 
