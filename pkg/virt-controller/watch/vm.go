@@ -1579,28 +1579,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
-	VMIDefaults := &virtv1.VirtualMachineInstance{}
-	webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
-
-	vmi.Status.CurrentCPUTopology = &virtv1.CPUTopology{
-		Sockets: VMIDefaults.Spec.Domain.CPU.Sockets,
-		Cores:   VMIDefaults.Spec.Domain.CPU.Cores,
-		Threads: VMIDefaults.Spec.Domain.CPU.Threads,
-	}
-
-	if topology := vm.Spec.Template.Spec.Domain.CPU; topology != nil {
-		if topology.Sockets != 0 {
-			vmi.Status.CurrentCPUTopology.Sockets = topology.Sockets
-		}
-		if topology.Cores != 0 {
-			vmi.Status.CurrentCPUTopology.Cores = topology.Cores
-		}
-		if topology.Threads != 0 {
-			vmi.Status.CurrentCPUTopology.Threads = topology.Threads
-		}
-	}
-
-	c.setupLiveFeatures(vm, vmi, VMIDefaults)
+	c.setupLiveFeatures(vm, vmi)
 
 	return vmi
 }
@@ -1683,7 +1662,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
 }
 
-func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
+func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
 	if vm.Spec.LiveUpdateFeatures.CPU == nil {
 		return
 	}
@@ -1705,6 +1684,9 @@ func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 	}
 
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		VMIDefaults := &virtv1.VirtualMachineInstance{}
+		webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
+
 		vmi.Spec.Domain.CPU.MaxSockets = VMIDefaults.Spec.Domain.CPU.Sockets * maxRatio
 	}
 }
@@ -3026,7 +3008,7 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 
 func (c *VMController) setupLiveFeatures(
 	vm *virtv1.VirtualMachine,
-	vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
+	vmi *virtv1.VirtualMachineInstance) {
 
 	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
 
@@ -3034,7 +3016,7 @@ func (c *VMController) setupLiveFeatures(
 		return
 	}
 
-	c.setupCPUHotplug(vm, vmi, VMIDefaults, maxRatio)
+	c.setupCPUHotplug(vm, vmi, maxRatio)
 	c.setupMemoryHotplug(vm, vmi, maxRatio)
 }
 
