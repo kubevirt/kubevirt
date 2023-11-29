@@ -1213,4 +1213,35 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(*status.Memory.GuestCurrent).To(Equal(memory))
 		Expect(*status.Memory.GuestRequested).To(Equal(memory))
 	})
+
+	It("should set current guest CPU topology based on Domain spec", func() {
+		cpuTopology := v1.CPU{
+			Sockets: 100,
+			Cores:   200,
+			Threads: 300,
+		}
+
+		vmi.Spec.Domain.CPU = &cpuTopology
+		_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(status.CurrentCPUTopology).ToNot(BeNil())
+		Expect(status.CurrentCPUTopology.Sockets).To(Equal(cpuTopology.Sockets))
+		Expect(status.CurrentCPUTopology.Cores).To(Equal(cpuTopology.Cores))
+		Expect(status.CurrentCPUTopology.Threads).To(Equal(cpuTopology.Threads))
+	})
+
+	It("should set current guest CPU topology based on CPU resource requests", func() {
+		const defaultCores = uint32(1)
+		const defaultThreads = uint32(1)
+		cpuRequest := resource.MustParse("2.2")
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuRequest
+		// Preset is configured with CPU topology
+		presetInformer.GetIndexer().Delete(preset)
+
+		_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(status.CurrentCPUTopology).ToNot(BeNil())
+		Expect(status.CurrentCPUTopology.Sockets).To(Equal(uint32(cpuRequest.Value())))
+		Expect(status.CurrentCPUTopology.Cores).To(Equal(defaultCores))
+		Expect(status.CurrentCPUTopology.Threads).To(Equal(defaultThreads))
+	})
 })
