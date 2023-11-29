@@ -6,10 +6,8 @@ import (
 	"os"
 	"strings"
 
-	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-
-	"github.com/coreos/prometheus-operator/pkg/apis/monitoring"
-	v1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -23,15 +21,11 @@ const (
 	runbookURLTemplateEnv         = "RUNBOOK_URL_TEMPLATE"
 	severityAlertLabelKey         = "severity"
 	operatorHealthImpactLabelKey  = "operator_health_impact"
-	partOfAlertLabelKey           = "kubernetes_operator_part_of"
-	partOfAlertLabelValue         = "kubevirt"
-	componentAlertLabelKey        = "kubernetes_operator_component"
-	componentAlertLabelValue      = "kubevirt"
 	durationFiveMinutes           = "5 minutes"
 )
 
-func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *v1.ServiceMonitor {
-	return &v1.ServiceMonitor{
+func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *promv1.ServiceMonitor {
+	return &promv1.ServiceMonitor{
 		TypeMeta: v12.TypeMeta{
 			APIVersion: monitoring.GroupName,
 			Kind:       "ServiceMonitor",
@@ -45,21 +39,23 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 				"k8s-app":                         "kubevirt",
 			},
 		},
-		Spec: v1.ServiceMonitorSpec{
+		Spec: promv1.ServiceMonitorSpec{
 			Selector: v12.LabelSelector{
 				MatchLabels: map[string]string{
 					prometheusLabelKey: prometheusLabelValue,
 				},
 			},
-			NamespaceSelector: v1.NamespaceSelector{
+			NamespaceSelector: promv1.NamespaceSelector{
 				MatchNames: []string{namespace},
 			},
-			Endpoints: []v1.Endpoint{
+			Endpoints: []promv1.Endpoint{
 				{
 					Port:   "metrics",
 					Scheme: "https",
-					TLSConfig: &v1.TLSConfig{
-						InsecureSkipVerify: insecureSkipVerify,
+					TLSConfig: &promv1.TLSConfig{
+						SafeTLSConfig: promv1.SafeTLSConfig{
+							InsecureSkipVerify: insecureSkipVerify,
+						},
 					},
 					HonorLabels: true,
 				},
@@ -68,27 +64,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 	}
 }
 
-// NewPrometheusRuleCR returns a PrometheusRule with a group of alerts for the KubeVirt deployment.
-func NewPrometheusRuleCR(namespace string) *v1.PrometheusRule {
-	return &v1.PrometheusRule{
-		TypeMeta: v12.TypeMeta{
-			APIVersion: v12.SchemeGroupVersion.String(),
-			Kind:       "PrometheusRule",
-		},
-		ObjectMeta: v12.ObjectMeta{
-			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
-			Namespace: namespace,
-			Labels: map[string]string{
-				prometheusLabelKey: prometheusLabelValue,
-				"k8s-app":          "kubevirt",
-			},
-		},
-		Spec: *NewPrometheusRuleSpec(namespace),
-	}
-}
-
-// NewPrometheusRuleSpec makes a prometheus rule spec for kubevirt
-func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
+func GetPrometheusAlerts(ns string) []promv1.Rule {
 	getRestCallsFailedWarning := func(failingCallsPercentage int, component, duration string) string {
 		const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
 		return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
@@ -102,16 +78,18 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 
 	runbookURLTemplate := getRunbookURLTemplate()
 
-	var kubevirtRules []v1.Rule
-	for _, rule := range GetRecordingRules(ns) {
-		kubevirtRules = append(kubevirtRules, rule.Rule)
-	}
+	oneMinute := promv1.Duration("1m")
+	fiveMinutes := promv1.Duration("5m")
+	tenMinutes := promv1.Duration("10m")
+	fifteenMinutes := promv1.Duration("15m")
+	sixtyMinutes := promv1.Duration("60m")
+	oneDay := promv1.Duration("24h")
 
-	kubevirtRules = append(kubevirtRules, []v1.Rule{
+	return []promv1.Rule{
 		{
 			Alert: "VirtAPIDown",
 			Expr:  intstr.FromString("kubevirt_virt_api_up == 0"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "All virt-api servers are down.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtAPIDown"),
@@ -124,7 +102,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "LowVirtAPICount",
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_api_up < 2)"),
-			For:   "60m",
+			For:   &sixtyMinutes,
 			Annotations: map[string]string{
 				"summary":     "More than one virt-api should be running if more than one worker nodes exist.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "LowVirtAPICount"),
@@ -137,7 +115,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "LowKVMNodesCount",
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_nodes_with_kvm < 2)"),
-			For:   "5m",
+			For:   &fiveMinutes,
 			Annotations: map[string]string{
 				"description": "Low number of nodes with KVM resource available.",
 				"summary":     "At least two nodes with kvm resource required for VM live migration.",
@@ -151,7 +129,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "LowReadyVirtControllersCount",
 			Expr:  intstr.FromString("kubevirt_virt_controller_ready <  kubevirt_virt_controller_up"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "Some virt controllers are running but not ready.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "LowReadyVirtControllersCount"),
@@ -164,7 +142,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "NoReadyVirtController",
 			Expr:  intstr.FromString("kubevirt_virt_controller_ready == 0"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "No ready virt-controller was detected for the last 10 min.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "NoReadyVirtController"),
@@ -177,7 +155,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "VirtControllerDown",
 			Expr:  intstr.FromString("kubevirt_virt_controller_up == 0"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "No running virt-controller was detected for the last 10 min.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtControllerDown"),
@@ -190,7 +168,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "LowVirtControllersCount",
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_controller_ready < 2)"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "More than one virt-controller should be ready if more than one worker node.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "LowVirtControllersCount"),
@@ -215,7 +193,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "VirtControllerRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(ns, "virt-controller", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   "5m",
+			For:   &fiveMinutes,
 			Annotations: map[string]string{
 				"summary":     getRestCallsFailedWarning(80, "virt-controller", durationFiveMinutes),
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtControllerRESTErrorsBurst"),
@@ -228,7 +206,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "VirtOperatorDown",
 			Expr:  intstr.FromString("kubevirt_virt_operator_up == 0"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "All virt-operator servers are down.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtOperatorDown"),
@@ -241,7 +219,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "LowVirtOperatorCount",
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_operator_up < 2)"),
-			For:   "60m",
+			For:   &sixtyMinutes,
 			Annotations: map[string]string{
 				"summary":     "More than one virt-operator should be running if more than one worker nodes exist.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "LowVirtOperatorCount"),
@@ -266,7 +244,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "VirtOperatorRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(ns, "virt-operator", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   "5m",
+			For:   &fiveMinutes,
 			Annotations: map[string]string{
 				"summary":     getRestCallsFailedWarning(80, "virt-operator", durationFiveMinutes),
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtOperatorRESTErrorsBurst"),
@@ -279,7 +257,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "LowReadyVirtOperatorsCount",
 			Expr:  intstr.FromString("kubevirt_virt_operator_ready <  kubevirt_virt_operator_up"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "Some virt-operators are running but not ready.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "LowReadyVirtOperatorsCount"),
@@ -292,7 +270,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "NoReadyVirtOperator",
 			Expr:  intstr.FromString("kubevirt_virt_operator_ready == 0"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "No ready virt-operator was detected for the last 10 min.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "NoReadyVirtOperator"),
@@ -305,7 +283,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "NoLeadingVirtOperator",
 			Expr:  intstr.FromString("kubevirt_virt_operator_leading == 0"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "No leading virt-operator was detected for the last 10 min.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "NoLeadingVirtOperator"),
@@ -321,7 +299,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 				fmt.Sprintf("(%s - %s) != 0",
 					fmt.Sprintf("kube_daemonset_status_number_ready{namespace='%s', daemonset='virt-handler'}", ns),
 					fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", ns))),
-			For: "15m",
+			For: &fifteenMinutes,
 			Annotations: map[string]string{
 				"summary":     "Some virt-handlers failed to roll out",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtHandlerDaemonSetRolloutFailing"),
@@ -346,7 +324,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "VirtHandlerRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(ns, "virt-handler", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   "5m",
+			For:   &fiveMinutes,
 			Annotations: map[string]string{
 				"summary":     getRestCallsFailedWarning(80, "virt-handler", durationFiveMinutes),
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtHandlerRESTErrorsBurst"),
@@ -371,7 +349,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "VirtApiRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(ns, "virt-api", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   "5m",
+			For:   &fiveMinutes,
 			Annotations: map[string]string{
 				"summary":     getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtApiRESTErrorsBurst"),
@@ -384,7 +362,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "KubevirtVmHighMemoryUsage",
 			Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes < 52428800 or kubevirt_vm_container_free_memory_bytes_based_on_rss < 52428800"),
-			For:   "1m",
+			For:   &oneMinute,
 			Annotations: map[string]string{
 				"description": fmt.Sprintf("Container {{ $labels.container }} in pod {{ $labels.pod }} in namespace {{ $labels.namespace }} free memory is less than %s and it is close to requested memory", fiftyMB.String()),
 				"summary":     "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime.",
@@ -398,7 +376,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "OrphanedVirtualMachineInstances",
 			Expr:  intstr.FromString("(((max by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) max by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0"),
-			For:   "10m",
+			For:   &tenMinutes,
 			Annotations: map[string]string{
 				"summary":     "No ready virt-handler pod detected on node {{ $labels.node }} with running vmis for more than 10 minutes",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "OrphanedVirtualMachineInstances"),
@@ -411,7 +389,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "VMCannotBeEvicted",
 			Expr:  intstr.FromString("kubevirt_vmi_non_evictable > 0"),
-			For:   "1m",
+			For:   &oneMinute,
 			Annotations: map[string]string{
 				"description": "Eviction policy for {{ $labels.name }} (on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
 				"summary":     "The VM's eviction strategy is set to Live Migration but the VM is not migratable",
@@ -427,7 +405,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 			Expr: intstr.FromString(
 				// In 'container_memory_working_set_bytes', 'container=""' filters the accumulated metric for the pod slice to measure total Memory usage for all containers within the pod
 				fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_working_set_bytes{container="",namespace="%s"}) < 0`, ns, ns)),
-			For: "5m",
+			For: &fiveMinutes,
 			Annotations: map[string]string{
 				"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory usage exceeds the memory requested",
 				"summary":     "The container is using more memory than what is defined in the containers resource requests",
@@ -444,7 +422,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 				// In 'container_cpu_usage_seconds_total', 'container=""' filters the accumulated metric for the pod slice to measure total CPU usage for all containers within the pod
 				fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="cpu"}) - on(pod) sum(rate(container_cpu_usage_seconds_total{container="",namespace="%s"}[5m])) by (pod)) < 0`, ns, ns),
 			),
-			For: "5m",
+			For: &fiveMinutes,
 			Annotations: map[string]string{
 				"description": "Pod {{ $labels.pod }} cpu usage exceeds the CPU requested",
 				"summary":     "The containers in the pod are using more CPU than what is defined in the containers resource requests",
@@ -471,7 +449,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "KubeVirtNoAvailableNodesToRunVMs",
 			Expr:  intstr.FromString("((sum(kube_node_status_allocatable{resource='devices_kubevirt_io_kvm'}) or on() vector(0)) == 0 and (sum(kubevirt_configuration_emulation_enabled) or on() vector(0)) == 0) or (sum(kube_node_labels{label_kubevirt_io_schedulable='true'}) or on() vector(0)) == 0"),
-			For:   "5m",
+			For:   &fiveMinutes,
 			Annotations: map[string]string{
 				"summary":     "There are no available nodes in the cluster to run VMs.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "KubeVirtNoAvailableNodesToRunVMs"),
@@ -497,7 +475,7 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 		{
 			Alert: "OutdatedVirtualMachineInstanceWorkloads",
 			Expr:  intstr.FromString("kubevirt_vmi_number_of_outdated != 0"),
-			For:   "1440m",
+			For:   &oneDay,
 			Annotations: map[string]string{
 				"summary":     "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
 				"runbook_url": fmt.Sprintf(runbookURLTemplate, "OutdatedVirtualMachineInstanceWorkloads"),
@@ -506,186 +484,6 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 				severityAlertLabelKey:        "warning",
 				operatorHealthImpactLabelKey: "none",
 			},
-		},
-	}...)
-
-	ruleSpec := &v1.PrometheusRuleSpec{
-		Groups: []v1.RuleGroup{
-			{
-				Name:  "kubevirt.rules",
-				Rules: kubevirtRules,
-			},
-		},
-	}
-
-	for _, group := range ruleSpec.Groups {
-		for _, rule := range group.Rules {
-			if rule.Alert == "" {
-				continue
-			}
-			rule.Labels[partOfAlertLabelKey] = partOfAlertLabelValue
-			rule.Labels[componentAlertLabelKey] = componentAlertLabelValue
-		}
-	}
-
-	return ruleSpec
-}
-
-type KubevirtRecordingRule struct {
-	v1.Rule
-	MType       prometheusv1.MetricType
-	Description string
-}
-
-func GetRecordingRules(namespace string) []KubevirtRecordingRule {
-	return []KubevirtRecordingRule{
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_virt_api_up",
-				Expr: intstr.FromString(
-					fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'}) or vector(0)", namespace),
-				),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of virt-api pods that are up.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_allocatable_nodes",
-				Expr:   intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of allocatable nodes in the cluster.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_nodes_with_kvm",
-				Expr:   intstr.FromString("count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} != 0) or vector(0)"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_virt_controller_up",
-				Expr: intstr.FromString(
-					fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'}) or vector(0)", namespace),
-				),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of virt-controller pods that are up.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_virt_controller_ready",
-				Expr: intstr.FromString(
-					fmt.Sprintf("sum(kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace),
-				),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of virt-controller pods that are ready.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_virt_operator_up",
-				Expr: intstr.FromString(
-					fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'}) or vector(0)", namespace),
-				),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of virt-operator pods that are up.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_virt_operator_ready",
-				Expr: intstr.FromString(
-					fmt.Sprintf("sum(kubevirt_virt_operator_ready_status{namespace='%s'}) or vector(0)", namespace),
-				),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of virt-operator pods that are ready.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_virt_operator_leading",
-				Expr: intstr.FromString(
-					fmt.Sprintf("sum(kubevirt_virt_operator_leading_status{namespace='%s'})", namespace),
-				),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of virt-operator pods that are leading.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_virt_handler_up",
-				Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'}) or vector(0)", namespace)),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of virt-handler pods that are up.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_vmi_memory_used_bytes",
-				Expr:   intstr.FromString("kubevirt_vmi_memory_available_bytes-kubevirt_vmi_memory_usable_bytes"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "Amount of `used` memory as seen by the domain.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes",
-				Expr:   intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The current available memory of the VM containers based on the working set.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_vm_container_free_memory_bytes_based_on_rss",
-				Expr:   intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) container_memory_rss{pod=~'virt-launcher-.*', container='compute'})"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The current available memory of the VM containers based on the rss.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_vmsnapshot_persistentvolumeclaim_labels",
-				Expr:   intstr.FromString("label_replace(label_replace(kube_persistentvolumeclaim_labels{label_restore_kubevirt_io_source_vm_name!='', label_restore_kubevirt_io_source_vm_namespace!=''} == 1, 'vm_namespace', '$1', 'label_restore_kubevirt_io_source_vm_namespace', '(.*)'), 'vm_name', '$1', 'label_restore_kubevirt_io_source_vm_name', '(.*)')"),
-			},
-			MType:       prometheusv1.MetricTypeInfo,
-			Description: "Returns the labels of the persistent volume claims that are used for restoring virtual machines.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_vmsnapshot_disks_restored_from_source",
-				Expr:   intstr.FromString("sum by(vm_name, vm_namespace) (kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "Returns the total number of virtual machine disks restored from the source virtual machine.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_vmsnapshot_disks_restored_from_source_bytes",
-				Expr:   intstr.FromString("sum by(vm_name, vm_namespace) (kube_persistentvolumeclaim_resource_requests_storage_bytes * on(persistentvolumeclaim, namespace) group_left(vm_name, vm_namespace) kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "Returns the amount of space in bytes restored from the source virtual machine.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_number_of_vms",
-				Expr:   intstr.FromString("sum by (namespace) (count by (name,namespace) (kubevirt_vm_error_status_last_transition_timestamp_seconds + kubevirt_vm_migrating_status_last_transition_timestamp_seconds + kubevirt_vm_non_running_status_last_transition_timestamp_seconds + kubevirt_vm_running_status_last_transition_timestamp_seconds + kubevirt_vm_starting_status_last_transition_timestamp_seconds))"),
-			},
-			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of VMs in the cluster by namespace.",
-		},
-		{
-			Rule: v1.Rule{
-				Record: "kubevirt_api_request_deprecated_total",
-				Expr:   intstr.FromString("group by (group,version,resource,subresource) (apiserver_requested_deprecated_apis{group=\"kubevirt.io\"}) * on (group,version,resource,subresource) group_right() sum by (group,version,resource,subresource,verb) (apiserver_request_total)"),
-			},
-			MType:       prometheusv1.MetricTypeCounter,
-			Description: "The total number of requests to deprecated KubeVirt APIs.",
 		},
 	}
 }

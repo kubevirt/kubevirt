@@ -64,7 +64,7 @@ client-gen --clientset-name versioned \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 client-gen --clientset-name versioned \
-    --input-base github.com/coreos/prometheus-operator/pkg/apis \
+    --input-base github.com/prometheus-operator/prometheus-operator/pkg/apis \
     --input monitoring/v1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package ${CLIENT_GEN_BASE}/prometheus-operator/clientset \

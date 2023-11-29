@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
+
 	"fmt"
 	"os"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 func verifyArgs(args []string) error {
@@ -25,8 +25,15 @@ func main() {
 
 	targetFile := os.Args[1]
 
-	promRuleSpec := components.NewPrometheusRuleSpec("ci")
-	b, err := json.Marshal(promRuleSpec)
+	if err := rules.SetupRules("ci"); err != nil {
+		panic(err)
+	}
+
+	promRule, err := rules.BuildPrometheusRule("ci")
+	if err != nil {
+		panic(err)
+	}
+	b, err := json.Marshal(promRule.Spec)
 	if err != nil {
 		panic(err)
 	}

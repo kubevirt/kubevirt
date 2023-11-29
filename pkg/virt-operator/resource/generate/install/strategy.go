@@ -29,10 +29,10 @@ import (
 	"io"
 	"strings"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/golang/glog"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -448,7 +449,17 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
 		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), serviceMonitorNamespace, true))
-		strategy.prometheusRules = append(strategy.prometheusRules, components.NewPrometheusRuleCR(config.GetNamespace()))
+
+		err := rules.SetupRules(config.GetNamespace())
+		if err != nil {
+			return nil, err
+		}
+
+		prometheusRule, err := rules.BuildPrometheusRule(config.GetNamespace())
+		if err != nil {
+			return nil, err
+		}
+		strategy.prometheusRules = append(strategy.prometheusRules, prometheusRule)
 	} else {
 		glog.Warningf("failed to create ServiceMonitor resources because couldn't find ServiceAccount %v in any monitoring namespaces : %v", monitorServiceAccount, strings.Join(config.GetPotentialMonitorNamespaces(), ", "))
 	}

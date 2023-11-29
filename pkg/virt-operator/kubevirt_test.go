@@ -32,12 +32,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/golang/mock/gomock"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	routev1fake "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1/fake"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -73,6 +73,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -363,6 +364,9 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.deleteFromCache = true
 	k.addToCache = true
+
+	err = rules.SetupRules(k.defaultConfig.Namespace)
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func (k *KubeVirtTestData) AfterTest() {
@@ -1250,7 +1254,9 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		all = append(all, crd)
 	}
 	// cr
-	all = append(all, components.NewPrometheusRuleCR(config.GetNamespace()))
+	pr, err := rules.BuildPrometheusRule(config.GetNamespace())
+	Expect(err).ToNot(HaveOccurred())
+	all = append(all, pr)
 	// sccs
 	all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 	all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))

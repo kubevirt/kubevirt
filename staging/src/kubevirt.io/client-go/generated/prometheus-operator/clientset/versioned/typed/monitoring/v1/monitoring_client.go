@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rest "k8s.io/client-go/rest"
 	"kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme"
 )
@@ -28,6 +28,7 @@ type MonitoringV1Interface interface {
 	RESTClient() rest.Interface
 	AlertmanagersGetter
 	PodMonitorsGetter
+	ProbesGetter
 	PrometheusesGetter
 	PrometheusRulesGetter
 	ServiceMonitorsGetter
@@ -45,6 +46,10 @@ func (c *MonitoringV1Client) Alertmanagers(namespace string) AlertmanagerInterfa
 
 func (c *MonitoringV1Client) PodMonitors(namespace string) PodMonitorInterface {
 	return newPodMonitors(c, namespace)
+}
+
+func (c *MonitoringV1Client) Probes(namespace string) ProbeInterface {
+	return newProbes(c, namespace)
 }
 
 func (c *MonitoringV1Client) Prometheuses(namespace string) PrometheusInterface {

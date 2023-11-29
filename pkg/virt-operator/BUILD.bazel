@@ -70,6 +70,7 @@ go_test(
     deps = [
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/monitoring/rules:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
@@ -85,7 +86,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
         "//tests:go_default_library",
-        "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
@@ -93,6 +93,7 @@ go_test(
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
         "//vendor/github.com/openshift/client-go/route/clientset/versioned/typed/route/v1/fake:go_default_library",
         "//vendor/github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake:go_default_library",
+        "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
         "//vendor/k8s.io/api/batch/v1:go_default_library",

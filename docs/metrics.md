@@ -250,7 +250,7 @@ Returns the total number of virtual machine disks restored from the source virtu
 Returns the amount of space in bytes restored from the source virtual machine. Type: Gauge.
 
 ### kubevirt_vmsnapshot_persistentvolumeclaim_labels
-Returns the labels of the persistent volume claims that are used for restoring virtual machines. Type: Info.
+Returns the labels of the persistent volume claims that are used for restoring virtual machines. Type: Gauge.
 
 ## Developing new metrics
 After developing new metrics or changing old ones, please run `make generate` to regenerate this document.
