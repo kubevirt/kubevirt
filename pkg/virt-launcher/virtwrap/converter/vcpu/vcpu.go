@@ -409,6 +409,20 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 	return nil
 }
 
+func FormatEmulatorThreadPin(cpuPool VCPUPool) (string, error) {
+	var emulatorThreads []uint32
+
+	availableThread, err := cpuPool.FitThread()
+	if err != nil {
+		e := fmt.Errorf("no CPU allocated for the emulation thread: %v", err)
+		log.Log.Reason(e).Error("failed to format emulation thread pin")
+		return "", e
+	}
+	emulatorThreads = append(emulatorThreads, availableThread)
+
+	return convertCPUListToCPUSet(emulatorThreads), nil
+}
+
 func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachineInstance, topology *v1.Topology, cpuset []int, useIOThreads bool) error {
 	var cpuPool VCPUPool
 	requestedToplogy := &api.CPUTopology{
@@ -453,18 +467,12 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 		}
 	}
 
-	var emulatorThreads []uint32
 	var emulatorThreadsCPUSet string
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		availableThread, err := cpuPool.FitThread()
-		if err != nil {
-			e := fmt.Errorf("no CPU allocated for the emulation thread: %v", err)
-			log.Log.Reason(e).Error("failed to format emulation thread pin")
-			return e
+		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool); err != nil {
+			log.Log.Reason(err).Error("failed to format emulation thread pin")
+			return err
 		}
-		emulatorThreads = append(emulatorThreads, availableThread)
-
-		emulatorThreadsCPUSet = convertCPUListToCPUSet(emulatorThreads)
 		appendDomainEmulatorThreadPin(domain, emulatorThreadsCPUSet)
 	}
 	if useIOThreads {
