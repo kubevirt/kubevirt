@@ -2542,7 +2542,13 @@ spec:
 			// before to give up. TODO: there is a smarter way to wait?
 			Eventually(func() string {
 				By("Obtaining Prometheus' configuration data")
-				secret, err := coreClient.Secrets("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+				var secret *k8sv1.Secret
+				for _, monitoringNamespace := range util.DefaultMonitorNamespaces {
+					secret, err = coreClient.Secrets(monitoringNamespace).Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+					if err == nil {
+						break
+					}
+				}
 				Expect(err).ToNot(HaveOccurred())
 
 				data, ok := secret.Data["prometheus.yaml"]
