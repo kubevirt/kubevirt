@@ -13,6 +13,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -166,6 +167,10 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 	if hc.Spec.FeatureGates.DeployVMConsoleProxy != nil {
 		spec.FeatureGates.DeployVmConsoleProxy = *hc.Spec.FeatureGates.DeployVMConsoleProxy
 	}
+
+	// This feature gate is set to true in 4.15.
+	// TODO(4.16): Set it to false, and set a similar feature gate on kubevirt CR.
+	spec.FeatureGates.DeployCommonInstancetypes = ptr.To(true)
 
 	// Default value is the operator namespace
 	pipelinesNamespace := getNamespace(hc.Namespace, opts)
