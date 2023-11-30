@@ -96,7 +96,7 @@ var _ = Describe("Apply Instancetypes", func() {
 		)
 
 		It("should delete all instancetypes managed by virt-operator", func() {
-			deleteCollectionCalled := expectDeleteCollection(fakeClient, apiinstancetype.ClusterPluralResourceName)
+			deleteCollectionCalled := expectDeleteCollection(fakeClient, reconciler.kv, apiinstancetype.ClusterPluralResourceName)
 			Expect(reconciler.deleteInstancetypes()).To(Succeed())
 			Expect(*deleteCollectionCalled).To(BeTrue())
 		})
@@ -161,7 +161,7 @@ var _ = Describe("Apply Instancetypes", func() {
 		)
 
 		It("should delete all preferences managed by virt-operator", func() {
-			deleteCollectionCalled := expectDeleteCollection(fakeClient, apiinstancetype.ClusterPluralPreferenceResourceName)
+			deleteCollectionCalled := expectDeleteCollection(fakeClient, reconciler.kv, apiinstancetype.ClusterPluralPreferenceResourceName)
 			Expect(reconciler.deletePreferences()).To(Succeed())
 			Expect(*deleteCollectionCalled).To(BeTrue())
 		})
@@ -215,13 +215,13 @@ func expectUpdate(fakeClient *fake.Clientset, resource string, object runtime.Ob
 	return &called
 }
 
-func expectDeleteCollection(fakeClient *fake.Clientset, resource string) *bool {
+func expectDeleteCollection(fakeClient *fake.Clientset, kv *v1.KubeVirt, resource string) *bool {
 	called := false
 	fakeClient.Fake.PrependReactor("delete-collection", resource, func(action testing.Action) (bool, runtime.Object, error) {
 		deleteCollection, ok := action.(testing.DeleteCollectionAction)
 		Expect(ok).To(BeTrue())
 		ls := labels.Set{
-			v1.AppComponentLabel: v1.AppComponent,
+			v1.AppComponentLabel: GetAppComponent(kv),
 			v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 		}
 		Expect(deleteCollection.GetListRestrictions().Labels).To(Equal(ls.AsSelector()))
