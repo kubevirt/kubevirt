@@ -497,6 +497,9 @@ func main() {
 		// exits, the wait loop breaks.
 		mon.RunForever(*qemuTimeout, signalStopChan)
 
+		// Allow hooks to gracefully shutdown
+		hookManager.Shutdown()
+
 		// Now that the pid has exited, we wait for the final delete notification to be
 		// sent back to virt-handler. This delete notification contains the reason the
 		// domain exited.

@@ -65,3 +65,13 @@ func (_m *MockManager) PreCloudInitIso(_param0 *v1.VirtualMachineInstance, _para
 func (_mr *_MockManagerRecorder) PreCloudInitIso(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PreCloudInitIso", arg0, arg1)
 }
+
+func (_m *MockManager) Shutdown() error {
+	ret := _m.ctrl.Call(_m, "Shutdown")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockManagerRecorder) Shutdown() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Shutdown")
+}

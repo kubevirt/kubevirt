@@ -33,7 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
-	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
+	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 )
 
 type dynamicInfoServer struct {
@@ -48,7 +48,7 @@ func (s dynamicInfoServer) Info(ctx context.Context, params *hooksInfo.InfoParam
 	return &hooksInfo.InfoResult{
 		Name: s.hookName,
 		Versions: []string{
-			hooksV1alpha1.Version,
+			hooksV1alpha3.Version,
 		},
 		HookPoints: []*hooksInfo.HookPoint{
 			{

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,17 +35,20 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	hooksv1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -216,6 +220,85 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					BeTrue(),
 					fmt.Sprintf("the %s container must fail if it was not provided the hook version to advertise itself", sidecarContainerName))
 			})
+		})
+
+		Context("with sidecar-shim", func() {
+			It("should receive Terminal signal on VMI deletion", func() {
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func(g Gomega) {
+					vmiPod, exists, err := getVMIPod(vmi)
+					g.Expect(err).ToNot(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
+					g.Expect(exists).To(BeTrue())
+
+					var tailLines int64 = 100
+					logsRaw, err := virtClient.CoreV1().
+						Pods(vmiPod.GetObjectMeta().GetNamespace()).
+						GetLogs(vmiPod.GetObjectMeta().GetName(), &k8sv1.PodLogOptions{
+							TailLines: &tailLines,
+							Container: sidecarContainerName,
+						}).
+						DoRaw(context.Background())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(string(logsRaw)).To(ContainSubstring("sidecar-shim received signal: terminated"))
+				}, 30*time.Second, time.Second).Should(
+					Succeed(),
+					fmt.Sprintf("container %s should terminate", sidecarContainerName))
+			})
+
+			DescribeTable("migrate VMI with sidecar", func(hookVersion string, sidecarShouldTerminate bool) {
+				checks.SkipIfMigrationIsNotPossible()
+
+				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+
+				sourcePod, exists, err := getVMIPod(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeTrue())
+
+				sourcePodName := sourcePod.GetObjectMeta().GetName()
+				sourcePodUID := sourcePod.GetObjectMeta().GetUID()
+
+				migration := tests.NewRandomMigration(vmi.Name, testsuite.GetTestNamespace(vmi))
+				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				targetPod, exists, err := getVMIPod(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeTrue())
+
+				targetPodUID := targetPod.GetObjectMeta().GetUID()
+				Expect(sourcePodUID).ToNot(Equal(targetPodUID))
+
+				Eventually(func(g Gomega) {
+					pods, err := virtClient.CoreV1().Pods("").List(
+						context.Background(),
+						metav1.ListOptions{
+							FieldSelector: fields.ParseSelectorOrDie("metadata.name=" + sourcePodName).String(),
+						})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(pods.Items).To(HaveLen(1))
+					computeTerminated := false
+					sidecarTerminated := false
+					for _, container := range pods.Items[0].Status.ContainerStatuses {
+						hasTerminated := container.State.Terminated != nil
+						switch container.Name {
+						case "compute":
+							computeTerminated = hasTerminated
+						case sidecarContainerName:
+							sidecarTerminated = hasTerminated
+						}
+					}
+					g.Expect(computeTerminated).To(BeTrue())
+					g.Expect(sidecarTerminated).To(Equal(sidecarShouldTerminate))
+				}, 30*time.Second, 1*time.Second).Should(Succeed())
+			},
+				// See: https://github.com/kubevirt/kubevirt/issues/8395#issuecomment-1619187827
+				Entry("Fails to terminate on migration with < v1alpha3", hooksv1alpha2.Version, false),
+				Entry("Terminates properly on migration with >= v1alpha3", hooksv1alpha3.Version, true),
+			)
 		})
 
 		Context("with ConfigMap in sidecar hook annotation", func() {
