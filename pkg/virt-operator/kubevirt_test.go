@@ -1690,12 +1690,12 @@ func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDep
 		k.mockEnvVarManager)
 }
 
-func (k *KubeVirtTestData) shouldExpectInstancetypesAndPreferencesDeletions() {
+func (k *KubeVirtTestData) shouldExpectInstancetypesAndPreferencesDeletions(kv *v1.KubeVirt) {
 	expectDeleteCollection := func(action testing.Action) (bool, runtime.Object, error) {
 		deleteCollection, ok := action.(testing.DeleteCollectionAction)
 		Expect(ok).To(BeTrue())
 		ls := labels.Set{
-			v1.AppComponentLabel: v1.AppComponent,
+			v1.AppComponentLabel: apply.GetAppComponent(kv),
 			v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 		}
 		Expect(deleteCollection.GetListRestrictions().Labels).To(Equal(ls.AsSelector()))
@@ -1751,7 +1751,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			// Now when the controller runs, if the namespace will be patched, the test will fail
 			// because the patch is not expected here.
@@ -1819,7 +1819,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 			kvTestData.addAll(customConfig, kv)
 			// install strategy config
 			kvTestData.addInstallStrategy(customConfig)
@@ -1873,7 +1873,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(1))
@@ -1946,7 +1946,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(1))
@@ -1988,7 +1988,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			kvTestData.controller.Execute()
 
@@ -2035,7 +2035,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			// invalidate all lastGeneration versions
 			numGenerations := len(kv.Status.Generations)
@@ -2098,7 +2098,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(numResources))
@@ -2747,7 +2747,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			kvTestData.controller.Execute()
 
@@ -2825,7 +2825,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
-			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions(kv)
 
 			kvTestData.controller.Execute()
 
