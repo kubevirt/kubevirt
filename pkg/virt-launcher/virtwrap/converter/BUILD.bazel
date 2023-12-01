@@ -62,6 +62,7 @@ go_test(
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/util/hardware:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

@@ -77,6 +77,7 @@ import (
 	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -479,9 +480,11 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			}
 		}
 		if domain.Spec.CPUTune.EmulatorPin != nil {
-			isolCpu, _ := strconv.Atoi(domain.Spec.CPUTune.EmulatorPin.CPUSet)
-			cpuMap := make([]bool, isolCpu+1)
-			cpuMap[int(isolCpu)] = true
+			isolCpus, _ := hw_utils.ParseCPUSetLine(domain.Spec.CPUTune.EmulatorPin.CPUSet, 100)
+			cpuMap := make([]bool, maxSlice(isolCpus)+1)
+			for _, isolCpu := range isolCpus {
+				cpuMap[isolCpu] = true
+			}
 			err = dom.PinEmulator(cpuMap, affectDomainLiveAndConfigLibvirtFlags)
 			if err != nil {
 				return fmt.Errorf("%s: %v", errMsgPrefix, err)
@@ -490,6 +493,16 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 
 	}
 	return nil
+}
+
+func maxSlice(slice []int) int {
+	var max = slice[0]
+	for _, value := range slice {
+		if max < value {
+			max = value
+		}
+	}
+	return max
 }
 
 // HotplugHostDevices attach host-devices to running domain, currently only SRIOV host-devices are supported.

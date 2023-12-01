@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	"github.com/golang/mock/gomock"
@@ -2028,6 +2029,107 @@ var _ = Describe("Converter", func() {
 				"expected number of queues to equal number of requested vCPUs")
 		})
 	})
+
+	Context("Correctly handle IsolateEmulatorThread with dedicated cpus", func() {
+		DescribeTable("should succeed assigning CPUs to emulatorThread",
+			func(cores uint32, converterContext *ConverterContext, CPUManagerPolicyBetaOption v1.CPUManagerPolicyBetaOptions,
+				expectedEmulatorThreads int) {
+				var err error
+				domain := &api.Domain{}
+
+				cpuPool := vcpu.NewRelaxedCPUPool(
+					&api.CPUTopology{Sockets: 1, Cores: cores, Threads: 1},
+					converterContext.Topology,
+					converterContext.CPUSet,
+				)
+				domain.Spec.CPUTune, err = cpuPool.FitCores()
+				Expect(err).ToNot(HaveOccurred())
+
+				emulatorThreadsCPUSet, err := vcpu.FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption)
+				Expect(err).ToNot(HaveOccurred())
+				By("checking that the housekeeping CPUSet has the expected amount of CPUs")
+				housekeepingCPUs, err := hardware.ParseCPUSetLine(emulatorThreadsCPUSet, 100)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(housekeepingCPUs).To(HaveLen(expectedEmulatorThreads))
+				By("checking that the housekeeping CPUSet does not overlap with the VCPUs CPUSet")
+				for _, VCPUPin := range domain.Spec.CPUTune.VCPUPin {
+					CPUTuneCPUs, err := hardware.ParseCPUSetLine(VCPUPin.CPUSet, 100)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(CPUTuneCPUs).ToNot(ContainElements(housekeepingCPUs))
+				}
+			},
+			Entry("when full-pcpu-only is disabled and there is one extra CPU assigned for emulatorThread",
+				uint32(2), &ConverterContext{CPUSet: []int{5, 6, 7},
+					Topology: &cmdv1.Topology{
+						NumaCells: []*cmdv1.Cell{{
+							Cpus: []*cmdv1.CPU{
+								{Id: 5}, {Id: 6},
+								{Id: 7},
+							},
+						}},
+					},
+				},
+				v1.CPUManagerPolicyBetaOptions(""),
+				1),
+			Entry("when full-pcpu-only is enabled and there are two extra CPUs assigned for emulatorThread",
+				uint32(6), &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12},
+					Topology: &cmdv1.Topology{
+						NumaCells: []*cmdv1.Cell{{
+							Cpus: []*cmdv1.CPU{
+								{Id: 5}, {Id: 6}, {Id: 7}, {Id: 8}, {Id: 9}, {Id: 10},
+								{Id: 11}, {Id: 12},
+							},
+						}},
+					},
+				},
+				v1.CPUManagerPolicyBetaOptionFullpCPUsOnly,
+				2),
+		)
+		DescribeTable("should fail assigning CPUs to emulatorThread",
+			func(cores uint32, converterContext *ConverterContext, CPUManagerPolicyBetaOption v1.CPUManagerPolicyBetaOptions,
+				expectedErrorString string) {
+				var err error
+				domain := &api.Domain{}
+
+				cpuPool := vcpu.NewRelaxedCPUPool(
+					&api.CPUTopology{Sockets: 1, Cores: cores, Threads: 1},
+					converterContext.Topology,
+					converterContext.CPUSet,
+				)
+				domain.Spec.CPUTune, err = cpuPool.FitCores()
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = vcpu.FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption)
+				Expect(err).To(MatchError(ContainSubstring(expectedErrorString)))
+			},
+			Entry("when full-pcpu-only is disabled and there are not enough CPUs to allocate emulator threads",
+				uint32(2), &ConverterContext{CPUSet: []int{5, 6},
+					Topology: &cmdv1.Topology{
+						NumaCells: []*cmdv1.Cell{{
+							Cpus: []*cmdv1.CPU{
+								{Id: 5}, {Id: 6},
+							},
+						}},
+					},
+				},
+				v1.CPUManagerPolicyBetaOptions(""),
+				"no CPU allocated for the emulation thread"),
+			Entry("when full-pcpu-only is enabled and there are not enough Cores to allocate emulator threads",
+				uint32(2), &ConverterContext{CPUSet: []int{5, 6, 7},
+					Topology: &cmdv1.Topology{
+						NumaCells: []*cmdv1.Cell{{
+							Cpus: []*cmdv1.CPU{
+								{Id: 5}, {Id: 6},
+								{Id: 7},
+							},
+						}},
+					},
+				},
+				v1.CPUManagerPolicyBetaOptionFullpCPUsOnly,
+				"no second CPU allocated for the emulation thread"),
+		)
+	})
+
 	Context("Correctly handle iothreads with dedicated cpus", func() {
 		var vmi *v1.VirtualMachineInstance
 
@@ -2084,7 +2186,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, "0", c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "5,6,7"},
 				{IOThread: 2, CPUSet: "8,9,10"},
@@ -2116,7 +2218,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
-			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, 0, c.CPUSet)).To(Succeed())
+			Expect(vcpu.FormatDomainIOThreadPin(vmi, domain, "0", c.CPUSet)).To(Succeed())
 			expectedLayout := []api.CPUTuneIOThreadPin{
 				{IOThread: 1, CPUSet: "6"},
 				{IOThread: 2, CPUSet: "5"},
