@@ -190,21 +190,6 @@ func LegacySocketsDirectory() string {
 	return filepath.Join(legacyBaseDir, "sockets")
 }
 
-func IsLegacySocket(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return false
-	}
-
-	return true
-}
-
-func SocketMonitoringEnabled(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return true
-	}
-	return false
-}
-
 func IsSocketUnresponsive(socket string) bool {
 	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
 	exists, _ := diskutils.FileExists(file)
