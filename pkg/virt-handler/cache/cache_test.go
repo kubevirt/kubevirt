@@ -91,8 +91,7 @@ var _ = Describe("Domain informer", func() {
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
 
-		informer, err = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
-		Expect(err).ToNot(HaveOccurred())
+		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
@@ -226,7 +225,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 			}
@@ -255,7 +254,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 			}
@@ -330,14 +329,13 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should detect unresponsive sockets.", func() {
-
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
 
 			AddGhostRecord("test", "test", socketPath, "1234")
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
@@ -383,7 +381,7 @@ var _ = Describe("Domain informer", func() {
 			err = AddGhostRecord("test", "test", socketPath, "1234")
 			Expect(err).ToNot(HaveOccurred())
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,

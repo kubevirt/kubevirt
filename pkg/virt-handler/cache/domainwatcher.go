@@ -18,13 +18,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) (cache.SharedInformer, error) {
+func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
 	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod)
-	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
-	return informer, nil
+	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }
 
-type DomainWatcher struct {
+func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.ListerWatcher {
+	return &domainWatcher{
+		backgroundWatcherStarted: false,
+		virtShareDir:             virtShareDir,
+		watchdogTimeout:          watchdogTimeout,
+		recorder:                 recorder,
+		vmiStore:                 vmiStore,
+		unresponsiveSockets:      make(map[string]int64),
+		resyncPeriod:             resyncPeriod,
+	}
+}
+
+var _ cache.ListerWatcher = &domainWatcher{}
+var _ watch.Interface = &domainWatcher{}
+
+type domainWatcher struct {
 	lock                     sync.Mutex
 	wg                       sync.WaitGroup
 	stopChan                 chan struct{}
@@ -40,11 +54,11 @@ type DomainWatcher struct {
 	unresponsiveSockets map[string]int64
 }
 
-func (d *DomainWatcher) startBackground() error {
+func (d *domainWatcher) startBackground() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.backgroundWatcherStarted == true {
+	if d.backgroundWatcherStarted {
 		return nil
 	}
 
@@ -95,7 +109,7 @@ func (d *DomainWatcher) startBackground() error {
 	return nil
 }
 
-func (d *DomainWatcher) handleResync() {
+func (d *domainWatcher) handleResync() {
 	socketFiles, err := listSockets()
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
@@ -129,7 +143,7 @@ func (d *DomainWatcher) handleResync() {
 	}
 }
 
-func (d *DomainWatcher) handleStaleSocketConnections() error {
+func (d *domainWatcher) handleStaleSocketConnections() error {
 	var unresponsive []string
 
 	socketFiles, err := listSockets()
@@ -206,7 +220,7 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 	return nil
 }
 
-func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
+func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
 	socketFiles, err := listSockets()
@@ -255,14 +269,14 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 			// be sent.
 			continue
 		}
-		if exists == true {
+		if exists {
 			domains = append(domains, domain)
 		}
 	}
 	return domains, nil
 }
 
-func (d *DomainWatcher) List(_ k8sv1.ListOptions) (runtime.Object, error) {
+func (d *domainWatcher) List(_ k8sv1.ListOptions) (runtime.Object, error) {
 
 	log.Log.V(3).Info("Synchronizing domains")
 	err := d.startBackground()
@@ -285,15 +299,15 @@ func (d *DomainWatcher) List(_ k8sv1.ListOptions) (runtime.Object, error) {
 	return &list, nil
 }
 
-func (d *DomainWatcher) Watch(_ k8sv1.ListOptions) (watch.Interface, error) {
+func (d *domainWatcher) Watch(_ k8sv1.ListOptions) (watch.Interface, error) {
 	return d, nil
 }
 
-func (d *DomainWatcher) Stop() {
+func (d *domainWatcher) Stop() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.backgroundWatcherStarted == false {
+	if !d.backgroundWatcherStarted {
 		return
 	}
 	close(d.stopChan)
@@ -302,7 +316,7 @@ func (d *DomainWatcher) Stop() {
 	close(d.eventChan)
 }
 
-func (d *DomainWatcher) ResultChan() <-chan watch.Event {
+func (d *domainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
 }
 
@@ -334,18 +348,4 @@ func listSockets() ([]string, error) {
 	}
 
 	return sockets, nil
-}
-
-func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.ListerWatcher {
-	d := &DomainWatcher{
-		backgroundWatcherStarted: false,
-		virtShareDir:             virtShareDir,
-		watchdogTimeout:          watchdogTimeout,
-		recorder:                 recorder,
-		vmiStore:                 vmiStore,
-		unresponsiveSockets:      make(map[string]int64),
-		resyncPeriod:             resyncPeriod,
-	}
-
-	return d
 }
