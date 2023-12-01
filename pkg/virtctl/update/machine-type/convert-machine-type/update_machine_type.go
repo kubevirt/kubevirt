@@ -53,30 +53,10 @@ func isMachineTypeUpdated(vm *v1.VirtualMachine) (bool, error) {
 		return true, nil
 	}
 
+	if machine.Type == virtconfig.DefaultAMD64MachineType {
+		return true, nil
+	}
+
 	matchesGlob, err = matchMachineType(machine.Type)
-	if err != nil {
-		return false, err
-	}
-	return machine.Type == virtconfig.DefaultAMD64MachineType || !matchesGlob, nil
-}
-
-func (c *JobController) UpdateMachineType(vm *v1.VirtualMachine, running bool) error {
-	err := c.patchMachineType(vm)
-	if err != nil {
-		return err
-	}
-
-	if running {
-		// if force restart flag is set, restart running VMs immediately
-		// don't apply warning label to VMs being restarted
-		if RestartNow {
-			return c.VirtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-		}
-
-		// adding the warning label to the running VMs to indicate to the user
-		// they must manually be restarted
-		patchString := `[{ "op": "add", "path": "/status/machineTypeRestartRequired", "value": true }]`
-		return c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patchString), &metav1.PatchOptions{})
-	}
-	return nil
+	return !matchesGlob, err
 }

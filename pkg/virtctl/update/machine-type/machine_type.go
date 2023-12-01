@@ -103,9 +103,11 @@ func (o *MachineTypeCommand) Run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("error creating convert-machine-type job: %v", err)
 	}
-	fmt.Printf(`Successfully created job %s.
+	fmt.Printf(`
+Successfully created job %s.
 This job can be monitored using 'kubectl get job %s -n kubevirt' and 'kubectl describe job %s -n kubevirt'.
-Once terminated, this job can be deleted by using 'kubectl delete job %s -n kubevirt'.\n`, job.Name, job.Name, job.Name, job.Name)
+Once terminated, this job can be deleted by using 'kubectl delete job %s -n kubevirt'.
+`, job.Name, job.Name, job.Name, job.Name)
 	return nil
 }
 

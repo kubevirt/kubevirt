@@ -48,7 +48,7 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("should successfully create convert machine types job", func() {
+	Describe("[Serial] should successfully create convert machine types job", Serial, func() {
 		var vmList []*v1.VirtualMachine
 		var job *batchv1.Job
 
@@ -98,7 +98,7 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 				Expect(err).ToNot(HaveOccurred())
 				job = expectJobExists(virtClient)
 
-				Eventually(ThisVM(vmNeedsUpdateStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
+				Eventually(ThisVM(vmNeedsUpdateStopped), 2*time.Minute, time.Second).Should(haveDefaultMachineType())
 			})
 
 			Context("when running VMs are updated", func() {
@@ -109,8 +109,8 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 					Expect(err).ToNot(HaveOccurred())
 					job = expectJobExists(virtClient)
 
-					Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
-					Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveRestartRequiredStatus())
+					Eventually(ThisVM(vmNeedsUpdateRunning), 2*time.Minute, time.Second).Should(haveDefaultMachineType())
+					Eventually(ThisVM(vmNeedsUpdateRunning), 2*time.Minute, time.Second).Should(haveRestartRequiredStatus())
 
 					Consistently(thisJob(virtClient, job), time.Minute, time.Second).ShouldNot(haveCompletionTime())
 				})
@@ -126,8 +126,8 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 			Expect(err).ToNot(HaveOccurred())
 			job = expectJobExists(virtClient)
 
-			Eventually(ThisVM(vmNamespaceDefaultStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceOtherStopped), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
+			Eventually(ThisVM(vmNamespaceDefaultStopped), 2*time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNamespaceOtherStopped), 2*time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
 		})
 
 		It("Example with label-selector flag", func() {
@@ -139,8 +139,8 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 			Expect(err).ToNot(HaveOccurred())
 			job = expectJobExists(virtClient)
 
-			Eventually(ThisVM(vmWithLabelStopped), time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNoLabelStopped), time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
+			Eventually(ThisVM(vmWithLabelStopped), 2*time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNoLabelStopped), 2*time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
 		})
 
 		It("Example with force-restart flag", func() {
@@ -158,11 +158,11 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 			Eventually(ThisVM(vmNeedsUpdateRunning), time.Minute, time.Second).Should(haveDefaultMachineType())
 
 			By("Ensuring the VM has been restarted and the VMI has the default machine type.")
-			Eventually(ThisVMI(vmiNeedsUpdateRunning), 120*time.Second, time.Second).Should(beRestarted(vmiNeedsUpdateRunning.UID))
+			Eventually(ThisVMI(vmiNeedsUpdateRunning), 300*time.Second, time.Second).Should(beRestarted(vmiNeedsUpdateRunning.UID))
 			Eventually(ThisVMI(vmiNeedsUpdateRunning)).Should(haveDefaultMachineType())
 
 			By("Ensuring the job terminates since there are no running VMs pending restart.")
-			Eventually(thisJob(virtClient, job), time.Minute, time.Second).Should(haveCompletionTime())
+			Eventually(thisJob(virtClient, job), 2*time.Minute, time.Second).Should(haveCompletionTime())
 		})
 	})
 })

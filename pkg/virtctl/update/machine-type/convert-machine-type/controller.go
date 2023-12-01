@@ -1,10 +1,12 @@
 package convertmachinetype
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -98,7 +100,6 @@ func (c *JobController) run(stopCh <-chan struct{}) {
 	}
 
 	vmKeys := c.VmInformer.GetStore().ListKeys()
-	fmt.Printf("Num vm keys: %d\n", len(vmKeys))
 	for _, k := range vmKeys {
 		c.Queue.Add(k)
 	}
@@ -139,8 +140,12 @@ func (c *JobController) vmHandler(obj interface{}) {
 
 func (c *JobController) execute(key string) error {
 	obj, exists, err := c.VmInformer.GetStore().GetByKey(key)
-	if err != nil || !exists {
+	if err != nil {
 		return err
+	}
+
+	if !exists {
+		return fmt.Errorf("VM does not exist")
 	}
 
 	vm := obj.(*v1.VirtualMachine)
@@ -161,14 +166,28 @@ func (c *JobController) execute(key string) error {
 
 	// update VMs that require update
 	if !updated {
-		err = c.UpdateMachineType(vm, isRunning)
+		err := c.patchMachineType(vm)
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
+
 		// don't need to do anything else to stopped VMs
 		if !isRunning {
 			return nil
+		}
+
+		// if force restart flag is set, restart running VMs immediately
+		// don't apply warning label to VMs being restarted
+		if RestartNow {
+			return c.VirtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
+		}
+
+		// adding the warning label to the running VMs to indicate to the user
+		// they must manually be restarted
+		patchString := `[{ "op": "add", "path": "/status/machineTypeRestartRequired", "value": true }]`
+		err = c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patchString), &metav1.PatchOptions{})
+		if err != nil {
+			return err
 		}
 	}
 
@@ -218,8 +237,11 @@ func (c *JobController) vmiIsUpdated(vm *v1.VirtualMachine) (bool, error) {
 	}
 
 	obj, exists, err := c.VmiInformer.GetStore().GetByKey(vmKey)
-	if err != nil || !exists {
+	if err != nil {
 		return false, err
+	}
+	if !exists {
+		return false, fmt.Errorf("VMI does not exist")
 	}
 
 	vmi := obj.(*v1.VirtualMachineInstance)
@@ -234,5 +256,5 @@ func (c *JobController) vmiIsUpdated(vm *v1.VirtualMachine) (bool, error) {
 		fmt.Println(err)
 		return false, err
 	}
-	return specMachine.Type == virtconfig.DefaultAMD64MachineType || !matchesGlob, nil
+	return specMachine.Type == virtconfig.DefaultAMD64MachineType && !matchesGlob, nil
 }
