@@ -6328,6 +6328,16 @@ var CRDsValidation map[string]string = map[string]string{
                     firmware:
                       description: Firmware.
                       properties:
+                        acpi:
+                          description: Information that can be set in the ACPI table
+                          properties:
+                            slicNameRef:
+                              description: 'SlicNameRef should match the volume name
+                                of a secret object. The data in the secret should
+                                be a binary blob that follows the ACPI SLIC standard,
+                                see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)'
+                              type: string
+                          type: object
                         bootloader:
                           description: Settings to control the bootloader that is
                             used.
@@ -10858,6 +10868,15 @@ var CRDsValidation map[string]string = map[string]string{
             firmware:
               description: Firmware.
               properties:
+                acpi:
+                  description: Information that can be set in the ACPI table
+                  properties:
+                    slicNameRef:
+                      description: 'SlicNameRef should match the volume name of a
+                        secret object. The data in the secret should be a binary blob
+                        that follows the ACPI SLIC standard, see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)'
+                      type: string
+                  type: object
                 bootloader:
                   description: Settings to control the bootloader that is used.
                   properties:
@@ -13587,6 +13606,15 @@ var CRDsValidation map[string]string = map[string]string{
             firmware:
               description: Firmware.
               properties:
+                acpi:
+                  description: Information that can be set in the ACPI table
+                  properties:
+                    slicNameRef:
+                      description: 'SlicNameRef should match the volume name of a
+                        secret object. The data in the secret should be a binary blob
+                        that follows the ACPI SLIC standard, see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)'
+                      type: string
+                  type: object
                 bootloader:
                   description: Settings to control the bootloader that is used.
                   properties:
@@ -15801,6 +15829,16 @@ var CRDsValidation map[string]string = map[string]string{
                     firmware:
                       description: Firmware.
                       properties:
+                        acpi:
+                          description: Information that can be set in the ACPI table
+                          properties:
+                            slicNameRef:
+                              description: 'SlicNameRef should match the volume name
+                                of a secret object. The data in the secret should
+                                be a binary blob that follows the ACPI SLIC standard,
+                                see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)'
+                              type: string
+                          type: object
                         bootloader:
                           description: Settings to control the bootloader that is
                             used.
@@ -20207,6 +20245,17 @@ var CRDsValidation map[string]string = map[string]string{
                             firmware:
                               description: Firmware.
                               properties:
+                                acpi:
+                                  description: Information that can be set in the
+                                    ACPI table
+                                  properties:
+                                    slicNameRef:
+                                      description: 'SlicNameRef should match the volume
+                                        name of a secret object. The data in the secret
+                                        should be a binary blob that follows the ACPI
+                                        SLIC standard, see: https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)'
+                                      type: string
+                                  type: object
                                 bootloader:
                                   description: Settings to control the bootloader
                                     that is used.
@@ -25393,6 +25442,18 @@ var CRDsValidation map[string]string = map[string]string{
                                 firmware:
                                   description: Firmware.
                                   properties:
+                                    acpi:
+                                      description: Information that can be set in
+                                        the ACPI table
+                                      properties:
+                                        slicNameRef:
+                                          description: 'SlicNameRef should match the
+                                            volume name of a secret object. The data
+                                            in the secret should be a binary blob
+                                            that follows the ACPI SLIC standard, see:
+                                            https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)'
+                                          type: string
+                                      type: object
                                     bootloader:
                                       description: Settings to control the bootloader
                                         that is used.
