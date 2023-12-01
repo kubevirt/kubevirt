@@ -2296,13 +2296,15 @@ func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []vi
 	if err != nil {
 		return err
 	}
+
+	currentMultusAnnotation := podAnnotations[networkv1.NetworkAttachmentAnnot]
 	log.Log.Object(pod).V(4).Infof(
 		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		podAnnotations[networkv1.NetworkAttachmentAnnot],
+		currentMultusAnnotation,
 		multusAnnotations,
 	)
 
-	if multusAnnotations != "" {
+	if multusAnnotations != currentMultusAnnotation {
 		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
 		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
 		if err != nil {
