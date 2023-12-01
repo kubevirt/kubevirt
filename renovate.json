@@ -34,6 +34,11 @@
        "description": "Group pip requirements dependencies",
        "matchManagers": [ "pip_requirements" ],
        "groupName": "pip_requirements"
+    },
+    {
+       "description": "Group dockerfile dependencies",
+       "matchManagers": [ "dockerfile" ],
+       "groupName": "dockerfile"
     }
   ]
 }
