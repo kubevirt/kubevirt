@@ -43,6 +43,12 @@ import (
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 )
 
+func clearGhostRecordCache() {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+	ghostRecordGlobalCache = make(map[string]ghostRecord)
+}
+
 var _ = Describe("Domain informer", func() {
 	var err error
 	var shareDir string
