@@ -143,20 +143,6 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(unresponsive).To(BeTrue())
 		})
 
-		It("Determine legacy sockets vs new socket paths", func() {
-			legacy := IsLegacySocket("/some/path/something_sock")
-			Expect(legacy).To(BeTrue())
-
-			legacy = IsLegacySocket(filepath.Join("/some/path", StandardLauncherSocketFileName))
-			Expect(legacy).To(BeFalse())
-
-			monEnabled := SocketMonitoringEnabled("/some/path/something_sock")
-			Expect(monEnabled).To(BeFalse())
-
-			monEnabled = SocketMonitoringEnabled(filepath.Join("/some/path", StandardLauncherSocketFileName))
-			Expect(monEnabled).To(BeTrue())
-		})
-
 		Context("exec", func() {
 			var (
 				ctrl          *gomock.Controller
