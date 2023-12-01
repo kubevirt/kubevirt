@@ -88,13 +88,6 @@ var ghostRecordGlobalCache map[string]ghostRecord
 var ghostRecordGlobalMutex sync.Mutex
 var ghostRecordDir string
 
-// this function is only used by unit tests
-func clearGhostRecordCache() {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
-	ghostRecordGlobalCache = make(map[string]ghostRecord)
-}
-
 func InitializeGhostRecordCache(directoryPath string) error {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()
@@ -194,9 +187,9 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	} else if namespace == "" {
 		return fmt.Errorf("can not add ghost record when 'namespace' is not provided")
 	} else if string(uid) == "" {
-		return fmt.Errorf("Unable to add ghost record with empty UID")
+		return fmt.Errorf("unable to add ghost record with empty UID")
 	} else if socketFile == "" {
-		return fmt.Errorf("Unable to add ghost record without a socketFile")
+		return fmt.Errorf("unable to add ghost record without a socketFile")
 	}
 
 	key := namespace + "/" + name
@@ -255,7 +248,7 @@ func DeleteGhostRecord(namespace string, name string) error {
 	}
 
 	if string(record.UID) == "" {
-		return fmt.Errorf("Unable to remove ghost record with empty UID")
+		return fmt.Errorf("unable to remove ghost record with empty UID")
 	}
 
 	recordPath := filepath.Join(ghostRecordDir, string(record.UID))
@@ -303,7 +296,7 @@ func (d *DomainWatcher) startBackground() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.backgroundWatcherStarted == true {
+	if d.backgroundWatcherStarted {
 		return nil
 	}
 
@@ -514,7 +507,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 			// be sent.
 			continue
 		}
-		if exists == true {
+		if exists {
 			domains = append(domains, domain)
 		}
 	}
@@ -552,7 +545,7 @@ func (d *DomainWatcher) Stop() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.backgroundWatcherStarted == false {
+	if !d.backgroundWatcherStarted {
 		return
 	}
 	close(d.stopChan)

@@ -173,11 +173,7 @@ func IsSocketUnresponsive(socket string) bool {
 
 	exists, _ = diskutils.FileExists(socket)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
-	if !exists {
-		return true
-	}
-
-	return false
+	return !exists
 }
 
 func MarkSocketUnresponsive(socket string) error {
@@ -339,7 +335,7 @@ func handleError(err error, cmdName string, response *cmdv1.Response) error {
 	} else if err != nil {
 		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
 		return fmt.Errorf(msg)
-	} else if response != nil && response.Success != true {
+	} else if response != nil && !response.Success {
 		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}
 	return nil
