@@ -47,9 +47,6 @@ function _deploy_infra_for_tests() {
 }
 
 function _ensure_cdi_deployment() {
-    # enable featuregate
-    _kubectl patch cdi ${cdi_namespace:?} --type merge -p '{"spec": {"config": {"featureGates": [ "HonorWaitForFirstConsumer" ]}}}'
-
     # add insecure registries
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"insecureRegistries": [ "registry:5000", "fakeregistry:5000" ]}}}'
 
@@ -62,6 +59,8 @@ function _ensure_cdi_deployment() {
     if [[ $CDI_DV_GC != $CDI_DV_GC_DEFAULT ]]; then
         _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"dataVolumeTTLSeconds": '"$CDI_DV_GC"'}}}'
     fi
+
+    _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec":{"config":{"podResourceRequirements": {"limits": {"cpu": "750m", "memory": "1Gi"}, "requests": {"cpu": "100m", "memory": "60M"}}}}}'
 }
 
 function configure_prometheus() {
