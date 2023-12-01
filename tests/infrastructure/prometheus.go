@@ -296,73 +296,19 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	})
 
 	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		foundMetrics := map[string]int{
-			"ready":   0,
-			"leading": 0,
-		}
 		By("scraping the metrics endpoint on virt-controller pods")
-		for _, ep := range endpoint.Subsets[0].Addresses {
-			if !strings.HasPrefix(ep.TargetRef.Name, "virt-controller") {
-				continue
-			}
-
-			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
-
-			scrapedData := strings.Split(stdout, "\n")
-			for _, data := range scrapedData {
-				if strings.HasPrefix(data, "#") {
-					continue
-				}
-				switch data {
-				case "kubevirt_virt_controller_leading_status 1":
-					foundMetrics["leading"]++
-				case "kubevirt_virt_controller_ready_status 1":
-					foundMetrics["ready"]++
-				}
-			}
-		}
-
-		Expect(foundMetrics["ready"]).To(Equal(2), "expected 2 ready virt-controllers")
-		Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-controller")
+		results, err := countReadyAndLeaderPods(pod, "controller")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(results["ready"]).To(Equal(2), "expected 2 ready virt-controllers")
+		Expect(results["leading"]).To(Equal(1), "expected 1 leading virt-controller")
 	})
 
 	It("[test_id:4137]should find one leading virt-operator and two ready", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		foundMetrics := map[string]int{
-			"ready":   0,
-			"leading": 0,
-		}
 		By("scraping the metrics endpoint on virt-operator pods")
-		for _, ep := range endpoint.Subsets[0].Addresses {
-			if !strings.HasPrefix(ep.TargetRef.Name, "virt-operator") {
-				continue
-			}
-
-			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
-
-			scrapedData := strings.Split(stdout, "\n")
-			for _, data := range scrapedData {
-				if strings.HasPrefix(data, "#") {
-					continue
-				}
-				switch data {
-				case "kubevirt_virt_operator_leading_status 1":
-					foundMetrics["leading"]++
-				case "kubevirt_virt_operator_ready_status 1":
-					foundMetrics["ready"]++
-				}
-			}
-		}
-
-		Expect(foundMetrics["ready"]).To(Equal(2), "expected 2 ready virt-operators")
-		Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-operator")
+		results, err := countReadyAndLeaderPods(pod, "operator")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(results["ready"]).To(Equal(2), "expected 2 ready virt-operators")
+		Expect(results["leading"]).To(Equal(1), "expected 1 leading virt-operator")
 	})
 
 	It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
@@ -655,3 +601,42 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		Entry("[test_id:6245] by IPv6", k8sv1.IPv6Protocol),
 	)
 })
+
+func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {
+	virtClient := kubevirt.Client()
+	target := fmt.Sprintf("virt-%s", component)
+	endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	foundMetrics = map[string]int{
+		"ready":   0,
+		"leading": 0,
+	}
+	for _, ep := range endpoint.Subsets[0].Addresses {
+		if !strings.HasPrefix(ep.TargetRef.Name, target) {
+			continue
+		}
+
+		cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
+		if err != nil {
+			return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
+		}
+
+		scrapedData := strings.Split(stdout, "\n")
+		for _, data := range scrapedData {
+			if strings.HasPrefix(data, "#") {
+				continue
+			}
+			switch data {
+			case fmt.Sprintf("kubevirt_virt_%s_leading_status 1", component):
+				foundMetrics["leading"]++
+			case fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component):
+				foundMetrics["ready"]++
+			}
+		}
+	}
+
+	return foundMetrics, err
+}
