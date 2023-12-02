@@ -278,7 +278,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			verifyAlertExist(virtClient, "KubevirtVmHighMemoryUsage")
 		})
 
-		It("should fire OrphanedVirtualMachineInstances alert", func() {
+		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
 			vmi := tests.NewRandomVMI()
 			tests.RunVMIAndExpectLaunch(vmi, 240)
