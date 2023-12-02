@@ -60,7 +60,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 
 func (r *Reconciler) deleteInstancetypes() error {
 	ls := labels.Set{
-		v1.AppComponentLabel: v1.AppComponent,
+		v1.AppComponentLabel: GetAppComponent(r.kv),
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
@@ -120,7 +120,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 
 func (r *Reconciler) deletePreferences() error {
 	ls := labels.Set{
-		v1.AppComponentLabel: v1.AppComponent,
+		v1.AppComponentLabel: GetAppComponent(r.kv),
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
