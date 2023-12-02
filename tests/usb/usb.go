@@ -14,7 +14,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	pkgUtil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -95,7 +97,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 			vmi.Spec.Domain.Devices.HostDevices = hostDevs
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Making sure the usb is present inside the VMI")
@@ -103,6 +105,22 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 				&expect.BSnd{S: fmt.Sprintf("%s\n", cmdNumberUSBs)},
 				&expect.BExp{R: console.RetValue(fmt.Sprintf("%d", len(deviceNames)))},
 			}, 15)).To(Succeed(), "Device not found")
+
+			By("Verifying ownership is properly set in the host")
+			domainXml, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, hostDevice := range domainXml.Devices.HostDevices {
+				if hostDevice.Type != api.HostDeviceUSB {
+					continue
+				}
+				addr := hostDevice.Source.Address
+				path := fmt.Sprintf("%sdev/bus/usb/00%s/00%s", pkgUtil.HostRootMount, addr.Bus, addr.Device)
+				cmd := []string{"stat", "--printf", `"%u %g"`, path}
+				stdout, err := tests.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, cmd)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stdout).Should(Equal(`"107 107"`))
+			}
 		},
 			Entry("Should successfully passthrough 1 emulated USB device", []string{"slow-storage"}),
 			Entry("Should successfully passthrough 2 emulated USB devices", []string{"fast-storage", "low-storage"}),
