@@ -39,6 +39,12 @@
        "description": "Group dockerfile dependencies",
        "matchManagers": [ "dockerfile" ],
        "groupName": "dockerfile"
+    },
+    {
+      "matchPackagePatterns": ["docker.io/golang"],
+      "matchDepTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "groupName": null
     }
   ]
 }
