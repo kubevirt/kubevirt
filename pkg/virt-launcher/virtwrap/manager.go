@@ -665,7 +665,7 @@ func (l *LibvirtDomainManager) generateCloudInitEmptyISO(vmi *v1.VirtualMachineI
 //
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
-func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, generateEmptyIsos bool) (*api.Domain, error) {
+func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, generateEmptyIsos bool, options *cmdv1.VirtualMachineOptions) (*api.Domain, error) {
 	logger := log.Log.Object(vmi)
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
@@ -721,7 +721,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain, nonAbsentNets)
+	var interfaceDomainAttachments map[string]string
+	if options != nil {
+		interfaceDomainAttachments = options.GetInterfaceDomainAttachment()
+	}
+	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(interfaceDomainAttachments)).SetupPodNetworkPhase2(domain, nonAbsentNets)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}
@@ -965,6 +969,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.BochsForEFIGuests = options.GetClusterConfig().GetBochsDisplayForEFIGuests()
 			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
 		}
+
+		c.DomainAttachmentByInterfaceName = options.GetInterfaceDomainAttachment()
 	}
 	c.DisksInfo = l.disksInfo
 
@@ -1034,7 +1040,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
-			domain, err = l.preStartHook(vmi, domain, false)
+			domain, err = l.preStartHook(vmi, domain, false, options)
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
@@ -1166,8 +1172,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	}
 
 	if vmi.IsRunning() {
+		var domainAttachments map[string]string
+		if options != nil {
+			domainAttachments = options.GetInterfaceDomainAttachment()
+		}
+
 		networkInterfaceManager := newVirtIOInterfaceManager(
-			dom, netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}))
+			dom, netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments)))
 		if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
 			return nil, err
 		}

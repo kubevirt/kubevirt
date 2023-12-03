@@ -30,9 +30,10 @@ import (
 )
 
 type VMNetworkConfigurator struct {
-	vmi          *v1.VirtualMachineInstance
-	handler      netdriver.NetworkHandler
-	cacheCreator cacheCreator
+	vmi               *v1.VirtualMachineInstance
+	handler           netdriver.NetworkHandler
+	cacheCreator      cacheCreator
+	domainAttachments map[string]string
 }
 
 type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
@@ -49,6 +50,12 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 	return v
 }
 
+func WithDomainAttachments(domainAttachments map[string]string) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.domainAttachments = domainAttachments
+	}
+}
+
 func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.Network) ([]podNIC, error) {
 	var nics []podNIC
 
@@ -58,12 +65,12 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		// Binding plugin, SR-IOV and Slirp devices are not part of the phases
-		if iface.Binding != nil || iface.SRIOV != nil || iface.Slirp != nil {
+		// Binding plugin (with non tap domain attachment), SR-IOV and Slirp devices are not part of the phases
+		if (iface.Binding != nil && v.domainAttachments[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil || iface.Slirp != nil {
 			continue
 		}
 
-		nic, err := newPhase2PodNIC(v.vmi, &networks[i], iface, v.handler, v.cacheCreator, domain)
+		nic, err := newPhase2PodNIC(v.vmi, &networks[i], iface, v.handler, v.cacheCreator, domain, v.domainAttachments[iface.Name])
 		if err != nil {
 			return nil, err
 		}
