@@ -115,14 +115,17 @@ func (r *MonitoringReconciler) ReconcileOneResource(req *common.HcoRequest, reco
 	resource, updated, err := reconciler.UpdateExistingResource(req.Ctx, r.client, existing, req.Logger)
 	if err != nil {
 		r.eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", fmt.Sprintf("failed to update the %s %s", reconciler.ResourceName(), reconciler.Kind()))
-	} else if updated {
-		err = r.handleUpdatedResource(req, reconciler, firstLoop)
+		return nil, err
 	}
 
-	return resource, err
+	if updated {
+		r.handleUpdatedResource(req, reconciler, firstLoop)
+	}
+
+	return resource, nil
 }
 
-func (r *MonitoringReconciler) handleUpdatedResource(req *common.HcoRequest, reconciler MetricReconciler, firstLoop bool) error {
+func (r *MonitoringReconciler) handleUpdatedResource(req *common.HcoRequest, reconciler MetricReconciler, firstLoop bool) {
 	if req.HCOTriggered {
 		r.eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", reconciler.Kind(), reconciler.ResourceName()))
 	} else {
@@ -131,7 +134,6 @@ func (r *MonitoringReconciler) handleUpdatedResource(req *common.HcoRequest, rec
 			metrics.IncOverwrittenModifications(reconciler.Kind(), reconciler.ResourceName())
 		}
 	}
-	return nil
 }
 
 func (r *MonitoringReconciler) UpdateRelatedObjects(req *common.HcoRequest) error {

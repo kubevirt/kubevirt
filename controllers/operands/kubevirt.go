@@ -387,10 +387,7 @@ func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpd
 }
 
 func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfiguration, error) {
-	devConfig, err := getKVDevConfig(hc)
-	if err != nil {
-		return nil, err
-	}
+	devConfig := getKVDevConfig(hc)
 
 	kvLiveMigration, err := hcLiveMigrationToKv(hc.Spec.LiveMigrationConfig)
 	if err != nil {
@@ -651,7 +648,7 @@ func hcTLSSecurityProfileToKv(profile *openshiftconfigv1.TLSSecurityProfile) *ku
 	}
 }
 
-func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.DeveloperConfiguration, error) {
+func getKVDevConfig(hc *hcov1beta1.HyperConverged) *kubevirtcorev1.DeveloperConfiguration {
 	devConf := &kubevirtcorev1.DeveloperConfiguration{
 		DiskVerification: &kubevirtcorev1.DiskVerification{
 			MemoryLimit: &kvDiskVerificationMemoryLimit,
@@ -672,7 +669,7 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.DeveloperCon
 		devConf.CPUAllocationRatio = *hc.Spec.ResourceRequirements.VmiCPUAllocationRatio
 	}
 
-	return devConf, nil
+	return devConf
 }
 
 // Static for now, could be configured in the HCO CR in the future

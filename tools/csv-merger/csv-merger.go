@@ -35,14 +35,14 @@ import (
 	"dario.cat/mergo"
 	"github.com/blang/semver/v4"
 	"github.com/ghodss/yaml"
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
-
-	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -163,24 +163,24 @@ func validateNoAPIOverlap(crdDir string) error {
 	return checkAPIOverlapMap(overlapsMap)
 }
 
-func checkAPIOverlapMap(overlapsMap map[string][]string) error {
+func checkAPIOverlapMap(overlapsMap map[string]sets.Set[string]) error {
 	// if at least one overlap found - emit an error.
 	if len(overlapsMap) != 0 {
 		var sb strings.Builder
 		// WriteString always returns error=nil. no point to check it.
 		_, _ = sb.WriteString("ERROR: Overlapping API Groups were found between different operators.\n")
 		for apiGroup := range overlapsMap {
-			_, _ = sb.WriteString(fmt.Sprintf("The API Group %s is being used by these operators: %s\n", apiGroup, strings.Join(overlapsMap[apiGroup], ", ")))
+			_, _ = sb.WriteString(fmt.Sprintf("The API Group %s is being used by these operators: %s\n", apiGroup, strings.Join(overlapsMap[apiGroup].UnsortedList(), ", ")))
 		}
 		return errors.New(sb.String())
 	}
 	return nil
 }
 
-func detectAPIOverlap(crdMap map[string][]string) map[string][]string {
+func detectAPIOverlap(crdMap map[string][]string) map[string]sets.Set[string] {
 	// overlapsMap is populated with collisions found - API Groups as keys,
 	// and slice containing operators using them, as values.
-	overlapsMap := make(map[string][]string)
+	overlapsMap := make(map[string]sets.Set[string])
 	for operator, groups := range crdMap {
 		for _, apiGroup := range groups {
 			// We work on replacement for current v2v. Remove this check when vmware import is removed
@@ -194,15 +194,15 @@ func detectAPIOverlap(crdMap map[string][]string) map[string][]string {
 	return overlapsMap
 }
 
-func compareMapWithEntry(crdMap map[string][]string, operator string, apigroup string, overlapsMap map[string][]string) {
+func compareMapWithEntry(crdMap map[string][]string, operator string, apigroup string, overlapsMap map[string]sets.Set[string]) {
 	for comparedOperator := range crdMap {
 		if operator == comparedOperator { // don't check self
 			continue
 		}
 
 		if stringInSlice(apigroup, crdMap[comparedOperator]) {
-			appendOnce(overlapsMap[apigroup], operator)
-			appendOnce(overlapsMap[apigroup], comparedOperator)
+			overlapsMap[apigroup].Insert(operator)
+			overlapsMap[apigroup].Insert(comparedOperator)
 		}
 	}
 }
@@ -577,14 +577,6 @@ func panicOnError(err error, info ...string) {
 		log.Println("Error!", err, moreInfo)
 		panic(err)
 	}
-}
-
-func appendOnce(slice []string, item string) []string {
-	if stringInSlice(item, slice) {
-		return slice
-	}
-
-	return append(slice, item)
 }
 
 func appendRelatedImageIfMissing(slice []csvv1alpha1.RelatedImage, ri csvv1alpha1.RelatedImage) []csvv1alpha1.RelatedImage {
