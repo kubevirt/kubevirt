@@ -42,7 +42,7 @@
     },
     {
       "matchPackagePatterns": ["docker.io/golang"],
-      "matchDepTypes": ["major"],
+      "matchDepTypes": ["major","minor"],
       "dependencyDashboardApproval": true,
       "groupName": null
     }
