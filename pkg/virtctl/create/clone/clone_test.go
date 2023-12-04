@@ -38,12 +38,12 @@ const (
 	snapshotKind, snapshotApiGroup = "VirtualMachineSnapshot", "snapshot.kubevirt.io"
 )
 const (
-	LabelFilters = iota
-	AnnotationsFilters
-	LabelAndAnnotationsFilters
-	TemplateLabelFilters
-	TemplateAnnotationsFilters
-	TemplateLabelAndAnnotationsFilters
+	labelFilters = iota
+	annotationsFilters
+	labelAndAnnotationsFilters
+	templateLabelFilters
+	templateAnnotationsFilters
+	templateLabelAndAnnotationsFilters
 )
 
 var _ = Describe("create clone", func() {
@@ -134,24 +134,24 @@ var _ = Describe("create clone", func() {
 			flags := getSourceNameFlags()
 
 			switch filterType {
-			case LabelFilters:
+			case labelFilters:
 				flags = addFlag(flags, clone.LabelFilterFlag, "*")
 				flags = addFlag(flags, clone.LabelFilterFlag, `"!some/key"`)
-			case AnnotationsFilters:
+			case annotationsFilters:
 				flags = addFlag(flags, clone.AnnotationFilterFlag, "*")
 				flags = addFlag(flags, clone.AnnotationFilterFlag, `"!some/key"`)
-			case LabelAndAnnotationsFilters:
+			case labelAndAnnotationsFilters:
 				flags = addFlag(flags, clone.LabelFilterFlag, "*")
 				flags = addFlag(flags, clone.LabelFilterFlag, `"!some/key"`)
 				flags = addFlag(flags, clone.AnnotationFilterFlag, "*")
 				flags = addFlag(flags, clone.AnnotationFilterFlag, `"!some/key"`)
-			case TemplateLabelFilters:
+			case templateLabelFilters:
 				flags = addFlag(flags, clone.TemplateLabelFilterFlag, "*")
 				flags = addFlag(flags, clone.TemplateLabelFilterFlag, `"!some/key"`)
-			case TemplateAnnotationsFilters:
+			case templateAnnotationsFilters:
 				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, "*")
 				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, `"!some/key"`)
-			case TemplateLabelAndAnnotationsFilters:
+			case templateLabelAndAnnotationsFilters:
 				flags = addFlag(flags, clone.TemplateLabelFilterFlag, "*")
 				flags = addFlag(flags, clone.TemplateLabelFilterFlag, `"!some/key"`)
 				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, "*")
@@ -163,29 +163,29 @@ var _ = Describe("create clone", func() {
 			const expectedLen = 2
 
 			switch filterType {
-			case LabelFilters:
+			case labelFilters:
 				Expect(cloneObj.Spec.LabelFilters).To(HaveLen(expectedLen))
-			case AnnotationsFilters:
+			case annotationsFilters:
 				Expect(cloneObj.Spec.AnnotationFilters).To(HaveLen(expectedLen))
-			case LabelAndAnnotationsFilters:
+			case labelAndAnnotationsFilters:
 				Expect(cloneObj.Spec.LabelFilters).To(HaveLen(expectedLen))
 				Expect(cloneObj.Spec.AnnotationFilters).To(HaveLen(expectedLen))
-			case TemplateLabelFilters:
+			case templateLabelFilters:
 				Expect(cloneObj.Spec.Template.LabelFilters).To(HaveLen(expectedLen))
-			case TemplateAnnotationsFilters:
+			case templateAnnotationsFilters:
 				Expect(cloneObj.Spec.Template.AnnotationFilters).To(HaveLen(expectedLen))
-			case TemplateLabelAndAnnotationsFilters:
+			case templateLabelAndAnnotationsFilters:
 				Expect(cloneObj.Spec.Template.LabelFilters).To(HaveLen(expectedLen))
 				Expect(cloneObj.Spec.Template.AnnotationFilters).To(HaveLen(expectedLen))
 			}
 
 		},
-			Entry("label filters", LabelFilters),
-			Entry("annotation filters", AnnotationsFilters),
-			Entry("label and annotation filters", LabelAndAnnotationsFilters),
-			Entry("template-label filters", TemplateLabelFilters),
-			Entry("template-annotation filters", TemplateAnnotationsFilters),
-			Entry("template-label and template-annotation filters", TemplateLabelAndAnnotationsFilters),
+			Entry("label filters", labelFilters),
+			Entry("annotation filters", annotationsFilters),
+			Entry("label and annotation filters", labelAndAnnotationsFilters),
+			Entry("template-label filters", templateLabelFilters),
+			Entry("template-annotation filters", templateAnnotationsFilters),
+			Entry("template-label and template-annotation filters", templateLabelAndAnnotationsFilters),
 		)
 	})
 
