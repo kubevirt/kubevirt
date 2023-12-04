@@ -96,11 +96,8 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	if kv.Spec.ProductName != "" && util.IsValidLabel(kv.Spec.ProductName) {
 		objectMeta.Labels[v1.AppPartOfLabel] = kv.Spec.ProductName
 	}
-	objectMeta.Labels[v1.AppComponentLabel] = v1.AppComponent
 
-	if kv.Spec.ProductComponent != "" && util.IsValidLabel(kv.Spec.ProductComponent) {
-		objectMeta.Labels[v1.AppComponentLabel] = kv.Spec.ProductComponent
-	}
+	objectMeta.Labels[v1.AppComponentLabel] = GetAppComponent(kv)
 
 	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
@@ -113,6 +110,13 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	if injectCustomizationMetadata {
 		objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = strconv.FormatInt(kv.ObjectMeta.GetGeneration(), 10)
 	}
+}
+
+func GetAppComponent(kv *v1.KubeVirt) string {
+	if kv.Spec.ProductComponent != "" && util.IsValidLabel(kv.Spec.ProductComponent) {
+		return kv.Spec.ProductComponent
+	}
+	return v1.AppComponent
 }
 
 const (
@@ -1192,7 +1196,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	managedByVirtOperatorLabelSet := labels.Set{
-		v1.AppComponentLabel: v1.AppComponent,
+		v1.AppComponentLabel: GetAppComponent(r.kv),
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
