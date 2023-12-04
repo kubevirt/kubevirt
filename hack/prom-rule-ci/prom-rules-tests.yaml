@@ -135,7 +135,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
@@ -145,7 +145,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
@@ -155,7 +155,7 @@ tests:
         summary: "5 unsafe modifications were detected in the HyperConverged resource."
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
@@ -165,7 +165,7 @@ tests:
         summary: "5 unsafe modifications were detected in the HyperConverged resource."
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
@@ -180,7 +180,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
@@ -190,7 +190,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
@@ -201,7 +201,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
@@ -211,7 +211,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
@@ -226,7 +226,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
@@ -237,7 +237,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
@@ -247,7 +247,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
@@ -257,7 +257,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
@@ -272,7 +272,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
@@ -282,7 +282,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
@@ -302,7 +302,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
@@ -313,7 +313,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
@@ -323,7 +323,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
@@ -333,7 +333,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "ssp.kubevirt.io/jsonpatch"
@@ -353,7 +353,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "kubevirt.kubevirt.io/jsonpatch"
@@ -364,7 +364,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "containerizeddataimporter.kubevirt.io/jsonpatch"
@@ -374,7 +374,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
@@ -384,7 +384,7 @@ tests:
         runbook_url: "https://kubevirt.io/monitoring/runbooks/UnsupportedHCOModification"
       exp_labels:
         severity: "info"
-        operator_health_impact: "warning"
+        operator_health_impact: "none"
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "ssp.kubevirt.io/jsonpatch"

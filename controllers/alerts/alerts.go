@@ -182,7 +182,7 @@ func createUnsafeModificationAlertRule() monitoringv1.Rule {
 		},
 		Labels: map[string]string{
 			severityAlertLabelKey:     "info",
-			healthImpactAlertLabelKey: "warning",
+			healthImpactAlertLabelKey: "none",
 		},
 	}
 }
