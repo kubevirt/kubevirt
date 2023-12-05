@@ -3,6 +3,8 @@ package guestlog
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -91,6 +93,8 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 		})
 
 		Context("fetch logs", func() {
+			var vmi *v1.VirtualMachineInstance
+
 			var cirrosLogo = `
   ____               ____  ____
  / __/ __ ____ ____ / __ \/ __/
@@ -100,7 +104,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 `
 
 			It("it should fetch logs for a running VM with logs API", func() {
-				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi = tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -149,7 +153,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 			})
 
 			It("it should rotate the internal log files", func() {
-				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi = tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -179,7 +183,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 						k8sv1.ResourceMemory: resource.MustParse("256M"),
 					},
 				}
-				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi = tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 				Expect(vmi.Status.QOSClass).ToNot(BeNil())
 				Expect(*vmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 
@@ -217,6 +221,23 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 					}
 				}
 				Expect(matchingLines).To(BeNumerically(">", 1000))
+			})
+
+			AfterEach(func() {
+				if CurrentSpecReport().Failed() {
+					if vmi != nil {
+						virtlauncherPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						if err == nil {
+							artifactsDir, _ := os.LookupEnv("ARTIFACTS")
+							outputString, err := exec.ExecuteCommandOnPod(virtClient, virtlauncherPod, "guest-console-log", []string{"/bin/bash", "-c", "/bin/tail -v -n +1 " + fmt.Sprintf("/var/run/kubevirt-private/%v/virt-serial*-log*", vmi.UID)})
+							if err == nil {
+								lpath := filepath.Join(artifactsDir, fmt.Sprintf("serial_logs_content_%v.txt", vmi.UID))
+								_, _ = fmt.Fprintf(GinkgoWriter, "Serial console log failed, serial console logs dump from virt-launcher pod collected at file at %s\n", lpath)
+								_ = os.WriteFile(lpath, []byte(outputString), 0644)
+							}
+						}
+					}
+				}
 			})
 
 		})
