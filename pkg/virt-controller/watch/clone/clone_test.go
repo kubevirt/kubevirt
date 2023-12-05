@@ -931,6 +931,30 @@ var _ = Describe("Clone", func() {
 			})
 		})
 
+		Context("HostName", func() {
+
+			const manuallySetHostName = "manually-set-hostname"
+			const emptyHostName = ""
+
+			expectHostName := func(hostname string) {
+				expectedVM := sourceVM.DeepCopy()
+				expectedVM.Spec.Template.Spec.Hostname = hostname
+				expectVMCreationFromPatches(expectedVM)
+			}
+			DescribeTable("should be set", func(providedHostname, expectedHostname string) {
+				vmClone.Spec.Hostname = providedHostname
+				addClone(vmClone)
+
+				controller.Execute()
+				expectRestoreExists()
+				expectHostName(expectedHostname)
+			},
+				Entry("with a generated one, if not defined in clone spec", "", emptyHostName),
+				Entry("with the provided one, if defined in clone spec", manuallySetHostName, manuallySetHostName),
+			)
+
+		})
+
 	})
 })
 

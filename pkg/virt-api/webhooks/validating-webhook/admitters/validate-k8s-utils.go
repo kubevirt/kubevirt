@@ -28,12 +28,14 @@ package admitters
 
 import (
 	"fmt"
+	"strings"
 
 	core "k8s.io/api/core/v1"
 	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unversionedvalidation "k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -51,6 +53,25 @@ var ValidateNodeName = apimachineryvalidation.NameIsDNSSubdomain
 
 var nodeFieldSelectorValidators = map[string]func(string, bool) []string{
 	metav1.ObjectNameField: ValidateNodeName,
+}
+
+// validateFieldValueNotConformingToDNSLabelRules is function that validate value and checks if given affinities are valid
+func validateFieldValueNotConformingToDNSLabelRules(field *field.Path, value string) (causes []metav1.StatusCause) {
+	if value == "" {
+		return
+	}
+
+	errors := validation.IsDNS1123Label(value)
+	if len(errors) != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules : %s",
+				field.String(), strings.Join(errors, ", ")),
+			Field: field.String(),
+		})
+	}
+
+	return causes
 }
 
 // validateAffinity checks if given affinities are valid

@@ -55,7 +55,6 @@ type VirtualMachineCloneSpec struct {
 	// VirtualMachine of kubevirt.io API group,
 	// VirtualMachineSnapshot of snapshot.kubevirt.io API group
 	Source *corev1.TypedLocalObjectReference `json:"source"`
-
 	// Target is the outcome of the cloning process.
 	// Currently supported source types are:
 	// - VirtualMachine of kubevirt.io API group
@@ -65,7 +64,10 @@ type VirtualMachineCloneSpec struct {
 	// inspecting status "TargetName" field below.
 	// +optional
 	Target *corev1.TypedLocalObjectReference `json:"target,omitempty"`
-
+	// Specifies the hostname of the clone vmi.
+	// If empty, the hostname will be set to the name of the target vmi.
+	// +optional
+	Hostname string `json:"hostname,omitempty"`
 	// Example use: "!some/key*".
 	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
 	// +optional

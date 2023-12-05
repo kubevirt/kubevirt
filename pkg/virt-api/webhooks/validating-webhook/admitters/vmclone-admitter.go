@@ -104,10 +104,13 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 		causes = append(causes, newCauses...)
 	}
 
-	if newCauses := validateTarget(vmClone); newCauses != nil {
+	if newCauses := validateFieldValueNotConformingToDNSLabelRules(k8sfield.NewPath("spec", "hostname"), vmClone.Spec.Hostname); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
+	if newCauses := validateTarget(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
