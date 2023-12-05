@@ -6,8 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/rules",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/monitoring/rules/alerts:go_default_library",
         "//pkg/monitoring/rules/recordingrules:go_default_library",
-        "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatorrules:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
     ],
