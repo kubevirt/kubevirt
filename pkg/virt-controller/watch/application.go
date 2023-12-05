@@ -35,10 +35,8 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/migration"
-	"kubevirt.io/kubevirt/pkg/monitoring/migrationstats"
-
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/monitoring/migration"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
@@ -269,8 +267,6 @@ func init() {
 	utilruntime.Must(exportv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(poolv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clonev1alpha1.AddToScheme(scheme.Scheme))
-
-	metrics.SetupMetrics()
 }
 
 func Execute() {
@@ -425,6 +421,10 @@ func Execute() {
 
 	app.onOpenshift = onOpenShift
 
+	if err := metrics.SetupMetrics(app.migrationInformer); err != nil {
+		golog.Fatal(err)
+	}
+
 	app.initCommon()
 	app.initReplicaSet()
 	app.initPool()
@@ -533,7 +533,6 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		}
 		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
 		migration.RegisterMigrationMetrics(vca.migrationInformer)
-		migrationstats.SetupMigrationsCollector(vca.migrationInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)

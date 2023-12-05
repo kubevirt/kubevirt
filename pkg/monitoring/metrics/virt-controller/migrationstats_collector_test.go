@@ -17,7 +17,7 @@
  *
  */
 
-package migrationstats
+package virt_controller
 
 import (
 	"strings"
@@ -25,21 +25,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/prometheus/client_golang/prometheus"
-	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Migration Stats Collector", func() {
-	var ch chan prometheus.Metric
-	var scrapper *prometheusScraper
-
-	BeforeEach(func() {
-		ch = make(chan prometheus.Metric, 5)
-		scrapper = &prometheusScraper{ch: ch}
-	})
-
 	getVMIM := func(phase k6tv1.VirtualMachineInstanceMigrationPhase) *k6tv1.VirtualMachineInstanceMigration {
 		return &k6tv1.VirtualMachineInstanceMigration{
 			Status: k6tv1.VirtualMachineInstanceMigrationStatus{
@@ -50,45 +41,39 @@ var _ = Describe("Migration Stats Collector", func() {
 
 	It("should set all metrics to 0 when no migrations", func() {
 		var vmims []*k6tv1.VirtualMachineInstanceMigration
-		scrapper.Report(vmims)
-		close(ch)
 
-		for m := range ch {
-			dto := &io_prometheus_client.Metric{}
-			m.Write(dto)
-			Expect(*dto.Gauge.Value).Should(BeZero())
+		cr := reportMigrationStats(vmims)
+
+		for _, result := range cr {
+			Expect(result.Value).Should(BeZero())
 		}
 	})
 
-	DescribeTable("should set correct metric for each phase", func(phase k6tv1.VirtualMachineInstanceMigrationPhase, metric string) {
+	DescribeTable("should set correct metric for each phase", func(phase k6tv1.VirtualMachineInstanceMigrationPhase, metric operatormetrics.Metric) {
 		vmims := []*k6tv1.VirtualMachineInstanceMigration{
 			getVMIM(phase),
 		}
 
-		scrapper.Report(vmims)
-		close(ch)
+		cr := reportMigrationStats(vmims)
 
 		containsMetric := false
 
-		for m := range ch {
-			dto := &io_prometheus_client.Metric{}
-			m.Write(dto)
-
-			if strings.Contains(m.Desc().String(), metric) {
+		for _, result := range cr {
+			if strings.Contains(result.Metric.GetOpts().Name, metric.GetOpts().Name) {
 				containsMetric = true
-				Expect(*dto.Gauge.Value).To(Equal(1.0))
+				Expect(result.Value).To(Equal(1.0))
 			} else {
-				Expect(*dto.Gauge.Value).To(BeZero())
+				Expect(result.Value).To(BeZero())
 			}
 		}
 
 		Expect(containsMetric).To(BeTrue())
 	},
-		Entry("Failed migration", k6tv1.MigrationFailed, FailedMigration),
-		Entry("Pending migration", k6tv1.MigrationPending, PendingMigrations),
-		Entry("Running migration", k6tv1.MigrationRunning, RunningMigrations),
-		Entry("Scheduling migration", k6tv1.MigrationScheduling, SchedulingMigrations),
-		Entry("Succeeded migration", k6tv1.MigrationSucceeded, SucceededMigration),
+		Entry("Failed migration", k6tv1.MigrationFailed, failedMigration),
+		Entry("Pending migration", k6tv1.MigrationPending, pendingMigrations),
+		Entry("Running migration", k6tv1.MigrationRunning, runningMigrations),
+		Entry("Scheduling migration", k6tv1.MigrationScheduling, schedulingMigrations),
+		Entry("Succeeded migration", k6tv1.MigrationSucceeded, succeededMigration),
 	)
 
 	It("should set succeeded and pending to 1 and others to 0 with 1 successful and 1 pending", func() {
@@ -97,19 +82,15 @@ var _ = Describe("Migration Stats Collector", func() {
 			getVMIM(k6tv1.MigrationPending),
 		}
 
-		scrapper.Report(vmims)
-		close(ch)
+		cr := reportMigrationStats(vmims)
 
-		for m := range ch {
-			dto := &io_prometheus_client.Metric{}
-			m.Write(dto)
-
-			if strings.Contains(m.Desc().String(), "succeeded") {
-				Expect(*dto.Gauge.Value).To(Equal(1.0))
-			} else if strings.Contains(m.Desc().String(), "pending") {
-				Expect(*dto.Gauge.Value).To(Equal(1.0))
+		for _, result := range cr {
+			if strings.Contains(result.Metric.GetOpts().Name, "succeeded") {
+				Expect(result.Value).To(Equal(1.0))
+			} else if strings.Contains(result.Metric.GetOpts().Name, "pending") {
+				Expect(result.Value).To(Equal(1.0))
 			} else {
-				Expect(*dto.Gauge.Value).To(BeZero())
+				Expect(result.Value).To(BeZero())
 			}
 		}
 	})

@@ -20,30 +20,11 @@
 package virt_controller
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
-	"k8s.io/client-go/tools/cache"
+	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
-var (
-	metrics = [][]operatormetrics.Metric{
-		operatorMetrics,
-	}
-
-	vmiMigrationInformer cache.SharedIndexInformer
-)
-
-func SetupMetrics(virtualMachineInstanceMigrationInformer cache.SharedIndexInformer) error {
-	vmiMigrationInformer = virtualMachineInstanceMigrationInformer
-
-	if err := operatormetrics.RegisterMetrics(metrics...); err != nil {
-		return err
-	}
-
-	return operatormetrics.RegisterCollector(
-		migrationStatsCollector,
-	)
-}
-
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+func TestMigrationStats(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }
