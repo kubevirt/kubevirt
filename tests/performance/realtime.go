@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	expect "github.com/google/goexpect"
@@ -40,7 +42,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", func() {
+var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 
 	var (
 		vmi        *v1.VirtualMachineInstance

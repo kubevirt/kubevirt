@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"github.com/onsi/gomega/gstruct"
@@ -20,7 +22,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,8 +41,7 @@ import (
 
 var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
 	var (
-		virtClient  kubecli.KubevirtClient
-		workerLabel = "node-role.kubernetes.io/worker"
+		virtClient kubecli.KubevirtClient
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -171,18 +171,8 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 		})
 
-		It("should successfully plug guaranteed vCPUs", func() {
-			var nodes []k8sv1.Node
-			virtClient = kubevirt.Client()
-
-			By("getting the list of worker nodes that have cpumanager enabled")
-			nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
-				LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
-			})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(nodeList).ToNot(BeNil())
-			nodes = nodeList.Items
-			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
+		It("should successfully plug guaranteed vCPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+			checks.ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient)
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			const (
 				maxSockets uint32 = 3
@@ -205,7 +195,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				},
 			}
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)

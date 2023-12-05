@@ -27,28 +27,29 @@ var (
 	KSMRequired = []interface{}{Label("KSM-required")}
 
 	// Features
-	Sysprep                      = []interface{}{Label("Sysprep")}
-	Windows                      = []interface{}{Label("Windows")}
-	Networking                   = []interface{}{Label("Networking")}
-	VMIlifecycle                 = []interface{}{Label("VMIlifecycle")}
-	Expose                       = []interface{}{Label("Expose")}
-	NativeSsh                    = []interface{}{Label("native-ssh")}
-	ExcludeNativeSsh             = []interface{}{Label("exclude-native-ssh")}
-	Reenlightenment              = []interface{}{Label("Reenlightenment")}
-	TscFrequencies               = []interface{}{Label("TscFrequencies")}
-	PasstGate                    = []interface{}{Label("PasstGate")}
-	VMX                          = []interface{}{Label("VMX")}
-	Upgrade                      = []interface{}{Label("Upgrade")}
-	CustomSELinux                = []interface{}{Label("CustomSELinux")}
-	Istio                        = []interface{}{Label("Istio")}
-	InPlaceHotplugNICs           = []interface{}{Label("in-place-hotplug-NICs")}
-	MigrationBasedHotplugNICs    = []interface{}{Label("migration-based-hotplug-NICs")}
-	NetCustomBindingPlugins      = []interface{}{Label("netCustomBindingPlugins")}
-	RequiresTwoSchedulableNodes  = []interface{}{Label("requires-two-schedulable-nodes")}
-	VMLiveUpdateFeaturesGate     = []interface{}{Label("VMLiveUpdateFeaturesGate")}
-	RequiresRWXFilesystemStorage = []interface{}{Label("rwxfs")}
-	USB                          = []interface{}{Label("USB")}
-	AutoResourceLimitsGate       = []interface{}{Label("AutoResourceLimitsGate")}
+	Sysprep                              = []interface{}{Label("Sysprep")}
+	Windows                              = []interface{}{Label("Windows")}
+	Networking                           = []interface{}{Label("Networking")}
+	VMIlifecycle                         = []interface{}{Label("VMIlifecycle")}
+	Expose                               = []interface{}{Label("Expose")}
+	NativeSsh                            = []interface{}{Label("native-ssh")}
+	ExcludeNativeSsh                     = []interface{}{Label("exclude-native-ssh")}
+	Reenlightenment                      = []interface{}{Label("Reenlightenment")}
+	TscFrequencies                       = []interface{}{Label("TscFrequencies")}
+	PasstGate                            = []interface{}{Label("PasstGate")}
+	VMX                                  = []interface{}{Label("VMX")}
+	Upgrade                              = []interface{}{Label("Upgrade")}
+	CustomSELinux                        = []interface{}{Label("CustomSELinux")}
+	Istio                                = []interface{}{Label("Istio")}
+	InPlaceHotplugNICs                   = []interface{}{Label("in-place-hotplug-NICs")}
+	MigrationBasedHotplugNICs            = []interface{}{Label("migration-based-hotplug-NICs")}
+	NetCustomBindingPlugins              = []interface{}{Label("netCustomBindingPlugins")}
+	RequiresTwoSchedulableNodes          = []interface{}{Label("requires-two-schedulable-nodes")}
+	VMLiveUpdateFeaturesGate             = []interface{}{Label("VMLiveUpdateFeaturesGate")}
+	RequiresRWXFilesystemStorage         = []interface{}{Label("rwxfs")}
+	USB                                  = []interface{}{Label("USB")}
+	AutoResourceLimitsGate               = []interface{}{Label("AutoResourceLimitsGate")}
+	RequiresTwoWorkerNodesWithCPUManager = []interface{}{Label("requires-two-worker-nodes-with-cpu-manager")}
 
 	// Storage classes
 	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}

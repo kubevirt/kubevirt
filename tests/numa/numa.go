@@ -41,7 +41,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 		virtClient = kubevirt.Client()
 	})
 
-	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", func() {
+	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error
