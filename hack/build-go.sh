@@ -103,7 +103,7 @@ fi
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
-            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" ./$arg/...
+            go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race ./$arg/...
         )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
