@@ -3,8 +3,12 @@ syntax = "proto3";
 package kubevirt.hooks.v1alpha2;
 
 service Callbacks {
-    rpc OnDefineDomain (OnDefineDomainParams) returns (OnDefineDomainResult);
-    rpc PreCloudInitIso (PreCloudInitIsoParams) returns (PreCloudInitIsoResult);
+    rpc OnDefineDomain (OnDefineDomainParams) returns (OnDefineDomainResult) {
+        option deprecated = true;
+    };
+    rpc PreCloudInitIso (PreCloudInitIsoParams) returns (PreCloudInitIsoResult) {
+        option deprecated = true;
+    };
 }
 
 message OnDefineDomainParams {
