@@ -1826,6 +1826,24 @@ func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotp
 	return len(hotplugVolumes) > 0 || len(hotplugAttachmentPods) > 0
 }
 
+func hasPendingPods(pods []*k8sv1.Pod) bool {
+	for _, pod := range pods {
+		if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func hotPlugRequeueAfter(oldPods []*k8sv1.Pod, creationThreshold time.Duration) (bool, *time.Duration) {
+	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.Time.After(time.Now().Add(-1*creationThreshold)) {
+		requeueTime := creationThreshold - time.Since(oldPods[0].CreationTimestamp.Time)
+		return true, &requeueTime
+	}
+	return false, nil
+}
+
 func (c *VMIController) getActiveAndOldAttachmentPods(readyHotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
 	var currentPod *k8sv1.Pod
 	oldPods := make([]*k8sv1.Pod, 0)
@@ -1836,6 +1854,10 @@ func (c *VMIController) getActiveAndOldAttachmentPods(readyHotplugVolumes []*vir
 			currentPod = attachmentPod
 		}
 	}
+	sort.Slice(oldPods, func(i, j int) bool {
+		return oldPods[i].CreationTimestamp.Time.After(oldPods[j].CreationTimestamp.Time)
+	})
+
 	return currentPod, oldPods
 }
 
@@ -1869,11 +1891,22 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 	// Determine if the ready volumes have changed compared to the current pod
 	currentPod, oldPods := c.getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
 
-	if currentPod == nil && len(readyHotplugVolumes) > 0 {
-		// ready volumes have changed
-		// Create new attachment pod that holds all the ready volumes
-		if err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
-			return err
+	if currentPod == nil && !hasPendingPods(oldPods) && len(readyHotplugVolumes) > 0 {
+		rateLimited, waitTime := hotPlugRequeueAfter(oldPods, time.Duration(len(readyHotplugVolumes)/-10))
+		if rateLimited {
+			// rate limiting the creation of the new pod because
+			// volume changes happened within our rate limiting window
+			key, err := controller.KeyFunc(vmi)
+			if err != nil {
+				return &syncErrorImpl{fmt.Errorf("Error rate limiting hotplug attachment pod %v", err), FailedCreatePodReason}
+			}
+			c.Queue.AddAfter(key, *waitTime)
+		} else {
+			// ready volumes have changed
+			// Create new attachment pod that holds all the ready volumes
+			if err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1884,9 +1917,20 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 				return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
 			}
 		}
+	} else { // else delete all but most recent running old pod until currentPod comes online
+		foundRunning := false
+		for _, attachmentPod := range oldPods {
+			if !foundRunning && attachmentPod.Status.Phase == k8sv1.PodRunning && attachmentPod.DeletionTimestamp == nil {
+				foundRunning = true
+				continue
+			}
+			if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
+				return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
+			}
+		}
 	}
-
 	return nil
+
 }
 
 func (c *VMIController) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*virtv1.Volume) bool {
