@@ -391,7 +391,7 @@ func (plugin *USBDevicePlugin) Allocate(_ context.Context, allocRequest *plugina
 
 			deviceSpecs := []*pluginapi.DeviceSpec{}
 			for _, dev := range pluginDevices.Devices {
-				spath, err := safepath.JoinAndResolveWithRelativeRoot(dev.DevicePath)
+				spath, err := safepath.JoinAndResolveWithRelativeRoot(util.HostRootMount, dev.DevicePath)
 				if err != nil {
 					return nil, fmt.Errorf("error opening the socket %s: %v", dev.DevicePath, err)
 				}
