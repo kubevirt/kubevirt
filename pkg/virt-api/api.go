@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
+	"kubevirt.io/kubevirt/pkg/monitoring/virt-api/metrics"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -186,6 +187,12 @@ func (app *virtAPIApp) Execute() {
 
 	app.ConfigureOpenAPIService()
 	app.reInitChan = make(chan string, 10)
+
+	// setup monitoring
+	err = metrics.SetupMetrics()
+	if err != nil {
+		panic(err)
+	}
 
 	app.Run()
 }

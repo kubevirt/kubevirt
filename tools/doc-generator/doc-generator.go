@@ -179,6 +179,11 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 			description: "Indication for a virt-operator that is ready to take the lead.",
 			mType:       "Gauge",
 		},
+		{
+			name:        "kubevirt_vm_created_total",
+			description: "Amount of VMs created, broken down by namespace, since install.",
+			mType:       "Counter",
+		},
 	}
 
 	err := rules.SetupRules("")
