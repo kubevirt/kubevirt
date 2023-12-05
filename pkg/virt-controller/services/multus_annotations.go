@@ -77,7 +77,9 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 				if err != nil {
 					return "", err
 				}
-				multusNetworkAnnotationPool.add(*bindingPluginAnnotationData)
+				if bindingPluginAnnotationData != nil {
+					multusNetworkAnnotationPool.add(*bindingPluginAnnotationData)
+				}
 			}
 		}
 	}
@@ -94,6 +96,9 @@ func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pl
 		return nil, fmt.Errorf("unable to find the network binding plugin '%s' in Kubevirt configuration", pluginName)
 	}
 
+	if plugin.NetworkAttachmentDefinition == "" {
+		return nil, nil
+	}
 	netAttachDefNamespace, netAttachDefName := getNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
 
 	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
