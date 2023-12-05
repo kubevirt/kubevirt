@@ -15,60 +15,77 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 )
 
-func newDeploymentHandler(Client client.Client, Scheme *runtime.Scheme, required *appsv1.Deployment) Operand {
-	h := &genericOperand{
+type newDeploymentFunc func(hc *hcov1beta1.HyperConverged) *appsv1.Deployment
+
+func newDeploymentHandler(Client client.Client, Scheme *runtime.Scheme, deploymentGenerator newDeploymentFunc, hc *hcov1beta1.HyperConverged) Operand {
+	return &genericOperand{
 		Client: Client,
 		Scheme: Scheme,
 		crType: "Deployment",
-		hooks:  &deploymentHooks{required: required},
+		hooks:  newDeploymentHooks(deploymentGenerator, hc),
 	}
-
-	return h
 }
 
 type deploymentHooks struct {
-	required *appsv1.Deployment
+	deploymentGenerator newDeploymentFunc
+	cache               *appsv1.Deployment
 }
 
-func (h deploymentHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
-	return h.required.DeepCopy(), nil
+func newDeploymentHooks(deploymentGenerator newDeploymentFunc, hc *hcov1beta1.HyperConverged) *deploymentHooks {
+	return &deploymentHooks{
+		cache:               deploymentGenerator(hc),
+		deploymentGenerator: deploymentGenerator,
+	}
 }
 
-func (h deploymentHooks) getEmptyCr() client.Object {
+func (h *deploymentHooks) reset() {
+	h.cache = nil
+}
+
+func (h *deploymentHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	if h.cache == nil {
+		h.cache = h.deploymentGenerator(hc)
+	}
+
+	return h.cache, nil
+}
+
+func (h *deploymentHooks) getEmptyCr() client.Object {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: h.required.Name,
+			Name: h.cache.Name,
 		},
 	}
 }
 
-func (deploymentHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
+func (h *deploymentHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-func (h deploymentHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
-	found, ok := exists.(*appsv1.Deployment)
+func (h *deploymentHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	deployment, ok1 := required.(*appsv1.Deployment)
+	found, ok2 := exists.(*appsv1.Deployment)
 
-	if !ok {
+	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to Deployment")
 	}
-	if !hasCorrectDeploymentFields(found, h.required) {
+	if !hasCorrectDeploymentFields(found, deployment) {
 		if req.HCOTriggered {
-			req.Logger.Info("Updating existing Deployment to new opinionated values", "name", h.required.Name)
+			req.Logger.Info("Updating existing Deployment to new opinionated values", "name", deployment.Name)
 		} else {
-			req.Logger.Info("Reconciling an externally updated Deployment to its opinionated values", "name", h.required.Name)
+			req.Logger.Info("Reconciling an externally updated Deployment to its opinionated values", "name", deployment.Name)
 		}
-		if shouldRecreate(found, h.required) {
+		if shouldRecreate(found, deployment) {
 			err := Client.Delete(req.Ctx, found, &client.DeleteOptions{})
 			if err != nil {
 				return false, false, err
 			}
-			err = Client.Create(req.Ctx, h.required, &client.CreateOptions{})
+			err = Client.Create(req.Ctx, deployment, &client.CreateOptions{})
 			if err != nil {
 				return false, false, err
 			}
 			return true, !req.HCOTriggered, nil
 		}
-		util.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
-		h.required.Spec.DeepCopyInto(&found.Spec)
+		util.DeepCopyLabels(&deployment.ObjectMeta, &found.ObjectMeta)
+		deployment.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err

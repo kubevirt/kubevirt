@@ -25,21 +25,7 @@ var _ = Describe("Deployment Handler", func() {
 			hco = commontestutils.NewHco()
 			req = commontestutils.NewReq(hco)
 
-			expectedDeployment = &appsv1.Deployment{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Deployment",
-					APIVersion: "apps/v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   "modifiedDeployment",
-					Labels: map[string]string{"key1": "value1"},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"key1": "value1"},
-					},
-				},
-			}
+			expectedDeployment = NewExpectedDeployment(hco)
 		})
 
 		It("should recreate the Deployment as LabelSelector has changed", func() {
@@ -63,7 +49,7 @@ var _ = Describe("Deployment Handler", func() {
 			Expect(foundResource.GetUID()).To(Equal(types.UID("oldObjectUID")))
 
 			// let's ensure the handler properly reconcile it back to the expected state
-			handler := newDeploymentHandler(cl, commontestutils.GetScheme(), expectedDeployment)
+			handler := newDeploymentHandler(cl, commontestutils.GetScheme(), NewExpectedDeployment, hco)
 			res := handler.ensure(req)
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -100,7 +86,7 @@ var _ = Describe("Deployment Handler", func() {
 			Expect(foundResource.GetUID()).To(Equal(types.UID("oldObjectUID")))
 
 			// let's ensure the handler properly reconcile it back to the expected state
-			handler := newDeploymentHandler(cl, commontestutils.GetScheme(), expectedDeployment)
+			handler := newDeploymentHandler(cl, commontestutils.GetScheme(), NewExpectedDeployment, hco)
 			res := handler.ensure(req)
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -119,3 +105,21 @@ var _ = Describe("Deployment Handler", func() {
 	})
 
 })
+
+func NewExpectedDeployment(_ *hcov1beta1.HyperConverged) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "modifiedDeployment",
+			Labels: map[string]string{"key1": "value1"},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"key1": "value1"},
+			},
+		},
+	}
+}

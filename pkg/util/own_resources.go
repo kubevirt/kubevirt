@@ -134,10 +134,6 @@ func getDeploymentFromPod(pod *corev1.Pod, c client.Reader, operatorNs string, l
 	if pod == nil {
 		return nil, nil
 	}
-	//operatorNs, err := GetOperatorNamespace(logger)
-	//if err != nil {
-	//	return nil, err
-	//}
 	rsReference := metav1.GetControllerOf(pod)
 	if rsReference == nil || rsReference.Kind != "ReplicaSet" {
 		err := errors.New("failed getting HCO replicaSet reference")

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -19,6 +21,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/flags"
 
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -47,6 +50,13 @@ var _ = Describe("kubevirt console plugin", func() {
 
 		tests.SkipIfNotOpenShift(cli, "kubevirt console plugin")
 		ctx = context.Background()
+
+		hco := tests.GetHCO(ctx, cli)
+		originalInfra := hco.Spec.Infra
+		DeferCleanup(func() {
+			hco.Spec.Infra = originalInfra
+			tests.UpdateHCORetry(ctx, cli, hco)
+		})
 	})
 
 	It("console should reach kubevirt-plugin manifests", func() {
@@ -82,6 +92,65 @@ var _ = Describe("kubevirt console plugin", func() {
 
 		pluginName := pluginManifests["name"]
 		Expect(pluginName).To(Equal(expectedKubevirtConsolePluginName))
+	})
+
+	It("nodePlacement should be propagated from HyperConverged CR to console-plugin and apiserver-proxy Deployments", Serial, func() {
+
+		expectedNodeSelector := map[string]string{
+			"foo": "bar",
+		}
+		expectedNodeSelectorBytes, err := json.Marshal(expectedNodeSelector)
+		Expect(err).ShouldNot(HaveOccurred())
+		expectedNodeSelectorStr := string(expectedNodeSelectorBytes)
+		addNodeSelectorPatch := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/infra", "value": {"nodePlacement": {"nodeSelector": %s}}}]`, expectedNodeSelectorStr))
+
+		Eventually(func() error {
+			err = tests.PatchHCO(ctx, cli, addNodeSelectorPatch)
+			return err
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(1 * time.Millisecond).
+			Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			consoleUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIPlugin), metav1.GetOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(consoleUIDeployment.Spec.Template.Spec.NodeSelector).To(Equal(expectedNodeSelector))
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			proxyUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIProxy), metav1.GetOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(proxyUIDeployment.Spec.Template.Spec.NodeSelector).To(Equal(expectedNodeSelector))
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			Should(Succeed())
+
+		// clear node placement from HyperConverged CR and verify the nodeSelector has been cleared as well from the UI Deployments
+		removeNodeSelectorPatch := []byte(`[{"op": "replace", "path": "/spec/infra", "value": {}}]`)
+		Eventually(func() error {
+			err = tests.PatchHCO(ctx, cli, removeNodeSelectorPatch)
+			return err
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(1 * time.Millisecond).
+			Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			consoleUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIPlugin), metav1.GetOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(consoleUIDeployment.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			proxyUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIProxy), metav1.GetOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(proxyUIDeployment.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+		}).WithTimeout(1 * time.Minute).
+			WithPolling(100 * time.Millisecond).
+			Should(Succeed())
 	})
 })
 

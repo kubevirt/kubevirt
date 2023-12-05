@@ -41,15 +41,12 @@ const (
 
 // **** Kubevirt UI Plugin Deployment Handler ****
 func newKvUIPluginDeploymentHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-	kvUIPluginDeployment := NewKvUIPluginDeployment(hc)
-	return []Operand{newDeploymentHandler(Client, Scheme, kvUIPluginDeployment)}, nil
+	return []Operand{newDeploymentHandler(Client, Scheme, NewKvUIPluginDeployment, hc)}, nil
 }
 
 // **** Kubevirt UI apiserver proxy Deployment Handler ****
 func newKvUIProxyDeploymentHandler(_ log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
-
-	kvUIProxyDeployment := NewKvUIProxyDeployment(hc)
-	return []Operand{newDeploymentHandler(Client, Scheme, kvUIProxyDeployment)}, nil
+	return []Operand{newDeploymentHandler(Client, Scheme, NewKvUIProxyDeployment, hc)}, nil
 }
 
 // **** nginx config map Handler ****
@@ -179,16 +176,26 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 			for key, value := range hc.Spec.Infra.NodePlacement.NodeSelector {
 				deployment.Spec.Template.Spec.NodeSelector[key] = value
 			}
+		} else {
+			deployment.Spec.Template.Spec.NodeSelector = nil
 		}
 
 		if hc.Spec.Infra.NodePlacement.Affinity != nil {
 			deployment.Spec.Template.Spec.Affinity = hc.Spec.Infra.NodePlacement.Affinity.DeepCopy()
+		} else {
+			deployment.Spec.Template.Spec.Affinity = nil
 		}
 
 		if hc.Spec.Infra.NodePlacement.Tolerations != nil {
 			deployment.Spec.Template.Spec.Tolerations = make([]corev1.Toleration, len(hc.Spec.Infra.NodePlacement.Tolerations))
 			copy(deployment.Spec.Template.Spec.Tolerations, hc.Spec.Infra.NodePlacement.Tolerations)
+		} else {
+			deployment.Spec.Template.Spec.Tolerations = nil
 		}
+	} else {
+		deployment.Spec.Template.Spec.NodeSelector = nil
+		deployment.Spec.Template.Spec.Affinity = nil
+		deployment.Spec.Template.Spec.Tolerations = nil
 	}
 	return deployment
 }
