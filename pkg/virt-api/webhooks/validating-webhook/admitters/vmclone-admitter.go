@@ -93,6 +93,10 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 		causes = append(causes, newCauses...)
 	}
 
+	if newCauses := validateTarget(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -217,6 +221,29 @@ func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.Virtua
 			})
 		}
 	}
+	return causes
+}
+
+func validateTarget(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	const virtualMachineKind = "VirtualMachine"
+
+	source := vmClone.Spec.Source
+	target := vmClone.Spec.Target
+
+	if source != nil &&
+		target != nil &&
+		source.Kind == virtualMachineKind &&
+		target.Kind == virtualMachineKind &&
+		target.Name == source.Name {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Target name cannot be equal to source name when both are VirtualMachines",
+			Field:   k8sfield.NewPath("spec").Child("target").Child("name").String(),
+		})
+	}
+
 	return causes
 }
 
