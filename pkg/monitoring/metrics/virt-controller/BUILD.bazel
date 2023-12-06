@@ -7,6 +7,7 @@ go_library(
         "metrics.go",
         "migrationstats_collector.go",
         "vmistats_collector.go",
+        "vmstats_collector.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller",
     visibility = ["//visibility:public"],
@@ -30,6 +31,7 @@ go_test(
         "metrics_suite_test.go",
         "migrationstats_collector_test.go",
         "vmistats_collector_test.go",
+        "vmstats_collector_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -37,6 +39,7 @@ go_test(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",

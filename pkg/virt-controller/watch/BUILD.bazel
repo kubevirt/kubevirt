@@ -28,7 +28,6 @@ go_library(
         "//pkg/monitoring/migration:go_default_library",
         "//pkg/monitoring/perfscale:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
-        "//pkg/monitoring/vmstats:go_default_library",
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/netbinding:go_default_library",
         "//pkg/network/sriov:go_default_library",

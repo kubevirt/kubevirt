@@ -31,6 +31,7 @@ var (
 		operatorMetrics,
 	}
 
+	vmInformer                  cache.SharedIndexInformer
 	vmiInformer                 cache.SharedIndexInformer
 	clusterInstanceTypeInformer cache.SharedIndexInformer
 	instanceTypeInformer        cache.SharedIndexInformer
@@ -41,6 +42,7 @@ var (
 )
 
 func SetupMetrics(
+	vm cache.SharedIndexInformer,
 	vmi cache.SharedIndexInformer,
 	clusterInstanceType cache.SharedIndexInformer,
 	instanceType cache.SharedIndexInformer,
@@ -49,6 +51,7 @@ func SetupMetrics(
 	vmiMigration cache.SharedIndexInformer,
 	virtClusterConfig *virtconfig.ClusterConfig,
 ) error {
+	vmInformer = vm
 	vmiInformer = vmi
 	clusterInstanceTypeInformer = clusterInstanceType
 	instanceTypeInformer = instanceType
@@ -64,6 +67,7 @@ func SetupMetrics(
 	return operatormetrics.RegisterCollector(
 		migrationStatsCollector,
 		vmiStatsCollector,
+		vmStatsCollector,
 	)
 }
 
