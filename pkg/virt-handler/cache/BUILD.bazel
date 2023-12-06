@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/cache",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/checkpoint:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",

@@ -170,7 +170,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists := ghostRecordGlobalCache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostRecordDir, "1234-1"))
+			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 
@@ -180,7 +180,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists = ghostRecordGlobalCache["test1-namespace/test1"]
 			Expect(exists).To(BeFalse())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostRecordDir, "1234-1"))
+			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
 
@@ -445,6 +445,18 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", nil, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 		})
+	})
+})
+
+var _ = Describe("Iterable checkpoint manager", func() {
+	It("should list all keys", func() {
+		icp := newIterableCheckpointManager(GinkgoT().TempDir())
+
+		Expect(icp.Store("one", "hi")).To(Succeed())
+		Expect(icp.Store("two", "hey")).To(Succeed())
+
+		keys := icp.ListKeys()
+		Expect(keys).To(ContainElements("two", "one"))
 	})
 })
 
