@@ -2502,7 +2502,6 @@ var _ = Describe("getDetachedDisks", func() {
 			[]api.Disk{}),
 	)
 })
-
 var _ = Describe("migratableDomXML", func() {
 	var ctrl *gomock.Controller
 	var mockDomain *cli.MockVirDomain
@@ -2510,15 +2509,20 @@ var _ = Describe("migratableDomXML", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockDomain = cli.NewMockVirDomain(ctrl)
 	})
-	It("should remove metadata", func() {
+	It("should parse the XML with the metadata", func() {
 		domXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
-  <kubevirt><migration>this should stay</migration></kubevirt>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+    </kubevirt>
+   </metadata>
 </domain>`
-		// migratableDomXML() removes the migration block but not its ident, which is its own token, hence the blank line below
 		expectedXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
-  <kubevirt><migration>this should stay</migration></kubevirt>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+    </kubevirt>
+   </metadata>
 </domain>`
 		vmi := newVMI("testns", "kubevirt")
 		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
