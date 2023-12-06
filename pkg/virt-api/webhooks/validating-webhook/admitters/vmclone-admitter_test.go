@@ -270,6 +270,26 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter.admitAndExpect(vmClone, false)
 	})
 
+	When("Both source and target kinds are VirtualMachine", func() {
+		It("Should reject a target with the same name as the source", func() {
+			vmClone.Spec.Source.Kind = "VirtualMachine"
+			vmClone.Spec.Target.Kind = "VirtualMachine"
+
+			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
+			admitter.admitAndExpect(vmClone, false)
+		})
+	})
+
+	When("Source kind is a VirtualMachineSnapshot and target kind is VirtualMachine", func() {
+		It("Should allow the target to have the same name as the source", func() {
+			vmClone.Spec.Source.Kind = "VirtualMachineSnapshot"
+			vmClone.Spec.Target.Kind = "VirtualMachine"
+
+			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
+			admitter.admitAndExpect(vmClone, true)
+		})
+	})
+
 	It("Should reject if snapshot feature gate is not enabled", func() {
 		disableFeatureGates()
 		admitter.admitAndExpect(vmClone, false)
