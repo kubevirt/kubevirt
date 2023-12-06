@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/checkpoint:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/safepath:go_default_library",
@@ -37,6 +38,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/checkpoint:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/safepath:go_default_library",
