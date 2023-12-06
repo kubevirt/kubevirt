@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	virtcontrollermetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 
 	_ "kubevirt.io/kubevirt/pkg/monitoring/configuration"
@@ -48,8 +49,6 @@ const (
 func main() {
 	handler := domainstats.Handler(1)
 	RegisterFakeDomainCollector()
-	RegisterFakeVMCollector()
-	RegisterFakeMigrationsCollector()
 
 	req, err := http.NewRequest(http.MethodGet, "/metrics", nil)
 	checkError(err)
@@ -186,7 +185,18 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 		},
 	}
 
-	err := rules.SetupRules("")
+	err := virtcontrollermetrics.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+	checkError(err)
+
+	for _, m := range virtcontrollermetrics.ListMetrics() {
+		metrics = append(metrics, metric{
+			name:        m.GetOpts().Name,
+			description: m.GetOpts().Help,
+			mType:       strings.Replace(string(m.GetType()), "Vec", "", 1),
+		})
+	}
+
+	err = rules.SetupRules("")
 	checkError(err)
 
 	for _, rule := range rules.ListRecordingRules() {
@@ -241,6 +251,14 @@ func parseVirtMetrics(r io.Reader, metrics *metricList) error {
 	}
 
 	sort.Sort(metrics)
+
+	// remove duplicates
+	for i := 0; i < len(*metrics)-1; i++ {
+		if (*metrics)[i].name == (*metrics)[i+1].name {
+			*metrics = append((*metrics)[:i], (*metrics)[i+1:]...)
+			i--
+		}
+	}
 
 	return nil
 }
