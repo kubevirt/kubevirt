@@ -151,11 +151,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		It("[test_id:3195]should carry annotations to pod", func() {
-			vmi := libvmi.NewAlpine()
-			vmi.Annotations = map[string]string{
-				"testannotation": "annotation from vmi",
-			}
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi := tests.RunVMIAndExpectLaunch(libvmi.NewAlpine(
+				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
+				30)
 
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(pod).NotTo(BeNil())
@@ -164,12 +162,10 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", func() {
-			vmi := libvmi.NewAlpine()
-			vmi.Annotations = map[string]string{
-				"kubevirt.io/test":   "test",
-				"kubernetes.io/test": "test",
-			}
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewAlpine(
+				libvmi.WithAnnotation("kubevirt.io/test", "test"),
+				libvmi.WithAnnotation("kubernetes.io/test", "test")),
+				30)
 
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(pod).NotTo(BeNil())
