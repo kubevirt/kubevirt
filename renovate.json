@@ -19,30 +19,32 @@
   ],
   "packageRules": [
     {
-      "description": "Bump CNV Components",
-      "matchPackageNames": ["kubevirt/containerized-data-importer"],
+      "description": "CDI",
+      "matchPackageNames": [
+        "kubevirt/containerized-data-importer"
+      ],
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
       "groupName": null
     },
     {
-       "description": "Group GitHub Actions dependencies",
+       "description": "Group GitHub Actions updates",
        "matchManagers": [ "github-actions" ],
        "groupName": "github-actions",
        "pinDigests": false
     },
     {
-       "description": "Group pip requirements dependencies",
+       "description": "Group pip requirements updates",
        "matchManagers": [ "pip_requirements" ],
        "groupName": "pip_requirements"
     },
     {
-       "description": "Group dockerfile dependencies",
+       "description": "Group dockerfile updates",
        "matchManagers": [ "dockerfile" ],
+       "excludePackageNames": ["docker.io/golang"],
        "groupName": "dockerfile"
     },
     {
-      "matchPackagePatterns": ["docker.io/golang"],
-      "matchDepTypes": ["major","minor"],
+      "matchPackageNames": ["docker.io/golang"],
       "dependencyDashboardApproval": true,
       "groupName": null
     }
