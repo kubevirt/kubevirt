@@ -32,6 +32,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
@@ -167,7 +168,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				mountStateDir:      tempDir,
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 			}
 			record = &vmiMountTargetRecord{
@@ -273,7 +274,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				mountStateDir:      tempDir,
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
@@ -537,7 +538,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				mountStateDir:      tempDir,
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
 			}
@@ -724,7 +725,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			m = &volumeMounter{
 				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				mountStateDir:      tempDir,
+				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir),
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
