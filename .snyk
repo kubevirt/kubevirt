@@ -2,5 +2,5 @@
 exclude:
   global:
     - vendor/**
-    - tools/digester/vendor**
+    - tools/digester/vendor/**
     - tests/vendor/**
