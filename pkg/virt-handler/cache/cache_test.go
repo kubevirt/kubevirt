@@ -44,6 +44,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+func clearGhostRecordCache() {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+	ghostRecordGlobalCache = make(map[string]ghostRecord)
+}
+
 var _ = Describe("Domain informer", func() {
 	var err error
 	var shareDir string
