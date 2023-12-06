@@ -20,14 +20,13 @@
 package virtwrap
 
 import (
-	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io"
-	"reflect"
 	"strings"
 	"time"
+
+	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
@@ -50,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -136,7 +136,6 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	}
 	return nil
 }
-
 func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
@@ -176,100 +175,22 @@ func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, do
 	return domain, err
 }
 
-func injectNewSection(encoder *xml.Encoder, domain *api.Domain, section []string, logger *log.FilteredLogger) error {
-	// Marshalling the whole domain, even if we just need the cputune section, for indentation purposes
-	xmlstr, err := xml.MarshalIndent(domain.Spec, "", "  ")
-	if err != nil {
-		logger.Reason(err).Error("Live migration failed. Failed to get XML.")
-		return err
+func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
+	if domcfg.CPU == nil {
+		domcfg.CPU = &libvirtxml.DomainCPU{}
 	}
-	decoder := xml.NewDecoder(bytes.NewReader(xmlstr))
-	var location = make([]string, 0)
-	var newLocation []string = nil
-	injecting := false
-	for {
-		if newLocation != nil {
-			// Postpone popping end elements from `location` to ensure their removal
-			location = newLocation
-			newLocation = nil
-		}
-		token, err := decoder.RawToken()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			logger.Errorf("error getting token: %v\n", err)
-			return err
-		}
-
-		switch v := token.(type) {
-		case xml.StartElement:
-			location = append(location, v.Name.Local)
-
-		case xml.EndElement:
-			newLocation = location[:len(location)-1]
-		}
-
-		if len(location) >= len(section) &&
-			reflect.DeepEqual(location[:len(section)], section) {
-			injecting = true
-		} else {
-			if injecting == true {
-				// We just left the section block, we're done
-				break
-			} else {
-				// We're not in the section block yet, skipping elements
-				continue
-			}
-		}
-
-		if injecting {
-			if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
-				logger.Reason(err).Errorf("Failed to encode token %v", token)
-				return err
-			}
-		}
-	}
+	domcfg.CPU.Topology = convxml.ConvertKubeVirtCPUTopologyToDomainCPUTopology(domain.Spec.CPU.Topology)
+	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
+	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
+	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
+	domcfg.Features = convxml.ConvertKubeVirtFeaturesToDomainFeatureList(domain.Spec.Features)
 
 	return nil
-}
-
-// This function returns true for every section that should be adjusted with target data when migrating a VMI
-//
-//	that includes dedicated CPUs
-//
-// Strict mode only returns true if we just entered the block
-func shouldOverrideForDedicatedCPUTarget(section []string, strict bool) bool {
-	if (!strict || len(section) == 2) &&
-		len(section) >= 2 &&
-		section[0] == "domain" &&
-		section[1] == "cputune" {
-		return true
-	}
-	if (!strict || len(section) == 2) &&
-		len(section) >= 2 &&
-		section[0] == "domain" &&
-		section[1] == "numatune" {
-		return true
-	}
-	if (!strict || len(section) == 3) &&
-		len(section) >= 3 &&
-		section[0] == "domain" &&
-		section[1] == "cpu" &&
-		section[2] == "numa" {
-		return true
-	}
-
-	return false
 }
 
 // This returns domain xml without the metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
 func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (string, error) {
-	const (
-		exactLocation = true
-		insideBlock   = false
-	)
 	var domain *api.Domain
 	var err error
 
@@ -278,7 +199,10 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		log.Log.Object(vmi).Reason(err).Error("Live migration failed. Failed to get XML.")
 		return "", err
 	}
-
+	domcfg := &libvirtxml.Domain{}
+	if err := domcfg.Unmarshal(xmlstr); err != nil {
+		return "", err
+	}
 	if vmi.IsCPUDedicated() {
 		// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
 		// assigned in the source node with the new CPUs assigned in the target node
@@ -290,61 +214,13 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		if err != nil {
 			return "", err
 		}
-	}
-
-	decoder := xml.NewDecoder(bytes.NewReader([]byte(xmlstr)))
-	var buf bytes.Buffer
-	encoder := xml.NewEncoder(&buf)
-
-	var location = make([]string, 0)
-	var newLocation []string = nil
-
-	for {
-		if newLocation != nil {
-			// Postpone popping end elements from `location` to ensure their removal
-			location = newLocation
-			newLocation = nil
-		}
-		token, err := decoder.RawToken()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Log.Object(vmi).Errorf("error getting token: %v\n", err)
+		if err = convertCPUDedicatedFields(domain, domcfg); err != nil {
 			return "", err
 		}
 
-		switch v := token.(type) {
-		case xml.StartElement:
-			location = append(location, v.Name.Local)
-
-			// If the VMI requires dedicated CPUs, we need to patch the domain with
-			// the new CPU/NUMA info calculated for the target node prior to migration
-			if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, exactLocation) {
-				err = injectNewSection(encoder, domain, location, log.Log.Object(vmi))
-				if err != nil {
-					return "", err
-				}
-			}
-		case xml.EndElement:
-			newLocation = location[:len(location)-1]
-		}
-		if vmi.IsCPUDedicated() && shouldOverrideForDedicatedCPUTarget(location, insideBlock) {
-			continue
-		}
-
-		if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
-			log.Log.Object(vmi).Reason(err).Errorf("Failed to encode token %v", token)
-			return "", err
-		}
 	}
 
-	if err := encoder.Flush(); err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to flush XML encoder")
-		return "", err
-	}
-
-	return string(buf.Bytes()), nil
+	return domcfg.Marshal()
 }
 
 func (d *migrationDisks) isSharedVolume(name string) bool {

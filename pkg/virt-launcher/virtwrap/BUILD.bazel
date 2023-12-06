@@ -62,6 +62,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/libvirt.org/go/libvirt:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
 
