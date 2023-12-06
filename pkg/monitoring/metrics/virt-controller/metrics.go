@@ -22,6 +22,8 @@ package virt_controller
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"k8s.io/client-go/tools/cache"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var (
@@ -29,11 +31,31 @@ var (
 		operatorMetrics,
 	}
 
-	vmiMigrationInformer cache.SharedIndexInformer
+	vmiInformer                 cache.SharedIndexInformer
+	clusterInstanceTypeInformer cache.SharedIndexInformer
+	instanceTypeInformer        cache.SharedIndexInformer
+	clusterPreferenceInformer   cache.SharedIndexInformer
+	preferenceInformer          cache.SharedIndexInformer
+	vmiMigrationInformer        cache.SharedIndexInformer
+	clusterConfig               *virtconfig.ClusterConfig
 )
 
-func SetupMetrics(virtualMachineInstanceMigrationInformer cache.SharedIndexInformer) error {
-	vmiMigrationInformer = virtualMachineInstanceMigrationInformer
+func SetupMetrics(
+	vmi cache.SharedIndexInformer,
+	clusterInstanceType cache.SharedIndexInformer,
+	instanceType cache.SharedIndexInformer,
+	clusterPreference cache.SharedIndexInformer,
+	preference cache.SharedIndexInformer,
+	vmiMigration cache.SharedIndexInformer,
+	virtClusterConfig *virtconfig.ClusterConfig,
+) error {
+	vmiInformer = vmi
+	clusterInstanceTypeInformer = clusterInstanceType
+	instanceTypeInformer = instanceType
+	clusterPreferenceInformer = clusterPreference
+	preferenceInformer = preference
+	vmiMigrationInformer = vmiMigration
+	clusterConfig = virtClusterConfig
 
 	if err := operatormetrics.RegisterMetrics(metrics...); err != nil {
 		return err
@@ -41,7 +63,12 @@ func SetupMetrics(virtualMachineInstanceMigrationInformer cache.SharedIndexInfor
 
 	return operatormetrics.RegisterCollector(
 		migrationStatsCollector,
+		vmiStatsCollector,
 	)
+}
+
+func UpdateVMIMigrationInformer(informer cache.SharedIndexInformer) {
+	vmiMigrationInformer = informer
 }
 
 func ListMetrics() []operatormetrics.Metric {
