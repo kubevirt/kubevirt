@@ -53,6 +53,7 @@ const (
 	validOutputModes        = CSVMode + "|" + CRDMode
 	supported               = "supported"
 	operatorFrameworkPrefix = "operatorframework.io/"
+	mgImageAnnotation       = "operators.openshift.io/must-gather-image"
 )
 
 var (
@@ -123,6 +124,7 @@ var (
 		"Comma separated list of CSVs that can be skipped (read replaced) by this version")
 	olmSkipRange = flag.String("olm-skip-range", "",
 		"Semver range expression for CSVs that can be skipped (read replaced) by this version")
+	mgImage = flag.String("mg-image", "quay.io/kubevirt/must-gather", "Operator suggested must-gather image")
 
 	envVars EnvVarFlags
 )
@@ -320,6 +322,9 @@ func getHcoCsv() {
 	}
 	if *specDisplayName != "" {
 		csvBase.Spec.DisplayName = *specDisplayName
+	}
+	if *mgImage != "" {
+		csvBase.Annotations[mgImageAnnotation] = *mgImage
 	}
 
 	setSupported(csvBase)
