@@ -104,14 +104,14 @@ import (
 )
 
 const (
-	BinBash                = "/bin/bash"
-	waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue    = "echo $?\n"
-	CustomHostPath         = "custom-host-path"
-	DiskAlpineHostPath     = "disk-alpine-host-path"
-	DiskWindowsSysprep     = "disk-windows-sysprep"
-	DiskCustomHostPath     = "disk-custom-host-path"
-	defaultDiskSize        = "1Gi"
+	BinBash = "/bin/bash"
+
+	EchoLastReturnValue = "echo $?\n"
+	CustomHostPath      = "custom-host-path"
+	DiskAlpineHostPath  = "disk-alpine-host-path"
+	DiskWindowsSysprep  = "disk-windows-sysprep"
+	DiskCustomHostPath  = "disk-custom-host-path"
+	defaultDiskSize     = "1Gi"
 )
 
 func TestCleanup() {
@@ -244,63 +244,51 @@ func DeleteSecret(name, namespace string) {
 		util2.PanicOnError(err)
 	}
 }
+
+// Deprecated: use libvmi.NewRunnerFor
 func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	By("Starting a VirtualMachineInstance")
-	virtCli := kubevirt.Client()
-
-	var obj *v1.VirtualMachineInstance
-	var err error
-	Eventually(func() error {
-		obj, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-		return err
-	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-	return obj
+	return libvmi.NewRunnerFor(vmi, libvmi.WithTimeout(timeout)).Run().VMI
 }
 
+// Deprecated: use libvmi.NewRunnerFor
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi = RunVMI(vmi, timeout)
-	By(waitingVMInstanceStart)
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
+	return libvmi.NewRunnerFor(vmi, libvmi.WithTimeout(timeout)).Run().WithWaitOptions(
 		libwait.WithTimeout(timeout),
-	)
+	).ThenWaitFor(v1.Running).VMI
 }
 
+// Deprecated: use libvmi.NewRunnerFor
 func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
-	vmi = RunVMI(vmi, timeout)
-	By("Waiting until the DataVolume is ready")
-	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
-	By(waitingVMInstanceStart)
-	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithWarningsIgnoreList(warningsIgnoreList),
+	return libvmi.NewRunnerFor(vmi, libvmi.WithTimeout(timeout)).Run(
+		libvmi.WithDataVolumeSucceeded(dv, timeout),
+	).WithWaitOptions(
 		libwait.WithTimeout(timeout),
-	)
+		libwait.WithWarningsIgnoreList([]string{"didn't find PVC", "unable to find datavolume"}),
+	).ThenWaitFor(v1.Running).VMI
 }
 
+// Deprecated: use libvmi.NewRunnerFor
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	obj := RunVMI(vmi, timeout)
-	By(waitingVMInstanceStart)
-	return libwait.WaitForSuccessfulVMIStart(obj,
+	return libvmi.NewRunnerFor(vmi, libvmi.WithTimeout(timeout)).Run().WithWaitOptions(
+		libwait.WithTimeout(timeout),
 		libwait.WithFailOnWarnings(false),
-		libwait.WithTimeout(timeout),
-	)
+	).ThenWaitFor(v1.Running).VMI
 }
 
+// Deprecated: use libvmi.NewRunnerFor
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)
+	return libvmi.NewRunnerFor(vmi, libvmi.WithTimeout(timeout)).Run().WithWaitOptions(
+		libwait.WithTimeout(timeout),
+		libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: true}),
+	).ThenWaitFor(v1.Scheduling, v1.Scheduled, v1.Running).VMI
 }
 
+// Deprecated: use libvmi.NewRunnerFor
 func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	vmi = RunVMI(vmi, timeout)
-	By("Waiting until the VirtualMachineInstance will be scheduled")
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
-		libwait.WithWarningsPolicy(&wp),
+	return libvmi.NewRunnerFor(vmi, libvmi.WithTimeout(timeout)).Run().WithWaitOptions(
 		libwait.WithTimeout(timeout),
-	)
+		libwait.WithWarningsPolicy(&wp),
+	).ThenWaitFor(v1.Scheduling, v1.Scheduled, v1.Running).VMI
 }
 
 func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
