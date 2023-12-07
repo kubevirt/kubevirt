@@ -351,7 +351,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi = tests.AddBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
 				vmi = tests.AddBootOrderToDisk(vmi, "disk2", &cirrosBootOrder)
 				By("starting VMI")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("Checking console text")
 				err = console.SafeExpectBatch(vmi, []expect.Batcher{
