@@ -173,9 +173,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		It("Should prevent eviction when EvictionStratgy: External", func() {
-			vmi := libvmi.NewAlpine()
-			strategy := v1.EvictionStrategyExternal
-			vmi.Spec.EvictionStrategy = &strategy
+			vmi := libvmi.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
