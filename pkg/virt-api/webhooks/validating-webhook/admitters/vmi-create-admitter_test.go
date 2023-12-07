@@ -917,19 +917,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject bigger guest memory than the memory limit", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("128Mi")
-
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
-		})
 		It("should allow guest memory which is between requests and limits", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("100Mi")

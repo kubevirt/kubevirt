@@ -161,7 +161,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
 	causes = append(causes, validateMemoryLimitsNegativeOrNull(field, spec)...)
 	causes = append(causes, validateHugepagesMemoryRequests(field, spec)...)
-	causes = append(causes, validateGuestMemoryLimit(field, spec)...)
 	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
 	causes = append(causes, validateFirmwareSerial(field, spec)...)
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
@@ -1407,26 +1406,6 @@ func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 					supportedMachines,
 				),
 				Field: field.Child("domain", "machine", "type").String(),
-			})
-		}
-	}
-	return causes
-}
-
-func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
-		limits := spec.Domain.Resources.Limits.Memory().Value()
-		guest := spec.Domain.Memory.Guest.Value()
-		if limits < guest && limits != 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s '%s' must be equal to or less than the memory limit %s '%s'",
-					field.Child("domain", "memory", "guest").String(),
-					spec.Domain.Memory.Guest,
-					field.Child("domain", "resources", "limits", "memory").String(),
-					spec.Domain.Resources.Limits.Memory(),
-				),
-				Field: field.Child("domain", "memory", "guest").String(),
 			})
 		}
 	}
