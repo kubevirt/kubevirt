@@ -46,21 +46,19 @@ rules_proto_toolchains()
 
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "69de5c704a05ff37862f7e0f5534d4f479418afc21806c887db544a316f3cb6b",
+    sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.27.0/rules_go-v0.27.0.tar.gz",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.27.0/rules_go-v0.27.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/69de5c704a05ff37862f7e0f5534d4f479418afc21806c887db544a316f3cb6b",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
     ],
 )
 
 http_archive(
     name = "bazel_gazelle",
-    sha256 = "62ca106be173579c0a167deb23358fdfe71ffa1e4cfdddf5582af26520f1c66f",
+    sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.23.0/bazel-gazelle-v0.23.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.23.0/bazel-gazelle-v0.23.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/62ca106be173579c0a167deb23358fdfe71ffa1e4cfdddf5582af26520f1c66f",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
     ],
 )
 
@@ -177,7 +175,7 @@ load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
 go_rules_dependencies()
 
 go_register_toolchains(
-    go_version = "1.16.6",
+    go_version = "1.17.5",
     nogo = "@//:nogo_vet",
 )
 
@@ -268,14 +266,6 @@ go_repository(
     name = "org_golang_x_crypto",
     commit = "4def268fd1a49955bfb3dda92fe3db4f924f2285",
     importpath = "golang.org/x/crypto",
-)
-
-# Force v1.15.9 on github.com/klauspost/compress
-# v1.15.11 deprecates go 1.16, and v1.15.10 fails to compile
-go_repository(
-    name = "com_github_klauspost_compress",
-    commit = "4b4f3c94fdf8c3a6c725e2ff110d9b44f88823ed",
-    importpath = "github.com/klauspost/compress",
 )
 
 # override rules_docker issue with this dependency

@@ -12,7 +12,8 @@ fi
 
 fail_if_cri_bin_missing
 
-KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2109081533-c2a4c43a6"
+#This is the builder from release-0.50
+KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2112231627-152540e23"
 
 SYNC_OUT=${SYNC_OUT:-true}
 
