@@ -250,8 +250,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			vmClone.Spec.Source.Kind = kind
 			admitter.admitAndExpect(vmClone, true)
 		},
-			Entry("VM", "VirtualMachine"),
-			Entry("Snapshot", "VirtualMachineSnapshot"),
+			Entry("VM", virtualMachineKind),
+			Entry("Snapshot", virtualMachineSnapshotKind),
 		)
 
 		It("Should reject unknown source type", func() {
@@ -272,8 +272,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 	When("Both source and target kinds are VirtualMachine", func() {
 		It("Should reject a target with the same name as the source", func() {
-			vmClone.Spec.Source.Kind = "VirtualMachine"
-			vmClone.Spec.Target.Kind = "VirtualMachine"
+			vmClone.Spec.Source.Kind = virtualMachineKind
+			vmClone.Spec.Target.Kind = virtualMachineKind
 
 			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
 			admitter.admitAndExpect(vmClone, false)
@@ -282,8 +282,8 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 	When("Source kind is a VirtualMachineSnapshot and target kind is VirtualMachine", func() {
 		It("Should allow the target to have the same name as the source", func() {
-			vmClone.Spec.Source.Kind = "VirtualMachineSnapshot"
-			vmClone.Spec.Target.Kind = "VirtualMachine"
+			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
+			vmClone.Spec.Target.Kind = virtualMachineKind
 
 			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
 			admitter.admitAndExpect(vmClone, true)
@@ -330,7 +330,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		})
 
 		It("should reject if vmsnapshot contents don't include a volume's backup", func() {
-			vmClone.Spec.Source.Kind = "VirtualMachineSnapshot"
+			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
 
 			kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				contents := &v1alpha1.VirtualMachineSnapshotContent{
@@ -444,7 +444,7 @@ func newValidClone() *clonev1lpha1.VirtualMachineClone {
 func newValidObjReference() *k8sv1.TypedLocalObjectReference {
 	return &k8sv1.TypedLocalObjectReference{
 		APIGroup: pointer.String(core.GroupName),
-		Kind:     "VirtualMachine",
+		Kind:     virtualMachineKind,
 		Name:     "clone-source-vm",
 	}
 }
