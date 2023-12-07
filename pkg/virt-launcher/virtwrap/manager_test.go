@@ -2549,6 +2549,9 @@ var _ = Describe("migratableDomXML", func() {
     <vcpupin vcpu="0" cpuset="6"></vcpupin>
     <vcpupin vcpu="1" cpuset="7"></vcpupin>
   </cputune>
+  <cpu>
+    <topology sockets="1" cores="2" threads="1"></topology>
+  </cpu>
 </domain>`
 
 		By("creating a VMI with dedicated CPU cores")
