@@ -421,6 +421,8 @@ type StorageProfileSpec struct {
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
 	// DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
 	DataImportCronSourceFormat *DataImportCronSourceFormat `json:"dataImportCronSourceFormat,omitempty"`
+	// SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.
+	SnapshotClass *string `json:"snapshotClass,omitempty"`
 }
 
 // StorageProfileStatus provides the most recently observed status of the StorageProfile
@@ -435,6 +437,8 @@ type StorageProfileStatus struct {
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
 	// DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
 	DataImportCronSourceFormat *DataImportCronSourceFormat `json:"dataImportCronSourceFormat,omitempty"`
+	// SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.
+	SnapshotClass *string `json:"snapshotClass,omitempty"`
 }
 
 // ClaimPropertySet is a set of properties applicable to PVC

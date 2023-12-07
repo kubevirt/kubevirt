@@ -184,6 +184,7 @@ func (StorageProfileSpec) SwaggerDoc() map[string]string {
 		"cloneStrategy":              "CloneStrategy defines the preferred method for performing a CDI clone",
 		"claimPropertySets":          "ClaimPropertySets is a provided set of properties applicable to PVC",
 		"dataImportCronSourceFormat": "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+		"snapshotClass":              "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
 	}
 }
 
@@ -195,6 +196,7 @@ func (StorageProfileStatus) SwaggerDoc() map[string]string {
 		"cloneStrategy":              "CloneStrategy defines the preferred method for performing a CDI clone",
 		"claimPropertySets":          "ClaimPropertySets computed from the spec and detected in the system",
 		"dataImportCronSourceFormat": "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+		"snapshotClass":              "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
 	}
 }
 

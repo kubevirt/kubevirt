@@ -1509,6 +1509,11 @@ func (in *StorageProfileSpec) DeepCopyInto(out *StorageProfileSpec) {
 		*out = new(DataImportCronSourceFormat)
 		**out = **in
 	}
+	if in.SnapshotClass != nil {
+		in, out := &in.SnapshotClass, &out.SnapshotClass
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -1550,6 +1555,11 @@ func (in *StorageProfileStatus) DeepCopyInto(out *StorageProfileStatus) {
 	if in.DataImportCronSourceFormat != nil {
 		in, out := &in.DataImportCronSourceFormat, &out.DataImportCronSourceFormat
 		*out = new(DataImportCronSourceFormat)
+		**out = **in
+	}
+	if in.SnapshotClass != nil {
+		in, out := &in.SnapshotClass, &out.SnapshotClass
+		*out = new(string)
 		**out = **in
 	}
 	return

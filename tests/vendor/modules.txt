@@ -989,7 +989,7 @@ kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer-api v1.58.0-rc1 => kubevirt.io/containerized-data-importer-api v1.58.0-rc1
+# kubevirt.io/containerized-data-importer-api v1.58.0 => kubevirt.io/containerized-data-importer-api v1.58.0
 ## explicit; go 1.19
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
@@ -1134,7 +1134,7 @@ sigs.k8s.io/yaml
 # github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.90.1
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 # go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-# kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.58.0-rc1
+# kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.58.0
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20230825144922-938af62eda38
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20230807132528-be5346fb33cb
 # github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20230809121909-d7e7beca5bae
