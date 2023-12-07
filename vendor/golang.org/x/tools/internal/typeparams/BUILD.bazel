@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "common.go",
+        "coretype.go",
         "enabled_go117.go",
         "enabled_go118.go",
         "normalize.go",
