@@ -27,26 +27,47 @@
       "groupName": null
     },
     {
-       "description": "Group GitHub Actions updates",
-       "matchManagers": [ "github-actions" ],
-       "groupName": "github-actions",
-       "pinDigests": false
+      "description": "Group GitHub Actions updates",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "github-actions",
+      "pinDigests": false
     },
     {
-       "description": "Group pip requirements updates",
-       "matchManagers": [ "pip_requirements" ],
-       "groupName": "pip_requirements"
+      "description": "Group pip requirements updates",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "groupName": "pip_requirements"
     },
     {
-       "description": "Group dockerfile updates",
-       "matchManagers": [ "dockerfile" ],
-       "excludePackageNames": ["docker.io/golang"],
-       "groupName": "dockerfile"
+      "description": "Group dockerfile updates",
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "excludePackageNames": [
+        "docker.io/golang"
+      ],
+      "groupName": "dockerfile"
     },
     {
-      "matchPackageNames": ["docker.io/golang"],
+      "matchPackageNames": [
+        "docker.io/golang"
+      ],
       "dependencyDashboardApproval": true,
       "groupName": null
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/centos/centos"
+      ],
+      "pinDigests": false,
+      "groupName": null
+    },
+    {
+      "matchManagers": ["gomod"],
+      "enabled": false
     }
   ]
 }
