@@ -127,9 +127,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		It("[test_id:6095]should start in paused state if start strategy set to paused", func() {
-			vmi := libvmi.NewAlpine()
-			strategy := v1.StartStrategyPaused
-			vmi.Spec.StartStrategy = &strategy
+			vmi := libvmi.NewAlpine(libvmi.WithStartStrategy(v1.StartStrategyPaused))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
