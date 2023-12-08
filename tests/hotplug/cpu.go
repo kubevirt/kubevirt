@@ -29,8 +29,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -91,16 +89,12 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
-				Sockets: 1,
-				Cores:   2,
-				Threads: 1,
+				Sockets:    1,
+				Cores:      2,
+				Threads:    1,
+				MaxSockets: maxSockets,
 			}
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
-				CPU: &v1.LiveUpdateCPU{
-					MaxSockets: pointer.P(maxSockets),
-				},
-			}
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -185,13 +179,9 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				Sockets:               1,
 				Threads:               1,
 				DedicatedCPUPlacement: true,
+				MaxSockets:            maxSockets,
 			}
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
-				CPU: &v1.LiveUpdateCPU{
-					MaxSockets: pointer.P(maxSockets),
-				},
-			}
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())

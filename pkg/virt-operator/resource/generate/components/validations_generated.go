@@ -4326,40 +4326,6 @@ var CRDsValidation map[string]string = map[string]string{
                 is applied to the VirtualMachineInstance.
               type: string
           type: object
-        liveUpdateFeatures:
-          description: LiveUpdateFeatures references a configuration of hotpluggable
-            resources
-          properties:
-            affinity:
-              description: Affinity allows live updating the virtual machines node
-                affinity
-              type: object
-            cpu:
-              description: LiveUpdateCPU holds hotplug configuration for the CPU resource.
-                Empty struct indicates that default will be used for maxSockets. Default
-                is specified on cluster level. Absence of the struct means opt-out
-                from CPU hotplug functionality.
-              properties:
-                maxSockets:
-                  description: The maximum amount of sockets that can be hot-plugged
-                    to the Virtual Machine
-                  format: int32
-                  type: integer
-              type: object
-            memory:
-              description: MemoryLiveUpdateConfiguration defines the live update memory
-                features for the VirtualMachine
-              properties:
-                maxGuest:
-                  anyOf:
-                  - type: integer
-                  - type: string
-                  description: MaxGuest defines the maximum amount memory that can
-                    be allocated for the VM.
-                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                  x-kubernetes-int-or-string: true
-              type: object
-          type: object
         preference:
           description: PreferenceMatcher references a set of preference that is used
             to fill fields in Template
@@ -18151,40 +18117,6 @@ var CRDsValidation map[string]string = map[string]string{
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
                   type: object
-                liveUpdateFeatures:
-                  description: LiveUpdateFeatures references a configuration of hotpluggable
-                    resources
-                  properties:
-                    affinity:
-                      description: Affinity allows live updating the virtual machines
-                        node affinity
-                      type: object
-                    cpu:
-                      description: LiveUpdateCPU holds hotplug configuration for the
-                        CPU resource. Empty struct indicates that default will be
-                        used for maxSockets. Default is specified on cluster level.
-                        Absence of the struct means opt-out from CPU hotplug functionality.
-                      properties:
-                        maxSockets:
-                          description: The maximum amount of sockets that can be hot-plugged
-                            to the Virtual Machine
-                          format: int32
-                          type: integer
-                      type: object
-                    memory:
-                      description: MemoryLiveUpdateConfiguration defines the live
-                        update memory features for the VirtualMachine
-                      properties:
-                        maxGuest:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          description: MaxGuest defines the maximum amount memory
-                            that can be allocated for the VM.
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                      type: object
-                  type: object
                 preference:
                   description: PreferenceMatcher references a set of preference that
                     is used to fill fields in Template
@@ -23251,41 +23183,6 @@ var CRDsValidation map[string]string = map[string]string{
                             is initially captured the first time the instancetype
                             is applied to the VirtualMachineInstance.
                           type: string
-                      type: object
-                    liveUpdateFeatures:
-                      description: LiveUpdateFeatures references a configuration of
-                        hotpluggable resources
-                      properties:
-                        affinity:
-                          description: Affinity allows live updating the virtual machines
-                            node affinity
-                          type: object
-                        cpu:
-                          description: LiveUpdateCPU holds hotplug configuration for
-                            the CPU resource. Empty struct indicates that default
-                            will be used for maxSockets. Default is specified on cluster
-                            level. Absence of the struct means opt-out from CPU hotplug
-                            functionality.
-                          properties:
-                            maxSockets:
-                              description: The maximum amount of sockets that can
-                                be hot-plugged to the Virtual Machine
-                              format: int32
-                              type: integer
-                          type: object
-                        memory:
-                          description: MemoryLiveUpdateConfiguration defines the live
-                            update memory features for the VirtualMachine
-                          properties:
-                            maxGuest:
-                              anyOf:
-                              - type: integer
-                              - type: string
-                              description: MaxGuest defines the maximum amount memory
-                                that can be allocated for the VM.
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                              x-kubernetes-int-or-string: true
-                          type: object
                       type: object
                     preference:
                       description: PreferenceMatcher references a set of preference

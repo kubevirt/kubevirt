@@ -364,7 +364,6 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
-		"liveUpdateFeatures":  "LiveUpdateFeatures references a configuration of hotpluggable resources",
 	}
 }
 
@@ -959,14 +958,6 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 		"revisionName":                 "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
 		"inferFromVolume":              "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
 		"inferFromVolumeFailurePolicy": "InferFromVolumeFailurePolicy controls what should happen on failure when preference the instancetype.\nAllowed values are: \"RejectInferFromVolumeFailure\" and \"IgnoreInferFromVolumeFailure\".\nIf not specified, \"RejectInferFromVolumeFailure\" is used by default.\n\n+optional",
-	}
-}
-
-func (LiveUpdateFeatures) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"cpu":      "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
-		"affinity": "Affinity allows live updating the virtual machines node affinity",
-		"memory":   "MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine\n+optional",
 	}
 }
 
