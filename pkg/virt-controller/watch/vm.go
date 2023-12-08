@@ -638,10 +638,6 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
-	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.CPU == nil {
-		return nil
-	}
-
 	if vm.Spec.Template.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU == nil {
 		return nil
 	}
@@ -733,10 +729,6 @@ func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.V
 
 func (c *VMController) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
-		return nil
-	}
-
-	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.Affinity == nil {
 		return nil
 	}
 
@@ -1782,16 +1774,8 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 }
 
 func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vm.Spec.LiveUpdateFeatures.CPU == nil {
-		return
-	}
-
 	if vmi.Spec.Domain.CPU == nil {
 		vmi.Spec.Domain.CPU = &virtv1.CPU{}
-	}
-
-	if vm.Spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
-		vmi.Spec.Domain.CPU.MaxSockets = *vm.Spec.LiveUpdateFeatures.CPU.MaxSockets
 	}
 
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
@@ -1808,14 +1792,6 @@ func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 }
 
 func (c *VMController) setupMemoryHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vm.Spec.LiveUpdateFeatures.Memory == nil {
-		return
-	}
-
-	if vm.Spec.LiveUpdateFeatures.Memory.MaxGuest != nil {
-		vmi.Spec.Domain.Memory.MaxGuest = vm.Spec.LiveUpdateFeatures.Memory.MaxGuest
-	}
-
 	if vmi.Spec.Domain.Memory.MaxGuest == nil {
 		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
 	}
@@ -3072,10 +3048,6 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.Memory == nil {
-		return nil
-	}
-
 	if vm.Spec.Template.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory == nil {
 		return nil
 	}
@@ -3164,10 +3136,6 @@ func (c *VMController) setupLiveFeatures(
 	vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
 
 	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
-
-	if vm.Spec.LiveUpdateFeatures == nil {
-		return
-	}
 
 	c.setupCPUHotplug(vm, vmi, VMIDefaults, maxRatio)
 	c.setupMemoryHotplug(vm, vmi, maxRatio)

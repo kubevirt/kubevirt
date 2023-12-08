@@ -50,7 +50,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1829,8 +1828,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					LiveUpdateFeatures: &v1.LiveUpdateFeatures{},
-					Running:            &notRunning,
+					Running: &notRunning,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -1848,10 +1846,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.VMLiveUpdateFeaturesGate)))
 		},
 			Entry("and CPU hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
-				spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{}
 			}),
 			Entry("and Memory hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
-				spec.LiveUpdateFeatures.Memory = &v1.LiveUpdateMemory{}
 			}),
 		)
 
@@ -1866,10 +1862,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Live update features cannot be used when instance type is configured"))
 		},
 			Entry("and CPU hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
-				spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{}
 			}),
 			Entry("and Memory hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
-				spec.LiveUpdateFeatures.Memory = &v1.LiveUpdateMemory{}
 			}),
 		)
 
@@ -1877,9 +1871,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			const maximumSockets uint32 = 24
 
 			BeforeEach(func() {
-				vm.Spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{
-					MaxSockets: pointer.P(maximumSockets),
-				}
 			})
 
 			It("should reject configuration of maxSockets in VM template", func() {
@@ -2079,33 +2070,6 @@ var _ = Describe("Validating VM Admitter", func() {
 					}
 				})
 
-				It("should reject updating of VM live update features", func() {
-					oldVMBytes, err := json.Marshal(&vm)
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{}
-					newVMBytes, err := json.Marshal(&vm)
-					Expect(err).ToNot(HaveOccurred())
-
-					ar := &admissionv1.AdmissionReview{
-						Request: &admissionv1.AdmissionRequest{
-							Resource: webhooks.VirtualMachineGroupVersionResource,
-							Object: runtime.RawExtension{
-								Raw: newVMBytes,
-							},
-							OldObject: runtime.RawExtension{
-								Raw: oldVMBytes,
-							},
-							Operation: admissionv1.Update,
-						},
-					}
-
-					response := vmsAdmitter.Admit(ar)
-					Expect(response.Allowed).To(BeFalse())
-					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec"))
-					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Cannot update VM live features while VM is running"))
-				})
-
 				It("should reject updating CPU cores while CPU update feature is enabled ", func() {
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						Cores: 8,
@@ -2175,11 +2139,9 @@ var _ = Describe("Validating VM Admitter", func() {
 				guest := resource.MustParse("64Mi")
 				maxGuest = resource.MustParse("128Mi")
 
-				vm.Spec.LiveUpdateFeatures.Memory = &v1.LiveUpdateMemory{
-					MaxGuest: &maxGuest,
-				}
 				vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
-					Guest: &guest,
+					Guest:    &guest,
+					MaxGuest: &maxGuest,
 				}
 				vm.Spec.Template.Spec.Architecture = rt.GOARCH
 				vm.Spec.Template.Spec.Domain.Resources.Limits = nil
@@ -2285,7 +2247,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				}),
 				Entry("maxGuest is not properly aligned", func(vm *v1.VirtualMachine) {
 					unAlignedMemory := resource.MustParse("333Mi")
-					vm.Spec.LiveUpdateFeatures.Memory.MaxGuest = &unAlignedMemory
+					vm.Spec.Template.Spec.Domain.Memory.MaxGuest = &unAlignedMemory
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "spec.liveUpdateFeatures.MaxGuest",

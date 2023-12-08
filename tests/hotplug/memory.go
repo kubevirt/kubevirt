@@ -53,7 +53,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 	Context("A VM with memory liveUpdate enabled", func() {
 
-		createHotplugVM := func(guest, maxGuest *resource.Quantity, sockets *uint32, maxSockets *uint32) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+		createHotplugVM := func(guest, maxGuest *resource.Quantity, sockets *uint32, maxSockets uint32) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 			vmi := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithMasqueradeNetworking()...,
 			)
@@ -69,16 +69,9 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			}
 
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
-				Memory: &v1.LiveUpdateMemory{
-					MaxGuest: maxGuest,
-				},
-			}
-
-			if maxSockets != nil {
-				vm.Spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{
-					MaxSockets: maxSockets,
-				}
+			vm.Spec.Template.Spec.Domain.Memory.MaxGuest = maxGuest
+			if maxSockets != 0 {
+				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
 			}
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
@@ -101,7 +94,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
 			maxGuest := resource.MustParse("256Mi")
-			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, nil)
+			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, 0)
 
 			By("Limiting the bandwidth of migrations in the test namespace")
 			migrationBandwidthLimit := resource.MustParse("1Ki")
@@ -169,7 +162,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
 			maxGuest := resource.MustParse("512Mi")
-			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, nil)
+			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, 0)
 
 			By("Hotplug 128Mi of memory")
 			newGuestMemory := resource.MustParse("256Mi")
@@ -211,7 +204,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			guest := resource.MustParse("128Mi")
 			maxGuest := resource.MustParse("512Mi")
 			newSockets := uint32(2)
-			vm, vmi := createHotplugVM(&guest, &maxGuest, pointer.P(uint32(1)), &newSockets)
+			vm, vmi := createHotplugVM(&guest, &maxGuest, pointer.P(uint32(1)), newSockets)
 
 			By("Hotplug Memory and CPU")
 			newGuestMemory := resource.MustParse("256Mi")

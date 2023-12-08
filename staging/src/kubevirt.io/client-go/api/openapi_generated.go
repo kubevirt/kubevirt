@@ -417,7 +417,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.LiveUpdateAffinity":                                                 schema_kubevirtio_api_core_v1_LiveUpdateAffinity(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateCPU":                                                      schema_kubevirtio_api_core_v1_LiveUpdateCPU(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateConfiguration":                                            schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref),
-		"kubevirt.io/api/core/v1.LiveUpdateFeatures":                                                 schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateMemory":                                                   schema_kubevirtio_api_core_v1_LiveUpdateMemory(ref),
 		"kubevirt.io/api/core/v1.LogVerbosity":                                                       schema_kubevirtio_api_core_v1_LogVerbosity(ref),
 		"kubevirt.io/api/core/v1.LunTarget":                                                          schema_kubevirtio_api_core_v1_LunTarget(ref),
@@ -19816,38 +19815,6 @@ func schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref common.ReferenceC
 	}
 }
 
-func schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"cpu": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LiveUpdateCPU holds hotplug configuration for the CPU resource. Empty struct indicates that default will be used for maxSockets. Default is specified on cluster level. Absence of the struct means opt-out from CPU hotplug functionality.",
-							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateCPU"),
-						},
-					},
-					"affinity": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Affinity allows live updating the virtual machines node affinity",
-							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateAffinity"),
-						},
-					},
-					"memory": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine",
-							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateMemory"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"kubevirt.io/api/core/v1.LiveUpdateAffinity", "kubevirt.io/api/core/v1.LiveUpdateCPU", "kubevirt.io/api/core/v1.LiveUpdateMemory"},
-	}
-}
-
 func schema_kubevirtio_api_core_v1_LiveUpdateMemory(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -24839,18 +24806,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 							},
 						},
 					},
-					"liveUpdateFeatures": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LiveUpdateFeatures references a configuration of hotpluggable resources",
-							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateFeatures"),
-						},
-					},
 				},
 				Required: []string{"template"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DataVolumeTemplateSpec", "kubevirt.io/api/core/v1.InstancetypeMatcher", "kubevirt.io/api/core/v1.LiveUpdateFeatures", "kubevirt.io/api/core/v1.PreferenceMatcher", "kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec"},
+			"kubevirt.io/api/core/v1.DataVolumeTemplateSpec", "kubevirt.io/api/core/v1.InstancetypeMatcher", "kubevirt.io/api/core/v1.PreferenceMatcher", "kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 

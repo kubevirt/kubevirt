@@ -44,7 +44,6 @@ go_library(
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-config/deprecation:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
