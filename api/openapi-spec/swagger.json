@@ -18141,19 +18141,6 @@
      }
     }
    },
-   "v1.LiveUpdateAffinity": {
-    "type": "object"
-   },
-   "v1.LiveUpdateCPU": {
-    "type": "object",
-    "properties": {
-     "maxSockets": {
-      "description": "The maximum amount of sockets that can be hot-plugged to the Virtual Machine",
-      "type": "integer",
-      "format": "int64"
-     }
-    }
-   },
    "v1.LiveUpdateConfiguration": {
     "type": "object",
     "properties": {
@@ -18170,32 +18157,6 @@
       "description": "MaxHotplugRatio is the ratio used to define the max amount of a hotplug resource that can be made available to a VM when the specific Max* setting is not defined (MaxCpuSockets, MaxGuest) Example: VM is configured with 512Mi of guest memory, if MaxGuest is not defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi defaults to 4",
       "type": "integer",
       "format": "int64"
-     }
-    }
-   },
-   "v1.LiveUpdateFeatures": {
-    "type": "object",
-    "properties": {
-     "affinity": {
-      "description": "Affinity allows live updating the virtual machines node affinity",
-      "$ref": "#/definitions/v1.LiveUpdateAffinity"
-     },
-     "cpu": {
-      "description": "LiveUpdateCPU holds hotplug configuration for the CPU resource. Empty struct indicates that default will be used for maxSockets. Default is specified on cluster level. Absence of the struct means opt-out from CPU hotplug functionality.",
-      "$ref": "#/definitions/v1.LiveUpdateCPU"
-     },
-     "memory": {
-      "description": "MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine",
-      "$ref": "#/definitions/v1.LiveUpdateMemory"
-     }
-    }
-   },
-   "v1.LiveUpdateMemory": {
-    "type": "object",
-    "properties": {
-     "maxGuest": {
-      "description": "MaxGuest defines the maximum amount memory that can be allocated for the VM.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -20886,10 +20847,6 @@
      "instancetype": {
       "description": "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
       "$ref": "#/definitions/v1.InstancetypeMatcher"
-     },
-     "liveUpdateFeatures": {
-      "description": "LiveUpdateFeatures references a configuration of hotpluggable resources",
-      "$ref": "#/definitions/v1.LiveUpdateFeatures"
      },
      "preference": {
       "description": "PreferenceMatcher references a set of preference that is used to fill fields in Template",

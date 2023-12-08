@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -100,9 +99,6 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
-				Affinity: &v1.LiveUpdateAffinity{},
-			}
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -160,9 +156,6 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
-				Affinity: &v1.LiveUpdateAffinity{},
-			}
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
