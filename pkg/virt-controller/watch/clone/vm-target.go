@@ -88,15 +88,17 @@ func generateLabelPatches(labels map[string]string, filters []string) (patches [
 
 func generateAnnotationPatches(annotations map[string]string, filters []string) (patches []string) {
 	const basePath = "/metadata/annotations"
+	// Some keys are needed for restore functionality
+	delete(annotations, "restore.kubevirt.io/lastRestoreUID")
 	return generateStrStrMapPatches(annotations, filters, basePath)
 }
 
-func generateStrStrMapPatches(m map[string]string, filters []string, baseJsonPath string) (patches []string) {
+func generateStrStrMapPatches(m map[string]string, filters []string, baseJSONPath string) (patches []string) {
 	appendRemovalPatch := func(key string) {
 		const patchPattern = `{"op": "remove", "path": "%s/%s"}`
 
 		key = addKeyEscapeCharacters(key)
-		patches = append(patches, fmt.Sprintf(patchPattern, baseJsonPath, key))
+		patches = append(patches, fmt.Sprintf(patchPattern, baseJSONPath, key))
 	}
 
 	if filters == nil {
@@ -130,7 +132,7 @@ func generateStrStrMapPatches(m map[string]string, filters []string, baseJsonPat
 
 	includedKeys := map[string]struct{}{}
 	// Negation filters have precedence, therefore regular filters would be applied first
-	for key, _ := range m {
+	for key := range m {
 		for _, filter := range regularFilters {
 			if matchRegex(filter, key) {
 				includedKeys[key] = struct{}{}
@@ -145,7 +147,7 @@ func generateStrStrMapPatches(m map[string]string, filters []string, baseJsonPat
 	}
 
 	// Appending removal patches
-	for originalKey, _ := range m {
+	for originalKey := range m {
 		if _, isIncluded := includedKeys[originalKey]; !isIncluded {
 			appendRemovalPatch(originalKey)
 		}

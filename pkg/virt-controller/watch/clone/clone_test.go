@@ -529,7 +529,8 @@ var _ = Describe("Clone", func() {
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
 
 				patchedVM, err := offlinePatchVM(sourceVM, restore.Spec.Patches)
-				Expect(patchedVM.Spec).To(Equal(patchedVM.Spec))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(patchedVM.Spec).To(Equal(expectedVM.Spec))
 
 				return true, create.GetObject(), nil
 			})
@@ -608,8 +609,11 @@ var _ = Describe("Clone", func() {
 					if i%2 == 0 {
 						iface.MacAddress = generateNewMacAddress()
 						newMacAddresses[iface.Name] = iface.MacAddress
-						expectedInterfaces[i] = iface
+					} else {
+						// empty MAC for others
+						iface.MacAddress = ""
 					}
+					expectedInterfaces[i] = iface
 				}
 
 				sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces = originalInterfaces
@@ -718,6 +722,35 @@ var _ = Describe("Clone", func() {
 				Entry("with labels", labels),
 				Entry("with annotations", annotations),
 			)
+
+			It("should not strip lastRestoreUID annotation from newly created VM", func() {
+				if sourceVM.Annotations == nil {
+					sourceVM.Annotations = make(map[string]string)
+				}
+				sourceVM.Annotations["restore.kubevirt.io/lastRestoreUID"] = "bar"
+				// controller mutates original ptrs annotations
+				sourceVMCpy := sourceVM.DeepCopy()
+				vmClone.Spec.AnnotationFilters = []string{"somekey/*"}
+				addVM(sourceVM)
+				addClone(vmClone)
+
+				client.Fake.PrependReactor("create", restoreResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					create, ok := action.(testing.CreateAction)
+					Expect(ok).To(BeTrue())
+
+					restore := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+					Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
+
+					expectedPatches := []string{`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": ""}`}
+					Expect(restore.Spec.Patches).To(Equal(expectedPatches))
+					patchedVM, err := offlinePatchVM(sourceVMCpy, restore.Spec.Patches)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(patchedVM.Annotations).To(HaveKey("restore.kubevirt.io/lastRestoreUID"))
+
+					return true, create.GetObject(), nil
+				})
+				controller.Execute()
+			})
 
 		})
 
