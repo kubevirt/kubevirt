@@ -56,7 +56,7 @@ function update_nodes {
         for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
             nodes+=("node$(printf "%02d" ${i})")
         done
-        pull_command="docker"
+        pull_command="crictl"
     fi
 
     ${_cri_bin} ps -a
