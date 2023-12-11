@@ -2246,13 +2246,6 @@ type VirtualMachineMemoryDumpRequest struct {
 	Message string `json:"message,omitempty"`
 }
 
-type CPUManagerPolicyBetaOptions string
-
-const (
-	// full-pcpus-only static policy allows only full physical CPUs to be scheduled to a pod
-	CPUManagerPolicyBetaOptionFullpCPUsOnly CPUManagerPolicyBetaOptions = "full-pcpus-only"
-)
-
 type MemoryDumpPhase string
 
 const (
