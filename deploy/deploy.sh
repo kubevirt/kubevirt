@@ -10,13 +10,13 @@ if kubectl api-resources |grep clusterversions |grep config.openshift.io; then
 fi
 
 # Create the namespaces for the HCO
-kubectl create ns $hco_namespace --dry-run=true -o yaml | kubectl apply -f -
+kubectl create ns $hco_namespace --dry-run=client -o yaml | kubectl apply -f -
 
 # Create additional namespaces needed for HCO components
 namespaces=("openshift")
 for namespace in ${namespaces[@]}; do
     if [[ $(kubectl get ns ${namespace}) == "" ]]; then
-        kubectl create ns ${namespace} --dry-run=true -o yaml | kubectl apply -f -
+        kubectl create ns ${namespace} --dry-run=client -o yaml | kubectl apply -f -
     fi
 done
 
