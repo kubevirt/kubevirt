@@ -1027,8 +1027,8 @@ const (
 	// Must be a float >= 1.
 	AutoMemoryLimitsRatioLabel string = "alpha.kubevirt.io/auto-memory-limits-ratio"
 
-	// CPUManagerPolicyBetaOptionsAnnotation indicates the CPU-Manager policy that the pod adheres to.
-	CPUManagerPolicyBetaOptionsAnnotation string = "kubevirt.io/CPUManagerPolicyBetaOptions"
+	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
+	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
