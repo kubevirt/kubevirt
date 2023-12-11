@@ -82,8 +82,8 @@ const (
 	//
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
-	// CPUManagerPolicyBetaOptionsGate allows conforming VM to static CPU-Manager Policies.
-	CPUManagerPolicyBetaOptionsGate = "CPUManagerPolicyBetaOptions"
+	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
+	AlignCPUsGate = "AlignCPUs"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -264,6 +264,6 @@ func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
 	return config.isFeatureGateEnabled(CommonInstancetypesDeploymentGate)
 }
 
-func (config *ClusterConfig) CPUManagerPolicyBetaOptionsEnabled() bool {
-	return config.isFeatureGateEnabled(CPUManagerPolicyBetaOptionsGate)
+func (config *ClusterConfig) AlignCPUsEnabled() bool {
+	return config.isFeatureGateEnabled(AlignCPUsGate)
 }
