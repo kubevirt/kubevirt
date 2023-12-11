@@ -217,8 +217,8 @@ func WithCPUPinning(cpu *v1.CPU, annotations map[string]string) ResourceRenderer
 			emulatorThreadCPUs := resource.NewQuantity(1, resource.BinarySI)
 
 			limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
-			_, cpuManagerPolicyBetaOptionsAnnotationExists := annotations[v1.CPUManagerPolicyBetaOptionsAnnotation]
-			if cpuManagerPolicyBetaOptionsAnnotationExists &&
+			_, emulatorThreadCompleteToEvenParityAnnotationExists := annotations[v1.EmulatorThreadCompleteToEvenParity]
+			if emulatorThreadCompleteToEvenParityAnnotationExists &&
 				limits.Value()%2 == 0 {
 				emulatorThreadCPUs = resource.NewQuantity(2, resource.BinarySI)
 			}

@@ -1725,8 +1725,8 @@ var _ = Describe("Template", func() {
 			},
 				Entry("no annotation added, odd  CPUs requested, should allocate one extra emulator CPU", map[string]string{}, uint32(3), "4"),
 				Entry("no annotation added, even CPUs requested, should allocate one extra emulator CPU", map[string]string{}, uint32(2), "3"),
-				Entry("full-pcpu-only annotation added, odd CPUs requested, should allocate one extra emulator CPU", map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: ""}, uint32(3), "4"),
-				Entry("full-pcpu-only annotation added, even CPUs requested, should allocate two extra emulator CPU (to align SMT scheduling)", map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: ""}, uint32(4), "6"),
+				Entry("EmulatorThreadCompleteToEvenParity annotation added, odd CPUs requested, should allocate one extra emulator CPU", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, uint32(3), "4"),
+				Entry("EmulatorThreadCompleteToEvenParity annotation added, even CPUs requested, should allocate two extra emulator CPU (to align SMT scheduling)", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, uint32(4), "6"),
 			)
 			It("should add node affinity to pod", func() {
 				config, kvInformer, svc = configFactory(defaultArch)

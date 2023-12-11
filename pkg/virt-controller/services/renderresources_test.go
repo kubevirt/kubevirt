@@ -230,12 +230,12 @@ var _ = Describe("Resource pod spec renderer", func() {
 						addResources(userCPURequest, cpuIsolatedEmulatorThreadOverhead),
 					))
 				},
-				Entry("full-pcpu-only mode is disabled, only CPU requests set by the user", map[string]string{}, false, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is disabled, request and limits set by the user", map[string]string{}, true, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is enabled, only CPU requests set by the user, odd amount of cores is requested", map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: ""}, false, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is enabled, only CPU requests set by the user, even amount of cores is requested", map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: ""}, false, uint32(6), "2000m"),
-				Entry("full-pcpu-only mode is enabled, request and limits set by the user, odd amount of cores is requested", map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: ""}, true, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is enabled, request and limits set by the user, even amount of cores is requested", map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: ""}, true, uint32(6), "2000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is disabled, only CPU requests set by the user", map[string]string{}, false, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is disabled, request and limits set by the user", map[string]string{}, true, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, only CPU requests set by the user, odd amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, only CPU requests set by the user, even amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false, uint32(6), "2000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, odd amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, even amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(6), "2000m"),
 			)
 		})
 	})

@@ -421,8 +421,8 @@ func FormatEmulatorThreadPin(cpuPool VCPUPool, vmiAnnotations map[string]string,
 	}
 	emulatorThreads = append(emulatorThreads, availableThread)
 
-	_, fullpCPUsOnly := vmiAnnotations[v12.CPUManagerPolicyBetaOptionsAnnotation]
-	if fullpCPUsOnly &&
+	_, emulatorThreadCompleteToEvenParityEnabled := vmiAnnotations[v12.EmulatorThreadCompleteToEvenParity]
+	if emulatorThreadCompleteToEvenParityEnabled &&
 		vCPUs%2 == 0 {
 		availableThread, err = cpuPool.FitThread()
 		if err != nil {
