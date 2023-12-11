@@ -1156,7 +1156,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 
 				namespace := testsuite.GetTestNamespace(nil)
-				if kvutil.IsPasstVMI(hugepagesVmi) {
+				if kvutil.IsPasstVMI(&hugepagesVmi.Spec) {
 					namespace = testsuite.NamespacePrivileged
 				}
 

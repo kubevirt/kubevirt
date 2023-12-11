@@ -1278,7 +1278,7 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, selinuxType string, dockerSELinuxMCSWorkaround bool, customPolicyDisabled bool) {
 	if selinuxType == "" {
-		if !customPolicyDisabled && util.IsPasstVMI(vmi) {
+		if !customPolicyDisabled && util.IsPasstVMI(&vmi.Spec) {
 			// If no SELinux type was specified, use our custom type for VMIs that need it
 			selinuxType = customSELinuxType
 		}
