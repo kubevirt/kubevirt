@@ -251,7 +251,6 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		}
 		expectEqualTemplateAnnotations := func(targetVM, sourceVM *virtv1.VirtualMachine, keysToExclude ...string) {
 			expectEqualStrMap(targetVM.Spec.Template.ObjectMeta.Annotations, sourceVM.Spec.Template.ObjectMeta.Annotations, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "template.annotations"), keysToExclude...)
-
 		}
 
 		expectSpecsToEqualExceptForMacAddress := func(vm1, vm2 *virtv1.VirtualMachine) {
