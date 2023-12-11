@@ -843,6 +843,9 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 
+	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
+	copy(tmpTolerations, ownerPod.Spec.Tolerations)
+
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "hp-volume-",
@@ -907,6 +910,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 				},
 			},
+			Tolerations:                   tmpTolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},
@@ -981,6 +985,9 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 		annotationsList[v1.EphemeralProvisioningObject] = "true"
 	}
 
+	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
+	copy(tmpTolerations, ownerPod.Spec.Tolerations)
+
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "hp-volume-",
@@ -1038,6 +1045,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					},
 				},
 			},
+			Tolerations: tmpTolerations,
 			Volumes: []k8sv1.Volume{
 				{
 					Name: volume.Name,
