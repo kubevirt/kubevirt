@@ -56,6 +56,19 @@ type callBackClient struct {
 var manager Manager
 var once sync.Once
 
+var deprecatedVersions = map[string]bool{
+	hooksV1alpha3.Version: hooksV1alpha3.Deprecated,
+	hooksV1alpha2.Version: hooksV1alpha2.Deprecated,
+	hooksV1alpha1.Version: hooksV1alpha1.Deprecated,
+}
+
+// The order matters. Newest versions first.
+var supportedVersions = []string{
+	hooksV1alpha3.Version,
+	hooksV1alpha2.Version,
+	hooksV1alpha1.Version,
+}
+
 type (
 	Manager interface {
 		Collect(uint, time.Duration) error
@@ -161,21 +174,20 @@ func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 		versionsSet[version] = true
 	}
 
-	// The order matters. We should match newer versions first.
-	supportedVersions := []string{
-		hooksV1alpha3.Version,
-		hooksV1alpha2.Version,
-		hooksV1alpha1.Version,
-	}
-
 	for _, version := range supportedVersions {
-		if _, found := versionsSet[version]; found {
-			return &callBackClient{
-				SocketPath:           socketPath,
-				Version:              version,
-				subscribedHookPoints: info.GetHookPoints(),
-			}, false, nil
+		if _, found := versionsSet[version]; !found {
+			continue
 		}
+
+		if isDeprecated, found := deprecatedVersions[version]; found && isDeprecated {
+			log.Log.Warningf("Hook version %s is deprecated. Please use newer versions.", version)
+		}
+
+		return &callBackClient{
+			SocketPath:           socketPath,
+			Version:              version,
+			subscribedHookPoints: info.GetHookPoints(),
+		}, false, nil
 	}
 
 	return nil, false,
