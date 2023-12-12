@@ -889,6 +889,99 @@ func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	return volumeStatus, needsRefresh
 }
 
+func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
+	containerDisks := map[string]*v1.Volume{}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.ContainerDisk != nil {
+			containerDisks[volume.Name] = &volume
+		}
+	}
+
+	for i := range vmi.Status.VolumeStatus {
+		_, isContainerDisk := containerDisks[vmi.Status.VolumeStatus[i].Name]
+		if !isContainerDisk {
+			continue
+		}
+
+		if vmi.Status.VolumeStatus[i].ContainerDiskVolume == nil ||
+			vmi.Status.VolumeStatus[i].ContainerDiskVolume.Checksum == 0 {
+			return true
+		}
+	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		if vmi.Status.KernelBootStatus == nil {
+			return true
+		}
+
+		kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+
+		if kernelBootContainer.KernelPath != "" &&
+			(vmi.Status.KernelBootStatus.KernelInfo == nil ||
+				vmi.Status.KernelBootStatus.KernelInfo.Checksum == 0) {
+			return true
+
+		}
+
+		if kernelBootContainer.InitrdPath != "" &&
+			(vmi.Status.KernelBootStatus.InitrdInfo == nil ||
+				vmi.Status.KernelBootStatus.InitrdInfo.Checksum == 0) {
+			return true
+
+		}
+	}
+
+	return false
+}
+
+func (d *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInstance, syncError error) error {
+
+	if syncError != nil || vmi.DeletionTimestamp != nil || !needToComputeChecksums(vmi) {
+		return nil
+	}
+
+	diskChecksums, err := d.containerDiskMounter.ComputeChecksums(vmi)
+	if goerror.Is(err, container_disk.ErrDiskContainerGone) {
+		log.Log.Errorf("cannot compute checksums as containerdisk/kernelboot containers seem to have been terminated")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	// containerdisks
+	for i := range vmi.Status.VolumeStatus {
+		checksum, exists := diskChecksums.ContainerDiskChecksums[vmi.Status.VolumeStatus[i].Name]
+		if !exists {
+			// not a containerdisk
+			continue
+		}
+
+		vmi.Status.VolumeStatus[i].ContainerDiskVolume = &v1.ContainerDiskInfo{
+			Checksum: checksum,
+		}
+	}
+
+	// kernelboot
+	if util.HasKernelBootContainerImage(vmi) {
+		vmi.Status.KernelBootStatus = &v1.KernelBootStatus{}
+
+		if diskChecksums.KernelBootChecksum.Kernel != nil {
+			vmi.Status.KernelBootStatus.KernelInfo = &v1.KernelInfo{
+				Checksum: *diskChecksums.KernelBootChecksum.Kernel,
+			}
+		}
+
+		if diskChecksums.KernelBootChecksum.Initrd != nil {
+			vmi.Status.KernelBootStatus.InitrdInfo = &v1.InitrdInfo{
+				Checksum: *diskChecksums.KernelBootChecksum.Initrd,
+			}
+		}
+	}
+
+	return nil
+}
+
 func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	// used by unit test
 	hasHotplug := false
@@ -1336,6 +1429,11 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	// Update conditions on VMI Status
 	err = d.updateVMIConditions(vmi, domain, condManager)
 	if err != nil {
+		return err
+	}
+
+	// Store containerdisks and kernelboot checksums
+	if err := d.updateChecksumInfo(vmi, syncError); err != nil {
 		return err
 	}
 
@@ -2682,6 +2780,20 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 		d.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return nil
+	}
+
+	// Verify container disks checksum
+	err = container_disk.VerifyChecksums(d.containerDiskMounter, vmi)
+	switch {
+	case goerror.Is(err, container_disk.ErrChecksumMissing):
+		// wait for checksum to be computed by the source virt-handler
+		return err
+	case goerror.Is(err, container_disk.ErrChecksumMismatch):
+		log.Log.Object(vmi).Infof("Containerdisk checksum mismatch, terminating target pod: %s", err)
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, "ContainerDiskFailedChecksum", "Aborting migration as the source and target containerdisks/kernelboot do not match")
+		return client.SignalTargetPodCleanup(vmi)
+	case err != nil:
+		return err
 	}
 
 	// Mount container disks
