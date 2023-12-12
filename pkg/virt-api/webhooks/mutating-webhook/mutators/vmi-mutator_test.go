@@ -530,6 +530,54 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Memory()).To(Equal(vmi.Spec.Domain.Resources.Requests.Memory()))
 	})
 
+	DescribeTable("should not copy the EmulatorThreadCompleteToEvenParity annotation to the VMI",
+		func(featureGate string, annotations map[string]string, isolateEmulatorThread bool) {
+			if featureGate != "" || annotations != nil {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Annotations: annotations,
+					},
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							DeveloperConfiguration: &v1.DeveloperConfiguration{
+								FeatureGates: []string{featureGate},
+							},
+						},
+					},
+				})
+			}
+			vmi.Spec.Domain.CPU = &v1.CPU{IsolateEmulatorThread: isolateEmulatorThread}
+
+			vmiMeta, _, _ := getMetaSpecStatusFromAdmit(vmi.Spec.Architecture)
+			_, exist := vmiMeta.Annotations[v1.EmulatorThreadCompleteToEvenParity]
+			Expect(exist).To(BeFalse())
+		},
+		Entry("when the AlignCPUs featureGate is disabled", "", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true),
+		Entry("when the EmulatorThreadCompleteToEvenParity annotation is not set on the kubevirt CR", virtconfig.AlignCPUsGate, nil, true),
+		Entry("when isolateEmulatorThread is disabled on the VMI spec", virtconfig.AlignCPUsGate, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false),
+	)
+
+	It("should copy the EmulatorThreadCompleteToEvenParity annotation to the VMI", func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Annotations: map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{virtconfig.AlignCPUsGate},
+					},
+				},
+			},
+		})
+
+		vmi.Spec.Domain.CPU = &v1.CPU{IsolateEmulatorThread: true}
+
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit(vmi.Spec.Architecture)
+		_, exist := vmiMeta.Annotations[v1.EmulatorThreadCompleteToEvenParity]
+		Expect(exist).To(BeTrue())
+	})
+
 	It("should convert CPU requests to sockets", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
 		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
