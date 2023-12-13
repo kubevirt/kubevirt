@@ -197,7 +197,6 @@ func NewController(
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
-	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -220,7 +219,6 @@ func NewController(
 		vmiSourceInformer:           vmiSourceInformer,
 		vmiTargetInformer:           vmiTargetInformer,
 		domainInformer:              domainInformer,
-		gracefulShutdownInformer:    gracefulShutdownInformer,
 		heartBeatInterval:           1 * time.Minute,
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
 		migrationProxy:              migrationProxy,
@@ -258,15 +256,6 @@ func NewController(
 		AddFunc:    c.addDomainFunc,
 		DeleteFunc: c.deleteDomainFunc,
 		UpdateFunc: c.updateDomainFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = gracefulShutdownInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addFunc,
-		DeleteFunc: c.deleteFunc,
-		UpdateFunc: c.updateFunc,
 	})
 	if err != nil {
 		return nil, err
@@ -316,7 +305,6 @@ type VirtualMachineController struct {
 	vmiSourceInformer        cache.SharedIndexInformer
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
-	gracefulShutdownInformer cache.SharedIndexInformer
 	launcherClients          virtcache.LauncherClientInfoByVMI
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
@@ -1629,7 +1617,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.downwardMetricsManager.Run(stopCh)
 
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced)
 
 	// Queue keys for previous Domains on the host that no longer exist
 	// in the cache. This ensures we perform local cleanup of deleted VMs.
@@ -1829,41 +1817,16 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 	return nil
 }
 
-// Legacy, remove once we're certain we are no longer supporting
-// VMIs running with the old graceful shutdown trigger logic
-func gracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, name string) string {
-	triggerFile := namespace + "_" + name
-	return filepath.Join(baseDir, "graceful-shutdown-trigger", triggerFile)
-}
-
-// Legacy, remove once we're certain we are no longer supporting
-// VMIs running with the old graceful shutdown trigger logic
-func vmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstance) error {
-	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
-	return diskutils.RemoveFilesIfExist(triggerFile)
-}
-
-// Legacy, remove once we're certain we are no longer supporting
-// VMIs running with the old graceful shutdown trigger logic
-func vmHasGracefulShutdownTrigger(baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {
-	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
-	return diskutils.FileExists(triggerFile)
-}
-
 // Determine if gracefulShutdown has been triggered by virt-launcher
-func (d *VirtualMachineController) hasGracefulShutdownTrigger(vmi *v1.VirtualMachineInstance, domain *api.Domain) (bool, error) {
-
-	// This is the new way of reporting GracefulShutdown, via domain metadata.
-	if domain != nil &&
-		domain.Spec.Metadata.KubeVirt.GracePeriod != nil &&
-		domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown != nil &&
-		*domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown == true {
-		return true, nil
+func (d *VirtualMachineController) hasGracefulShutdownTrigger(domain *api.Domain) bool {
+	if domain == nil {
+		return false
 	}
+	gracePeriod := domain.Spec.Metadata.KubeVirt.GracePeriod
 
-	// Fallback to detecting the old way of reporting gracefulshutdown, via file.
-	// We keep this around in order to ensure backwards compatibility
-	return vmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
+	return gracePeriod != nil &&
+		gracePeriod.MarkedForGracefulShutdown != nil &&
+		*gracePeriod.MarkedForGracefulShutdown
 }
 
 func (d *VirtualMachineController) defaultExecute(key string,
@@ -1903,10 +1866,8 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	domainMigrated := domainExists && domainMigrated(domain)
 
-	gracefulShutdown, err := d.hasGracefulShutdownTrigger(vmi, domain)
-	if err != nil {
-		return err
-	} else if gracefulShutdown && vmi.IsRunning() {
+	gracefulShutdown := d.hasGracefulShutdownTrigger(domain)
+	if gracefulShutdown && vmi.IsRunning() {
 		if domainAlive {
 			log.Log.Object(vmi).V(3).Info("Shutting down due to graceful shutdown signal.")
 			shouldShutdown = true
@@ -2039,8 +2000,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmiExists {
-		err = d.updateVMIStatus(vmi, domain, syncErr)
-		if err != nil {
+		if err := d.updateVMIStatus(vmi, domain, syncErr); err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
 			return err
 		}
@@ -2153,12 +2113,6 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	vmiId := string(vmi.UID)
 
 	log.Log.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
-	// If the VMI is using the old graceful shutdown trigger on
-	// a hostmount, make sure to clear that file still.
-	err := vmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
-	if err != nil {
-		return err
-	}
 
 	d.migrationProxy.StopTargetListener(vmiId)
 	d.migrationProxy.StopSourceListener(vmiId)
@@ -2182,8 +2136,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.sriovHotplugExecutorPool.Delete(vmi.UID)
 
 	// Watch dog file and command client must be the last things removed here
-	err = d.closeLauncherClient(vmi)
-	if err != nil {
+	if err := d.closeLauncherClient(vmi); err != nil {
 		return err
 	}
 
