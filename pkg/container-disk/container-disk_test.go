@@ -357,8 +357,7 @@ var _ = Describe("ContainerDisk", func() {
 
 				pod := createMigrationSourcePod(vmi)
 
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
-				Expect(err).ToNot(HaveOccurred())
+				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("disk2", "someimage@sha256:1"))
 				Expect(imageIDs).To(HaveLen(2))
@@ -379,8 +378,7 @@ var _ = Describe("ContainerDisk", func() {
 
 				pod := createMigrationSourcePod(vmi)
 
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
-				Expect(err).ToNot(HaveOccurred())
+				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
 				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "someimage@sha256:bootcontainer"))
 				Expect(imageIDs).To(HaveLen(2))
@@ -392,26 +390,22 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(newContainers[1].Image).To(Equal("someimage@sha256:bootcontainer"))
 			})
 
-			It("should fail if it can't detect a reproducible imageID", func() {
+			It("should return the source image tag if it can't detect a reproducible imageID", func() {
 				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 				pod := createMigrationSourcePod(vmi)
 				pod.Status.ContainerStatuses[0].ImageID = "rubbish"
-				_, err := ExtractImageIDsFromSourcePod(vmi, pod)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal(`failed to identify image digest for container "someimage:v1.2.3.4" with id "rubbish"`))
+				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
+				Expect(imageIDs["disk1"]).To(Equal(vmi.Spec.Volumes[0].ContainerDisk.Image))
 			})
 
 			DescribeTable("It should detect the image ID from", func(imageID string) {
 				expected := "myregistry.io/myimage@sha256:4gjffGJlg4"
-				res, err := toImageWithDigest("myregistry.io/myimage", imageID)
-				Expect(err).ToNot(HaveOccurred())
+				res := toPullableImageReference("myregistry.io/myimage", imageID)
 				Expect(res).To(Equal(expected))
-				res, err = toImageWithDigest("myregistry.io/myimage:1234", imageID)
-				Expect(err).ToNot(HaveOccurred())
+				res = toPullableImageReference("myregistry.io/myimage:1234", imageID)
 				Expect(res).To(Equal(expected))
-				res, err = toImageWithDigest("myregistry.io/myimage:latest", imageID)
-				Expect(err).ToNot(HaveOccurred())
+				res = toPullableImageReference("myregistry.io/myimage:latest", imageID)
 				Expect(res).To(Equal(expected))
 			},
 				Entry("docker", "docker://sha256:4gjffGJlg4"),
@@ -420,8 +414,7 @@ var _ = Describe("ContainerDisk", func() {
 			)
 
 			DescribeTable("It should detect the base image from", func(given, expected string) {
-				res, err := toImageWithDigest(given, "docker://sha256:4gjffGJlg4")
-				Expect(err).ToNot(HaveOccurred())
+				res := toPullableImageReference(given, "docker://sha256:4gjffGJlg4")
 				Expect(strings.Split(res, "@sha256:")[0]).To(Equal(expected))
 			},
 				Entry("image with registry and no tags or shasum", "myregistry.io/myimage", "myregistry.io/myimage"),
@@ -443,8 +436,7 @@ var _ = Describe("ContainerDisk", func() {
 				appendContainerDisk(vmi, "disk1")
 
 				pod := createMigrationSourcePod(vmi)
-				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
-				Expect(err).ToNot(HaveOccurred())
+				imageIDs := ExtractImageIDsFromSourcePod(vmi, pod)
 
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
 				testFunc(&newContainers[0])
