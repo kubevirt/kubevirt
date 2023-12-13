@@ -89,7 +89,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const (
@@ -258,16 +257,7 @@ func (app *virtHandlerApp) Run() {
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
-	if err != nil {
-		panic(err)
-	}
-
-	// Legacy directory for watchdog files
-	err = os.MkdirAll(watchdog.WatchdogFileDirectory(app.VirtShareDir), 0755)
-	if err != nil {
-		panic(err)
-	}
+	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
 
 	// Legacy Directory for graceful shutdown trigger files.
 	err = os.MkdirAll(filepath.Join(app.VirtShareDir, "graceful-shutdown-trigger"), 0755)
@@ -368,7 +358,6 @@ func (app *virtHandlerApp) Run() {
 		vmiTargetInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
-		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		app.clusterConfig,
 		podIsolationDetector,

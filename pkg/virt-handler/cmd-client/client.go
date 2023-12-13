@@ -142,7 +142,7 @@ func ListAllSockets() ([]string, error) {
 		return nil, err
 	}
 
-	if exists == false {
+	if !exists {
 		return socketFiles, nil
 	}
 
@@ -190,21 +190,6 @@ func LegacySocketsDirectory() string {
 	return filepath.Join(legacyBaseDir, "sockets")
 }
 
-func IsLegacySocket(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return false
-	}
-
-	return true
-}
-
-func SocketMonitoringEnabled(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return true
-	}
-	return false
-}
-
 func IsSocketUnresponsive(socket string) bool {
 	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
 	exists, _ := diskutils.FileExists(file)
@@ -216,11 +201,7 @@ func IsSocketUnresponsive(socket string) bool {
 
 	exists, _ = diskutils.FileExists(socket)
 	// if the socket file doesn't exist, it's definitely unresponsive as well
-	if !exists {
-		return true
-	}
-
-	return false
+	return !exists
 }
 
 func MarkSocketUnresponsive(socket string) error {
@@ -391,7 +372,7 @@ func handleError(err error, cmdName string, response *cmdv1.Response) error {
 	} else if err != nil {
 		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
 		return fmt.Errorf(msg)
-	} else if response != nil && response.Success != true {
+	} else if response != nil && !response.Success {
 		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}
 	return nil

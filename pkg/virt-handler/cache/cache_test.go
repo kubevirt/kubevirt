@@ -41,8 +41,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
+
+func clearGhostRecordCache() {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+	ghostRecordGlobalCache = make(map[string]ghostRecord)
+}
 
 var _ = Describe("Domain informer", func() {
 	var err error
@@ -86,8 +91,7 @@ var _ = Describe("Domain informer", func() {
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
 
-		informer, err = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
-		Expect(err).ToNot(HaveOccurred())
+		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
@@ -221,7 +225,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 			}
@@ -250,7 +254,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 			}
@@ -324,50 +328,14 @@ var _ = Describe("Domain informer", func() {
 			Expect(val).To(Equal("some-value"))
 		})
 
-		It("should detect expired legacy watchdog file.", func() {
-			f, err := os.Create(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
-			d := &DomainWatcher{
-				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
-				watchdogTimeout:          1,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             time.Duration(1) * time.Hour,
-			}
-
-			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
-			os.MkdirAll(filepath.Dir(watchdogFile), 0755)
-			watchdog.WatchdogFileUpdate(watchdogFile, "somestring")
-
-			err = d.startBackground()
-			Expect(err).ToNot(HaveOccurred())
-			defer d.Stop()
-
-			timedOut := false
-			timeout := time.After(3 * time.Second)
-			select {
-			case event := <-d.eventChan:
-				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
-				Expect(event.Type).To(Equal(watch.Modified))
-			case <-timeout:
-				timedOut = true
-			}
-
-			Expect(timedOut).To(BeFalse())
-
-		})
-
 		It("should detect unresponsive sockets.", func() {
-
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
 
 			AddGhostRecord("test", "test", socketPath, "1234")
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
@@ -413,7 +381,7 @@ var _ = Describe("Domain informer", func() {
 			err = AddGhostRecord("test", "test", socketPath, "1234")
 			Expect(err).ToNot(HaveOccurred())
 
-			d := &DomainWatcher{
+			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
