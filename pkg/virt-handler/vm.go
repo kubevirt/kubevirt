@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -3517,7 +3518,7 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 	}
 
 	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-	requiredMemory := services.GetMemoryOverhead(vmi, d.clusterConfig.GetClusterCPUArch(), &overheadRatio)
+	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
 	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 
 	if podMemReq.Cmp(requiredMemory) < 0 {
