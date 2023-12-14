@@ -22,6 +22,8 @@
 package nodelabeller
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -29,7 +31,9 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -38,6 +42,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
+
+const nodeName = "testNode"
 
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
@@ -53,7 +59,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder)
+		nlController, err = newNodeLabeller(config, virtClient, nodeName, k8sv1.NamespaceDefault, "testdata", recorder)
 		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
@@ -64,14 +70,14 @@ var _ = Describe("Node-labeller ", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 
-		node := newNode("testNode")
+		node := newNode(nodeName)
 
 		kubeClient = fake.NewSimpleClientset(node)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		kv := &v1.KubeVirt{
+		initNodeLabeller(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
@@ -82,18 +88,20 @@ var _ = Describe("Node-labeller ", func() {
 					MinCPUModel:       "Penryn",
 				},
 			},
-		}
-
-		initNodeLabeller(kv)
-
+		})
 		mockQueue.ExpectAdds(1)
 		nlController.queue.Add(node)
 		mockQueue.Wait()
 	})
 
+	// TODO, there is issue with empty labels
+	// The node labeller can't replace/update labels if there is no label
+	// This is very unlikely in real Kubernetes cluster
 	It("should run node-labelling", func() {
-		testutils.ExpectNodePatch(kubeClient)
 		res := nlController.execute()
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).ToNot(BeEmpty())
+
 		Expect(res).To(BeTrue(), "labeller should end with true result")
 		Consistently(func() int {
 			return nlController.queue.Len()
@@ -101,7 +109,11 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should re-queue node if node-labelling fail", func() {
-		// node labelling will fail because the Patch executed inside execute() will fail due to missed Reactor
+		// node labelling will fail because of the Patch
+		kubeClient.Fake.PrependReactor("patch", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			return true, nil, fmt.Errorf("failed")
+		})
+
 		res := nlController.execute()
 		Expect(res).To(BeTrue(), "labeller should end with true result")
 		Eventually(func() int {
@@ -110,54 +122,93 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should add host cpu model label", func() {
-		testutils.ExpectNodePatch(kubeClient, v1.HostModelCPULabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelCPULabel)))
 	})
 	It("should add host cpu required features", func() {
-		testutils.ExpectNodePatch(kubeClient, v1.HostModelRequiredFeaturesLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelRequiredFeaturesLabel)))
 	})
 
 	It("should add SEV label", func() {
-		testutils.ExpectNodePatch(kubeClient, v1.SEVLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.SEVLabel))
 	})
 
 	It("should add SEVES label", func() {
-		testutils.ExpectNodePatch(kubeClient, v1.SEVESLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
 	})
 
 	It("should add usable cpu model labels for the host cpu model", func() {
-		testutils.ExpectNodePatch(kubeClient,
-			v1.HostModelCPULabel+"Skylake-Client-IBRS",
-			v1.CPUModelLabel+"Skylake-Client-IBRS",
-			v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS",
-		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			HaveKey(v1.HostModelCPULabel+"Skylake-Client-IBRS"),
+			HaveKey(v1.CPUModelLabel+"Skylake-Client-IBRS"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS"),
+		))
 	})
 
 	It("should add usable cpu model labels if all required features are supported", func() {
-		testutils.ExpectNodePatch(kubeClient,
-			v1.CPUModelLabel+"Penryn",
-			v1.SupportedHostModelMigrationCPU+"Penryn",
-		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			HaveKey(v1.CPUModelLabel+"Penryn"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Penryn"),
+		))
 	})
 
 	It("should not add usable cpu model labels if some features are not suported (svm)", func() {
-		testutils.DoNotExpectNodePatch(kubeClient,
-			v1.CPUModelLabel+"Opteron_G2",
-			v1.SupportedHostModelMigrationCPU+"Opteron_G2",
-		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).ToNot(SatisfyAny(
+			HaveKey(v1.CPUModelLabel+"Opteron_G2"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Opteron_G2"),
+		))
+	})
+
+	It("should remove not found cpu model and migration model", func() {
+		node := retrieveNode(kubeClient)
+		node.Labels[v1.CPUModelLabel+"Cascadelake-Server"] = "true"
+		node.Labels[v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"] = "true"
+		node, err := kubeClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(node.Labels).To(SatisfyAll(
+			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
+		))
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node = retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			HaveKey(v1.CPUModelLabel+"Skylake-Client-IBRS"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS"),
+		))
+		Expect(node.Labels).ToNot(SatisfyAny(
+			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
+		))
 	})
 })
 
@@ -165,9 +216,15 @@ func newNode(name string) *k8sv1.Node {
 	return &k8sv1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},
-			Labels:      map[string]string{},
+			Labels:      map[string]string{"INeedToBeHere": "trustme"},
 			Name:        name,
 		},
 		Spec: k8sv1.NodeSpec{},
 	}
+}
+
+func retrieveNode(kubeClient *fake.Clientset) *k8sv1.Node {
+	node, err := kubeClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return node
 }
