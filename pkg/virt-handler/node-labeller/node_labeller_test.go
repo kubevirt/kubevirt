@@ -197,6 +197,34 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
 		))
 	})
+
+	It("should not remove not found cpu model and migration model when skip is requested", func() {
+		node := retriveNode(kubeClient)
+		node.Labels[v1.CPUModelLabel+"Cascadelake-Server"] = "true"
+		node.Labels[v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"] = "true"
+		// request skip
+		node.Annotations[v1.LabellerSkipNodeAnnotation] = "true"
+
+		node, err := kubeClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(node.Labels).To(SatisfyAll(
+			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
+		))
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node = retriveNode(kubeClient)
+		Expect(node.Labels).ToNot(SatisfyAny(
+			HaveKey(v1.CPUModelLabel+"Skylake-Client-IBRS"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS"),
+		))
+		Expect(node.Labels).To(SatisfyAll(
+			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
+		))
+	})
 })
 
 func newNode(name string) *k8sv1.Node {
