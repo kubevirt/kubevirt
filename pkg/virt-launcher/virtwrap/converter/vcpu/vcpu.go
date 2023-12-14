@@ -15,6 +15,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -409,7 +410,7 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 	return nil
 }
 
-func FormatEmulatorThreadPin(cpuPool VCPUPool, CPUManagerPolicyBetaOption v12.CPUManagerPolicyBetaOptions) (string, error) {
+func FormatEmulatorThreadPin(cpuPool VCPUPool, CPUManagerPolicyBetaOption v12.CPUManagerPolicyBetaOptions, vCPUs int64) (string, error) {
 	var emulatorThreads []uint32
 
 	availableThread, err := cpuPool.FitThread()
@@ -421,7 +422,8 @@ func FormatEmulatorThreadPin(cpuPool VCPUPool, CPUManagerPolicyBetaOption v12.CP
 	emulatorThreads = append(emulatorThreads, availableThread)
 
 	fullpCPUsOnly := CPUManagerPolicyBetaOption == v12.CPUManagerPolicyBetaOptionFullpCPUsOnly
-	if fullpCPUsOnly {
+	if fullpCPUsOnly &&
+		vCPUs%2 == 0 {
 		availableThread, err = cpuPool.FitThread()
 		if err != nil {
 			e := fmt.Errorf("no second CPU allocated for the emulation thread: %v", err)
@@ -481,7 +483,8 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	var emulatorThreadsCPUSet string
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		CPUManagerPolicyBetaOption := v12.CPUManagerPolicyBetaOptions(vmi.Annotations[v12.CPUManagerPolicyBetaOptionsAnnotation])
-		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption); err != nil {
+		vCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption, vCPUs); err != nil {
 			log.Log.Reason(err).Error("failed to format emulation thread pin")
 			return err
 		}
