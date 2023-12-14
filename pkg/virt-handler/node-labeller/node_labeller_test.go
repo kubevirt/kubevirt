@@ -32,8 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
-	kubevirtv1 "kubevirt.io/api/core/v1"
-
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -48,7 +47,7 @@ var _ = Describe("Node-labeller ", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var recorder *record.FakeRecorder
 
-	initNodeLabeller := func(kubevirt *kubevirtv1.KubeVirt) {
+	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -72,13 +71,13 @@ var _ = Describe("Node-labeller ", func() {
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		kv := &kubevirtv1.KubeVirt{
+		kv := &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
 			},
-			Spec: kubevirtv1.KubeVirtSpec{
-				Configuration: kubevirtv1.KubeVirtConfiguration{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
 					MinCPUModel:       "Penryn",
 				},
@@ -111,33 +110,33 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should add host cpu model label", func() {
-		testutils.ExpectNodePatch(kubeClient, kubevirtv1.HostModelCPULabel)
+		testutils.ExpectNodePatch(kubeClient, v1.HostModelCPULabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 	It("should add host cpu required features", func() {
-		testutils.ExpectNodePatch(kubeClient, kubevirtv1.HostModelRequiredFeaturesLabel)
+		testutils.ExpectNodePatch(kubeClient, v1.HostModelRequiredFeaturesLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 
 	It("should add SEV label", func() {
-		testutils.ExpectNodePatch(kubeClient, kubevirtv1.SEVLabel)
+		testutils.ExpectNodePatch(kubeClient, v1.SEVLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 
 	It("should add SEVES label", func() {
-		testutils.ExpectNodePatch(kubeClient, kubevirtv1.SEVESLabel)
+		testutils.ExpectNodePatch(kubeClient, v1.SEVESLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 
 	It("should add usable cpu model labels for the host cpu model", func() {
 		testutils.ExpectNodePatch(kubeClient,
-			kubevirtv1.HostModelCPULabel+"Skylake-Client-IBRS",
-			kubevirtv1.CPUModelLabel+"Skylake-Client-IBRS",
-			kubevirtv1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS",
+			v1.HostModelCPULabel+"Skylake-Client-IBRS",
+			v1.CPUModelLabel+"Skylake-Client-IBRS",
+			v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS",
 		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
@@ -145,8 +144,8 @@ var _ = Describe("Node-labeller ", func() {
 
 	It("should add usable cpu model labels if all required features are supported", func() {
 		testutils.ExpectNodePatch(kubeClient,
-			kubevirtv1.CPUModelLabel+"Penryn",
-			kubevirtv1.SupportedHostModelMigrationCPU+"Penryn",
+			v1.CPUModelLabel+"Penryn",
+			v1.SupportedHostModelMigrationCPU+"Penryn",
 		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
@@ -154,8 +153,8 @@ var _ = Describe("Node-labeller ", func() {
 
 	It("should not add usable cpu model labels if some features are not suported (svm)", func() {
 		testutils.DoNotExpectNodePatch(kubeClient,
-			kubevirtv1.CPUModelLabel+"Opteron_G2",
-			kubevirtv1.SupportedHostModelMigrationCPU+"Opteron_G2",
+			v1.CPUModelLabel+"Opteron_G2",
+			v1.SupportedHostModelMigrationCPU+"Opteron_G2",
 		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
