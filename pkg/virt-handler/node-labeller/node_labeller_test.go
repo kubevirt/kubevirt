@@ -225,6 +225,16 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
 		))
 	})
+
+	It("should emit event if cpu model is obsolete", func() {
+		nlController.clusterConfig.GetConfig().ObsoleteCPUModels["Skylake-Client-IBRS"] = true
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		recorder := nlController.recorder.(*record.FakeRecorder)
+		Expect(recorder.Events).To(Receive(ContainSubstring("in ObsoleteCPUModels")))
+	})
 })
 
 func newNode(name string) *k8sv1.Node {
