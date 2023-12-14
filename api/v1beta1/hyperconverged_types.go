@@ -306,7 +306,7 @@ type LiveMigrationConfigurations struct {
 	// +default=2
 	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
 
-	// Bandwidth limit of each migration, in MiB/s.
+	// Bandwidth limit of each migration, the value is quantity of bytes per second (e.g. 2048Mi = 2048MiB/sec)
 	// +optional
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
 	BandwidthPerMigration *string `json:"bandwidthPerMigration,omitempty"`

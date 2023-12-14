@@ -245,7 +245,7 @@ Set the live migration configurations by modifying the fields in the `liveMigrat
 
 ### bandwidthPerMigration
 
-Bandwidth limit of each migration, in MiB/s. The format is a number and with the `Mi` suffix, e.g. `2048Mi`.
+Bandwidth limit of each migrationi, the value is in quantity of bytes per second. The format is a number with an optional quantity suffix, e.g. `2048Mi` means 2048MiB/sec.
 
 **default**: unset
 

@@ -2235,7 +2235,8 @@ spec:
                       triggers. Defaults to false
                     type: boolean
                   bandwidthPerMigration:
-                    description: Bandwidth limit of each migration, in MiB/s.
+                    description: Bandwidth limit of each migration, the value is quantity
+                      of bytes per second (e.g. 2048Mi = 2048MiB/sec)
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     type: string
                   completionTimeoutPerGiB:

@@ -758,7 +758,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationCo
 					},
 					"bandwidthPerMigration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bandwidth limit of each migration, in MiB/s.",
+							Description: "Bandwidth limit of each migration, the value is quantity of bytes per second (e.g. 2048Mi = 2048MiB/sec)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
