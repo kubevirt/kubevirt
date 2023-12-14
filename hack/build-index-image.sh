@@ -61,7 +61,9 @@ function create_index_image() {
 
   podman push "${INDEX_IMAGE_NAME}"
 
-  mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${INITIAL_VERSION}
+  if [[ "${CURRENT_VERSION}" != "${INITIAL_VERSION}" ]]; then
+    mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${INITIAL_VERSION}
+  fi
 }
 
 function create_file_based_catalog() {
@@ -71,6 +73,8 @@ function create_file_based_catalog() {
   if [ ! -d fbc-catalog ]
   then
     # The index image is already in file-based format. Extracting its catalog file
+    # TODO: we should handle the case where we are releasing X.Y.0 and
+    # quay.io/kubevirt/hyperconverged-cluster-index:X.Y.0 never got pushed!
     oc image extract "${INDEX_IMAGE_NAME}" --file /configs/catalog.json
   else
     # The migration took place
