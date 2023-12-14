@@ -53,7 +53,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, k8sv1.NamespaceDefault, "testdata", recorder)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -199,7 +199,7 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should not remove not found cpu model and migration model when skip is requested", func() {
-		node := retriveNode(kubeClient)
+		node := retrieveNode(kubeClient)
 		node.Labels[v1.CPUModelLabel+"Cascadelake-Server"] = "true"
 		node.Labels[v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"] = "true"
 		// request skip
@@ -215,7 +215,7 @@ var _ = Describe("Node-labeller ", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 
-		node = retriveNode(kubeClient)
+		node = retrieveNode(kubeClient)
 		Expect(node.Labels).ToNot(SatisfyAny(
 			HaveKey(v1.CPUModelLabel+"Skylake-Client-IBRS"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS"),

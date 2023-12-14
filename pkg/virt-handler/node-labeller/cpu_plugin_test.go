@@ -63,7 +63,6 @@ var _ = Describe("Node-labeller config", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		nlController = &NodeLabeller{
-			namespace:               k8sv1.NamespaceDefault,
 			nodeClient:              nil,
 			clusterConfig:           clusterConfig,
 			logger:                  log.DefaultLogger(),

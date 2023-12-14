@@ -69,7 +69,6 @@ type NodeLabeller struct {
 	recorder                record.EventRecorder
 	nodeClient              k8scli.NodeInterface
 	host                    string
-	namespace               string
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
@@ -85,16 +84,15 @@ type NodeLabeller struct {
 	SEV                     SEVConfiguration
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, namespace string, recorder record.EventRecorder) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, namespace, nodeLabellerVolumePath, recorder)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, host, nodeLabellerVolumePath, recorder)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, namespace string, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:                recorder,
 		nodeClient:              nodeClient,
 		host:                    host,
-		namespace:               namespace,
 		logger:                  log.DefaultLogger(),
 		clusterConfig:           clusterConfig,
 		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
