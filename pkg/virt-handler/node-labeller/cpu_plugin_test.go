@@ -25,14 +25,12 @@ import (
 	"path"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -49,9 +47,6 @@ var _ = Describe("Node-labeller config", func() {
 	var nlController *NodeLabeller
 
 	BeforeEach(func() {
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-
 		kv := &kubevirtv1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -69,7 +64,7 @@ var _ = Describe("Node-labeller config", func() {
 
 		nlController = &NodeLabeller{
 			namespace:               k8sv1.NamespaceDefault,
-			clientset:               virtClient,
+			nodeClient:              nil,
 			clusterConfig:           clusterConfig,
 			logger:                  log.DefaultLogger(),
 			volumePath:              "testdata",

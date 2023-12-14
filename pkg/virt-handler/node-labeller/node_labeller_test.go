@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -37,7 +36,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -47,36 +45,22 @@ const nodeName = "testNode"
 
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
-	var virtClient *kubecli.MockKubevirtClient
-	var ctrl *gomock.Controller
 	var kubeClient *fake.Clientset
-	var mockQueue *testutils.MockWorkQueue
-	var recorder *record.FakeRecorder
 
 	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
-		recorder = record.NewFakeRecorder(100)
+		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, virtClient, nodeName, k8sv1.NamespaceDefault, "testdata", recorder)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, k8sv1.NamespaceDefault, "testdata", recorder)
 		Expect(err).ToNot(HaveOccurred())
-
-		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
-
-		nlController.queue = mockQueue
 	}
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-
 		node := newNode(nodeName)
 
 		kubeClient = fake.NewSimpleClientset(node)
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
 		initNodeLabeller(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -89,6 +73,9 @@ var _ = Describe("Node-labeller ", func() {
 				},
 			},
 		})
+		mockQueue := testutils.NewMockWorkQueue(nlController.queue)
+		nlController.queue = mockQueue
+
 		mockQueue.ExpectAdds(1)
 		nlController.queue.Add(node)
 		mockQueue.Wait()

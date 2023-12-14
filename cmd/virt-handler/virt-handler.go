@@ -319,7 +319,7 @@ func (app *virtHandlerApp) Run() {
 	var capabilities *api.Capabilities
 	var hostCpuModel string
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, nodeLabellerrecorder)
+	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli.CoreV1().Nodes(), app.HostOverride, app.namespace, nodeLabellerrecorder)
 	if err != nil {
 		panic(err)
 	}
