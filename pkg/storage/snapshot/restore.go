@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	restoreNameAnnotation = "restore.kubevirt.io/name"
+	RestoreNameAnnotation = "restore.kubevirt.io/name"
 
 	populatedForPVCAnnotation = "cdi.kubevirt.io/storage.populatedFor"
 
@@ -755,7 +755,7 @@ func (t *vmRestoreTarget) createDataVolume(dvt kubevirtv1.DataVolumeTemplateSpec
 	if newDataVolume.Annotations == nil {
 		newDataVolume.Annotations = make(map[string]string)
 	}
-	newDataVolume.Annotations[restoreNameAnnotation] = t.vmRestore.Name
+	newDataVolume.Annotations[RestoreNameAnnotation] = t.vmRestore.Name
 
 	if _, err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(t.vm.Namespace).Create(context.Background(), newDataVolume, v1.CreateOptions{}); err != nil {
 		t.controller.Recorder.Eventf(t.vm, corev1.EventTypeWarning, restoreDataVolumeCreateErrorEvent, "Error creating restore DataVolume %s: %v", newDataVolume.Name, err)
@@ -1065,7 +1065,7 @@ func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volu
 	}
 	pvc.Labels[restoreSourceNameLabel] = sourceVmName
 	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
-	pvc.Annotations[restoreNameAnnotation] = vmRestoreName
+	pvc.Annotations[RestoreNameAnnotation] = vmRestoreName
 	return pvc
 }
 
