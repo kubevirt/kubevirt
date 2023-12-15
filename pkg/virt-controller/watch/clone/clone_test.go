@@ -69,6 +69,7 @@ var _ = Describe("Clone", func() {
 	var snapshotInformer cache.SharedIndexInformer
 	var restoreInformer cache.SharedIndexInformer
 	var snapshotContentInformer cache.SharedIndexInformer
+	var pvcInformer cache.SharedIndexInformer
 
 	var cloneInformer cache.SharedIndexInformer
 	var cloneSource *framework.FakeControllerSource
@@ -112,6 +113,11 @@ var _ = Describe("Clone", func() {
 
 	addRestore := func(restore *snapshotv1alpha1.VirtualMachineRestore) {
 		err := restoreInformer.GetStore().Add(restore)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
+
+	addPVC := func(pvc *k8sv1.PersistentVolumeClaim) {
+		err := pvcInformer.GetStore().Add(pvc)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
@@ -266,6 +272,7 @@ var _ = Describe("Clone", func() {
 		restoreInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineRestore{})
 		cloneInformer, cloneSource = testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
 		snapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1alpha1.VirtualMachineSnapshotContent{})
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -277,6 +284,7 @@ var _ = Describe("Clone", func() {
 			restoreInformer,
 			vmInformer,
 			snapshotContentInformer,
+			pvcInformer,
 			recorder)
 		mockQueue = testutils.NewMockWorkQueue(controller.vmCloneQueue)
 		controller.vmCloneQueue = mockQueue
@@ -471,6 +479,60 @@ var _ = Describe("Clone", func() {
 
 				controller.Execute()
 				expectEvent(TargetVMCreated)
+			})
+
+			When("the clone process is finished and involves one or more PVCs", func() {
+				var (
+					pvc      *k8sv1.PersistentVolumeClaim
+					snapshot *snapshotv1alpha1.VirtualMachineSnapshot
+					restore  *snapshotv1alpha1.VirtualMachineRestore
+				)
+
+				BeforeEach(func() {
+					snapshot = createVirtualMachineSnapshot(sourceVM)
+					snapshot.Status.ReadyToUse = pointer.Bool(true)
+
+					pvc = createPVC(sourceVM.Namespace, k8sv1.ClaimPending)
+					restore = createVirtualMachineRestore(sourceVM, snapshot.Name)
+					restore.Status.Complete = pointer.Bool(true)
+					restore.Status.Restores = []snapshotv1alpha1.VolumeRestore{
+						{PersistentVolumeClaimName: pvc.Name},
+					}
+
+					vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
+					vmClone.Status.RestoreName = pointer.String(restore.Name)
+					vmClone.Status.Phase = clonev1alpha1.CreatingTargetVM
+
+					targetVM := sourceVM.DeepCopy()
+					targetVM.Name = vmClone.Spec.Target.Name
+
+					addVM(sourceVM)
+					addVM(targetVM)
+					addClone(vmClone)
+					addSnapshot(snapshot)
+					addRestore(restore)
+					addPVC(pvc)
+
+					expectCloneUpdate(clonev1alpha1.Succeeded)
+					controller.Execute()
+					expectEvent(TargetVMCreated)
+				})
+
+				It("if not all the PVCs are bound, nothing should happen", func() {
+					addClone(vmClone)
+					controller.Execute()
+				})
+
+				It("if all the pvc are bound, snapshot and restore should be deleted", func() {
+					pvc = createPVC(sourceVM.Namespace, k8sv1.ClaimBound)
+					addPVC(pvc)
+					expectSnapshotDelete(snapshot.Name)
+					expectRestoreDelete(restore.Name)
+
+					addClone(vmClone)
+					controller.Execute()
+					testutils.ExpectEvents(recorder, string(TargetVMCreated), string(PVCBound))
+				})
 			})
 
 			It("when snapshot is deleted before restore is ready - should fail", func() {
@@ -960,6 +1022,19 @@ func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string)
 			VirtualMachineSnapshotName: snapshotName,
 		},
 		Status: &snapshotv1alpha1.VirtualMachineRestoreStatus{},
+	}
+}
+
+func createPVC(namespace string, phase k8sv1.PersistentVolumeClaimPhase) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "restore-pvc",
+			Namespace: namespace,
+			UID:       "pvc-UID",
+		},
+		Status: k8sv1.PersistentVolumeClaimStatus{
+			Phase: phase,
+		},
 	}
 }
 
