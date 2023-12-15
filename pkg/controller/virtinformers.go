@@ -744,6 +744,19 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 
 			return nil, nil
 		},
+		// Gets: restore key. Returns: clones in phase Succeeded
+		string(clonev1alpha1.Succeeded): func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if vmClone.Status.Phase == clonev1alpha1.Succeeded && vmClone.Status.RestoreName != nil {
+				return []string{getkey(vmClone, *vmClone.Status.RestoreName)}, nil
+			}
+
+			return nil, nil
+		},
 	}
 }
 
