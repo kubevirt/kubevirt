@@ -105,9 +105,9 @@ func (o *MachineTypeCommand) Run(args []string) error {
 	}
 	fmt.Printf(`
 Successfully created job %s.
-This job can be monitored using 'kubectl get job %s -n kubevirt' and 'kubectl describe job %s -n kubevirt'.
-Once terminated, this job can be deleted by using 'kubectl delete job %s -n kubevirt'.
-`, job.Name, job.Name, job.Name, job.Name)
+This job can be monitored using 'kubectl get job %s -n %s' and 'kubectl describe job %s -n %s'.
+Once terminated, this job can be deleted by using 'kubectl delete job %s -n %s'.
+`, job.Name, job.Name, kubevirtNamespace, job.Name, kubevirtNamespace, job.Name, kubevirtNamespace)
 	return nil
 }
 

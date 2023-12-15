@@ -25,12 +25,12 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
 	machineTypeNeedsUpdate = "pc-q35-rhel8.2.0"
-	machineTypeNoUpdate    = "pc-q35-rhel9.0.0"
 	machineTypeGlob        = "*rhel8.*"
 	update                 = "update"
 	machineTypes           = "machine-types"
@@ -48,7 +48,7 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("[Serial] should successfully create convert machine types job", Serial, func() {
+	Describe("should successfully create convert machine types job", func() {
 		var vmList []*v1.VirtualMachine
 		var job *batchv1.Job
 
@@ -72,7 +72,7 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 				withMachineType(machineType),
 			)
 
-			vm := tests.NewRandomVirtualMachine(template, running)
+			vm := libvmi.NewVirtualMachine(template)
 			if hasLabel {
 				if vm.Labels == nil {
 					vm.Labels = map[string]string{}
@@ -85,12 +85,14 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 
 			if running {
 				tests.StartVirtualMachine(vm)
+				By("Waiting for VMI to be running")
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(BeRunning())
 			}
 
 			vmList = append(vmList, vm)
 			return vm
 		}
-		Context("when no optional arguments are passed to virtctl command", Label("virtctl-update"), func() {
+		Context("[Serial]when no optional arguments are passed to virtctl command", Serial, Label("virtctl-update"), func() {
 			It("should update machine type of VMs with specified machine types", func() {
 				vmNeedsUpdateStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
 
@@ -101,7 +103,7 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 				Eventually(ThisVM(vmNeedsUpdateStopped), 2*time.Minute, time.Second).Should(haveDefaultMachineType())
 			})
 
-			Context("when running VMs are updated", func() {
+			Context("[Serial]when running VMs are updated", Serial, Label("virtctl-update"), func() {
 				It("should not signal job completion", func() {
 					vmNeedsUpdateRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 
@@ -117,20 +119,20 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 			})
 		})
 
-		It("Example with namespace flag", func() {
+		It("Example with namespace flag", Label("virtctl-update"), func() {
 			vmNamespaceDefaultStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
-			vmNamespaceOtherStopped := createVM(machineTypeNeedsUpdate, metav1.NamespaceDefault, false, false)
+			vmNamespaceOtherStopped := createVM(machineTypeNeedsUpdate, testsuite.NamespaceTestVirtctl, false, false)
 
 			err := clientcmd.NewRepeatableVirtctlCommand(update, machineTypes, machineTypeGlob,
-				setFlag(namespaceFlag, util.NamespaceTestDefault))()
+				setFlag(namespaceFlag, testsuite.NamespaceTestVirtctl))()
 			Expect(err).ToNot(HaveOccurred())
 			job = expectJobExists(virtClient)
 
-			Eventually(ThisVM(vmNamespaceDefaultStopped), 2*time.Minute, time.Second).Should(haveDefaultMachineType())
-			Eventually(ThisVM(vmNamespaceOtherStopped), 2*time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
+			Eventually(ThisVM(vmNamespaceOtherStopped), 2*time.Minute, time.Second).Should(haveDefaultMachineType())
+			Eventually(ThisVM(vmNamespaceDefaultStopped), 2*time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
 		})
 
-		It("Example with label-selector flag", func() {
+		It("Example with label-selector flag", Label("virtctl-update"), func() {
 			vmWithLabelStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, true, false)
 			vmNoLabelStopped := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, false)
 
@@ -143,7 +145,7 @@ var _ = Describe("[sig-compute][virtctl] update machine-types command", decorato
 			Eventually(ThisVM(vmNoLabelStopped), 2*time.Minute, time.Second).Should(haveOriginalMachineType(machineTypeNeedsUpdate))
 		})
 
-		It("Example with force-restart flag", func() {
+		It("[Serial]Example with force-restart flag", Serial, Label("virtctl-update"), func() {
 			By("Creating a running VM that requires machine type update.")
 			vmNeedsUpdateRunning := createVM(machineTypeNeedsUpdate, util.NamespaceTestDefault, false, true)
 			vmiNeedsUpdateRunning, err := virtClient.VirtualMachineInstance(vmNeedsUpdateRunning.Namespace).Get(context.Background(), vmNeedsUpdateRunning.Name, &metav1.GetOptions{})

@@ -75,13 +75,13 @@ func Run() {
 	vmInformer := cache.NewSharedIndexInformer(vmListWatcher, &k6tv1.VirtualMachine{}, 1*time.Hour, cache.Indexers{})
 	vmiInformer := cache.NewSharedIndexInformer(vmiListWatcher, &k6tv1.VirtualMachineInstance{}, 1*time.Hour, cache.Indexers{})
 
-	controller, err := NewJobController(vmInformer, vmiInformer, virtCli)
+	jobController, err := NewJobController(vmInformer, vmiInformer, virtCli)
 	if err != nil {
 		os.Exit(1)
 	}
 
-	go controller.run(controller.ExitJob)
-	<-controller.ExitJob
+	go jobController.run(jobController.ExitJob)
+	<-jobController.ExitJob
 	os.Exit(0)
 }
 
