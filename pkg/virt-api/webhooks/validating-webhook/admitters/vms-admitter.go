@@ -482,6 +482,14 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 				}
 			}
 		}
+
+		if hasCPURequestsOrLimits(&spec.Template.Spec.Domain.Resources) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"),
+				Field:   field.Child("liveUpdateFeatures").String(),
+			})
+		}
 	}
 
 	// Validate Memory Hotplug
@@ -496,6 +504,14 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	if spec.LiveUpdateFeatures != nil &&
 		spec.LiveUpdateFeatures.Memory != nil &&
 		spec.LiveUpdateFeatures.Memory.MaxGuest != nil {
+
+		if hasMemoryLimits(&spec.Template.Spec.Domain.Resources) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Configuration of Memory limits is not allowed when Memory live update is enabled"),
+				Field:   field.Child("liveUpdateFeatures").String(),
+			})
+		}
 
 		if spec.Template.Spec.Domain.CPU != nil &&
 			spec.Template.Spec.Domain.CPU.Realtime != nil {
@@ -934,4 +950,20 @@ func (admitter *VMsAdmitter) isMigrationInProgress(vmi *v1.VirtualMachineInstanc
 		return fmt.Errorf("cannot update while VMI migration is in progress: %v", err)
 	}
 	return nil
+}
+
+func hasCPURequestsOrLimits(rr *v1.ResourceRequirements) bool {
+	if _, ok := rr.Requests[corev1.ResourceCPU]; ok {
+		return true
+	}
+	if _, ok := rr.Limits[corev1.ResourceCPU]; ok {
+		return true
+	}
+
+	return false
+}
+
+func hasMemoryLimits(rr *v1.ResourceRequirements) bool {
+	_, ok := rr.Limits[corev1.ResourceMemory]
+	return ok
 }

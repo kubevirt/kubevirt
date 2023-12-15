@@ -1895,6 +1895,26 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
 			})
 
+			It("should reject VM creation when resource requests are configured", func() {
+				vm.Spec.Template.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
+				vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("400m")
+
+				response := admitVm(vmsAdmitter, vm)
+				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
+			})
+
+			It("should reject VM creation when resource limits are configured", func() {
+				vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+				vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("400m")
+
+				response := admitVm(vmsAdmitter, vm)
+				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
+			})
+
 			When("Hot CPU change is in progress", func() {
 				BeforeEach(func() {
 					vm.Status.Ready = true
@@ -2154,6 +2174,8 @@ var _ = Describe("Validating VM Admitter", func() {
 					Guest: &guest,
 				}
 				vm.Spec.Template.Spec.Architecture = rt.GOARCH
+				vm.Spec.Template.Spec.Domain.Resources.Limits = nil
+				vm.Spec.Template.Spec.Domain.Resources.Requests = nil
 				vm.Status.Ready = true
 			})
 
@@ -2170,6 +2192,14 @@ var _ = Describe("Validating VM Admitter", func() {
 					Type:    metav1.CauseTypeFieldValueNotSupported,
 					Field:   "spec.template.spec.domain.memory.maxGuest",
 					Message: "Memory maxGuest cannot be set directy in VM template",
+				}),
+				Entry("resource limits are configured", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+					vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.liveUpdateFeatures",
+					Message: "Configuration of Memory limits is not allowed when Memory live update is enabled",
 				}),
 				Entry("hugepages is configured", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
