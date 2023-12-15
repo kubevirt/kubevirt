@@ -41,8 +41,8 @@ var (
 	nodeIsolationResult = func() isolation.IsolationResult {
 		return isolation.NodeIsolationResult()
 	}
-	deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
-		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", fmt.Sprintf("/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID)))
+	deviceBasePath = func(podUID types.UID, kubeletPodsDir string) (*safepath.Path, error) {
+		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", kubeletPodsDir, fmt.Sprintf("/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID)))
 	}
 
 	socketPath = func(podUID types.UID) string {
@@ -133,6 +133,7 @@ type volumeMounter struct {
 	skipSafetyCheck    bool
 	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
 	ownershipManager   diskutils.OwnershipManagerInterface
+	kubeletPodsDir     string
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -164,6 +165,7 @@ func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter
 		mountStateDir:      mountStateDir,
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
+		kubeletPodsDir:     kubeletPodsDir,
 	}
 }
 
@@ -438,7 +440,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 }
 
 func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID, volumeName string) (uint64, os.FileMode, error) {
-	basePath, err := deviceBasePath(sourceUID)
+	basePath, err := deviceBasePath(sourceUID, m.kubeletPodsDir)
 	if err != nil {
 		return 0, 0, err
 	}

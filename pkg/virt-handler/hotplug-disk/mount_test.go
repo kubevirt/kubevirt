@@ -279,7 +279,7 @@ var _ = Describe("HotplugVolume", func() {
 				ownershipManager:   ownershipManager,
 			}
 
-			deviceBasePath = func(sourceUID types.UID) (*safepath.Path, error) {
+			deviceBasePath = func(sourceUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return newDir(tempDir, string(sourceUID), "volumes")
 			}
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
@@ -542,7 +542,7 @@ var _ = Describe("HotplugVolume", func() {
 				ownershipManager:   ownershipManager,
 			}
 
-			deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
+			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return volumeDir, nil
 			}
 			isolationDetector = func(path string) isolation.PodIsolationDetector {
@@ -730,7 +730,7 @@ var _ = Describe("HotplugVolume", func() {
 				ownershipManager:   ownershipManager,
 			}
 
-			deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
+			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return newDir(tempDir, string(podUID), "volumes")
 			}
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
@@ -789,7 +789,7 @@ var _ = Describe("HotplugVolume", func() {
 				},
 			})
 			vmi.Status.VolumeStatus = volumeStatuses
-			deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
+			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return newDir(tempDir, string(podUID), "volumeDevices")
 			}
 			blockDevicePath, err := newDir(tempDir, string(sourcePodUID), "volumeDevices", "blockvolume")
@@ -913,7 +913,7 @@ var _ = Describe("HotplugVolume", func() {
 				},
 			})
 			vmi.Status.VolumeStatus = volumeStatuses
-			deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
+			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return newDir(tempDir, string(podUID), "volumeDevices")
 			}
 			blockDevicePath, err := newDir(tempDir, string(sourcePodUID), "volumeDevices", "blockvolume")
