@@ -19,21 +19,20 @@
 package tests_test
 
 import (
+	cryptorand "crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/testsuite"
+	"golang.org/x/crypto/ssh"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -42,7 +41,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, func() {
@@ -457,9 +460,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			var bitSize int = 2048
-			privateKey, _ := tests.GeneratePrivateKey(bitSize)
-			publicKeyBytes, _ := tests.GeneratePublicKey(&privateKey.PublicKey)
-			privateKeyBytes := tests.EncodePrivateKeyToPEM(privateKey)
+			privateKey, _ := generatePrivateKey(bitSize)
+			publicKeyBytes, _ := generatePublicKey(&privateKey.PublicKey)
+			privateKeyBytes := encodePrivateKeyToPEM(privateKey)
 
 			BeforeEach(func() {
 				secretName = "secret-" + uuid.NewRandom().String()
@@ -573,3 +576,47 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
+
+// generatePrivateKey creates a RSA Private Key of specified byte size
+func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
+	privateKey, err := rsa.GenerateKey(cryptorand.Reader, bitSize)
+	if err != nil {
+		return nil, err
+	}
+
+	err = privateKey.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+// generatePublicKey will return in the format "ssh-rsa ..."
+func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
+	publicRsaKey, err := ssh.NewPublicKey(privatekey)
+	if err != nil {
+		return nil, err
+	}
+
+	publicKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
+
+	return publicKeyBytes, nil
+}
+
+// encodePrivateKeyToPEM encodes Private Key from RSA to PEM format
+func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+	// Get ASN.1 DER format
+	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	privateBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privDER,
+	}
+
+	// Private key in PEM format
+	privatePEM := pem.EncodeToMemory(&privateBlock)
+
+	return privatePEM
+}
