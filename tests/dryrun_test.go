@@ -34,7 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sres "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 
@@ -69,7 +71,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7627]create a VirtualMachineInstance", func() {
 			By("Make a Dry-Run request to create a Virtual Machine")
-			err = tests.DryRunCreate(restClient, resource, vmi.Namespace, vmi, nil)
+			err = dryRunCreate(restClient, resource, vmi.Namespace, vmi, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
@@ -110,7 +112,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				vmi.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vmi.Name, vmi.Namespace, vmi, nil)
+				return dryRunUpdate(restClient, resource, vmi.Name, vmi.Namespace, vmi, nil)
 			})
 
 			By("Check that no update actually took place")
@@ -126,7 +128,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vmi.Name, vmi.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vmi.Name, vmi.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -154,7 +156,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7631]create a VirtualMachine", func() {
 			By("Make a Dry-Run request to create a Virtual Machine")
-			err = tests.DryRunCreate(restClient, resource, vm.Namespace, vm, nil)
+			err = dryRunCreate(restClient, resource, vm.Namespace, vm, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
@@ -195,7 +197,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				vm.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vm.Name, vm.Namespace, vm, nil)
+				return dryRunUpdate(restClient, resource, vm.Name, vm.Namespace, vm, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -212,7 +214,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vm.Name, vm.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vm.Name, vm.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -235,7 +237,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7635]create a migration", func() {
 			By("Make a Dry-Run request to create a Migration")
-			err = tests.DryRunCreate(restClient, resource, vmim.Namespace, vmim, vmim)
+			err = dryRunCreate(restClient, resource, vmim.Namespace, vmim, vmim)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no migration was actually created")
@@ -276,7 +278,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				vmim.Annotations = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vmim.Name, vmim.Namespace, vmim, nil)
+				return dryRunUpdate(restClient, resource, vmim.Name, vmim.Namespace, vmim, nil)
 
 			})
 
@@ -295,7 +297,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Make a Dry-Run request to patch the migration")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vmim.Name, vmim.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vmim.Name, vmim.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -317,7 +319,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7639]create a VMI preset", func() {
 			By("Make a Dry-Run request to create a VMI preset")
-			err = tests.DryRunCreate(restClient, resource, preset.Namespace, preset, nil)
+			err = dryRunCreate(restClient, resource, preset.Namespace, preset, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI preset was actually created")
@@ -359,7 +361,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				preset.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, preset.Name, preset.Namespace, preset, nil)
+				return dryRunUpdate(restClient, resource, preset.Name, preset.Namespace, preset, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -376,7 +378,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Make a Dry-Run request to patch a VMI preset")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, preset.Name, preset.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, preset.Name, preset.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -396,7 +398,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7643]create a VMI replicaset", func() {
 			By("Make a Dry-Run request to create a VMI replicaset")
-			err = tests.DryRunCreate(restClient, resource, vmirs.Namespace, vmirs, nil)
+			err = dryRunCreate(restClient, resource, vmirs.Namespace, vmirs, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI replicaset was actually created")
@@ -438,7 +440,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				vmirs.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, vmirs.Name, vmirs.Namespace, vmirs, nil)
+				return dryRunUpdate(restClient, resource, vmirs.Name, vmirs.Namespace, vmirs, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -455,7 +457,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Make a Dry-Run request to patch a VMI replicaset")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, vmirs.Name, vmirs.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, vmirs.Name, vmirs.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -499,7 +501,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				kv.Labels = map[string]string{
 					"key": "42",
 				}
-				return tests.DryRunUpdate(restClient, resource, kv.Name, kv.Namespace, kv, nil)
+				return dryRunUpdate(restClient, resource, kv.Name, kv.Namespace, kv, nil)
 			})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -512,7 +514,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		It("[test_id:7650]patch a KubeVirt CR", func() {
 			By("Make a Dry-Run request to patch a KubeVirt CR")
 			patch := []byte(`{"metadata": {"labels": {"key": "42"}}}`)
-			err = tests.DryRunPatch(restClient, resource, kv.Name, kv.Namespace, types.MergePatchType, patch, nil)
+			err = dryRunPatch(restClient, resource, kv.Name, kv.Namespace, types.MergePatchType, patch, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
@@ -803,4 +805,39 @@ func waitForSnapshotToBeReady(virtClient kubecli.KubevirtClient, snapshot *v1alp
 		Expect(err).ToNot(HaveOccurred())
 		return updatedSnap.Status != nil && updatedSnap.Status.ReadyToUse != nil && *updatedSnap.Status.ReadyToUse
 	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), "Should be ready to use")
+}
+
+func dryRunCreate(client *rest.RESTClient, resource, namespace string, obj interface{}, result runtime.Object) error {
+	opts := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+	return client.Post().
+		Namespace(namespace).
+		Resource(resource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(obj).
+		Do(context.Background()).
+		Into(result)
+}
+
+func dryRunUpdate(client *rest.RESTClient, resource, name, namespace string, obj interface{}, result runtime.Object) error {
+	opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+	return client.Put().
+		Name(name).
+		Namespace(namespace).
+		Resource(resource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(obj).
+		Do(context.Background()).
+		Into(result)
+}
+
+func dryRunPatch(client *rest.RESTClient, resource, name, namespace string, pt types.PatchType, data []byte, result runtime.Object) error {
+	opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
+	return client.Patch(pt).
+		Name(name).
+		Namespace(namespace).
+		Resource(resource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(data).
+		Do(context.Background()).
+		Into(result)
 }
