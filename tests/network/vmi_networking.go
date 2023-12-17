@@ -653,10 +653,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		}
 
 		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
+			if ipv6NetworkCIDR == "" {
+				ipv6NetworkCIDR = libnet.DefaultIPv6CIDR
+			}
 			networkData, err := libnet.NewNetworkData(
 				libnet.WithEthernet("eth0",
 					libnet.WithDHCP4Enabled(),
-					libnet.WithDHCP6Enabled(),
+					libnet.WithAddresses(ipv6NetworkCIDR),
+					libnet.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
 				),
 			)
 			if err != nil {
@@ -672,27 +676,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 
 			return vmi, nil
-		}
-
-		configureIpv6 := func(vmi *v1.VirtualMachineInstance, networkCIDR string) error {
-			if networkCIDR == "" {
-				networkCIDR = api.DefaultVMIpv6CIDR
-			}
-
-			err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
-			if err != nil {
-				return err
-			}
-			err = console.RunCommand(vmi, "ip -6 route add "+networkCIDR+" dev eth0", 5*time.Second)
-			if err != nil {
-				return err
-			}
-			gateway := gatewayIPFromCIDR(networkCIDR)
-			err = console.RunCommand(vmi, "ip -6 route add default via "+gateway, 5*time.Second)
-			if err != nil {
-				return err
-			}
-			return nil
 		}
 
 		portsUsedByLiveMigration := func() []v1.Port {
@@ -802,8 +785,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
-				Expect(configureIpv6(clientVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6 on client vmi")
-
 				serverVMI, err = fedoraMasqueradeVMI(ports, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -811,8 +792,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
-
-				Expect(configureIpv6(serverVMI, networkCIDR)).To(Succeed(), "failed to configure ipv6  on server vmi")
 
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
@@ -825,7 +804,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
 				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
-				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
+				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
@@ -843,7 +822,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
-				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).To(Succeed(), "failed to configure ipv6 on vmi")
 
 				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
 				Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
@@ -939,8 +917,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(configureIpv6(vmi, api.DefaultVMIpv6CIDR)).ToNot(HaveOccurred())
-
 				By("Check connectivity")
 				podIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv6Protocol)
 				Expect(ping(podIP)).To(Succeed())
@@ -952,12 +928,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
-
-				Expect(ping(podIP)).To(Succeed())
-
-				By("Initiating DHCP client request after migration")
-				Expect(console.RunCommand(vmi, "sudo dhclient -6 -r eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to release dhcp client")
-				Expect(console.RunCommand(vmi, "sudo dhclient -6 eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to run dhcp client")
 
 				Expect(ping(podIP)).To(Succeed())
 			})
