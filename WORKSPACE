@@ -1764,18 +1764,18 @@ rpm(
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-390.el9.aarch64",
-    sha256 = "e6e2fc336d80aa44fe72230bd0bc14df3e8c9062b6876c597170f6cd53b6a435",
+    name = "kernel-headers-0__5.14.0-391.el9.aarch64",
+    sha256 = "1abfdd2b5a1d55c7374f8534c5c2079fd8b04e443e7217766f74aeefc5411301",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-390.el9.aarch64.rpm",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-391.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-390.el9.x86_64",
-    sha256 = "13c602c556d2a26dd9bb80a17ae5f01a2640cd32fd273d4a62ed01ff247c8b82",
+    name = "kernel-headers-0__5.14.0-391.el9.x86_64",
+    sha256 = "1f11b088ce594329abffd8015b998e443498a05f6979a2de382e6e4a227baaf7",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-390.el9.x86_64.rpm",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-391.el9.x86_64.rpm",
     ],
 )
 
