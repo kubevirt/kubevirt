@@ -1050,6 +1050,7 @@ func (d *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMach
 		vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
 		vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
 		vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
+		vmi.Status.GuestOSInfo.Machine = domain.Status.OSInfo.Machine
 		vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
 	}
 }
