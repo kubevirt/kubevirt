@@ -480,10 +480,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
-			Entry("without CPUManagerPolicyBetaOptions feature gate enabled",
-				map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: string(v1.CPUManagerPolicyBetaOptionFullpCPUsOnly)},
-				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.CPUManagerPolicyBetaOptionsAnnotation),
-			),
 		)
 
 		DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
@@ -502,10 +498,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("with sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				virtconfig.SidecarGate,
-			),
-			Entry("with CPUManagerPolicyBetaOptions feature gate enabled",
-				map[string]string{v1.CPUManagerPolicyBetaOptionsAnnotation: string(v1.CPUManagerPolicyBetaOptionFullpCPUsOnly)},
-				virtconfig.CPUManagerPolicyBetaOptionsGate,
 			),
 		)
 	})

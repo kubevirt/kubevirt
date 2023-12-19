@@ -2032,8 +2032,7 @@ var _ = Describe("Converter", func() {
 
 	Context("Correctly handle IsolateEmulatorThread with dedicated cpus", func() {
 		DescribeTable("should succeed assigning CPUs to emulatorThread",
-			func(cpu v1.CPU, converterContext *ConverterContext, CPUManagerPolicyBetaOption v1.CPUManagerPolicyBetaOptions,
-				expectedEmulatorThreads int) {
+			func(cpu v1.CPU, converterContext *ConverterContext, vmiAnnotations map[string]string, expectedEmulatorThreads int) {
 				var err error
 				domain := &api.Domain{}
 
@@ -2046,7 +2045,7 @@ var _ = Describe("Converter", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				vCPUs := hardware.GetNumberOfVCPUs(&cpu)
-				emulatorThreadsCPUSet, err := vcpu.FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption, vCPUs)
+				emulatorThreadsCPUSet, err := vcpu.FormatEmulatorThreadPin(cpuPool, vmiAnnotations, vCPUs)
 				Expect(err).ToNot(HaveOccurred())
 				By("checking that the housekeeping CPUSet has the expected amount of CPUs")
 				housekeepingCPUs, err := hardware.ParseCPUSetLine(emulatorThreadsCPUSet, 100)
@@ -2059,7 +2058,7 @@ var _ = Describe("Converter", func() {
 					Expect(CPUTuneCPUs).ToNot(ContainElements(housekeepingCPUs))
 				}
 			},
-			Entry("when full-pcpu-only is disabled and there is one extra CPU assigned for emulatorThread",
+			Entry("when EmulatorThreadCompleteToEvenParity is disabled and there is one extra CPU assigned for emulatorThread",
 				v1.CPU{Sockets: 1, Cores: 2, Threads: 1},
 				&ConverterContext{CPUSet: []int{5, 6, 7},
 					Topology: &cmdv1.Topology{
@@ -2071,9 +2070,9 @@ var _ = Describe("Converter", func() {
 						}},
 					},
 				},
-				v1.CPUManagerPolicyBetaOptions(""),
+				map[string]string{},
 				1),
-			Entry("when full-pcpu-only is enabled and there is one extra CPU assigned for emulatorThread (odd CPUs)",
+			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there is one extra CPU assigned for emulatorThread (odd CPUs)",
 				v1.CPU{Sockets: 1, Cores: 5, Threads: 1},
 				&ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10},
 					Topology: &cmdv1.Topology{
@@ -2085,9 +2084,9 @@ var _ = Describe("Converter", func() {
 						}},
 					},
 				},
-				v1.CPUManagerPolicyBetaOptionFullpCPUsOnly,
+				map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
 				1),
-			Entry("when full-pcpu-only is enabled and there are two extra CPUs assigned for emulatorThread (even CPUs)",
+			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are two extra CPUs assigned for emulatorThread (even CPUs)",
 				v1.CPU{Sockets: 1, Cores: 6, Threads: 1},
 				&ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12},
 					Topology: &cmdv1.Topology{
@@ -2099,12 +2098,11 @@ var _ = Describe("Converter", func() {
 						}},
 					},
 				},
-				v1.CPUManagerPolicyBetaOptionFullpCPUsOnly,
+				map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
 				2),
 		)
 		DescribeTable("should fail assigning CPUs to emulatorThread",
-			func(cpu v1.CPU, converterContext *ConverterContext, CPUManagerPolicyBetaOption v1.CPUManagerPolicyBetaOptions,
-				expectedErrorString string) {
+			func(cpu v1.CPU, converterContext *ConverterContext, vmiAnnotations map[string]string, expectedErrorString string) {
 				var err error
 				domain := &api.Domain{}
 
@@ -2117,10 +2115,10 @@ var _ = Describe("Converter", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				vCPUs := hardware.GetNumberOfVCPUs(&cpu)
-				_, err = vcpu.FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption, vCPUs)
+				_, err = vcpu.FormatEmulatorThreadPin(cpuPool, vmiAnnotations, vCPUs)
 				Expect(err).To(MatchError(ContainSubstring(expectedErrorString)))
 			},
-			Entry("when full-pcpu-only is disabled and there are not enough CPUs to allocate emulator threads",
+			Entry("when EmulatorThreadCompleteToEvenParity is disabled and there are not enough CPUs to allocate emulator threads",
 				v1.CPU{Sockets: 1, Cores: 2, Threads: 1},
 				&ConverterContext{CPUSet: []int{5, 6},
 					Topology: &cmdv1.Topology{
@@ -2131,9 +2129,9 @@ var _ = Describe("Converter", func() {
 						}},
 					},
 				},
-				v1.CPUManagerPolicyBetaOptions(""),
+				map[string]string{},
 				"no CPU allocated for the emulation thread"),
-			Entry("when full-pcpu-only is enabled and there are not enough Cores to allocate emulator threads (odd CPUs)",
+			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are not enough Cores to allocate emulator threads (odd CPUs)",
 				v1.CPU{Sockets: 1, Cores: 3, Threads: 1},
 				&ConverterContext{CPUSet: []int{5, 6, 7},
 					Topology: &cmdv1.Topology{
@@ -2145,9 +2143,9 @@ var _ = Describe("Converter", func() {
 						}},
 					},
 				},
-				v1.CPUManagerPolicyBetaOptionFullpCPUsOnly,
+				map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
 				"no CPU allocated for the emulation thread"),
-			Entry("when full-pcpu-only is enabled and there are not enough Cores to allocate emulator threads (even CPUs)",
+			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are not enough Cores to allocate emulator threads (even CPUs)",
 				v1.CPU{Sockets: 1, Cores: 2, Threads: 1},
 				&ConverterContext{CPUSet: []int{5, 6, 7},
 					Topology: &cmdv1.Topology{
@@ -2159,7 +2157,7 @@ var _ = Describe("Converter", func() {
 						}},
 					},
 				},
-				v1.CPUManagerPolicyBetaOptionFullpCPUsOnly,
+				map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
 				"no second CPU allocated for the emulation thread"),
 		)
 	})

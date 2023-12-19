@@ -97,6 +97,18 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			addNodeSelector(newVMI, v1.SEVESLabel)
 		}
 
+		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
+			_, emulatorThreadCompleteToEvenParityAnnotationExists := mutator.ClusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
+			if emulatorThreadCompleteToEvenParityAnnotationExists &&
+				mutator.ClusterConfig.AlignCPUsEnabled() {
+				log.Log.V(4).Infof("Copy %s annotation from Kubevirt CR", v1.EmulatorThreadCompleteToEvenParity)
+				if newVMI.Annotations == nil {
+					newVMI.Annotations = map[string]string{}
+				}
+				newVMI.Annotations[v1.EmulatorThreadCompleteToEvenParity] = ""
+			}
+		}
+
 		// Add foreground finalizer
 		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
 

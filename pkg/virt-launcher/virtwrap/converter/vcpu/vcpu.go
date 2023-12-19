@@ -410,7 +410,7 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 	return nil
 }
 
-func FormatEmulatorThreadPin(cpuPool VCPUPool, CPUManagerPolicyBetaOption v12.CPUManagerPolicyBetaOptions, vCPUs int64) (string, error) {
+func FormatEmulatorThreadPin(cpuPool VCPUPool, vmiAnnotations map[string]string, vCPUs int64) (string, error) {
 	var emulatorThreads []uint32
 
 	availableThread, err := cpuPool.FitThread()
@@ -421,8 +421,8 @@ func FormatEmulatorThreadPin(cpuPool VCPUPool, CPUManagerPolicyBetaOption v12.CP
 	}
 	emulatorThreads = append(emulatorThreads, availableThread)
 
-	fullpCPUsOnly := CPUManagerPolicyBetaOption == v12.CPUManagerPolicyBetaOptionFullpCPUsOnly
-	if fullpCPUsOnly &&
+	_, emulatorThreadCompleteToEvenParityEnabled := vmiAnnotations[v12.EmulatorThreadCompleteToEvenParity]
+	if emulatorThreadCompleteToEvenParityEnabled &&
 		vCPUs%2 == 0 {
 		availableThread, err = cpuPool.FitThread()
 		if err != nil {
@@ -482,9 +482,8 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 
 	var emulatorThreadsCPUSet string
 	if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		CPUManagerPolicyBetaOption := v12.CPUManagerPolicyBetaOptions(vmi.Annotations[v12.CPUManagerPolicyBetaOptionsAnnotation])
 		vCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, CPUManagerPolicyBetaOption, vCPUs); err != nil {
+		if emulatorThreadsCPUSet, err = FormatEmulatorThreadPin(cpuPool, vmi.Annotations, vCPUs); err != nil {
 			log.Log.Reason(err).Error("failed to format emulation thread pin")
 			return err
 		}

@@ -1033,8 +1033,8 @@ const (
 	// MigrationInterfaceName is an arbitrary name used in virt-handler to connect it to a dedicated migration network
 	MigrationInterfaceName string = "migration0"
 
-	// CPUManagerPolicyBetaOptionsAnnotation indicates the CPU-Manager policy that the pod adheres to.
-	CPUManagerPolicyBetaOptionsAnnotation string = "kubevirt.io/CPUManagerPolicyBetaOptions"
+	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
+	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -2251,13 +2251,6 @@ type VirtualMachineMemoryDumpRequest struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 }
-
-type CPUManagerPolicyBetaOptions string
-
-const (
-	// full-pcpus-only static policy allows only full physical CPUs to be scheduled to a pod
-	CPUManagerPolicyBetaOptionFullpCPUsOnly CPUManagerPolicyBetaOptions = "full-pcpus-only"
-)
 
 type MemoryDumpPhase string
 

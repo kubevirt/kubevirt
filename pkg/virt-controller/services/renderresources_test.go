@@ -171,22 +171,21 @@ var _ = Describe("Resource pod spec renderer", func() {
 	})
 
 	Context("WithCPUPinning option", func() {
-		const cpuManagerPolicyBetaOptionsAnnotationDisabled = ""
 		userCPURequest := resource.MustParse("200m")
 		userSpecifiedCPU := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
 
 		It("the user requested CPU configs are *not* overriden", func() {
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, cpuManagerPolicyBetaOptionsAnnotationDisabled))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
 		It("carries over the CPU limits as requests when no CPUs are requested", func() {
-			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(&v1.CPU{}, cpuManagerPolicyBetaOptionsAnnotationDisabled))
+			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(&v1.CPU{}, map[string]string{}))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
 		It("carries over the CPU requests as limits when no CPUs are requested", func() {
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{}, cpuManagerPolicyBetaOptionsAnnotationDisabled))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{}, map[string]string{}))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
@@ -196,7 +195,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 				kubev1.ResourceCPU:    userCPURequest,
 				kubev1.ResourceMemory: memoryRequest,
 			}
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, cpuManagerPolicyBetaOptionsAnnotationDisabled))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("200m")))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
 		})
@@ -205,17 +204,14 @@ var _ = Describe("Resource pod spec renderer", func() {
 			userSpecifiedCPURequest := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
 
 			DescribeTable("requires additional EmulatorThread CPUs overhead, and additional CPUs added to the limits",
-				func(fullPCPUEnabled, defineUserSpecifiedCPULimit bool, cores uint32, expectedCPUOverhead string) {
+				func(vmiAnnotations map[string]string, defineUserSpecifiedCPULimit bool, cores uint32, expectedCPUOverhead string) {
 					cpuIsolatedEmulatorThreadOverhead := resource.MustParse(expectedCPUOverhead)
 					var userSpecifiedCPULimit kubev1.ResourceList
-					var cpuManagerPolicyBetaOption v1.CPUManagerPolicyBetaOptions
 
 					if defineUserSpecifiedCPULimit {
 						userSpecifiedCPULimit = kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
 					}
-					if fullPCPUEnabled {
-						cpuManagerPolicyBetaOption = v1.CPUManagerPolicyBetaOptionFullpCPUsOnly
-					}
+
 					rr = NewResourceRenderer(
 						userSpecifiedCPULimit,
 						userSpecifiedCPURequest,
@@ -223,7 +219,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 							Cores:                 cores,
 							IsolateEmulatorThread: true,
 						},
-							cpuManagerPolicyBetaOption),
+							vmiAnnotations),
 					)
 					Expect(rr.Limits()).To(HaveKeyWithValue(
 						kubev1.ResourceCPU,
@@ -234,12 +230,12 @@ var _ = Describe("Resource pod spec renderer", func() {
 						addResources(userCPURequest, cpuIsolatedEmulatorThreadOverhead),
 					))
 				},
-				Entry("full-pcpu-only mode is disabled, only CPU requests set by the user", false, false, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is disabled, request and limits set by the user", false, true, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is enabled, only CPU requests set by the user, odd amount of cores is requested", true, false, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is enabled, only CPU requests set by the user, even amount of cores is requested", true, false, uint32(6), "2000m"),
-				Entry("full-pcpu-only mode is enabled, request and limits set by the user, odd amount of cores is requested", true, true, uint32(5), "1000m"),
-				Entry("full-pcpu-only mode is enabled, request and limits set by the user, even amount of cores is requested", true, true, uint32(6), "2000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is disabled, only CPU requests set by the user", map[string]string{}, false, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is disabled, request and limits set by the user", map[string]string{}, true, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, only CPU requests set by the user, odd amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, only CPU requests set by the user, even amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false, uint32(6), "2000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, odd amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(5), "1000m"),
+				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, even amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(6), "2000m"),
 			)
 		})
 	})

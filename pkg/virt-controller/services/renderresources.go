@@ -199,7 +199,7 @@ func WithAutoMemoryLimits(namespace string, namespaceStore cache.Store) Resource
 	}
 }
 
-func WithCPUPinning(cpu *v1.CPU, cpuManagerPolicyBetaOption v1.CPUManagerPolicyBetaOptions) ResourceRendererOption {
+func WithCPUPinning(cpu *v1.CPU, annotations map[string]string) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		vcpus := hardware.GetNumberOfVCPUs(cpu)
 		if vcpus != 0 {
@@ -217,7 +217,8 @@ func WithCPUPinning(cpu *v1.CPU, cpuManagerPolicyBetaOption v1.CPUManagerPolicyB
 			emulatorThreadCPUs := resource.NewQuantity(1, resource.BinarySI)
 
 			limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
-			if cpuManagerPolicyBetaOption == v1.CPUManagerPolicyBetaOptionFullpCPUsOnly &&
+			_, emulatorThreadCompleteToEvenParityAnnotationExists := annotations[v1.EmulatorThreadCompleteToEvenParity]
+			if emulatorThreadCompleteToEvenParityAnnotationExists &&
 				limits.Value()%2 == 0 {
 				emulatorThreadCPUs = resource.NewQuantity(2, resource.BinarySI)
 			}
