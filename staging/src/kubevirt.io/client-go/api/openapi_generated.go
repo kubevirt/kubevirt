@@ -333,6 +333,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ComponentConfig":                                                    schema_kubevirtio_api_core_v1_ComponentConfig(ref),
 		"kubevirt.io/api/core/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation":                 schema_kubevirtio_api_core_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/api/core/v1.ConfigMapVolumeSource":                                              schema_kubevirtio_api_core_v1_ConfigMapVolumeSource(ref),
+		"kubevirt.io/api/core/v1.ContainerDiskInfo":                                                  schema_kubevirtio_api_core_v1_ContainerDiskInfo(ref),
 		"kubevirt.io/api/core/v1.ContainerDiskSource":                                                schema_kubevirtio_api_core_v1_ContainerDiskSource(ref),
 		"kubevirt.io/api/core/v1.CustomBlockSize":                                                    schema_kubevirtio_api_core_v1_CustomBlockSize(ref),
 		"kubevirt.io/api/core/v1.CustomProfile":                                                      schema_kubevirtio_api_core_v1_CustomProfile(ref),
@@ -382,6 +383,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Hugepages":                                                          schema_kubevirtio_api_core_v1_Hugepages(ref),
 		"kubevirt.io/api/core/v1.HypervTimer":                                                        schema_kubevirtio_api_core_v1_HypervTimer(ref),
 		"kubevirt.io/api/core/v1.I6300ESBWatchdog":                                                   schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
+		"kubevirt.io/api/core/v1.InitrdInfo":                                                         schema_kubevirtio_api_core_v1_InitrdInfo(ref),
 		"kubevirt.io/api/core/v1.Input":                                                              schema_kubevirtio_api_core_v1_Input(ref),
 		"kubevirt.io/api/core/v1.InstancetypeMatcher":                                                schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                          schema_kubevirtio_api_core_v1_Interface(ref),
@@ -396,6 +398,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.KVMTimer":                                                           schema_kubevirtio_api_core_v1_KVMTimer(ref),
 		"kubevirt.io/api/core/v1.KernelBoot":                                                         schema_kubevirtio_api_core_v1_KernelBoot(ref),
 		"kubevirt.io/api/core/v1.KernelBootContainer":                                                schema_kubevirtio_api_core_v1_KernelBootContainer(ref),
+		"kubevirt.io/api/core/v1.KernelBootStatus":                                                   schema_kubevirtio_api_core_v1_KernelBootStatus(ref),
+		"kubevirt.io/api/core/v1.KernelInfo":                                                         schema_kubevirtio_api_core_v1_KernelInfo(ref),
 		"kubevirt.io/api/core/v1.KubeVirt":                                                           schema_kubevirtio_api_core_v1_KubeVirt(ref),
 		"kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy":                                  schema_kubevirtio_api_core_v1_KubeVirtCertificateRotateStrategy(ref),
 		"kubevirt.io/api/core/v1.KubeVirtCondition":                                                  schema_kubevirtio_api_core_v1_KubeVirtCondition(ref),
@@ -16352,6 +16356,26 @@ func schema_kubevirtio_api_core_v1_ConfigMapVolumeSource(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ContainerDiskInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ContainerDiskInfo shows info about the containerdisk",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"checksum": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_ContainerDiskSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18271,6 +18295,26 @@ func schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref common.ReferenceCallback
 	}
 }
 
+func schema_kubevirtio_api_core_v1_InitrdInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InitrdInfo show info about the initrd file",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"checksum": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Checksum is the checksum of the initrd file",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Input(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18695,6 +18739,53 @@ func schema_kubevirtio_api_core_v1_KernelBootContainer(ref common.ReferenceCallb
 					},
 				},
 				Required: []string{"image"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_KernelBootStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelBootStatus contains info about the kernelBootContainer",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kernelInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KernelInfo show info about the kernel image",
+							Ref:         ref("kubevirt.io/api/core/v1.KernelInfo"),
+						},
+					},
+					"initrdInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InitrdInfo show info about the initrd file",
+							Ref:         ref("kubevirt.io/api/core/v1.InitrdInfo"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.InitrdInfo", "kubevirt.io/api/core/v1.KernelInfo"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_KernelInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelInfo show info about the kernel image",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"checksum": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Checksum is the checksum of the kernel image",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -23828,6 +23919,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							},
 						},
 					},
+					"kernelBootStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KernelBootStatus contains info about the kernelBootContainer",
+							Ref:         ref("kubevirt.io/api/core/v1.KernelBootStatus"),
+						},
+					},
 					"fsFreezeStatus": {
 						SchemaProps: spec.SchemaProps{
 							Description: "FSFreezeStatus is the state of the fs of the guest it can be either frozen or thawed",
@@ -23885,7 +23982,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
+			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.KernelBootStatus", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
 	}
 }
 
@@ -24727,12 +24824,18 @@ func schema_kubevirtio_api_core_v1_VolumeStatus(ref common.ReferenceCallback) co
 							Ref:         ref("kubevirt.io/api/core/v1.DomainMemoryDumpInfo"),
 						},
 					},
+					"containerDiskVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk",
+							Ref:         ref("kubevirt.io/api/core/v1.ContainerDiskInfo"),
+						},
+					},
 				},
 				Required: []string{"name", "target"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DomainMemoryDumpInfo", "kubevirt.io/api/core/v1.HotplugVolumeStatus", "kubevirt.io/api/core/v1.PersistentVolumeClaimInfo"},
+			"kubevirt.io/api/core/v1.ContainerDiskInfo", "kubevirt.io/api/core/v1.DomainMemoryDumpInfo", "kubevirt.io/api/core/v1.HotplugVolumeStatus", "kubevirt.io/api/core/v1.PersistentVolumeClaimInfo"},
 	}
 }
 

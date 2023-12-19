@@ -64,3 +64,14 @@ func (_m *MockMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 func (_mr *_MockMounterRecorder) Unmount(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unmount", arg0)
 }
+
+func (_m *MockMounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error) {
+	ret := _m.ctrl.Call(_m, "ComputeChecksums", vmi)
+	ret0, _ := ret[0].(*DiskChecksums)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMounterRecorder) ComputeChecksums(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ComputeChecksums", arg0)
+}
