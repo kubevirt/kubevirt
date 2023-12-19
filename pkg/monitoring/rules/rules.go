@@ -20,8 +20,8 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatorrules"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/rules/alerts"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules/recordingrules"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const (
@@ -30,14 +30,17 @@ const (
 	prometheusLabelKey   = "prometheus.kubevirt.io"
 	prometheusLabelValue = "true"
 
-	k8sAppLabelKey         = "k8s-app"
-	partOfAlertLabelKey    = "kubernetes_operator_part_of"
-	componentAlertLabelKey = "kubernetes_operator_component"
-	kubevirtLabelValue     = "kubevirt"
+	k8sAppLabelKey     = "k8s-app"
+	kubevirtLabelValue = "kubevirt"
 )
 
 func SetupRules(namespace string) error {
 	err := recordingrules.Register(namespace)
+	if err != nil {
+		return err
+	}
+
+	err = alerts.Register(namespace)
 	if err != nil {
 		return err
 	}
@@ -58,20 +61,13 @@ func BuildPrometheusRule(namespace string) (*promv1.PrometheusRule, error) {
 		return nil, err
 	}
 
-	// Add alerts to the PrometheusRule
-	alerts := components.GetPrometheusAlerts(namespace)
-	for _, alert := range alerts {
-		alert.Labels[partOfAlertLabelKey] = kubevirtLabelValue
-		alert.Labels[componentAlertLabelKey] = kubevirtLabelValue
-	}
-	rules.Spec.Groups = append(rules.Spec.Groups, promv1.RuleGroup{
-		Name:  "alerts.rules",
-		Rules: alerts,
-	})
-
 	return rules, nil
 }
 
 func ListRecordingRules() []operatorrules.RecordingRule {
 	return operatorrules.ListRecordingRules()
+}
+
+func ListAlerts() []promv1.Rule {
+	return operatorrules.ListAlerts()
 }
