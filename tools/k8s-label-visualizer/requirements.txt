@@ -4,7 +4,7 @@ chardet==5.2.0
 google-auth==2.25.1
 graphviz==0.20.1
 idna==3.6
-kubernetes==28.1.0
+kubernetes==29.0.0a1
 marshmallow==3.20.1
 marshmallow-dataclass==8.6.0
 mypy-extensions==1.0.0
