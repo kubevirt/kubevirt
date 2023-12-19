@@ -359,7 +359,7 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clonev1alpha1.Virtu
 	snapshot := generateSnapshot(vmClone, vm)
 	syncInfo.logger.Infof("creating snapshot %s for clone %s", snapshot.Name, vmClone.Name)
 
-	snapshot, err := ctrl.client.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
+	createdSnapshot, err := ctrl.client.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return snapshot, addErrorToSyncInfo(syncInfo, fmt.Errorf("failed creating snapshot %s for clone %s: %v", snapshot.Name, vmClone.Name, err))
@@ -368,6 +368,7 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clonev1alpha1.Virtu
 		return snapshot, syncInfo
 	}
 
+	snapshot = createdSnapshot
 	ctrl.logAndRecord(vmClone, SnapshotCreated, fmt.Sprintf("created snapshot %s for clone %s", snapshot.Name, vmClone.Name))
 	syncInfo.snapshotName = snapshot.Name
 
@@ -419,7 +420,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.Virtua
 	patches := generatePatches(vm, &vmClone.Spec)
 	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches)
 	syncInfo.logger.Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
-	restore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
+	createdRestore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return addErrorToSyncInfo(syncInfo, fmt.Errorf("failed creating restore %s for clone %s: %v", restore.Name, vmClone.Name, err))
@@ -428,7 +429,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.Virtua
 		return syncInfo
 
 	}
-
+	restore = createdRestore
 	ctrl.logAndRecord(vmClone, RestoreCreated, fmt.Sprintf("created restore %s for clone %s", restore.Name, vmClone.Name))
 	syncInfo.restoreName = restore.Name
 
