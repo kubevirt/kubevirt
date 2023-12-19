@@ -33,6 +33,10 @@ func (c *HistogramVec) GetType() MetricType {
 	return HistogramVecType
 }
 
+func (c *HistogramVec) GetBaseType() MetricType {
+	return HistogramType
+}
+
 func (c *HistogramVec) getCollector() prometheus.Collector {
 	return c.HistogramVec
 }

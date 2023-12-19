@@ -27,6 +27,10 @@ func (c *Counter) GetType() MetricType {
 	return CounterType
 }
 
+func (c *Counter) GetBaseType() MetricType {
+	return CounterType
+}
+
 func (c *Counter) getCollector() prometheus.Collector {
 	return c.Counter
 }

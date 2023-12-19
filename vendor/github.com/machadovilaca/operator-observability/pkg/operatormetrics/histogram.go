@@ -59,6 +59,10 @@ func (c *Histogram) GetType() MetricType {
 	return HistogramType
 }
 
+func (c *Histogram) GetBaseType() MetricType {
+	return HistogramType
+}
+
 func (c *Histogram) getCollector() prometheus.Collector {
 	return c.Histogram
 }

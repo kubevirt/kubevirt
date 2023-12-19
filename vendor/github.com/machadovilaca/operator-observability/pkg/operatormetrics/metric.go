@@ -3,17 +3,18 @@ package operatormetrics
 import "github.com/prometheus/client_golang/prometheus"
 
 type MetricOpts struct {
-	Name string
-	Help string
-
+	Name        string
+	Help        string
 	ConstLabels map[string]string
-
 	ExtraFields map[string]string
+
+	labels []string
 }
 
 type Metric interface {
 	GetOpts() MetricOpts
 	GetType() MetricType
+	GetBaseType() MetricType
 
 	getCollector() prometheus.Collector
 }
