@@ -7,13 +7,16 @@ import (
 	"os"
 	"time"
 
+	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
-	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	virtutil "kubevirt.io/kubevirt/pkg/util"
@@ -24,18 +27,23 @@ import (
 const failedSetCPUManagerLabelFmt = "failed to set a cpu manager label on host %s"
 
 type HeartBeat struct {
-	clientset                 k8scli.CoreV1Interface
+	nodeClientSet             k8scli.NodeInterface
+	shadowNodeClient          kubecli.ShadowNodeInterface
 	deviceManagerController   device_manager.DeviceControllerInterface
 	clusterConfig             *virtconfig.ClusterConfig
 	host                      string
 	cpuManagerPaths           []string
 	devicePluginPollIntervall time.Duration
 	devicePluginWaitTimeout   time.Duration
+	// Indicates if "Node" object needs to be updated or ShadowNode is fully functional
+	// This is optimization because heartbeat is executed more often than any Node update
+	updateNodeHeartBeat bool
 }
 
-func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
+func NewHeartBeat(shadowClient kubecli.ShadowNodeInterface, nodeClient k8scli.NodeInterface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
 	return &HeartBeat{
-		clientset:               clientset,
+		shadowNodeClient:        shadowClient,
+		nodeClientSet:           nodeClient,
 		deviceManagerController: deviceManager,
 		clusterConfig:           clusterConfig,
 		host:                    host,
@@ -43,6 +51,8 @@ func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager
 		cpuManagerPaths:           []string{virtutil.CPUManagerPath, virtutil.CPUManagerOS3Path},
 		devicePluginPollIntervall: 1 * time.Second,
 		devicePluginWaitTimeout:   10 * time.Second,
+
+		updateNodeHeartBeat: true,
 	}
 }
 
@@ -93,7 +103,13 @@ func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {
 			v1.CPUManager, cpuManagerEnabled,
 			v1.VirtHandlerHeartbeat, string(now),
 		))
-		_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+
+		// TODO: This can be safely removed once we do not support upgrade from a version that does not have Shadow Node
+		_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		if err != nil && !errors.IsForbidden(err) {
+			log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
+		}
+		_, err = h.shadowNodeClient.Patch(context.TODO(), h.host, types.MergePatchType, data, metav1.PatchOptions{})
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
 			return
@@ -136,7 +152,7 @@ func (h *HeartBeat) do() {
 		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
 	}
 
-	node, err := h.clientset.Nodes().Get(context.Background(), h.host, metav1.GetOptions{})
+	node, err := h.nodeClientSet.Get(context.Background(), h.host, metav1.GetOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Can't get node %s", h.host)
 		return
@@ -150,7 +166,18 @@ func (h *HeartBeat) do() {
 		v1.VirtHandlerHeartbeat, string(now),
 		v1.KSMHandlerManagedAnnotation, ksmEnabledByUs,
 	))
-	_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	// TODO: This can be safely removed once we do not support upgrade from a version that does not have Shadow Node
+	if h.updateNodeHeartBeat {
+		_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		if err != nil {
+			if errors.IsForbidden(err) {
+				h.updateNodeHeartBeat = false
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
+			}
+		}
+	}
+	_, err = h.shadowNodeClient.Patch(context.TODO(), h.host, types.MergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
 		return

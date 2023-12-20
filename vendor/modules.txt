@@ -1213,6 +1213,8 @@ kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1/fake
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1

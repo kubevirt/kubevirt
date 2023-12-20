@@ -117,6 +117,8 @@ type KubeInformerFactory interface {
 	// Watches for nodes
 	KubeVirtNode() cache.SharedIndexInformer
 
+	KubeVirtShadowNode() cache.SharedIndexInformer
+
 	// VirtualMachine handles the VMIs that are stopped or not running
 	VirtualMachine() cache.SharedIndexInformer
 
@@ -516,6 +518,13 @@ func (f *kubeInformerFactory) KubeVirtNode() cache.SharedIndexInformer {
 	return f.getInformer("kubeVirtNodeInformer", func() cache.SharedIndexInformer {
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Node{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) KubeVirtShadowNode() cache.SharedIndexInformer {
+	return f.getInformer("shadowNodeInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "shadownodes", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.ShadowNode{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

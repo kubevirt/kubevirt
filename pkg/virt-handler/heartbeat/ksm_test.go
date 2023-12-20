@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	gtypes "github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
@@ -42,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	gomegatypes "github.com/onsi/gomega/types"
+	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 )
 
 const (
@@ -124,14 +126,15 @@ var _ = Describe("KSM", func() {
 		}
 		fakeClient := fake.NewSimpleClientset(node)
 		createCustomMemInfo(false)
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
 
+		virtfakeClient := fakeclientset.NewSimpleClientset(&kubevirtv1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: "mynode"}})
+
+		heartbeat := NewHeartBeat(virtfakeClient.KubevirtV1().ShadowNodes(), fakeClient.CoreV1().Nodes(), deviceController(true), config(virtconfig.CPUManager), "mynode")
 		heartbeat.do()
-		node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
 
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
+		expectLabels(fakeClient, virtfakeClient, HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
+
+		err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
 		Expect(err).ToNot(HaveOccurred())
 
 		heartbeat.do()
@@ -190,14 +193,14 @@ var _ = Describe("KSM", func() {
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			createCustomMemInfo(true)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+
+			virtfakeClient := fakeclientset.NewSimpleClientset(&kubevirtv1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: "mynode"}})
+			heartbeat := NewHeartBeat(virtfakeClient.KubevirtV1().ShadowNodes(), fakeClient.CoreV1().Nodes(), deviceController(true), clusterConfig, "mynode")
 
 			heartbeat.do()
 
-			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(node.Labels).To(labelsMatcher)
-			Expect(node.Annotations).To(annotationsMatcher)
+			expectLabels(fakeClient, virtfakeClient, labelsMatcher)
+			expectAnnotations(fakeClient, virtfakeClient, annotationsMatcher)
 
 			running, err := os.ReadFile(filepath.Join(fakeSysKSMDir, "run"))
 			Expect(err).NotTo(HaveOccurred())
@@ -252,7 +255,8 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+			virtfakeClient := fakeclientset.NewSimpleClientset(&kubevirtv1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: "mynode"}})
+			heartbeat := NewHeartBeat(virtfakeClient.KubevirtV1().ShadowNodes(), fakeClient.CoreV1().Nodes(), deviceController(true), clusterConfig, "mynode")
 
 			By("running a first heartbeat and expecting no change")
 			heartbeat.do()
@@ -320,7 +324,8 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+			virtfakeClient := fakeclientset.NewSimpleClientset(&kubevirtv1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: "mynode"}})
+			heartbeat := NewHeartBeat(virtfakeClient.KubevirtV1().ShadowNodes(), fakeClient.CoreV1().Nodes(), deviceController(true), clusterConfig, "mynode")
 
 			By("running a first heartbeat and expecting the right values")
 			heartbeat.do()
@@ -351,3 +356,25 @@ var _ = Describe("KSM", func() {
 		})
 	})
 })
+
+func getNodes(k8sClient *fake.Clientset, kubevirtClient *fakeclientset.Clientset) (*v1.Node, *kubevirtv1.ShadowNode) {
+	node, err := k8sClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
+
+	shadowNode, err := kubevirtClient.KubevirtV1().ShadowNodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
+
+	return node, shadowNode
+}
+
+func expectAnnotations(k8sClient *fake.Clientset, kubevirtClient *fakeclientset.Clientset, matcher gtypes.GomegaMatcher) {
+	node, shadowNode := getNodes(k8sClient, kubevirtClient)
+	ExpectWithOffset(1, node.Annotations).To(matcher)
+	ExpectWithOffset(1, shadowNode.Annotations).To(matcher)
+}
+
+func expectLabels(k8sClient *fake.Clientset, kubevirtClient *fakeclientset.Clientset, matcher gtypes.GomegaMatcher) {
+	node, shadowNode := getNodes(k8sClient, kubevirtClient)
+	ExpectWithOffset(1, node.Labels).To(matcher)
+	ExpectWithOffset(1, shadowNode.Labels).To(matcher)
+}

@@ -72,7 +72,7 @@ var _ = DescribeInfra("virt-handler", func() {
 				v1.KSMFreePercentOverride, "1.0",
 				v1.KSMPagesDecayOverride, "-300",
 			))
-			_, err := virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			_, err := virtClient.ShadowNodeClient().Patch(context.Background(), node, types.MergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
@@ -81,9 +81,9 @@ var _ = DescribeInfra("virt-handler", func() {
 		for _, node := range nodes {
 			patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}, {"op": "remove", "path": "/metadata/annotations/%s"}]`,
 				strings.ReplaceAll(v1.KSMFreePercentOverride, "/", "~1"), strings.ReplaceAll(v1.KSMPagesDecayOverride, "/", "~1")))
-			_, err := virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			_, err := virtClient.ShadowNodeClient().Patch(context.Background(), node, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
-				node2, err2 := virtClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
+				node2, err2 := virtClient.ShadowNodeClient().Get(context.Background(), node, metav1.GetOptions{})
 				Expect(err2).NotTo(HaveOccurred())
 				Expect(err).NotTo(HaveOccurred(), `patch:"%s" annotations:%#v`, string(patchBytes), node2.GetAnnotations())
 			}

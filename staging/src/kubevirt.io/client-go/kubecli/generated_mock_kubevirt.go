@@ -435,6 +435,16 @@ func (_mr *_MockKubevirtClientRecorder) MigrationPolicyClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicyClient")
 }
 
+func (_m *MockKubevirtClient) ShadowNodeClient() ShadowNodeInterface {
+	ret := _m.ctrl.Call(_m, "ShadowNodeClient")
+	ret0, _ := ret[0].(ShadowNodeInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) ShadowNodeClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ShadowNodeClient")
+}
+
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {
 	ret := _m.ctrl.Call(_m, "Discovery")
 	ret0, _ := ret[0].(discovery.DiscoveryInterface)
@@ -2058,4 +2068,74 @@ func (_m *MockExpandSpecInterface) ForVirtualMachine(vm *v120.VirtualMachine) (*
 
 func (_mr *_MockExpandSpecInterfaceRecorder) ForVirtualMachine(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForVirtualMachine", arg0)
+}
+
+// Mock of ShadowNodeInterface interface
+type MockShadowNodeInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockShadowNodeInterfaceRecorder
+}
+
+// Recorder for MockShadowNodeInterface (not exported)
+type _MockShadowNodeInterfaceRecorder struct {
+	mock *MockShadowNodeInterface
+}
+
+func NewMockShadowNodeInterface(ctrl *gomock.Controller) *MockShadowNodeInterface {
+	mock := &MockShadowNodeInterface{ctrl: ctrl}
+	mock.recorder = &_MockShadowNodeInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockShadowNodeInterface) EXPECT() *_MockShadowNodeInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockShadowNodeInterface) Create(ctx context.Context, shadowNode *v120.ShadowNode, opts v12.CreateOptions) (*v120.ShadowNode, error) {
+	ret := _m.ctrl.Call(_m, "Create", ctx, shadowNode, opts)
+	ret0, _ := ret[0].(*v120.ShadowNode)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockShadowNodeInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
+}
+
+func (_m *MockShadowNodeInterface) Get(ctx context.Context, name string, opts v12.GetOptions) (*v120.ShadowNode, error) {
+	ret := _m.ctrl.Call(_m, "Get", ctx, name, opts)
+	ret0, _ := ret[0].(*v120.ShadowNode)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockShadowNodeInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
+}
+
+func (_m *MockShadowNodeInterface) List(ctx context.Context, opts v12.ListOptions) (*v120.ShadowNodeList, error) {
+	ret := _m.ctrl.Call(_m, "List", ctx, opts)
+	ret0, _ := ret[0].(*v120.ShadowNodeList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockShadowNodeInterfaceRecorder) List(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
+}
+
+func (_m *MockShadowNodeInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions, subresources ...string) (*v120.ShadowNode, error) {
+	_s := []interface{}{ctx, name, pt, data, opts}
+	for _, _x := range subresources {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "Patch", _s...)
+	ret0, _ := ret[0].(*v120.ShadowNode)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockShadowNodeInterfaceRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }

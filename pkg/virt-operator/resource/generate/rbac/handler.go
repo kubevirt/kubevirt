@@ -83,13 +83,23 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"shadownodes",
+				},
+				Verbs: []string{
+					"create", "patch", "update",
+				},
+			},
+			{
+				APIGroups: []string{
 					"",
 				},
 				Resources: []string{
 					"nodes",
 				},
 				Verbs: []string{
-					"patch",
 					"list",
 					"watch",
 					"get",

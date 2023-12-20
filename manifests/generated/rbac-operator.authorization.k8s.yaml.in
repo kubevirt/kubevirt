@@ -706,11 +706,18 @@ rules:
   - list
   - watch
 - apiGroups:
+  - kubevirt.io
+  resources:
+  - shadownodes
+  verbs:
+  - create
+  - patch
+  - update
+- apiGroups:
   - ""
   resources:
   - nodes
   verbs:
-  - patch
   - list
   - watch
   - get
