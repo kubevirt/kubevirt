@@ -634,6 +634,10 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 }
 
 func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
+		return nil
+	}
+
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
@@ -1690,7 +1694,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		}
 	}
 
-	c.setupLiveFeatures(vm, vmi, VMIDefaults)
+	c.setupLiveFeatures(vmi, VMIDefaults)
 
 	return vmi
 }
@@ -1773,7 +1777,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
 }
 
-func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
+func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
 	if vmi.Spec.Domain.CPU == nil {
 		vmi.Spec.Domain.CPU = &virtv1.CPU{}
 	}
@@ -1791,7 +1795,7 @@ func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 	}
 }
 
-func (c *VMController) setupMemoryHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
+func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
 	if vmi.Spec.Domain.Memory.MaxGuest == nil {
 		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
 	}
@@ -2573,9 +2577,10 @@ func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 
 	// sync VMI conditions, ignore list represents conditions that are not synced generically
 	syncIgnoreMap := map[string]interface{}{
-		string(virtv1.VirtualMachineReady):       nil,
-		string(virtv1.VirtualMachineFailure):     nil,
-		string(virtv1.VirtualMachineInitialized): nil,
+		string(virtv1.VirtualMachineReady):           nil,
+		string(virtv1.VirtualMachineFailure):         nil,
+		string(virtv1.VirtualMachineInitialized):     nil,
+		string(virtv1.VirtualMachineRestartRequired): nil,
 	}
 	vmiCondMap := make(map[string]interface{})
 
@@ -3131,14 +3136,16 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 	return err
 }
 
-func (c *VMController) setupLiveFeatures(
-	vm *virtv1.VirtualMachine,
-	vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
+func (c *VMController) setupLiveFeatures(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
+
+	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
+		return
+	}
 
 	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
 
-	c.setupCPUHotplug(vm, vmi, VMIDefaults, maxRatio)
-	c.setupMemoryHotplug(vm, vmi, maxRatio)
+	c.setupCPUHotplug(vmi, VMIDefaults, maxRatio)
+	c.setupMemoryHotplug(vmi, maxRatio)
 }
 
 func (c *VMController) patchVMITerminationGracePeriod(gracePeriod *int64, vmi *virtv1.VirtualMachineInstance) error {

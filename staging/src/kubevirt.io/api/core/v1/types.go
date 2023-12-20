@@ -1663,6 +1663,9 @@ const (
 
 	// VirtualMachineInitialized means the virtual machine object has been seen by the VM controller
 	VirtualMachineInitialized VirtualMachineConditionType = "Initialized"
+
+	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI
+	VirtualMachineRestartRequired VirtualMachineConditionType = "RestartRequired"
 )
 
 type HostDiskType string
@@ -2420,6 +2423,22 @@ type KubeVirtConfiguration struct {
 	AutoCPULimitNamespaceLabelSelector *metav1.LabelSelector `json:"autoCPULimitNamespaceLabelSelector,omitempty"`
 	// LiveUpdateConfiguration holds defaults for live update features
 	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
+
+	// VMRolloutStrategy defines how changes to a VM object propagate to its VMI
+	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
+}
+
+type VMRolloutStrategy struct {
+	// LiveUpdate means changes to VM objects will be propagated to their VMI when possible
+	LiveUpdate *RolloutStrategyLiveUpdate `json:"liveUpdate,omitempty"`
+	// Stage means changes to VM objects will be staged until the next VM reboot
+	Stage *RolloutStrategyStage `json:"stage,omitempty"`
+}
+
+type RolloutStrategyLiveUpdate struct {
+}
+
+type RolloutStrategyStage struct {
 }
 
 type ArchConfiguration struct {
