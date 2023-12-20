@@ -468,6 +468,15 @@ func (c *ClusterConfig) GetMaxHotplugRatio() uint32 {
 	return liveConfig.MaxHotplugRatio
 }
 
+func (c *ClusterConfig) IsVMRolloutStrategyLiveUpdate() bool {
+	if !c.VMLiveUpdateFeaturesEnabled() {
+		return false
+	}
+	liveConfig := c.GetConfig().VMRolloutStrategy
+
+	return liveConfig != nil && liveConfig.LiveUpdate != nil
+}
+
 func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
 	networkConfig := c.GetConfig().NetworkConfiguration
 	if networkConfig != nil {

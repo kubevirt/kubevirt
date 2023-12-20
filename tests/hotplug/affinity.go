@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"time"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	util2 "kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -31,6 +35,11 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+		kv := util2.GetCurrentKv(virtClient)
+		kv.Spec.Configuration.VMRolloutStrategy = &v1.VMRolloutStrategy{
+			LiveUpdate: &v1.RolloutStrategyLiveUpdate{},
+		}
+		testsuite.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
 	})
 
 	Context("Updating VMs node affinity", func() {
