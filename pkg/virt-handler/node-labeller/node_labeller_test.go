@@ -235,6 +235,15 @@ var _ = Describe("Node-labeller ", func() {
 		recorder := nlController.recorder.(*record.FakeRecorder)
 		Expect(recorder.Events).To(Receive(ContainSubstring("in ObsoleteCPUModels")))
 	})
+
+	It("should keep existing label that is not owned by node labeller", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		// Added in BeforeEach
+		Expect(node.Labels).To(HaveKey("INeedToBeHere"))
+	})
 })
 
 func newNode(name string) *k8sv1.Node {
