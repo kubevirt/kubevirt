@@ -47,7 +47,10 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		patchWorkloadUpdateMethod(originalKv.Name, virtClient, updateStrategy)
+		rolloutStrategy := &v1.VMRolloutStrategy{
+			LiveUpdate: &v1.RolloutStrategyLiveUpdate{},
+		}
+		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
 
 		currentKv := util2.GetCurrentKv(virtClient)
 		tests.WaitForConfigToBePropagatedToComponent(
@@ -125,12 +128,6 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			// Need to wait for the hotplug to begin.
 			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceVCPUChange))
 
-			By("Making sure that a parallel CPU change is not allowed during an ongoing hot plug")
-			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 2, 1)
-			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
-			Expect(err).To(HaveOccurred())
-
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
 			Eventually(func() bool {
@@ -207,20 +204,10 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			migration, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Create(migration, &metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// This validation is being added here because currently it is very
-			// costly to run it in a separate test.
-			// Chaning the WorkloadUpdateMethods takes a very long time and
-			// restarts the whole control plane
-			By("Making sure that a hot CPU change is not allowed during an inflight migration")
-			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
-			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
-			Expect(err).To(MatchError(ContainSubstring("cannot update while VMI migration is in progress")))
-
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Enabling the second socket")
-			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
+			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -256,11 +243,15 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 	})
 })
 
-func patchWorkloadUpdateMethod(kvName string, virtClient kubecli.KubevirtClient, updateStrategy *v1.KubeVirtWorkloadUpdateStrategy) {
+func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubecli.KubevirtClient, updateStrategy *v1.KubeVirtWorkloadUpdateStrategy, rolloutStrategy *v1.VMRolloutStrategy) {
 	methodData, err := json.Marshal(updateStrategy)
 	ExpectWithOffset(1, err).To(Not(HaveOccurred()))
+	rolloutData, err := json.Marshal(rolloutStrategy)
+	ExpectWithOffset(1, err).To(Not(HaveOccurred()))
 
-	data := []byte(fmt.Sprintf(`[{"op": "replace", "path": "/spec/workloadUpdateStrategy", "value": %s}]`, string(methodData)))
+	data1 := fmt.Sprintf(`{"op": "replace", "path": "/spec/workloadUpdateStrategy", "value": %s}`, string(methodData))
+	data2 := fmt.Sprintf(`{"op": "replace", "path": "/spec/configuration/vmRolloutStrategy", "value": %s}`, string(rolloutData))
+	data := []byte(fmt.Sprintf(`[%s, %s]`, data1, data2))
 
 	EventuallyWithOffset(1, func() error {
 		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kvName, types.JSONPatchType, data, &k8smetav1.PatchOptions{})

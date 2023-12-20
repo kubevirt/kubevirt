@@ -111,6 +111,10 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
 
+	if newKV.Spec.Configuration.VMRolloutStrategy != nil {
+		results = append(results, validateRolloutStrategy(newKV.Spec.Configuration.VMRolloutStrategy)...)
+	}
+
 	response := validating_webhooks.NewAdmissionResponse(results)
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
@@ -426,6 +430,20 @@ func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "infra replica count can't be 0",
+		})
+	}
+
+	return statuses
+}
+
+func validateRolloutStrategy(strategy *v1.VMRolloutStrategy) []metav1.StatusCause {
+	var statuses []metav1.StatusCause
+
+	if (strategy.LiveUpdate == nil && strategy.Stage == nil) ||
+		(strategy.LiveUpdate != nil && strategy.Stage != nil) {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "vmRolloutStrategy must contain exactly one element",
 		})
 	}
 

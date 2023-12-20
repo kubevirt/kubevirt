@@ -268,6 +268,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
 			MaxHotplugRatio: DefaultMaxHotplugRatio,
 		},
+		VMRolloutStrategy: &v1.VMRolloutStrategy{Stage: &v1.RolloutStrategyStage{}},
 	}
 }
 

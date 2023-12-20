@@ -62,7 +62,7 @@ const (
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
 	Multiarchitecture = "MultiArchitecture"
-	// VMLiveUpdateFeaturesGate allows updating ceratin VM fields, such as CPU sockets to enable hot-plug functionality.
+	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"

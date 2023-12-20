@@ -17898,6 +17898,10 @@
      "virtualMachineOptions": {
       "$ref": "#/definitions/v1.VirtualMachineOptions"
      },
+     "vmRolloutStrategy": {
+      "description": "VMRolloutStrategy defines how changes to a VM object propagate to its VMI",
+      "$ref": "#/definitions/v1.VMRolloutStrategy"
+     },
      "vmStateStorageClass": {
       "description": "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
       "type": "string"
@@ -18977,6 +18981,12 @@
     "description": "Rng represents the random device passed from host",
     "type": "object"
    },
+   "v1.RolloutStrategyLiveUpdate": {
+    "type": "object"
+   },
+   "v1.RolloutStrategyStage": {
+    "type": "object"
+   },
    "v1.SEV": {
     "type": "object",
     "properties": {
@@ -19530,6 +19540,19 @@
     "properties": {
      "display": {
       "$ref": "#/definitions/v1.VGPUDisplayOptions"
+     }
+    }
+   },
+   "v1.VMRolloutStrategy": {
+    "type": "object",
+    "properties": {
+     "liveUpdate": {
+      "description": "LiveUpdate means changes to VM objects will be propagated to their VMI when possible",
+      "$ref": "#/definitions/v1.RolloutStrategyLiveUpdate"
+     },
+     "stage": {
+      "description": "Stage means changes to VM objects will be staged until the next VM reboot",
+      "$ref": "#/definitions/v1.RolloutStrategyStage"
      }
     }
    },

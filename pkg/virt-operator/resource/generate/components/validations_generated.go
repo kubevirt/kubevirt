@@ -1482,6 +1482,19 @@ var CRDsValidation map[string]string = map[string]string{
                     if AutoattachSerialConsole is disabled.
                   type: object
               type: object
+            vmRolloutStrategy:
+              description: VMRolloutStrategy defines how changes to a VM object propagate
+                to its VMI
+              properties:
+                liveUpdate:
+                  description: LiveUpdate means changes to VM objects will be propagated
+                    to their VMI when possible
+                  type: object
+                stage:
+                  description: Stage means changes to VM objects will be staged until
+                    the next VM reboot
+                  type: object
+              type: object
             vmStateStorageClass:
               description: VMStateStorageClass is the name of the storage class to
                 use for the PVCs created to preserve VM state, like TPM. The storage

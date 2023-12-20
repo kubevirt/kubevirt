@@ -40,7 +40,10 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		patchWorkloadUpdateMethod(originalKv.Name, virtClient, updateStrategy)
+		rolloutStrategy := &v1.VMRolloutStrategy{
+			LiveUpdate: &v1.RolloutStrategyLiveUpdate{},
+		}
+		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
 
 		currentKv := util2.GetCurrentKv(virtClient)
 		tests.WaitForConfigToBePropagatedToComponent(
@@ -115,12 +118,6 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Waiting for HotMemoryChange condition to appear")
 			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceMemoryChange))
-
-			By("Making sure that a parallel memory change is not allowed during an ongoing hotplug")
-			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", "256Mi", "128Mi")
-			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
-			Expect(err).To(HaveOccurred())
 
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
