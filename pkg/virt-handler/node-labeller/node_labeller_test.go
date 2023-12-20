@@ -28,11 +28,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/record"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -40,53 +37,38 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var virtClient *kubecli.MockKubevirtClient
-	var stop chan struct{}
 	var ctrl *gomock.Controller
 	var kubeClient *fake.Clientset
 	var mockQueue *testutils.MockWorkQueue
-	var config *virtconfig.ClusterConfig
-	var addedNode *v1.Node
 	var recorder *record.FakeRecorder
 
-	addNode := func(node *v1.Node) {
-		mockQueue.ExpectAdds(1)
-		nlController.queue.Add(node)
-		addedNode = node
-		mockQueue.Wait()
-	}
-
-	initNodeLabeller := func(kubevirt *kubevirtv1.KubeVirt, nodeLabels, nodeAnnotations map[string]string) {
-		var err error
-		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kubevirt)
+	initNodeLabeller := func(kubevirt *kubevirtv1.KubeVirt) {
+		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
+		var err error
 		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder)
 		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
 
 		nlController.queue = mockQueue
-		addNode(newNode("testNode", nodeLabels, nodeAnnotations))
 	}
 
 	BeforeEach(func() {
-		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 
-		kubeClient = fake.NewSimpleClientset()
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		node := newNode("testNode")
 
-		kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			return true, addedNode, nil
-		})
+		kubeClient = fake.NewSimpleClientset(node)
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
@@ -103,7 +85,11 @@ var _ = Describe("Node-labeller ", func() {
 			},
 		}
 
-		initNodeLabeller(kv, make(map[string]string), make(map[string]string))
+		initNodeLabeller(kv)
+
+		mockQueue.ExpectAdds(1)
+		nlController.queue.Add(node)
+		mockQueue.Wait()
 	})
 
 	It("should run node-labelling", func() {
@@ -174,19 +160,15 @@ var _ = Describe("Node-labeller ", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
-
-	AfterEach(func() {
-		close(stop)
-	})
 })
 
-func newNode(name string, labels, annotations map[string]string) *v1.Node {
-	return &v1.Node{
+func newNode(name string) *k8sv1.Node {
+	return &k8sv1.Node{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: annotations,
-			Labels:      labels,
+			Annotations: map[string]string{},
+			Labels:      map[string]string{},
 			Name:        name,
 		},
-		Spec: v1.NodeSpec{},
+		Spec: k8sv1.NodeSpec{},
 	}
 }
