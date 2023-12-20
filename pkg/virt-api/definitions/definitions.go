@@ -643,11 +643,11 @@ func GroupVersionBasePath(gvr schema.GroupVersion) string {
 }
 
 func NamespacedResourceBasePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", gvr.Resource)
+	return fmt.Sprintf("/namespaces/{namespace}/%s", gvr.Resource)
 }
 
 func NamespacedResourcePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
+	return fmt.Sprintf("/namespaces/{namespace}/%s/{name}", gvr.Resource)
 }
 
 func ClusterResourceBasePath(gvr schema.GroupVersionResource) string {
@@ -655,7 +655,7 @@ func ClusterResourceBasePath(gvr schema.GroupVersionResource) string {
 }
 
 func ClusterResourcePath(gvr schema.GroupVersionResource) string {
-	return fmt.Sprintf("%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
+	return fmt.Sprintf("%s/{name}", gvr.Resource)
 }
 
 func SubResourcePath(subResource string) string {
@@ -665,9 +665,9 @@ func SubResourcePath(subResource string) string {
 const (
 	PortParamName     = "port"
 	TLSParamName      = "tls"
-	PortPath          = "/{port:[0-9]+}"
+	PortPath          = "/{port}"
 	ProtocolParamName = "protocol"
-	ProtocolPath      = "/{protocol:tcp|udp}"
+	ProtocolPath      = "/{protocol}"
 )
 
 func PortForwardPortParameter(ws *restful.WebService) *restful.Parameter {

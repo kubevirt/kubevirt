@@ -20,6 +20,7 @@
 package rest
 
 const (
+	MIME_ANY         string = "*/*"
 	MIME_JSON        string = "application/json"
 	MIME_JSON_PATCH  string = "application/json-patch+json"
 	MIME_JSON_STREAM string = "application/json;stream=watch"

@@ -10,6 +10,7 @@ go_library(
         "//pkg/controller:go_default_library",
         "//pkg/healthz:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
+        "//pkg/rest:go_default_library",
         "//pkg/rest/filter:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",
