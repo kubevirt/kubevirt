@@ -493,24 +493,29 @@ var _ = Describe("Clone", func() {
 				controller.Execute()
 
 			})
-			It("when restore is already exists and vmclone is not update yet - should create restore failed", func() {
-				snapshot := createVirtualMachineSnapshot(sourceVM)
-				snapshot.Status.ReadyToUse = pointer.Bool(true)
 
-				restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
+			Context("Failure to create a restore object", func() {
+				When("restore already exists and vmclone is not updated yet", func() {
+					It("should create restore failed", func() {
+						snapshot := createVirtualMachineSnapshot(sourceVM)
+						snapshot.Status.ReadyToUse = pointer.Bool(true)
 
-				vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
+						restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
 
-				vmClone.Status.Phase = clonev1alpha1.SnapshotInProgress
+						vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
 
-				addVM(sourceVM)
-				addClone(vmClone)
-				addSnapshot(snapshot)
-				addRestore(restore)
-				expectRestoreCreateAlreadyExists(snapshot.Name, vmClone, restore.Name)
-				expectCloneUpdate(clonev1alpha1.RestoreInProgress)
+						vmClone.Status.Phase = clonev1alpha1.SnapshotInProgress
 
-				controller.Execute()
+						addVM(sourceVM)
+						addClone(vmClone)
+						addSnapshot(snapshot)
+						addRestore(restore)
+						expectRestoreCreateAlreadyExists(snapshot.Name, vmClone, restore.Name)
+						expectCloneUpdate(clonev1alpha1.RestoreInProgress)
+
+						controller.Execute()
+					})
+				})
 			})
 		})
 
