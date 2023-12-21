@@ -2688,6 +2688,22 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 	return nil
 }
 
+func replaceMigratedVolumesStatus(vmi *v1.VirtualMachineInstance) {
+	replaceVolsStatus := make(map[string]*v1.PersistentVolumeClaimInfo)
+	for _, v := range vmi.Status.MigratedVolumes {
+		replaceVolsStatus[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo
+	}
+	for i, v := range vmi.Status.VolumeStatus {
+		if v.PersistentVolumeClaimInfo == nil {
+			continue
+		}
+		if status, ok := replaceVolsStatus[v.PersistentVolumeClaimInfo.ClaimName]; ok {
+			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = status
+		}
+	}
+
+}
+
 func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.VirtualMachineInstance) error {
 	client, err := d.getLauncherClient(origVMI)
 	if err != nil {
@@ -2710,7 +2726,11 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		// then there's nothing left to prepare on the target side
 		return nil
 	}
-
+	// The VolumeStatus is used to retrive additional information for the volume handling.
+	// For example, for filesystem PVC, the information are used to create a right size image.
+	// In the case of migrated volumes, we need to replace the original volume information with the
+	// destination volume properties.
+	replaceMigratedVolumesStatus(vmi)
 	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
