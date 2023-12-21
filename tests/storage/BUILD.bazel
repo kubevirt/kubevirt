@@ -12,6 +12,7 @@ go_library(
         "hotplug.go",
         "imageupload.go",
         "memorydump.go",
+        "migration.go",
         "reservation.go",
         "restore.go",
         "snapshot.go",
