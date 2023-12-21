@@ -405,6 +405,18 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 			}
 		}
 	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		_, err := m.kernelBootSocketPathGetter(vmi)
+		if err != nil {
+			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
+			if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
+				return false, fmt.Errorf("kernelboot container still not ready after one minute")
+			}
+			return false, nil
+		}
+	}
+
 	log.DefaultLogger().Object(vmi).V(4).Info("all containerdisks are ready")
 	return true, nil
 }
