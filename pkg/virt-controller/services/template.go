@@ -1395,7 +1395,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU, vmi.Annotations)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),

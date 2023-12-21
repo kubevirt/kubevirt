@@ -1026,6 +1026,9 @@ const (
 	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
 	// Must be a float >= 1.
 	AutoMemoryLimitsRatioLabel string = "alpha.kubevirt.io/auto-memory-limits-ratio"
+
+	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
+	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

@@ -82,6 +82,8 @@ const (
 	//
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
+	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
+	AlignCPUsGate = "AlignCPUs"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -260,4 +262,8 @@ func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
 
 func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
 	return config.isFeatureGateEnabled(CommonInstancetypesDeploymentGate)
+}
+
+func (config *ClusterConfig) AlignCPUsEnabled() bool {
+	return config.isFeatureGateEnabled(AlignCPUsGate)
 }

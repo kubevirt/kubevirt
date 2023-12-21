@@ -1690,13 +1690,16 @@ var _ = Describe("Template", func() {
 					}, true),
 			)
 
-			It("should allocate 1 more cpu when isolateEmulatorThread requested", func() {
+			DescribeTable("when isolateEmulatorThread requested", func(
+				annotations map[string]string, requestedCores uint32, expectedCPULimits string) {
 				config, kvInformer, svc = configFactory(defaultArch)
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
+						Name:        "testvmi",
+						Namespace:   "default",
+						UID:         "1234",
+						Annotations: annotations,
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
@@ -1704,7 +1707,8 @@ var _ = Describe("Template", func() {
 								DisableHotplug: true,
 							},
 							CPU: &v1.CPU{
-								Cores:                 2,
+								Cores:                 requestedCores,
+								Threads:               1,
 								DedicatedCPUPlacement: true,
 								IsolateEmulatorThread: true,
 							},
@@ -1714,9 +1718,14 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				cpu := resource.MustParse("3")
+				cpu := resource.MustParse(expectedCPULimits)
 				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Cmp(cpu)).To(BeZero())
-			})
+			},
+				Entry("no annotation added, odd  CPUs requested, should allocate one extra emulator CPU", map[string]string{}, uint32(3), "4"),
+				Entry("no annotation added, even CPUs requested, should allocate one extra emulator CPU", map[string]string{}, uint32(2), "3"),
+				Entry("EmulatorThreadCompleteToEvenParity annotation added, odd CPUs requested, should allocate one extra emulator CPU", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, uint32(3), "4"),
+				Entry("EmulatorThreadCompleteToEvenParity annotation added, even CPUs requested, should allocate two extra emulator CPU (to align SMT scheduling)", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, uint32(4), "6"),
+			)
 			It("should add node affinity to pod", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				nodeAffinity := k8sv1.NodeAffinity{}
