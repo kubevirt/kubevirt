@@ -113,6 +113,59 @@ var _ = Describe("ContainerDisk", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ready).To(BeTrue())
 		})
+
+		Context("with kernelBoot container", func() {
+
+			BeforeEach(func() {
+				vmi.Spec.Volumes = []v1.Volume{}
+
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					KernelBoot: &v1.KernelBoot{
+						Container: &v1.KernelBootContainer{
+							KernelPath: "/fake-kernel",
+							InitrdPath: "/fake-initrd",
+						},
+					},
+				}
+			})
+
+			DescribeTable("should", func(
+				pathGetter containerdisk.KernelBootSocketPathGetter,
+				addedDelay time.Duration,
+				errorMatcher gomega_types.GomegaMatcher,
+				shouldBeReady bool,
+			) {
+				m.kernelBootSocketPathGetter = pathGetter
+				ready, err := m.ContainerDisksReady(vmi, time.Now().Add(addedDelay))
+				Expect(err).To(errorMatcher)
+				Expect(ready).To(Equal(shouldBeReady))
+			},
+				Entry("return false and no error if we are still within the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "", fmt.Errorf("not found") },
+					time.Duration(0),
+					Succeed(),
+					false,
+				),
+				Entry("return false and an error if we are outside the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "", fmt.Errorf("not found") },
+					time.Duration(-2*time.Minute),
+					HaveOccurred(),
+					false,
+				),
+				Entry("return true and no error once everything is ready and we are within the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "someting", nil },
+					time.Duration(0),
+					Succeed(),
+					true,
+				),
+				Entry("return true and no error once everything is ready when we are outside of the tolerated retry period",
+					func(*v1.VirtualMachineInstance) (string, error) { return "someting", nil },
+					time.Duration(-2*time.Minute),
+					Succeed(),
+					true,
+				),
+			)
+		})
 	})
 
 	Context("verify mount target recording for vmi", func() {
