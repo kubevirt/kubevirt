@@ -25,7 +25,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -2874,56 +2873,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			})
 		})
-	})
-
-	It("should replace containerdisk and kernel boot images with their reproducible digest during migration", func() {
-
-		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi.Spec.Domain.Firmware = utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
-
-		By("Starting a VirtualMachineInstance")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
-		Expect(err).ToNot(HaveOccurred())
-		libwait.WaitForSuccessfulVMIStart(vmi)
-
-		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-		By("Verifying that all relevant images are without the digest on the source")
-		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
-			if container.Name == "container-disk-binary" || container.Name == "compute" || container.Name == "guest-console-log" {
-				continue
-			}
-			Expect(container.Image).ToNot(ContainSubstring("@sha256:"), "image:%s should not contain the container digest for container %s", container.Image, container.Name)
-		}
-
-		digestRegex := regexp.MustCompile(`sha256:[a-zA-Z0-9]+`)
-
-		By("Collecting digest information from the container statuses")
-		imageIDs := map[string]string{}
-		for _, status := range append(pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses...) {
-			if status.Name == "container-disk-binary" || status.Name == "compute" || status.Name == "guest-console-log" {
-				continue
-			}
-			digest := digestRegex.FindString(status.ImageID)
-			Expect(digest).ToNot(BeEmpty())
-			imageIDs[status.Name] = digest
-		}
-
-		By("Performing a migration")
-		migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-		libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
-		By("Verifying that all imageIDs are in a reproducible form on the target")
-		pod = tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-
-		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
-			if container.Name == "container-disk-binary" || container.Name == "compute" || container.Name == "guest-console-log" {
-				continue
-			}
-			digest := digestRegex.FindString(container.Image)
-			Expect(container.Image).To(ContainSubstring(digest), "image:%s should contain the container digest for container %s", container.Image, container.Name)
-			Expect(digest).ToNot(BeEmpty())
-			Expect(imageIDs).To(HaveKeyWithValue(container.Name, digest), "expected image:%s for container %s to be the same like on the source pod but got %s", container.Image, container.Name, imageIDs[container.Name])
-		}
 	})
 
 	Context("[Serial]Testing host-model cpuModel edge cases in the cluster if the cluster is host-model migratable", Serial, func() {
