@@ -14479,7 +14479,7 @@
    "/healthz": {
     "get": {
      "description": "Health endpoint",
-     "operationId": "func1",
+     "operationId": "func13",
      "responses": {
       "401": {
        "description": "Unauthorized"
