@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "console.go",
         "create_instancetype.go",
         "create_preference.go",
         "create_vm.go",
@@ -13,6 +14,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/virtctl",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/pointer:go_default_library",
         "//pkg/virtctl/create/instancetype:go_default_library",
         "//pkg/virtctl/create/preference:go_default_library",
         "//pkg/virtctl/create/vm:go_default_library",

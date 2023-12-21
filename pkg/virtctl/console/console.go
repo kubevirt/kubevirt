@@ -20,11 +20,14 @@
 package console
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"time"
+
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
@@ -74,7 +77,7 @@ func (c *Console) Run(args []string) error {
 		return err
 	}
 
-	vmi := args[0]
+	vmiName := args[0]
 
 	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
 	if err != nil {
@@ -92,8 +95,17 @@ func (c *Console) Run(args []string) error {
 	waitInterrupt := make(chan os.Signal, 1)
 	signal.Notify(waitInterrupt, os.Interrupt)
 
+	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmiName, &k8smetav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	logWarning := "Caution: the output of this console connection can be streamed into system logs.\nIf you are inputting any screen visible sensitive information please consider using SSH unless the serial console is absolutely necessary.\n"
+	if vmi.Spec.Domain.Devices.LogSerialConsole != nil && !*vmi.Spec.Domain.Devices.LogSerialConsole {
+		logWarning = ""
+	}
+
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, &kubecli.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmiName, &kubecli.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
 		runningChan <- err
 
 		if err != nil {
@@ -117,7 +129,7 @@ func (c *Console) Run(args []string) error {
 		}
 	}
 	err = utils.AttachConsole(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
-		fmt.Sprint("Successfully connected to ", vmi, " console. The escape sequence is ^]\n"),
+		fmt.Sprint("Successfully connected to ", vmiName, " console. The escape sequence is ^]\n", logWarning),
 		resChan)
 
 	if err != nil {
