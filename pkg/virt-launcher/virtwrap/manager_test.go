@@ -32,9 +32,9 @@ import (
 	"strings"
 	"time"
 
-	storagev1alpha1 "kubevirt.io/api/storage/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -50,6 +50,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
 
 	api2 "kubevirt.io/client-go/api"
 
@@ -2635,8 +2636,8 @@ var _ = Describe("migratableDomXML", func() {
 		By("ensuring the generated XML is accurate")
 		Expect(newXML).To(Equal(expectedXML), "the target XML is not as expected")
 	})
-	It("should add the slices section", func() {
-		retDiskSize := func(disk *api.Disk) (int64, error) {
+	DescribeTable("slices section", func(domXML string) {
+		retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
 			return 2028994560, nil
 		}
 		getDiskVirtualSizeFunc = retDiskSize
@@ -2645,26 +2646,12 @@ var _ = Describe("migratableDomXML", func() {
 			sourcePvcName = "src-pvc"
 			destPvcName   = "dst-pvc"
 		)
-		domXML := `<domain type="kvm" id="1">
-  <name>kubevirt</name>
-  <devices>
-    <disk type='file' device='disk' model='virtio-non-transitional'>
-      <driver name='qemu' type='raw' cache='none' error_policy='stop' discard='unmap'/>
-      <source file='/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img' index='1'/>
-      <backingStore/>
-      <target dev='vda' bus='virtio'/>
-      <alias name='ua-datavolumedisk1'/>
-      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
-    </disk>
-  </devices>
-</domain>`
-		// migratableDomXML() removes the migration block but not its ident, which is its own token, hence the blank line below
 		expectedXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
   <devices>
     <disk type="file" device="disk" model="virtio-non-transitional">
       <driver name="qemu" type="raw" cache="none" error_policy="stop" discard="unmap"></driver>
-      <source file="/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img">
+      <source file="/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img" index="1">
         <slices>
           <slice type="storage" offset="0" size="2028994560"></slice>
         </slices>
@@ -2686,12 +2673,81 @@ var _ = Describe("migratableDomXML", func() {
 					},
 				},
 			})
-		vmi.Status.MigratedVolumes = []storagev1alpha1.MigratedVolume{
+		vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{
 			{
-				SourcePvc:      sourcePvcName,
-				DestinationPvc: destPvcName,
+				SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: sourcePvcName},
+				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: destPvcName},
 			},
 		}
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
+		domSpec := &api.DomainSpec{}
+		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
+		newXML, err := migratableDomXML(mockDomain, vmi, domSpec)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(newXML).To(Equal(expectedXML))
+	},
+		Entry("add slices section", `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type='file' device='disk' model='virtio-non-transitional'>
+      <driver name='qemu' type='raw' cache='none' error_policy='stop' discard='unmap'/>
+      <source file='/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img' index='1'/>
+      <backingStore/>
+      <target dev='vda' bus='virtio'/>
+      <alias name='ua-datavolumedisk1'/>
+      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+    </disk>
+  </devices>
+</domain>`),
+		Entry("slices section already set", `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type='file' device='disk' model='virtio-non-transitional'>
+      <driver name='qemu' type='raw' cache='none' error_policy='stop' discard='unmap'/>
+      <source file='/var/run/kubevirt-private/vmi-disks/datavolumedisk1/disk.img' index='1'>
+        <slices>
+          <slice type='storage' offset='0' size='2028994560'></slice>
+        </slices>
+      </source>
+      <backingStore/>
+      <target dev='vda' bus='virtio'/>
+      <alias name='ua-datavolumedisk1'/>
+      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+    </disk>
+  </devices>
+</domain>`),
+	)
+	It("should generate correct xml for user data for copied disks during the migration", func() {
+		domXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type='file' device='disk' model='virtio-non-transitional'>
+      <driver name='qemu' type='raw' cache='none' error_policy='stop' discard='unmap'/>
+      <source file='/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/vm-dv/noCloud.iso' index='1'/>
+      <backingStore/>
+      <target dev='vda' bus='virtio'/>
+      <alias name='ua-cloudinitdisk'/>
+      <address type='pci' domain='0x0000' bus='0x07' slot='0x00' function='0x0'/>
+    </disk>
+  </devices>
+</domain>`
+		expectedXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <devices>
+    <disk type="file" device="disk" model="virtio-non-transitional">
+      <driver name="qemu" type="raw" cache="none" error_policy="stop" discard="unmap"></driver>
+      <source file="/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/vm-dv/noCloud.iso" index="1"></source>
+      <backingStore></backingStore>
+      <target dev="vda" bus="virtio"></target>
+      <alias name="ua-cloudinitdisk"></alias>
+      <address type="pci" domain="0x0000" bus="0x07" slot="0x00" function="0x0"></address>
+    </disk>
+  </devices>
+</domain>`
+		vmi := newVMI("testns", "kubevirt")
+		userData := "fake\nuser\ndata\n"
+		networkData := "FakeNetwork"
+		addCloudInitDisk(vmi, userData, networkData)
 		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(domXML, nil)
 		domSpec := &api.DomainSpec{}
 		Expect(xml.Unmarshal([]byte(domXML), domSpec)).To(Succeed())
@@ -2814,6 +2870,159 @@ var _ = Describe("Manager helper functions", func() {
 			}),
 		)
 
+	})
+
+	Context("configureLocalDiskToMigrate", func() {
+		const (
+			testvol = "test"
+			src     = "src"
+			dst     = "dst"
+		)
+
+		fsMode := k8sv1.PersistentVolumeFilesystem
+		blockMode := k8sv1.PersistentVolumeBlock
+		infoFs := v1.PersistentVolumeClaimInfo{
+			ClaimName:  src,
+			VolumeMode: &fsMode,
+		}
+		infoBlock := v1.PersistentVolumeClaimInfo{
+			ClaimName:  src,
+			VolumeMode: &blockMode,
+		}
+
+		getFsImagePath := func(name string) string {
+			return hostdisk.GetMountedHostDiskDir(name)
+		}
+
+		getBlockPath := func(name string) string {
+			return filepath.Join(string(filepath.Separator), "dev", name)
+		}
+
+		createDomWithFsImage := func(name string) *libvirtxml.Domain {
+			return &libvirtxml.Domain{
+				Devices: &libvirtxml.DomainDeviceList{
+					Disks: []libvirtxml.DomainDisk{
+						{
+							Source: &libvirtxml.DomainDiskSource{
+								File: &libvirtxml.DomainDiskSourceFile{
+									File: getFsImagePath(name),
+								},
+							},
+							Alias: &libvirtxml.DomainAlias{
+								Name: fmt.Sprintf("ua-%s", name),
+							},
+						},
+					},
+				},
+			}
+		}
+		createDomWithBlock := func(name string) *libvirtxml.Domain {
+			return &libvirtxml.Domain{
+				Devices: &libvirtxml.DomainDeviceList{
+					Disks: []libvirtxml.DomainDisk{
+						{
+							Source: &libvirtxml.DomainDiskSource{
+								Block: &libvirtxml.DomainDiskSourceBlock{
+									Dev: getBlockPath(name),
+								},
+							},
+							Alias: &libvirtxml.DomainAlias{
+								Name: fmt.Sprintf("ua-%s", name),
+							},
+						},
+					},
+				},
+			}
+		}
+		volPVC := v1.Volume{
+			Name: testvol,
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: src,
+					},
+				},
+			},
+		}
+		volDV := v1.Volume{
+			Name: testvol,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: src,
+				},
+			},
+		}
+		volHostDisk := v1.Volume{
+			Name: testvol,
+			VolumeSource: v1.VolumeSource{
+				HostDisk: &v1.HostDisk{
+					Path: getFsImagePath(testvol),
+				},
+			},
+		}
+
+		DescribeTable("replace filesystem and block migrated volumes", func(isSrcBlock, isDstBlock bool, vol v1.Volume) {
+			retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
+				return 2028994560, nil
+			}
+			getDiskVirtualSizeFunc = retDiskSize
+			var dom *libvirtxml.Domain
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Volumes: []v1.Volume{vol},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					MigratedVolumes: []v1.StorageMigratedVolumeInfo{
+						{
+							VolumeName: testvol,
+						},
+					},
+					VolumeStatus: []v1.VolumeStatus{
+						{
+							Name: testvol,
+							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+								ClaimName: src,
+							},
+						},
+					},
+				},
+			}
+			if isSrcBlock {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo = &infoBlock
+				dom = createDomWithBlock(testvol)
+			} else {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo = &infoFs
+				dom = createDomWithFsImage(testvol)
+			}
+			if isDstBlock {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo = &infoBlock
+			} else {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo = &infoFs
+			}
+
+			err := configureLocalDiskToMigrate(dom, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			if isDstBlock {
+				Expect(dom.Devices.Disks[0].Source.File).To(BeNil())
+				Expect(dom.Devices.Disks[0].Source.Block).NotTo(BeNil())
+				Expect(dom.Devices.Disks[0].Source.Block.Dev).To(Equal(getBlockPath(testvol)))
+
+			} else {
+				Expect(dom.Devices.Disks[0].Source.Block).To(BeNil())
+				Expect(dom.Devices.Disks[0].Source.File).NotTo(BeNil())
+				Expect(dom.Devices.Disks[0].Source.File.File).To(Equal(getFsImagePath(testvol)))
+			}
+		},
+			Entry("filesystem source and destination", false, false, volPVC),
+			Entry("filesystem source and block destination", false, true, volPVC),
+			Entry("block source and filesystem destination", true, false, volPVC),
+			Entry("block source and destination", true, true, volPVC),
+			Entry("filesystem source and block destination with DV", false, true, volDV),
+			Entry("block source and filesystem destination with DV", true, false, volDV),
+			Entry("filesystem source and block destination with hostdisks", false, true, volHostDisk),
+			Entry("block source and filesystem destination with hostdisks", true, false, volHostDisk),
+		)
 	})
 
 })
