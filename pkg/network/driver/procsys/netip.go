@@ -66,9 +66,12 @@ func (p ProcSys) IPv6EnableForwarding() error {
 
 func (p ProcSys) IPv6GetForwarding() (bool, error) {
 	val, err := sysCtl.GetSysctl(sysctl.NetIPv6Forwarding)
+
+	//when ipv6 has disabled, so default return false
 	if os.IsNotExist(err) {
 		return false, nil
 	}
+
 	return val == enable, err
 }
 
