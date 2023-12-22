@@ -56,9 +56,6 @@ type procSysctl struct {
 func (*procSysctl) GetSysctl(sysctl string) (string, error) {
 	data, err := os.ReadFile(path.Join(sysctlBase, sysctl))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "0", nil
-		}
 		return "-1", err
 	}
 	val := strings.Trim(string(data), " \n")

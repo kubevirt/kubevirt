@@ -21,6 +21,7 @@ package procsys
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"kubevirt.io/kubevirt/pkg/util/sysctl"
@@ -65,6 +66,9 @@ func (p ProcSys) IPv6EnableForwarding() error {
 
 func (p ProcSys) IPv6GetForwarding() (bool, error) {
 	val, err := sysCtl.GetSysctl(sysctl.NetIPv6Forwarding)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
 	return val == enable, err
 }
 
