@@ -35,10 +35,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/workqueue"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -67,9 +67,8 @@ var nodeLabellerLabels = []string{
 // NodeLabeller struct holds information needed to run node-labeller
 type NodeLabeller struct {
 	recorder                record.EventRecorder
-	clientset               kubecli.KubevirtClient
+	nodeClient              k8scli.NodeInterface
 	host                    string
-	namespace               string
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
@@ -85,16 +84,15 @@ type NodeLabeller struct {
 	SEV                     SEVConfiguration
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, recorder record.EventRecorder) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath, recorder)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, host, nodeLabellerVolumePath, recorder)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:                recorder,
-		clientset:               clientset,
+		nodeClient:              nodeClient,
 		host:                    host,
-		namespace:               namespace,
 		logger:                  log.DefaultLogger(),
 		clusterConfig:           clusterConfig,
 		queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-node-labeller"),
@@ -192,7 +190,7 @@ func (n *NodeLabeller) run() error {
 	cpuFeatures := n.getSupportedCpuFeatures()
 	hostCPUModel := n.GetHostCpuModel()
 
-	originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
+	originalNode, err := n.nodeClient.Get(context.Background(), n.host, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -251,7 +249,7 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 		if err != nil {
 			return err
 		}
-		_, err = n.clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+		_, err = n.nodeClient.Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
