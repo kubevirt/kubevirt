@@ -1584,8 +1584,8 @@ kubevirt.io/kubevirt v1.1.0/go.mod h1:qpiFdiyRQVzSyekotGD4WdF9kwFFWgjyPVQsRnOnCo
 kubevirt.io/managed-tenant-quota v1.1.11 h1:OQf8DLqWdlFmCqz9dWSADNorNdqCz195hvk9wK/sB84=
 kubevirt.io/managed-tenant-quota v1.1.11/go.mod h1:PfX8K97vz2mtAigYki0UY6KtQddVirvZiZEd7Uqp4Ak=
 kubevirt.io/qe-tools v0.1.8 h1:Ar7qicmzHdd+Ia+6rjHDg3D7GReIyq7QFXoC4F7TjhQ=
-kubevirt.io/ssp-operator/api v0.19.0-rc.0 h1:K/lSX6hYBOsVX5ljmwxza85g8ewkpR55FQ8sX+biiZk=
-kubevirt.io/ssp-operator/api v0.19.0-rc.0/go.mod h1:Rm+RReQuQkhRwXCkAHPGIuHjA3G6IkMnLOMJ2mqYzJk=
+kubevirt.io/ssp-operator/api v0.19.0 h1:K1sBY1nIdQO1CoUkYRuz6CepZU97u4dlhqv1ldRyaxs=
+kubevirt.io/ssp-operator/api v0.19.0/go.mod h1:7lHBbaTsT5pBgrvipn+ZaoQR4t6TQHMlbcq2Wh5o714=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.36/go.mod h1:WxjusMwXlKzfAs4p9km6XJRndVt2FROgMVCE4cdohFo=

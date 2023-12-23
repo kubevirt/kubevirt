@@ -338,7 +338,8 @@ spec:
                                                 that are used by this container. \n
                                                 This is an alpha field and requires
                                                 enabling the DynamicResourceAllocation
-                                                feature gate. \n This field is immutable."
+                                                feature gate. \n This field is immutable.
+                                                It can only be set for containers."
                                               items:
                                                 description: ResourceClaim references
                                                   one entry in PodSpec.ResourceClaims.
@@ -381,7 +382,8 @@ spec:
                                                 a container, it defaults to Limits
                                                 if that is explicitly specified, otherwise
                                                 to an implementation-defined value.
-                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                                Requests cannot exceed Limits. More
+                                                info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                               type: object
                                           type: object
                                         selector:
@@ -464,6 +466,23 @@ spec:
                                           description: DataVolumeBlankImage provides
                                             the parameters to create a new raw blank
                                             image for the PVC
+                                          type: object
+                                        gcs:
+                                          description: DataVolumeSourceGCS provides
+                                            the parameters to create a Data Volume
+                                            from an GCS source
+                                          properties:
+                                            secretRef:
+                                              description: SecretRef provides the
+                                                secret reference needed to access
+                                                the GCS source
+                                              type: string
+                                            url:
+                                              description: URL is the url of the GCS
+                                                source
+                                              type: string
+                                          required:
+                                          - url
                                           type: object
                                         http:
                                           description: DataVolumeSourceHTTP can be
@@ -600,6 +619,23 @@ spec:
                                           required:
                                           - url
                                           type: object
+                                        snapshot:
+                                          description: DataVolumeSourceSnapshot provides
+                                            the parameters to create a Data Volume
+                                            from an existing VolumeSnapshot
+                                          properties:
+                                            name:
+                                              description: The name of the source
+                                                VolumeSnapshot
+                                              type: string
+                                            namespace:
+                                              description: The namespace of the source
+                                                VolumeSnapshot
+                                              type: string
+                                          required:
+                                          - name
+                                          - namespace
+                                          type: object
                                         upload:
                                           description: DataVolumeSourceUpload provides
                                             the parameters to create a Data Volume
@@ -687,7 +723,10 @@ spec:
                                             or an external controller can support
                                             the specified data source, it will create
                                             a new volume based on the contents of
-                                            the specified data source.'
+                                            the specified data source. If the AnyVolumeDataSource
+                                            feature gate is enabled, this field will
+                                            always have the same contents as the DataSourceRef
+                                            field.'
                                           properties:
                                             apiGroup:
                                               description: APIGroup is the group for
@@ -710,6 +749,69 @@ spec:
                                           - name
                                           type: object
                                           x-kubernetes-map-type: atomic
+                                        dataSourceRef:
+                                          description: 'Specifies the object from
+                                            which to populate the volume with data,
+                                            if a non-empty volume is desired. This
+                                            may be any local object from a non-empty
+                                            API group (non core object) or a PersistentVolumeClaim
+                                            object. When this field is specified,
+                                            volume binding will only succeed if the
+                                            type of the specified object matches some
+                                            installed volume populator or dynamic
+                                            provisioner. This field will replace the
+                                            functionality of the DataSource field
+                                            and as such if both fields are non-empty,
+                                            they must have the same value. For backwards
+                                            compatibility, both fields (DataSource
+                                            and DataSourceRef) will be set to the
+                                            same value automatically if one of them
+                                            is empty and the other is non-empty. There
+                                            are two important differences between
+                                            DataSource and DataSourceRef: * While
+                                            DataSource only allows two specific types
+                                            of objects, DataSourceRef allows any non-core
+                                            object, as well as PersistentVolumeClaim
+                                            objects. * While DataSource ignores disallowed
+                                            values (dropping them), DataSourceRef
+                                            preserves all values, and generates an
+                                            error if a disallowed value is specified.
+                                            (Beta) Using this field requires the AnyVolumeDataSource
+                                            feature gate to be enabled.'
+                                          properties:
+                                            apiGroup:
+                                              description: APIGroup is the group for
+                                                the resource being referenced. If
+                                                APIGroup is not specified, the specified
+                                                Kind must be in the core API group.
+                                                For any other third-party types, APIGroup
+                                                is required.
+                                              type: string
+                                            kind:
+                                              description: Kind is the type of resource
+                                                being referenced
+                                              type: string
+                                            name:
+                                              description: Name is the name of resource
+                                                being referenced
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the namespace
+                                                of resource being referenced Note
+                                                that when a namespace is specified,
+                                                a gateway.networking.k8s.io/ReferenceGrant
+                                                object is required in the referent
+                                                namespace to allow that namespace's
+                                                owner to accept the reference. See
+                                                the ReferenceGrant documentation for
+                                                details. (Alpha) This field requires
+                                                the CrossNamespaceVolumeDataSource
+                                                feature gate to be enabled.
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
                                         resources:
                                           description: 'Resources represents the minimum
                                             resources the volume should have. More
@@ -721,7 +823,8 @@ spec:
                                                 that are used by this container. \n
                                                 This is an alpha field and requires
                                                 enabling the DynamicResourceAllocation
-                                                feature gate. \n This field is immutable."
+                                                feature gate. \n This field is immutable.
+                                                It can only be set for containers."
                                               items:
                                                 description: ResourceClaim references
                                                   one entry in PodSpec.ResourceClaims.
@@ -764,7 +867,8 @@ spec:
                                                 a container, it defaults to Limits
                                                 if that is explicitly specified, otherwise
                                                 to an implementation-defined value.
-                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                                Requests cannot exceed Limits. More
+                                                info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                               type: object
                                           type: object
                                         selector:
@@ -2884,7 +2988,7 @@ spec:
                       can be catastrophic. An example custom profile looks like this:
                       \n ciphers: - ECDHE-ECDSA-CHACHA20-POLY1305 - ECDHE-RSA-CHACHA20-POLY1305
                       - ECDHE-RSA-AES128-GCM-SHA256 - ECDHE-ECDSA-AES128-GCM-SHA256
-                      minTLSVersion: TLSv1.1"
+                      minTLSVersion: VersionTLS11"
                     nullable: true
                     properties:
                       ciphers:
@@ -2899,8 +3003,8 @@ spec:
                         description: "minTLSVersion is used to specify the minimal
                           version of the TLS protocol that is negotiated during the
                           TLS handshake. For example, to use TLS versions 1.1, 1.2
-                          and 1.3 (yaml): \n minTLSVersion: TLSv1.1 \n NOTE: currently
-                          the highest minTLSVersion allowed is VersionTLS12"
+                          and 1.3 (yaml): \n minTLSVersion: VersionTLS11 \n NOTE:
+                          currently the highest minTLSVersion allowed is VersionTLS12"
                         enum:
                         - VersionTLS10
                         - VersionTLS11
@@ -2916,14 +3020,14 @@ spec:
                       - ECDHE-RSA-AES128-GCM-SHA256 - ECDHE-ECDSA-AES256-GCM-SHA384
                       - ECDHE-RSA-AES256-GCM-SHA384 - ECDHE-ECDSA-CHACHA20-POLY1305
                       - ECDHE-RSA-CHACHA20-POLY1305 - DHE-RSA-AES128-GCM-SHA256 -
-                      DHE-RSA-AES256-GCM-SHA384 minTLSVersion: TLSv1.2"
+                      DHE-RSA-AES256-GCM-SHA384 minTLSVersion: VersionTLS12"
                     nullable: true
                     type: object
                   modern:
                     description: "modern is a TLS security profile based on: \n https://wiki.mozilla.org/Security/Server_Side_TLS#Modern_compatibility
                       \n and looks like this (yaml): \n ciphers: - TLS_AES_128_GCM_SHA256
                       - TLS_AES_256_GCM_SHA384 - TLS_CHACHA20_POLY1305_SHA256 minTLSVersion:
-                      TLSv1.3 \n NOTE: Currently unsupported."
+                      VersionTLS13 \n NOTE: Currently unsupported."
                     nullable: true
                     type: object
                   old:
@@ -2938,7 +3042,7 @@ spec:
                       - ECDHE-ECDSA-AES256-SHA384 - ECDHE-RSA-AES256-SHA384 - ECDHE-ECDSA-AES256-SHA
                       - ECDHE-RSA-AES256-SHA - DHE-RSA-AES128-SHA256 - DHE-RSA-AES256-SHA256
                       - AES128-GCM-SHA256 - AES256-GCM-SHA384 - AES128-SHA256 - AES256-SHA256
-                      - AES128-SHA - AES256-SHA - DES-CBC3-SHA minTLSVersion: TLSv1.0"
+                      - AES128-SHA - AES256-SHA - DES-CBC3-SHA minTLSVersion: VersionTLS10"
                     nullable: true
                     type: object
                   type:
@@ -3338,7 +3442,8 @@ spec:
                                                 that are used by this container. \n
                                                 This is an alpha field and requires
                                                 enabling the DynamicResourceAllocation
-                                                feature gate. \n This field is immutable."
+                                                feature gate. \n This field is immutable.
+                                                It can only be set for containers."
                                               items:
                                                 description: ResourceClaim references
                                                   one entry in PodSpec.ResourceClaims.
@@ -3381,7 +3486,8 @@ spec:
                                                 a container, it defaults to Limits
                                                 if that is explicitly specified, otherwise
                                                 to an implementation-defined value.
-                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                                Requests cannot exceed Limits. More
+                                                info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                               type: object
                                           type: object
                                         selector:
@@ -3464,6 +3570,23 @@ spec:
                                           description: DataVolumeBlankImage provides
                                             the parameters to create a new raw blank
                                             image for the PVC
+                                          type: object
+                                        gcs:
+                                          description: DataVolumeSourceGCS provides
+                                            the parameters to create a Data Volume
+                                            from an GCS source
+                                          properties:
+                                            secretRef:
+                                              description: SecretRef provides the
+                                                secret reference needed to access
+                                                the GCS source
+                                              type: string
+                                            url:
+                                              description: URL is the url of the GCS
+                                                source
+                                              type: string
+                                          required:
+                                          - url
                                           type: object
                                         http:
                                           description: DataVolumeSourceHTTP can be
@@ -3600,6 +3723,23 @@ spec:
                                           required:
                                           - url
                                           type: object
+                                        snapshot:
+                                          description: DataVolumeSourceSnapshot provides
+                                            the parameters to create a Data Volume
+                                            from an existing VolumeSnapshot
+                                          properties:
+                                            name:
+                                              description: The name of the source
+                                                VolumeSnapshot
+                                              type: string
+                                            namespace:
+                                              description: The namespace of the source
+                                                VolumeSnapshot
+                                              type: string
+                                          required:
+                                          - name
+                                          - namespace
+                                          type: object
                                         upload:
                                           description: DataVolumeSourceUpload provides
                                             the parameters to create a Data Volume
@@ -3687,7 +3827,10 @@ spec:
                                             or an external controller can support
                                             the specified data source, it will create
                                             a new volume based on the contents of
-                                            the specified data source.'
+                                            the specified data source. If the AnyVolumeDataSource
+                                            feature gate is enabled, this field will
+                                            always have the same contents as the DataSourceRef
+                                            field.'
                                           properties:
                                             apiGroup:
                                               description: APIGroup is the group for
@@ -3710,6 +3853,69 @@ spec:
                                           - name
                                           type: object
                                           x-kubernetes-map-type: atomic
+                                        dataSourceRef:
+                                          description: 'Specifies the object from
+                                            which to populate the volume with data,
+                                            if a non-empty volume is desired. This
+                                            may be any local object from a non-empty
+                                            API group (non core object) or a PersistentVolumeClaim
+                                            object. When this field is specified,
+                                            volume binding will only succeed if the
+                                            type of the specified object matches some
+                                            installed volume populator or dynamic
+                                            provisioner. This field will replace the
+                                            functionality of the DataSource field
+                                            and as such if both fields are non-empty,
+                                            they must have the same value. For backwards
+                                            compatibility, both fields (DataSource
+                                            and DataSourceRef) will be set to the
+                                            same value automatically if one of them
+                                            is empty and the other is non-empty. There
+                                            are two important differences between
+                                            DataSource and DataSourceRef: * While
+                                            DataSource only allows two specific types
+                                            of objects, DataSourceRef allows any non-core
+                                            object, as well as PersistentVolumeClaim
+                                            objects. * While DataSource ignores disallowed
+                                            values (dropping them), DataSourceRef
+                                            preserves all values, and generates an
+                                            error if a disallowed value is specified.
+                                            (Beta) Using this field requires the AnyVolumeDataSource
+                                            feature gate to be enabled.'
+                                          properties:
+                                            apiGroup:
+                                              description: APIGroup is the group for
+                                                the resource being referenced. If
+                                                APIGroup is not specified, the specified
+                                                Kind must be in the core API group.
+                                                For any other third-party types, APIGroup
+                                                is required.
+                                              type: string
+                                            kind:
+                                              description: Kind is the type of resource
+                                                being referenced
+                                              type: string
+                                            name:
+                                              description: Name is the name of resource
+                                                being referenced
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the namespace
+                                                of resource being referenced Note
+                                                that when a namespace is specified,
+                                                a gateway.networking.k8s.io/ReferenceGrant
+                                                object is required in the referent
+                                                namespace to allow that namespace's
+                                                owner to accept the reference. See
+                                                the ReferenceGrant documentation for
+                                                details. (Alpha) This field requires
+                                                the CrossNamespaceVolumeDataSource
+                                                feature gate to be enabled.
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
                                         resources:
                                           description: 'Resources represents the minimum
                                             resources the volume should have. More
@@ -3721,7 +3927,8 @@ spec:
                                                 that are used by this container. \n
                                                 This is an alpha field and requires
                                                 enabling the DynamicResourceAllocation
-                                                feature gate. \n This field is immutable."
+                                                feature gate. \n This field is immutable.
+                                                It can only be set for containers."
                                               items:
                                                 description: ResourceClaim references
                                                   one entry in PodSpec.ResourceClaims.
@@ -3764,7 +3971,8 @@ spec:
                                                 a container, it defaults to Limits
                                                 if that is explicitly specified, otherwise
                                                 to an implementation-defined value.
-                                                More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                                Requests cannot exceed Limits. More
+                                                info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                               type: object
                                           type: object
                                         selector:
@@ -4922,7 +5130,7 @@ spec:
                       can be catastrophic. An example custom profile looks like this:
                       \n ciphers: - ECDHE-ECDSA-CHACHA20-POLY1305 - ECDHE-RSA-CHACHA20-POLY1305
                       - ECDHE-RSA-AES128-GCM-SHA256 - ECDHE-ECDSA-AES128-GCM-SHA256
-                      minTLSVersion: TLSv1.1"
+                      minTLSVersion: VersionTLS11"
                     nullable: true
                     properties:
                       ciphers:
@@ -4937,8 +5145,8 @@ spec:
                         description: "minTLSVersion is used to specify the minimal
                           version of the TLS protocol that is negotiated during the
                           TLS handshake. For example, to use TLS versions 1.1, 1.2
-                          and 1.3 (yaml): \n minTLSVersion: TLSv1.1 \n NOTE: currently
-                          the highest minTLSVersion allowed is VersionTLS12"
+                          and 1.3 (yaml): \n minTLSVersion: VersionTLS11 \n NOTE:
+                          currently the highest minTLSVersion allowed is VersionTLS12"
                         enum:
                         - VersionTLS10
                         - VersionTLS11
@@ -4954,14 +5162,14 @@ spec:
                       - ECDHE-RSA-AES128-GCM-SHA256 - ECDHE-ECDSA-AES256-GCM-SHA384
                       - ECDHE-RSA-AES256-GCM-SHA384 - ECDHE-ECDSA-CHACHA20-POLY1305
                       - ECDHE-RSA-CHACHA20-POLY1305 - DHE-RSA-AES128-GCM-SHA256 -
-                      DHE-RSA-AES256-GCM-SHA384 minTLSVersion: TLSv1.2"
+                      DHE-RSA-AES256-GCM-SHA384 minTLSVersion: VersionTLS12"
                     nullable: true
                     type: object
                   modern:
                     description: "modern is a TLS security profile based on: \n https://wiki.mozilla.org/Security/Server_Side_TLS#Modern_compatibility
                       \n and looks like this (yaml): \n ciphers: - TLS_AES_128_GCM_SHA256
                       - TLS_AES_256_GCM_SHA384 - TLS_CHACHA20_POLY1305_SHA256 minTLSVersion:
-                      TLSv1.3 \n NOTE: Currently unsupported."
+                      VersionTLS13 \n NOTE: Currently unsupported."
                     nullable: true
                     type: object
                   old:
@@ -4976,7 +5184,7 @@ spec:
                       - ECDHE-ECDSA-AES256-SHA384 - ECDHE-RSA-AES256-SHA384 - ECDHE-ECDSA-AES256-SHA
                       - ECDHE-RSA-AES256-SHA - DHE-RSA-AES128-SHA256 - DHE-RSA-AES256-SHA256
                       - AES128-GCM-SHA256 - AES256-GCM-SHA384 - AES128-SHA256 - AES256-SHA256
-                      - AES128-SHA - AES256-SHA - DES-CBC3-SHA minTLSVersion: TLSv1.0"
+                      - AES128-SHA - AES256-SHA - DES-CBC3-SHA minTLSVersion: VersionTLS10"
                     nullable: true
                     type: object
                   type:

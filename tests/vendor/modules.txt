@@ -535,7 +535,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.28.3 => k8s.io/apimachinery v0.26.3
+# k8s.io/apimachinery v0.28.4 => k8s.io/apimachinery v0.26.3
 ## explicit; go 1.19
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1072,8 +1072,8 @@ kubevirt.io/kubevirt/tests/watcher
 ## explicit; go 1.19
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1
-# kubevirt.io/ssp-operator/api v0.19.0-rc.0
-## explicit; go 1.19
+# kubevirt.io/ssp-operator/api v0.19.0
+## explicit; go 1.20
 kubevirt.io/ssp-operator/api/v1beta2
 # sigs.k8s.io/controller-runtime v0.16.3 => sigs.k8s.io/controller-runtime v0.16.0
 ## explicit; go 1.20
