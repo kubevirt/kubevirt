@@ -22,13 +22,10 @@ package tests
 import (
 	"archive/tar"
 	"context"
-	cryptorand "crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -51,7 +48,6 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1906,50 +1902,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		}
 		return nil
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
-}
-
-// GeneratePrivateKey creates a RSA Private Key of specified byte size
-func GeneratePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
-	privateKey, err := rsa.GenerateKey(cryptorand.Reader, bitSize)
-	if err != nil {
-		return nil, err
-	}
-
-	err = privateKey.Validate()
-	if err != nil {
-		return nil, err
-	}
-
-	return privateKey, nil
-}
-
-// GeneratePublicKey will return in the format "ssh-rsa ..."
-func GeneratePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
-	publicRsaKey, err := ssh.NewPublicKey(privatekey)
-	if err != nil {
-		return nil, err
-	}
-
-	publicKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
-
-	return publicKeyBytes, nil
-}
-
-// EncodePrivateKeyToPEM encodes Private Key from RSA to PEM format
-func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
-	// Get ASN.1 DER format
-	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
-
-	privateBlock := pem.Block{
-		Type:    "RSA PRIVATE KEY",
-		Headers: nil,
-		Bytes:   privDER,
-	}
-
-	// Private key in PEM format
-	privatePEM := pem.EncodeToMemory(&privateBlock)
-
-	return privatePEM
 }
 
 func RetryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
