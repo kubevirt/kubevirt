@@ -2310,13 +2310,3 @@ func RenderTargetcliPod(name, disksPVC string) *k8sv1.Pod {
 		},
 	}
 }
-
-func CheckResultShellCommandOnVmi(vmi *v1.VirtualMachineInstance, cmd, output string, timeout int) {
-	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-		&expect.BSnd{S: fmt.Sprintf("%s\n", cmd)},
-		&expect.BExp{R: console.PromptExpression},
-	}, timeout)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, res).ToNot(BeEmpty())
-	ExpectWithOffset(1, res[0].Output).To(ContainSubstring(output))
-}

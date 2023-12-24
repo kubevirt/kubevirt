@@ -227,7 +227,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Writing to disk")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
-				tests.CheckResultShellCommandOnVmi(vmi, "dd if=/dev/zero of=/dev/vdb",
+				checkResultShellCommandOnVmi(vmi, "dd if=/dev/zero of=/dev/vdb",
 					"dd: error writing '/dev/vdb': I/O error", 20)
 
 				cleanUp(vmi)
@@ -1368,4 +1368,14 @@ func newVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 		},
 	})
 	return vmi
+}
+
+func checkResultShellCommandOnVmi(vmi *virtv1.VirtualMachineInstance, cmd, output string, timeout int) {
+	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: fmt.Sprintf("%s\n", cmd)},
+		&expect.BExp{R: console.PromptExpression},
+	}, timeout)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, res).ToNot(BeEmpty())
+	ExpectWithOffset(1, res[0].Output).To(ContainSubstring(output))
 }
