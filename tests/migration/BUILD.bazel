@@ -48,6 +48,7 @@ go_library(
         "//tests/libnet/job:go_default_library",
         "//tests/libnet/service:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libpod:go_default_library",
         "//tests/libstorage:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/libwait:go_default_library",

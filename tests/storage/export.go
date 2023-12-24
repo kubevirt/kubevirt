@@ -71,6 +71,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -160,7 +161,7 @@ var _ = SIGDescribe("Export", func() {
 
 	createDownloadPod := func(caConfigMap *k8sv1.ConfigMap) *k8sv1.Pod {
 		podName := "download-pod"
-		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+		pod := libpod.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
 		if pod.Spec.SecurityContext == nil {
 			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
 		}
@@ -203,7 +204,7 @@ var _ = SIGDescribe("Export", func() {
 	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		podName := "download-pod"
-		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+		pod := libpod.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volumeName,
 			VolumeSource: k8sv1.VolumeSource{

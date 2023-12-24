@@ -51,6 +51,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -173,7 +174,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			// because the root user will be able to access the directory anyway
 			nodeSelector := map[string]string{"kubernetes.io/hostname": node}
 			args := []string{fmt.Sprintf(`chown 107 %s`, pvhostpath)}
-			pod := tests.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+			pod := libpod.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 			pod.Spec.NodeSelector = nodeSelector
 			tests.RunPodAndExpectCompletion(pod)
 		}

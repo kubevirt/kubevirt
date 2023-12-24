@@ -92,6 +92,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -1069,47 +1070,6 @@ func NewBool(x bool) *bool {
 	return &x
 }
 
-func RenderPrivilegedPod(name string, cmd []string, args []string) *k8sv1.Pod {
-	pod := RenderPod(name, cmd, args)
-	pod.Namespace = testsuite.NamespacePrivileged
-	pod.Spec.HostPID = true
-	pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
-		RunAsUser: new(int64),
-	}
-	pod.Spec.Containers = []k8sv1.Container{
-		renderPrivilegedContainerSpec(
-			fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-			name,
-			cmd,
-			args),
-	}
-
-	return pod
-}
-
-func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
-	pod := k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: name,
-			Labels: map[string]string{
-				v1.AppLabel: "test",
-			},
-		},
-		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Containers: []k8sv1.Container{
-				renderContainerSpec(
-					fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-					name,
-					cmd,
-					args),
-			},
-		},
-	}
-
-	return &pod
-}
-
 // CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
 func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
@@ -1194,7 +1154,7 @@ func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
 
 	By("creating an image with without qemu permissions")
-	pod := RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	nodeName = RunPodAndExpectCompletion(pod).Spec.NodeName
 	return
@@ -1204,42 +1164,9 @@ func DeleteAlpineWithNonQEMUPermissions() {
 	nonQemuAlpinePath := testsuite.HostPathAlpine + "-nopriv"
 	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
 
-	pod := RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
+	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	RunPodAndExpectCompletion(pod)
-}
-
-func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
-	return k8sv1.Container{
-		Name:    name,
-		Image:   imgPath,
-		Command: cmd,
-		Args:    args,
-		SecurityContext: &k8sv1.SecurityContext{
-			Privileged:               NewBool(false),
-			AllowPrivilegeEscalation: NewBool(false),
-			RunAsNonRoot:             NewBool(true),
-			SeccompProfile: &k8sv1.SeccompProfile{
-				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
-			},
-			Capabilities: &k8sv1.Capabilities{
-				Drop: []k8sv1.Capability{"ALL"},
-			},
-		},
-	}
-}
-
-func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
-	return k8sv1.Container{
-		Name:    name,
-		Image:   imgPath,
-		Command: cmd,
-		Args:    args,
-		SecurityContext: &k8sv1.SecurityContext{
-			Privileged: NewBool(true),
-			RunAsUser:  new(int64),
-		},
-	}
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
@@ -1386,27 +1313,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	}
 
 	args := []string{command}
-	pod := RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
-
-	return pod
-}
-
-func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathType, mountPropagation k8sv1.MountPropagationMode, cmd []string, args []string) *k8sv1.Pod {
-	pod := RenderPrivilegedPod(podName, cmd, args)
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-		Name:             "hostpath-mount",
-		MountPropagation: &mountPropagation,
-		MountPath:        dir,
-	})
-	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-		Name: "hostpath-mount",
-		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: dir,
-				Type: &hostPathType,
-			},
-		},
-	})
+	pod := libpod.RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
 
 	return pod
 }
@@ -2237,76 +2144,4 @@ func GetDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeplo
 
 func GetDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
 	return components.NewExportProxyDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
-}
-
-func RenderTargetcliPod(name, disksPVC string) *k8sv1.Pod {
-	const (
-		disks        = "disks"
-		kernelConfig = "kernel-config"
-		dbus         = "dbus"
-		modules      = "modules"
-	)
-	hostPathDirectory := k8sv1.HostPathDirectory
-	targetcliContainer := renderPrivilegedContainerSpec(
-		fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-		"targetcli", []string{"tail", "-f", "/dev/null"}, []string{})
-	targetcliContainer.VolumeMounts = []k8sv1.VolumeMount{
-		{
-			Name:      disks,
-			ReadOnly:  false,
-			MountPath: "/disks",
-		},
-		{
-			Name:      dbus,
-			ReadOnly:  false,
-			MountPath: "/var/run/dbus",
-		},
-		{
-			Name:      modules,
-			ReadOnly:  false,
-			MountPath: "/lib/modules",
-		},
-	}
-	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				v1.AppLabel: "test",
-			},
-		},
-		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Containers:    []k8sv1.Container{targetcliContainer},
-			Volumes: []k8sv1.Volume{
-				// PVC where we store the backend for the SCSI disks
-				{
-					Name: disks,
-					VolumeSource: k8sv1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: disksPVC,
-							ReadOnly:  false,
-						},
-					},
-				},
-				{
-					Name: dbus,
-					VolumeSource: k8sv1.VolumeSource{
-						HostPath: &k8sv1.HostPathVolumeSource{
-							Path: "/var/run/dbus",
-							Type: &hostPathDirectory,
-						},
-					},
-				},
-				{
-					Name: modules,
-					VolumeSource: k8sv1.VolumeSource{
-						HostPath: &k8sv1.HostPathVolumeSource{
-							Path: "/lib/modules",
-							Type: &hostPathDirectory,
-						},
-					},
-				},
-			},
-		},
-	}
 }
