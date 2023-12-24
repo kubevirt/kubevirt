@@ -17506,6 +17506,7 @@
       "type": "string"
      },
      "macvtap": {
+      "description": "Deprecated, please refer to Kubevirt user guide for alternatives.",
       "$ref": "#/definitions/v1.InterfaceMacvtap"
      },
      "masquerade": {

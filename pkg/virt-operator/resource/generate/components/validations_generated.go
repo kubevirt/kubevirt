@@ -5958,9 +5958,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
                               macvtap:
-                                description: InterfaceMacvtap connects to a given
-                                  network by extending the Kubernetes node's L2 networks
-                                  via a macvtap interface.
+                                description: Deprecated, please refer to Kubevirt
+                                  user guide for alternatives.
                                 type: object
                               masquerade:
                                 description: InterfaceMasquerade connects to a given
@@ -10541,9 +10540,8 @@ var CRDsValidation map[string]string = map[string]string{
                           or DE-AD-00-00-BE-AF.'
                         type: string
                       macvtap:
-                        description: InterfaceMacvtap connects to a given network
-                          by extending the Kubernetes node's L2 networks via a macvtap
-                          interface.
+                        description: Deprecated, please refer to Kubevirt user guide
+                          for alternatives.
                         type: object
                       masquerade:
                         description: InterfaceMasquerade connects to a given network
@@ -13321,9 +13319,8 @@ var CRDsValidation map[string]string = map[string]string{
                           or DE-AD-00-00-BE-AF.'
                         type: string
                       macvtap:
-                        description: InterfaceMacvtap connects to a given network
-                          by extending the Kubernetes node's L2 networks via a macvtap
-                          interface.
+                        description: Deprecated, please refer to Kubevirt user guide
+                          for alternatives.
                         type: object
                       masquerade:
                         description: InterfaceMasquerade connects to a given network
@@ -15514,9 +15511,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
                               macvtap:
-                                description: InterfaceMacvtap connects to a given
-                                  network by extending the Kubernetes node's L2 networks
-                                  via a macvtap interface.
+                                description: Deprecated, please refer to Kubevirt
+                                  user guide for alternatives.
                                 type: object
                               masquerade:
                                 description: InterfaceMasquerade connects to a given
@@ -19920,9 +19916,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                         type: string
                                       macvtap:
-                                        description: InterfaceMacvtap connects to
-                                          a given network by extending the Kubernetes
-                                          node's L2 networks via a macvtap interface.
+                                        description: Deprecated, please refer to Kubevirt
+                                          user guide for alternatives.
                                         type: object
                                       masquerade:
                                         description: InterfaceMasquerade connects
@@ -25116,10 +25111,8 @@ var CRDsValidation map[string]string = map[string]string{
                                               example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                             type: string
                                           macvtap:
-                                            description: InterfaceMacvtap connects
-                                              to a given network by extending the
-                                              Kubernetes node's L2 networks via a
-                                              macvtap interface.
+                                            description: Deprecated, please refer
+                                              to Kubevirt user guide for alternatives.
                                             type: object
                                           masquerade:
                                             description: InterfaceMasquerade connects
