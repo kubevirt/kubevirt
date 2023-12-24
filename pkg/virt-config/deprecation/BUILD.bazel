@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "feature-gates.go",
+        "macvtap.go",
         "passt.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-config/deprecation",
