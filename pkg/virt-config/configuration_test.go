@@ -725,7 +725,7 @@ var _ = Describe("test configuration", func() {
 			[]string{virtconfig.ClusterProfiler}, true),
 	)
 
-	Context("deprecated feature gates should always be considered as enabled", func() {
+	Context("GAed feature gates should be considered as enabled by default", func() {
 		var clusterConfig *virtconfig.ClusterConfig
 
 		BeforeEach(func() {

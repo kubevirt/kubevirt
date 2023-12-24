@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 )
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
@@ -85,7 +85,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		newMigration.Spec.VMIName = "somethingelse"
 		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		enableFeatureGate(virtconfig.LiveMigrationGate)
+		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
@@ -118,7 +118,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate(virtconfig.LiveMigrationGate)
+		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
@@ -161,7 +161,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		newMigration.Labels = nil
 		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		enableFeatureGate(virtconfig.LiveMigrationGate)
+		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
@@ -204,7 +204,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		delete(newMigration.Labels, v1.MigrationSelectorLabel)
 		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		enableFeatureGate(virtconfig.LiveMigrationGate)
+		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
@@ -247,7 +247,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		delete(newMigration.Labels, "someOtherLabel")
 		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		enableFeatureGate(virtconfig.LiveMigrationGate)
+		enableFeatureGate(deprecation.LiveMigrationGate)
 
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{

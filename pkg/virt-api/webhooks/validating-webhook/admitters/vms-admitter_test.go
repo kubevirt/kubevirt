@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	rt "runtime"
@@ -2342,6 +2343,29 @@ var _ = Describe("Validating VM Admitter", func() {
 				}),
 			)
 		})
+	})
+
+	It("should raise a warning when Deprecated API is used", func() {
+		enableFeatureGate(deprecation.PasstGate)
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
+		vmi.Spec.Networks = []v1.Network{
+			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+		Expect(resp.Result).To(BeNil())
+		Expect(resp.Warnings).To(HaveLen(1))
 	})
 })
 

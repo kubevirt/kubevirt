@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -195,7 +196,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		var policyExternal = v1.EvictionStrategyExternal
 
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.LiveMigrationGate)
+			enableFeatureGate(deprecation.LiveMigrationGate)
 			vmi = api.NewMinimalVMI("testvmi")
 			vmi.Spec.EvictionStrategy = nil
 		})
@@ -1487,7 +1488,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject networks with a passt interface and passt feature gate diabled", func() {
+		It("should reject networks with a passt interface and passt feature gate disabled", func() {
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
@@ -1507,7 +1508,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 		})
 		It("should reject networks with a multus network source and passt interface", func() {
-			enableFeatureGate(virtconfig.PasstGate)
+			enableFeatureGate(deprecation.PasstGate)
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
@@ -1527,7 +1528,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 		})
 		It("should accept networks with a pod network source and passt interface", func() {
-			enableFeatureGate(virtconfig.PasstGate)
+			enableFeatureGate(deprecation.PasstGate)
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
@@ -1546,7 +1547,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject vmis where passt is not a single interface", func() {
-			enableFeatureGate(virtconfig.PasstGate)
+			enableFeatureGate(deprecation.PasstGate)
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				{
@@ -1595,6 +1596,26 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
+		})
+		It("should raise a warning when Deprecated API is used", func() {
+			enableFeatureGate(deprecation.PasstGate)
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
+			vmi.Spec.Networks = []v1.Network{
+				{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+			vmiJSON, _ := json.Marshal(&vmi)
+
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiJSON}}}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
+			Expect(resp.Warnings).To(HaveLen(1))
 		})
 		It("should reject networks with a pod network source and slirp interface without specific port", func() {
 			enableSlirpInterface()

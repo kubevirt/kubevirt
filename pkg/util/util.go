@@ -93,8 +93,8 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 }
 
 // Check if the VMI includes passt network interface(s)
-func IsPasstVMI(vmi *v1.VirtualMachineInstance) bool {
-	for _, net := range vmi.Spec.Domain.Devices.Interfaces {
+func IsPasstVMI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	for _, net := range vmiSpec.Domain.Devices.Interfaces {
 		if net.Passt != nil {
 			return true
 		}

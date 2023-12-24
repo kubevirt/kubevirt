@@ -18558,7 +18558,8 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"passt": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfacePasst"),
+							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
+							Ref:         ref("kubevirt.io/api/core/v1.InterfacePasst"),
 						},
 					},
 					"binding": {
@@ -18672,7 +18673,8 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 					},
 					"passt": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfacePasst"),
+							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
+							Ref:         ref("kubevirt.io/api/core/v1.InterfacePasst"),
 						},
 					},
 				},

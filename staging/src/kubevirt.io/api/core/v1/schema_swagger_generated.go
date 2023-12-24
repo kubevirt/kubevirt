@@ -694,7 +694,8 @@ func (DHCPPrivateOptions) SwaggerDoc() map[string]string {
 
 func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the method which will be used to connect the interface to the guest.\nOnly one of its members may be specified.",
+		"":      "Represents the method which will be used to connect the interface to the guest.\nOnly one of its members may be specified.",
+		"passt": "Deprecated, please refer to Kubevirt user guide for alternatives.\n+optional",
 	}
 }
 

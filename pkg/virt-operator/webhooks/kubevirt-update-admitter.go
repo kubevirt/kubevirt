@@ -28,6 +28,7 @@ import (
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 	"kubevirt.io/client-go/log"
 
@@ -114,7 +115,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
 		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates, admitter.ClusterConfig)...)
+		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -446,14 +447,13 @@ func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 	return !equality.Semantic.DeepEqual(currDevConfig.FeatureGates, newDevConfig.FeatureGates)
 }
 
-func warnDeprecatedFeatureGates(featureGates []string, config *virtconfig.ClusterConfig) (warnings []string) {
+func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 	for _, featureGate := range featureGates {
-		if config.IsFeatureGateDeprecated(featureGate) {
-			const warningPattern = "feature gate %s is deprecated, therefore it can be safely removed and is redundant. " +
-				"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
-			warnings = append(warnings, fmt.Sprintf(warningPattern, featureGate))
-
-			log.Log.Warningf(warningPattern, featureGate)
+		deprectedFeature := deprecation.FeatureGateInfo(featureGate)
+		if deprectedFeature != nil {
+			warning := deprectedFeature.Message
+			warnings = append(warnings, warning)
+			log.Log.Warning(warning)
 		}
 	}
 

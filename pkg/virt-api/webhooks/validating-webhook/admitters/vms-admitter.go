@@ -208,15 +208,16 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		}
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-
 	isDryRun := ar.Request.DryRun != nil && *ar.Request.DryRun
 	if !isDryRun && ar.Request.Operation == admissionv1.Create {
 		metrics.NewVMCreated(&vm)
 	}
 
-	return &reviewResponse
+	return &admissionv1.AdmissionResponse{
+		Allowed:  true,
+		Warnings: warnDeprecatedAPIs(&vm.Spec.Template.Spec, admitter.ClusterConfig),
+	}
+
 }
 
 func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {

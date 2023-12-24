@@ -72,9 +72,10 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		return reviewResponse
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
+	return &admissionv1.AdmissionResponse{
+		Allowed:  true,
+		Warnings: warnDeprecatedAPIs(&newVMI.Spec, admitter.ClusterConfig),
+	}
 }
 
 func getExpectedDisks(newVolumes []v1.Volume) int {
