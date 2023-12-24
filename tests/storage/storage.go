@@ -422,7 +422,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
+				DescribeTable("started", func(storageEngine string, family k8sv1.IPFamily) {
 					libnet.SkipWhenClusterNotSupportIPFamily(family)
 
 					// Start the VirtualMachineInstance with the PVC attached
@@ -432,7 +432,7 @@ var _ = SIGDescribe("Storage", func() {
 					} else {
 						pvName = tests.DiskAlpineHostPath
 					}
-					vmi = newVMI(pvName)
+					vmi = tests.NewRandomVMIWithEphemeralPVC(pvName)
 
 					if storageEngine == "nfs" {
 						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
@@ -443,9 +443,9 @@ var _ = SIGDescribe("Storage", func() {
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
-					Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
-					Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
-					Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
+					Entry("[test_id:3136]with Ephemeral PVC", "", nil),
+					Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", "nfs", k8sv1.IPv4Protocol),
+					Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", "nfs", k8sv1.IPv6Protocol),
 				)
 			})
 
