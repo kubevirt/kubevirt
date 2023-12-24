@@ -432,7 +432,7 @@ var _ = SIGDescribe("Storage", func() {
 					} else {
 						pvName = tests.DiskAlpineHostPath
 					}
-					vmi = tests.NewRandomVMIWithEphemeralPVC(pvName)
+					vmi = newVMIWithEphemeralPVC(pvName)
 
 					if storageEngine == "nfs" {
 						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
@@ -451,7 +451,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3137]should not persist data", func() {
-				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
+				vmi = newVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
 				var createdVMI *virtv1.VirtualMachineInstance
@@ -1020,7 +1020,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			It("should generate the block backingstore disk within the domain", func() {
-				vmi = tests.NewRandomVMIWithEphemeralPVC(dataVolume.Name)
+				vmi = newVMIWithEphemeralPVC(dataVolume.Name)
 
 				By("Initializing the VM")
 				tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -1037,7 +1037,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(disks[0].BackingStore.Source.Dev).To(Equal(converter.GetBlockDeviceVolumePath("disk0")))
 			})
 			It("should generate the pod with the volumeDevice", func() {
-				vmi = tests.NewRandomVMIWithEphemeralPVC(dataVolume.Name)
+				vmi = newVMIWithEphemeralPVC(dataVolume.Name)
 				By("Initializing the VM")
 
 				tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -1343,4 +1343,29 @@ func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume
 	)
 
 	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+}
+
+func newVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
+	vmi := tests.NewRandomVMI()
+
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name: "disk0",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusSATA,
+			},
+		},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: "disk0",
+
+		VolumeSource: v1.VolumeSource{
+			Ephemeral: &v1.EphemeralVolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: claimName,
+				},
+			},
+		},
+	})
+	return vmi
 }

@@ -897,31 +897,6 @@ func DeletePvAndPvc(name string) {
 	}
 }
 
-func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: "disk0",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusSATA,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk0",
-
-		VolumeSource: v1.VolumeSource{
-			Ephemeral: &v1.EphemeralVolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: claimName,
-				},
-			},
-		},
-	})
-	return vmi
-}
-
 func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDiskType, name string) {
 	hostDisk := v1.HostDisk{
 		Path: path,
