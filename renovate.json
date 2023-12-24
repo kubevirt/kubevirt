@@ -68,6 +68,12 @@
     {
       "matchManagers": ["gomod"],
       "enabled": false
+    },
+    {
+      "excludePackageNames": [
+        "registry.ci.openshift.org/ocp/builder:rhel-9-golang"
+      ],
+      "groupName": "dockerfile"
     }
   ]
 }
