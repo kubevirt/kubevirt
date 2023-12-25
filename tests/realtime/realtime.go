@@ -44,7 +44,7 @@ func newFedoraRealtime(realtimeMask string) *v1.VirtualMachineInstance {
 	return libvmi.New(
 		libvmi.WithRng(),
 		libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
-		libvmi.WithCloudInitNoCloudUserData(tuneAdminRealtimeCloudInitData, true),
+		libvmi.WithCloudInitNoCloudEncodedUserData(tuneAdminRealtimeCloudInitData),
 		libvmi.WithLimitMemory(memory),
 		libvmi.WithLimitCPU("2"),
 		libvmi.WithResourceMemory(memory),

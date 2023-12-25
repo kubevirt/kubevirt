@@ -170,7 +170,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libvmi.WithSecretDisk(secretName, secretName),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
-			libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+			libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n"),
 		)
 	}
 
