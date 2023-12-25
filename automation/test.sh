@@ -25,7 +25,7 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
-
+label_filter="${KUBEVIRT_LABEL_FILTER}"
 
 if [ ${CI} == "true" ]; then
   if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
@@ -381,8 +381,8 @@ add_to_label_filter() {
   fi
 }
 
-# Set label_filter only if KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP are not set.
-if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
+# Set label_filter only if KUBEVIRT_E2E_FOCUS, KUBEVIRT_E2E_SKIP and label_filter are not set.
+if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} ]]; then
   echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
   if [[ $TARGET =~ windows_sysprep.* ]]; then
     label_filter='(Sysprep)'
