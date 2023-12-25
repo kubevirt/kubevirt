@@ -20,6 +20,7 @@
 package procsys
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -66,8 +67,9 @@ func (p ProcSys) IPv6EnableForwarding() error {
 
 func (p ProcSys) IPv6GetForwarding() (bool, error) {
 	val, err := sysCtl.GetSysctl(sysctl.NetIPv6Forwarding)
+
 	//when ipv6 has disabled, val will not exist, so need default return false
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
 
