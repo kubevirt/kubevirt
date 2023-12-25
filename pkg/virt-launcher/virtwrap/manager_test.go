@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -2173,6 +2174,12 @@ var _ = Describe("Manager", func() {
 					Multus: &v1.MultusNetwork{NetworkName: "test1"},
 				}},
 		)
+		vmi.Status = v1.VirtualMachineInstanceStatus{
+			Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+				Name:       "test1",
+				InfoSource: vmispec.InfoSourceMultusStatus,
+			}},
+		}
 
 		domainSpec := expectedDomainFor(vmi)
 		xml, err := xml.MarshalIndent(domainSpec, "", "\t")

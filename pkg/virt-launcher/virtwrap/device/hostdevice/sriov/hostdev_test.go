@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 
@@ -60,10 +61,37 @@ var _ = Describe("SRIOV HostDevice", func() {
 			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
 		})
 
+		It("creates no device given SRIOV interface that has no status", func() {
+			iface := newSRIOVInterface("test")
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+
+			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+		})
+
+		It("creates no device given SRIOV interface without multus info source", func() {
+			iface := newSRIOVInterface("test")
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+			vmi.Status = v1.VirtualMachineInstanceStatus{
+				Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+					Name: "test",
+				}},
+			}
+
+			Expect(sriov.CreateHostDevices(vmi)).To(BeEmpty())
+		})
+
 		It("fails to create device given no available host PCI", func() {
 			iface := newSRIOVInterface("test")
 			vmi := &v1.VirtualMachineInstance{}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+			vmi.Status = v1.VirtualMachineInstanceStatus{
+				Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+					Name:       "test",
+					InfoSource: vmispec.InfoSourceMultusStatus,
+				}},
+			}
 
 			_, err := sriov.CreateHostDevices(vmi)
 
