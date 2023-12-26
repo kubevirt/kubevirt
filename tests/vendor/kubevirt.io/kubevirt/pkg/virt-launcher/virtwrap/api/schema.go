@@ -99,6 +99,7 @@ const (
 
 	HostDevicePCI  = "pci"
 	HostDeviceMDev = "mdev"
+	HostDeviceUSB  = "usb"
 	AddressPCI     = "pci"
 )
 

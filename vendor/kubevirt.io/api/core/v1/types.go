@@ -247,6 +247,10 @@ type VirtualMachineInstanceStatus struct {
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
 
+	// KernelBootStatus contains info about the kernelBootContainer
+	// +optional
+	KernelBootStatus *KernelBootStatus `json:"kernelBootStatus,omitempty"`
+
 	// FSFreezeStatus is the state of the fs of the guest
 	// it can be either frozen or thawed
 	// +optional
@@ -336,6 +340,28 @@ type VolumeStatus struct {
 	Size int64 `json:"size,omitempty"`
 	// If the volume is memorydump volume, this will contain the memorydump info.
 	MemoryDumpVolume *DomainMemoryDumpInfo `json:"memoryDumpVolume,omitempty"`
+	// ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk
+	ContainerDiskVolume *ContainerDiskInfo `json:"containerDiskVolume,omitempty"`
+}
+
+// KernelInfo show info about the kernel image
+type KernelInfo struct {
+	// Checksum is the checksum of the kernel image
+	Checksum uint32 `json:"checksum,omitempty"`
+}
+
+// InitrdInfo show info about the initrd file
+type InitrdInfo struct {
+	// Checksum is the checksum of the initrd file
+	Checksum uint32 `json:"checksum,omitempty"`
+}
+
+// KernelBootStatus contains info about the kernelBootContainer
+type KernelBootStatus struct {
+	// KernelInfo show info about the kernel image
+	KernelInfo *KernelInfo `json:"kernelInfo,omitempty"`
+	// InitrdInfo show info about the initrd file
+	InitrdInfo *InitrdInfo `json:"initrdInfo,omitempty"`
 }
 
 // DomainMemoryDumpInfo represents the memory dump information
@@ -356,6 +382,12 @@ type HotplugVolumeStatus struct {
 	AttachPodName string `json:"attachPodName,omitempty"`
 	// AttachPodUID is the UID of the pod used to attach the volume to the node.
 	AttachPodUID types.UID `json:"attachPodUID,omitempty"`
+}
+
+// ContainerDiskInfo shows info about the containerdisk
+type ContainerDiskInfo struct {
+	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
+	Checksum uint32 `json:"checksum,omitempty"`
 }
 
 // VolumePhase indicates the current phase of the hotplug process.
@@ -994,6 +1026,9 @@ const (
 	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
 	// Must be a float >= 1.
 	AutoMemoryLimitsRatioLabel string = "alpha.kubevirt.io/auto-memory-limits-ratio"
+
+	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
+	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -2683,7 +2718,20 @@ type InterfaceBindingPlugin struct {
 	// If namespace is not specified, VMI namespace is assumed.
 	// version: 1alphav1
 	NetworkAttachmentDefinition string `json:"networkAttachmentDefinition,omitempty"`
+	// DomainAttachmentType is a standard domain network attachment method kubevirt supports.
+	// Supported values: "tap".
+	// The standard domain attachment can be used instead or in addition to the sidecarImage.
+	// version: 1alphav1
+	DomainAttachmentType DomainAttachmentType `json:"domainAttachmentType,omitempty"`
 }
+
+type DomainAttachmentType string
+
+const (
+	// Tap domain attachment type is a generic way to bind ethernet connection into guests using tap device
+	// https://libvirt.org/formatdomain.html#generic-ethernet-connection.
+	Tap DomainAttachmentType = "tap"
+)
 
 // GuestAgentPing configures the guest-agent based ping probe
 type GuestAgentPing struct {

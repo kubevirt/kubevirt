@@ -72,6 +72,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"evacuationNodeName":            "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
 		"activePods":                    "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
 		"volumeStatus":                  "VolumeStatus contains the statuses of all the volumes\n+optional\n+listType=atomic",
+		"kernelBootStatus":              "KernelBootStatus contains info about the kernelBootContainer\n+optional",
 		"fsFreezeStatus":                "FSFreezeStatus is the state of the fs of the guest\nit can be either frozen or thawed\n+optional",
 		"topologyHints":                 "+optional",
 		"virtualMachineRevisionName":    "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing\nan online vm snapshot\n+optional",
@@ -108,6 +109,29 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 		"hotplugVolume":             "If the volume is hotplug, this will contain the hotplug status.",
 		"size":                      "Represents the size of the volume",
 		"memoryDumpVolume":          "If the volume is memorydump volume, this will contain the memorydump info.",
+		"containerDiskVolume":       "ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk",
+	}
+}
+
+func (KernelInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "KernelInfo show info about the kernel image",
+		"checksum": "Checksum is the checksum of the kernel image",
+	}
+}
+
+func (InitrdInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "InitrdInfo show info about the initrd file",
+		"checksum": "Checksum is the checksum of the initrd file",
+	}
+}
+
+func (KernelBootStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "KernelBootStatus contains info about the kernelBootContainer",
+		"kernelInfo": "KernelInfo show info about the kernel image",
+		"initrdInfo": "InitrdInfo show info about the initrd file",
 	}
 }
 
@@ -126,6 +150,13 @@ func (HotplugVolumeStatus) SwaggerDoc() map[string]string {
 		"":              "HotplugVolumeStatus represents the hotplug status of the volume",
 		"attachPodName": "AttachPodName is the name of the pod used to attach the volume to the node.",
 		"attachPodUID":  "AttachPodUID is the UID of the pod used to attach the volume to the node.",
+	}
+}
+
+func (ContainerDiskInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ContainerDiskInfo shows info about the containerdisk",
+		"checksum": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
 	}
 }
 
@@ -881,6 +912,7 @@ func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"sidecarImage":                "SidecarImage references a container image that runs in the virt-launcher pod.\nThe sidecar handles (libvirt) domain configuration and optional services.\nversion: 1alphav1",
 		"networkAttachmentDefinition": "NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object.\nFormat: <name>, <namespace>/<name>.\nIf namespace is not specified, VMI namespace is assumed.\nversion: 1alphav1",
+		"domainAttachmentType":        "DomainAttachmentType is a standard domain network attachment method kubevirt supports.\nSupported values: \"tap\".\nThe standard domain attachment can be used instead or in addition to the sidecarImage.\nversion: 1alphav1",
 	}
 }
 

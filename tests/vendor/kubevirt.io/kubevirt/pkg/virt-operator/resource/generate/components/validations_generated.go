@@ -1224,6 +1224,12 @@ var CRDsValidation map[string]string = map[string]string{
                 binding:
                   additionalProperties:
                     properties:
+                      domainAttachmentType:
+                        description: 'DomainAttachmentType is a standard domain network
+                          attachment method kubevirt supports. Supported values: "tap".
+                          The standard domain attachment can be used instead or in
+                          addition to the sidecarImage. version: 1alphav1'
+                        type: string
                       networkAttachmentDefinition:
                         description: 'NetworkAttachmentDefinition references to a
                           NetworkAttachmentDefinition CR object. Format: <name>, <namespace>/<name>.
@@ -12051,6 +12057,26 @@ var CRDsValidation map[string]string = map[string]string{
                 type: integer
             type: object
           type: array
+        kernelBootStatus:
+          description: KernelBootStatus contains info about the kernelBootContainer
+          properties:
+            initrdInfo:
+              description: InitrdInfo show info about the initrd file
+              properties:
+                checksum:
+                  description: Checksum is the checksum of the initrd file
+                  format: int32
+                  type: integer
+              type: object
+            kernelInfo:
+              description: KernelInfo show info about the kernel image
+              properties:
+                checksum:
+                  description: Checksum is the checksum of the kernel image
+                  format: int32
+                  type: integer
+              type: object
+          type: object
         launcherContainerImageVersion:
           description: LauncherContainerImageVersion indicates what container image
             is currently active for the vmi.
@@ -12322,6 +12348,16 @@ var CRDsValidation map[string]string = map[string]string{
             description: VolumeStatus represents information about the status of volumes
               attached to the VirtualMachineInstance.
             properties:
+              containerDiskVolume:
+                description: ContainerDiskVolume shows info about the containerdisk,
+                  if the volume is a containerdisk
+                properties:
+                  checksum:
+                    description: Checksum is the checksum of the rootdisk or kernel
+                      artifacts inside the containerdisk
+                    format: int32
+                    type: integer
+                type: object
               hotplugVolume:
                 description: If the volume is hotplug, this will contain the hotplug
                   status.

@@ -105,6 +105,13 @@ func InterfaceDeviceWithPasstBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	}
 }
 
+func InterfaceDeviceWithBindingPlugin(name string, binding kvirtv1.PluginBinding) kvirtv1.Interface {
+	return kvirtv1.Interface{
+		Name:    name,
+		Binding: &binding,
+	}
+}
+
 // InterfaceWithMac decorates an existing Interface with a MAC address.
 func InterfaceWithMac(iface *kvirtv1.Interface, macAddress string) *kvirtv1.Interface {
 	iface.MacAddress = macAddress
