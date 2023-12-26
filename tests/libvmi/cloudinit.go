@@ -61,19 +61,13 @@ func WithCloudInitNoCloudNetworkData(data string) Option {
 }
 
 // WithCloudInitConfigDriveData adds cloud-init config-drive user data.
-func WithCloudInitConfigDriveData(data string, b64Encoding bool) Option {
+func WithCloudInitConfigDriveData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		if b64Encoding {
-			encodedData := base64.StdEncoding.EncodeToString([]byte(data))
-			volume.CloudInitConfigDrive.UserData = ""
-			volume.CloudInitConfigDrive.UserDataBase64 = encodedData
-		} else {
-			volume.CloudInitConfigDrive.UserData = data
-			volume.CloudInitConfigDrive.UserDataBase64 = ""
-		}
+		volume.CloudInitConfigDrive.UserData = data
+		volume.CloudInitConfigDrive.UserDataBase64 = ""
 	}
 }
 
