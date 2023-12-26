@@ -101,6 +101,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
@@ -1818,7 +1819,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					podName := fmt.Sprintf("migration-killer-pod-%d", idx)
 
 					// kill the handler right as we detect the qemu target process come online
-					pod := tests.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep -v \"defunct\" | grep -v \"D\" | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
+					pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep -v \"defunct\" | grep -v \"D\" | grep \"%s\" && pkill -9 virt-handler && sleep 5; done", emulator)})
 
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
@@ -3101,7 +3102,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			migratableVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 			By("creating a template for a pause pod with 1 dedicated CPU core")
-			pausePod = tests.RenderPod("pause-", nil, nil)
+			pausePod = libpod.RenderPod("pause-", nil, nil)
 			pausePod.Spec.Containers[0].Name = "compute"
 			pausePod.Spec.Containers[0].Command = []string{"sleep"}
 			pausePod.Spec.Containers[0].Args = []string{"3600"}

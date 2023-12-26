@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -140,7 +141,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 })
 
 func renderPkillAllPod(processName string) *k8sv1.Pod {
-	return tests.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
+	return libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
 }
 
 func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {

@@ -65,6 +65,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -227,7 +228,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Writing to disk")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
-				tests.CheckResultShellCommandOnVmi(vmi, "dd if=/dev/zero of=/dev/vdb",
+				checkResultShellCommandOnVmi(vmi, "dd if=/dev/zero of=/dev/vdb",
 					"dd: error writing '/dev/vdb': I/O error", 20)
 
 				cleanUp(vmi)
@@ -774,7 +775,7 @@ var _ = SIGDescribe("Storage", func() {
 					diskPath = filepath.Join(mountDir, diskImgName)
 					srcDir := filepath.Join(tmpDir, "src")
 					cmd := "mkdir -p " + mountDir + " && mkdir -p " + srcDir + " && chcon -t container_file_t " + srcDir + " && mount --bind " + srcDir + " " + mountDir + " && while true; do sleep 1; done"
-					pod = tests.RenderHostPathPod("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{tests.BinBash, "-c"}, []string{cmd})
+					pod = libpod.RenderHostPathPod("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{tests.BinBash, "-c"}, []string{cmd})
 					pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
 						PreStop: &k8sv1.LifecycleHandler{
 							Exec: &k8sv1.ExecAction{
@@ -1368,4 +1369,14 @@ func newVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 		},
 	})
 	return vmi
+}
+
+func checkResultShellCommandOnVmi(vmi *virtv1.VirtualMachineInstance, cmd, output string, timeout int) {
+	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: fmt.Sprintf("%s\n", cmd)},
+		&expect.BExp{R: console.PromptExpression},
+	}, timeout)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, res).ToNot(BeEmpty())
+	ExpectWithOffset(1, res[0].Output).To(ContainSubstring(output))
 }

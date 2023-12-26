@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -207,7 +208,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	}
 
 	prepareSession := func(virtClient kubecli.KubevirtClient, nodeName string, pdh string) (*v1.SEVSessionOptions, string, string) {
-		helperPod := tests.RenderPrivilegedPod("sev-helper", []string{"sleep"}, []string{"infinity"})
+		helperPod := libpod.RenderPrivilegedPod("sev-helper", []string{"sleep"}, []string{"infinity"})
 		helperPod.Spec.NodeName = nodeName
 
 		var err error

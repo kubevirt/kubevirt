@@ -29,9 +29,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 )
 
 const (
@@ -160,7 +160,7 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 //
 // timeout: The overall time at which the job is terminated, regardless of it finishing or not.
 func newJob(name string, cmd, args []string, retry, ttlAfterFinished int32, timeout int64) *batchv1.Job {
-	pod := tests.RenderPod(name, cmd, args)
+	pod := libpod.RenderPod(name, cmd, args)
 	job := batchv1.Job{
 		ObjectMeta: pod.ObjectMeta,
 		Spec: batchv1.JobSpec{
