@@ -1326,7 +1326,9 @@ type InterfaceBindingMethod struct {
 	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
-	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
+	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	// +optional
+	Macvtap *InterfaceMacvtap `json:"macvtap,omitempty"`
 	// Deprecated, please refer to Kubevirt user guide for alternatives.
 	// +optional
 	Passt *InterfacePasst `json:"passt,omitempty"`

@@ -1772,7 +1772,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			enableFeatureGate(virtconfig.MacvtapGate)
+			enableFeatureGate(deprecation.MacvtapGate)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
@@ -1815,7 +1815,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			enableFeatureGate(virtconfig.MacvtapGate)
+			enableFeatureGate(deprecation.MacvtapGate)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})

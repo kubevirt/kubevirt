@@ -40,6 +40,7 @@ const (
 	PasstGate              = "Passt"              // Deprecated
 	NonRoot                = "NonRoot"            // Deprecated
 	PSA                    = "PSA"                // Deprecated
+	MacvtapGate            = "Macvtap"            // Deprecated
 )
 
 type FeatureGate struct {
@@ -56,6 +57,7 @@ var featureGates = [...]FeatureGate{
 	{Name: PSA, State: GA},
 	{Name: CPUNodeDiscoveryGate, State: GA},
 	{Name: PasstGate, State: Deprecated, Message: passtDeprecationMessage, VmiSpecUsed: passtApiUsed},
+	{Name: MacvtapGate, State: Deprecated, Message: macvtapDeprecationMessage, VmiSpecUsed: macvtapApiUsed},
 }
 
 func init() {

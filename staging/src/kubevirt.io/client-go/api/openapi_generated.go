@@ -18553,7 +18553,8 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"macvtap": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
+							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
+							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
 						},
 					},
 					"passt": {
@@ -18668,7 +18669,8 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 					},
 					"macvtap": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
+							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
+							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
 						},
 					},
 					"passt": {
