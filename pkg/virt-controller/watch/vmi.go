@@ -657,6 +657,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
 					return err
 				}
+
+				if err := c.updateInterfaceStatus(vmiCopy, pod); err != nil {
+					log.Log.Errorf("failed to update the interface status: %v", err)
+				}
+
 				// vmi is still owned by the controller but pod is already ready,
 				// so let's hand over the vmi too
 				vmiCopy.Status.Phase = virtv1.Scheduled
