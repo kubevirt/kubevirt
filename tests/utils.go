@@ -54,12 +54,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 
@@ -1976,41 +1972,6 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}
-}
-
-func DryRunCreate(client *rest.RESTClient, resource, namespace string, obj interface{}, result runtime.Object) error {
-	opts := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	return client.Post().
-		Namespace(namespace).
-		Resource(resource).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(obj).
-		Do(context.Background()).
-		Into(result)
-}
-
-func DryRunUpdate(client *rest.RESTClient, resource, name, namespace string, obj interface{}, result runtime.Object) error {
-	opts := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
-	return client.Put().
-		Name(name).
-		Namespace(namespace).
-		Resource(resource).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(obj).
-		Do(context.Background()).
-		Into(result)
-}
-
-func DryRunPatch(client *rest.RESTClient, resource, name, namespace string, pt types.PatchType, data []byte, result runtime.Object) error {
-	opts := metav1.PatchOptions{DryRun: []string{metav1.DryRunAll}}
-	return client.Patch(pt).
-		Name(name).
-		Namespace(namespace).
-		Resource(resource).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(context.Background()).
-		Into(result)
 }
 
 func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
