@@ -21,6 +21,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"":                              "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
 		"priorityClassName":             "If specified, indicates the pod's priority.\nIf not specified, the pod priority will be default or zero if there is no\ndefault.\n+optional",
 		"domain":                        "Specification of the desired behavior of the VirtualMachineInstance on the host.",
+		"nodeName":                      "NodeName is a request to schedule this vm onto a specific node. If it is\nnon-empty, the scheduler simply schedules this vm onto that node, assuming\nthat it fits resource requirements.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"schedulerName":                 "If specified, the VMI will be dispatched by specified scheduler.\nIf not specified, the VMI will be dispatched by default scheduler.\n+optional",

@@ -667,6 +667,29 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 	return nil
 }
 
+func (c *VMController) VMNodeNamePatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	var ops []string
+
+	if vm.Spec.Template.Spec.NodeName != "" {
+		vmNodeName := vm.Spec.Template.Spec.NodeName
+
+		if vmi.Spec.NodeName == "" {
+			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/spec/nodeName", "value": %s }`, vmNodeName))
+		} else {
+			currentVMINodeName := vmi.Spec.NodeName
+			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/spec/nodeSelector", "value": %s }`, currentVMINodeName))
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec/nodeSelector", "value": %s }`, vmNodeName))
+		}
+
+	} else {
+		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/nodeName" }`))
+	}
+	generatedPatch := controller.GeneratePatchBytes(ops)
+
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, &v1.PatchOptions{})
+	return err
+}
+
 func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	var ops []string
 
@@ -738,11 +761,19 @@ func (c *VMController) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vm
 		return nil
 	}
 
+	hasNodeNameChanged := !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.NodeName, vmi.Spec.NodeName)
 	hasNodeSelectorChanged := !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.NodeSelector, vmi.Spec.NodeSelector)
 	hasNodeAffinityChanged := !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.Affinity, vmi.Spec.Affinity)
 
-	if migrations.IsMigrating(vmi) && (hasNodeSelectorChanged || hasNodeAffinityChanged) {
+	if migrations.IsMigrating(vmi) && (hasNodeNameChanged || hasNodeSelectorChanged || hasNodeAffinityChanged) {
 		return fmt.Errorf("Node affinity should not be changed during VMI migration")
+	}
+
+	if hasNodeNameChanged {
+		if err := c.VMNodeNamePatch(vm, vmi); err != nil {
+			log.Log.Object(vmi).Errorf("unable to patch vmi to update node name: %v", err)
+			return err
+		}
 	}
 
 	if hasNodeAffinityChanged {

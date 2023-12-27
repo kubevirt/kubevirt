@@ -87,6 +87,12 @@ type VirtualMachineInstanceSpec struct {
 
 	// Specification of the desired behavior of the VirtualMachineInstance on the host.
 	Domain DomainSpec `json:"domain"`
+	//NodeName is a request to schedule this vm onto a specific node. If it is
+	//non-empty, the scheduler simply schedules this vm onto that node, assuming
+	//that it fits resource requirements.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	// +optional
+	NodeName string `json:"nodeName,omitempty"`
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/

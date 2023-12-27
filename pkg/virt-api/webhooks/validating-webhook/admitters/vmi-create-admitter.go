@@ -175,6 +175,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateStartStrategy(field, spec)...)
 	causes = append(causes, validateRealtime(field, spec)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
+	causes = append(causes, validateSpecNodeName(field, spec)...)
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
@@ -2642,6 +2643,27 @@ func validateSpecAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	}
 
 	errorList := validateAffinity(spec.Affinity, field)
+
+	//convert errorList to []metav1.StatusCause
+	for _, validationErr := range errorList {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: validationErr.Error(),
+			Field:   validationErr.Field,
+		})
+	}
+
+	return
+}
+
+// validateNodeName is function that validate spec.affinity
+// instead of bring in the whole kubernetes lib we simply copy it from kubernetes/pkg/apis/core/validation/validation.go
+func validateSpecNodeName(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.NodeName == "" {
+		return
+	}
+
+	errorList := validateNodeName(spec.NodeName, field)
 
 	//convert errorList to []metav1.StatusCause
 	for _, validationErr := range errorList {

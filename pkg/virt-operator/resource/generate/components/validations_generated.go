@@ -6711,6 +6711,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                nodeName:
+                  description: 'NodeName is a request to schedule this vm onto a specific
+                    node. If it is non-empty, the scheduler simply schedules this
+                    vm onto that node, assuming that it fits resource requirements.
+                    More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                  type: string
                 nodeSelector:
                   additionalProperties:
                     type: string
@@ -11239,6 +11245,11 @@ var CRDsValidation map[string]string = map[string]string{
             - name
             type: object
           type: array
+        nodeName:
+          description: 'NodeName is a request to schedule this vm onto a specific
+            node. If it is non-empty, the scheduler simply schedules this vm onto
+            that node, assuming that it fits resource requirements. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+          type: string
         nodeSelector:
           additionalProperties:
             type: string
@@ -16264,6 +16275,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                nodeName:
+                  description: 'NodeName is a request to schedule this vm onto a specific
+                    node. If it is non-empty, the scheduler simply schedules this
+                    vm onto that node, assuming that it fits resource requirements.
+                    More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                  type: string
                 nodeSelector:
                   additionalProperties:
                     type: string
@@ -20711,6 +20728,12 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
+                        nodeName:
+                          description: 'NodeName is a request to schedule this vm
+                            onto a specific node. If it is non-empty, the scheduler
+                            simply schedules this vm onto that node, assuming that
+                            it fits resource requirements. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                          type: string
                         nodeSelector:
                           additionalProperties:
                             type: string
@@ -25933,6 +25956,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 - name
                                 type: object
                               type: array
+                            nodeName:
+                              description: 'NodeName is a request to schedule this
+                                vm onto a specific node. If it is non-empty, the scheduler
+                                simply schedules this vm onto that node, assuming
+                                that it fits resource requirements. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                              type: string
                             nodeSelector:
                               additionalProperties:
                                 type: string

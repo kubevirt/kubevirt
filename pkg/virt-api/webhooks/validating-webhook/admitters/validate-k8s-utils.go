@@ -72,6 +72,17 @@ func validateAffinity(affinity *core.Affinity, fldPath *field.Path) field.ErrorL
 	return allErrs
 }
 
+// validateNodeName checks if given nodeName are valid
+func validateNodeName(nodeName string, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for _, msg := range ValidateNodeName(nodeName, false) {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("nodeName"), nodeName, msg))
+	}
+
+	return allErrs
+}
+
 // validateNodeAffinity tests that the specified nodeAffinity fields have valid data
 func validateNodeAffinity(na *core.NodeAffinity, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
