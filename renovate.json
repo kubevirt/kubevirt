@@ -19,11 +19,24 @@
   ],
   "packageRules": [
     {
-      "description": "CDI",
+      "description": "Components",
       "matchPackageNames": [
-        "kubevirt/containerized-data-importer"
+        "kubevirt/kubevirt",
+        "kubevirt/containerized-data-importer",
+        "kubevirt/cluster-network-addons-operator",
+        "kubevirt/ssp-operator",
+        "kubevirt/hostpath-provisioner-operator",
+        "kubevirt/hostpath-provisioner",
+        "kubevirt/managed-tenant-quota",
+        "kubevirt-ui/kubevirt-plugin",
+        "kubevirt-ui/kubevirt-apiserver-proxy",
+        "kubernetes-csi/node-driver-registrar",
+        "kubernetes-csi/livenessprobe",
+        "kubernetes-csi/external-snapshotter",
+        "kubernetes-csi/external-provisioner"
       ],
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
+      "dependencyDashboardApproval": true,
       "groupName": null
     },
     {
@@ -66,7 +79,9 @@
       "groupName": null
     },
     {
-      "matchManagers": ["gomod"],
+      "matchManagers": [
+        "gomod"
+      ],
       "enabled": false
     },
     {
