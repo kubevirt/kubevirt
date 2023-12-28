@@ -20,6 +20,8 @@
 package domain_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vmschema "kubevirt.io/api/core/v1"
@@ -29,6 +31,10 @@ import (
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+func LabelCID(number int) interface{} {
+	return []interface{}{Label(fmt.Sprintf("test_cid:%d", number))}
+}
+
 var _ = Describe("pod network configurator", func() {
 	Context("generate domain spec interface", func() {
 		DescribeTable("should fail to create configurator given",
@@ -37,7 +43,7 @@ var _ = Describe("pod network configurator", func() {
 
 				Expect(err).To(HaveOccurred())
 			},
-			Entry("no pod network",
+			Entry("no pod network", LabelCID(1234),
 				nil,
 				[]vmschema.Network{{Name: "default", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{}}}},
 			),
