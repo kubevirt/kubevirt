@@ -883,7 +883,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = libvmi.New(
 					libvmi.WithResourceMemory("256Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
-					libvmi.WithCloudInitNoCloudUserData(cirrosUserData, true),
+					libvmi.WithCloudInitNoCloudEncodedUserData(cirrosUserData),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 

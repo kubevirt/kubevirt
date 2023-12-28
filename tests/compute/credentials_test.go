@@ -153,7 +153,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			vmi := libvmi.NewFedora(
 				withSSHPK(secretID, withQuestAgentPropagationMethod),
 				libvmi.WithCloudInitNoCloudUserData(
-					tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec"), false,
+					tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec"),
 				),
 			)
 
@@ -175,7 +175,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			const secretID = "my-user-pass"
 			vmi := libvmi.NewFedora(
 				withPassword(secretID),
-				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password"), false),
+				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password")),
 			)
 
 			customPassword := "imadethisup"
@@ -228,7 +228,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			})
 
 			vmi := libvmi.NewFedora(
-				libvmi.WithCloudInitConfigDriveData(userData, false),
+				libvmi.WithCloudInitConfigDriveData(userData),
 				withSSHPK(secretID, propagationMethod))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 			verifySSHKeys(vmi)

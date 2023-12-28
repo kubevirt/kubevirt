@@ -603,7 +603,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		It("[test_id:1779]should have custom resolv.conf", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 			userData := "#cloud-config\n"
-			dnsVMI := libvmi.NewCirros(libvmi.WithCloudInitNoCloudUserData(userData, false))
+			dnsVMI := libvmi.NewCirros(libvmi.WithCloudInitNoCloudUserData(userData))
 
 			dnsVMI.Spec.DNSPolicy = "None"
 

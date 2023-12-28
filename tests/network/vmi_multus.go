@@ -682,7 +682,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
                     ip addr add %s dev ep1
                     ip addr add %s dev ep2
                 `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
-				agentVMI := libvmi.NewFedora(libvmi.WithCloudInitNoCloudUserData(userdata, false))
+				agentVMI := libvmi.NewFedora(libvmi.WithCloudInitNoCloudUserData(userdata))
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks

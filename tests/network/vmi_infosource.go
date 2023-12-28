@@ -85,7 +85,7 @@ var _ = SIGDescribe("Infosource", func() {
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&secondaryLinuxBridgeInterface2, secondaryInterface2Mac)),
 				libvmi.WithNetwork(secondaryNetwork1),
 				libvmi.WithNetwork(secondaryNetwork2),
-				libvmi.WithCloudInitNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac), false))
+				libvmi.WithCloudInitNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac)))
 
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)

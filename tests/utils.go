@@ -770,7 +770,7 @@ func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachi
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands), false),
+		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands)),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData),
 	)
 }

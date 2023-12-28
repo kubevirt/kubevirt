@@ -175,7 +175,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		vmi := libvmi.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithCloudInitNoCloudUserData(userData, false),
+			libvmi.WithCloudInitNoCloudUserData(userData),
 		)
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)

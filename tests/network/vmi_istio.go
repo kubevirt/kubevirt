@@ -497,7 +497,7 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData),
-		libvmi.WithCloudInitNoCloudUserData(enablePasswordAuth(), true),
+		libvmi.WithCloudInitNoCloudEncodedUserData(enablePasswordAuth()),
 	)
 	return vmi
 }
@@ -508,7 +508,7 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
-		libvmi.WithCloudInitNoCloudUserData(enablePasswordAuth(), true),
+		libvmi.WithCloudInitNoCloudEncodedUserData(enablePasswordAuth()),
 	)
 	return vmi
 }
