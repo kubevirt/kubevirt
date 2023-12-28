@@ -699,7 +699,7 @@ spec:
         - name: CSI_PROVISIONER_IMAGE
           value: quay.io/kubevirt/hostpath-csi-driver@sha256:8d84b9a33e0ec3749aece7c5f9879d1e0d248e8028ab3f776528a044d387033c
         - name: NODE_DRIVER_REG_IMAGE
-          value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:a18e989a93722e43885120e90bc1d0da0740fcbf44bc10403572b368b9800606
+          value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:0f64602ea791246712b51df334bbd701a0f31df9950a4cb9c28c059f367baa9e
         - name: LIVENESS_PROBE_IMAGE
           value: registry.k8s.io/sig-storage/livenessprobe@sha256:82adbebdf5d5a1f40f246aef8ddbee7f89dea190652aefe83336008e69f9a89f
         - name: CSI_SNAPSHOT_IMAGE
