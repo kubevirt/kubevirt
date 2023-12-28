@@ -944,10 +944,6 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 }
 
 func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string) {
-	AddConfigMapDiskWithCustomLabel(vmi, configMapName, volumeName, "")
-
-}
-func AddConfigMapDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string, volumeLabel string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
@@ -955,7 +951,7 @@ func AddConfigMapDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, configMapNa
 				LocalObjectReference: k8sv1.LocalObjectReference{
 					Name: configMapName,
 				},
-				VolumeLabel: volumeLabel,
+				VolumeLabel: "",
 			},
 		},
 	})
