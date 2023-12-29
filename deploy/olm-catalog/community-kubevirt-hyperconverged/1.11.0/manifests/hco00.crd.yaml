@@ -1089,6 +1089,13 @@ spec:
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
+                  alignCPUs:
+                    default: false
+                    description: 'Enable KubeVirt to request up to two additional
+                      dedicated CPUs in order to complete the total CPU count to an
+                      even parity when using emulator thread isolation. Note: this
+                      feature is in Developer Preview.'
+                    type: boolean
                   autoResourceLimits:
                     default: false
                     description: 'Enable KubeVirt to set automatic limits when they

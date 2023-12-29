@@ -166,6 +166,7 @@ const (
 	kvDisableMDevConfig      = "DisableMDEVConfiguration"
 	kvPersistentReservation  = "PersistentReservation"
 	kvAutoResourceLimits     = "AutoResourceLimitsGate"
+	kvAlignCPUs              = "AlignCPUs"
 )
 
 // CPU Plugin default values
@@ -245,14 +246,17 @@ func (*kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exi
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to KubeVirt")
 	}
+
 	if !reflect.DeepEqual(found.Spec, virt.Spec) ||
-		!reflect.DeepEqual(found.Labels, virt.Labels) {
+		!reflect.DeepEqual(found.Labels, virt.Labels) ||
+		!isAnnotationStateMeetingRequirements(virt.Annotations, found.Annotations) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing KubeVirt's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
 		}
 		hcoutil.DeepCopyLabels(&virt.ObjectMeta, &found.ObjectMeta)
+		setAnnotationsToReqState(req.Instance, found)
 		virt.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -294,6 +298,7 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 	}
 
 	kv := NewKubeVirtWithNameOnly(hc, opts...)
+	setAnnotationsToReqState(hc, kv)
 	kv.Spec = spec
 
 	if err := applyPatchToSpec(hc, common.JSONPatchKVAnnotationName, kv); err != nil {
@@ -301,6 +306,25 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 	}
 
 	return kv, nil
+}
+
+func isAnnotationStateMeetingRequirements(requiredAnnotations, actualAnnotations map[string]string) bool {
+	_, isRequired := requiredAnnotations[kubevirtcorev1.EmulatorThreadCompleteToEvenParity]
+	_, exists := actualAnnotations[kubevirtcorev1.EmulatorThreadCompleteToEvenParity]
+
+	return isRequired == exists
+}
+
+func setAnnotationsToReqState(hc *hcov1beta1.HyperConverged, kv *kubevirtcorev1.KubeVirt) {
+	if kv.Annotations == nil {
+		kv.Annotations = map[string]string{}
+	}
+
+	if hc.Spec.FeatureGates.AlignCPUs != nil && *hc.Spec.FeatureGates.AlignCPUs {
+		kv.Annotations[kubevirtcorev1.EmulatorThreadCompleteToEvenParity] = ""
+	} else {
+		delete(kv.Annotations, kubevirtcorev1.EmulatorThreadCompleteToEvenParity)
+	}
 }
 
 func getHcoAnnotationTuning(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.ReloadableComponentConfiguration, error) {
@@ -743,6 +767,10 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 	}
 	if featureGates.AutoResourceLimits != nil && *featureGates.AutoResourceLimits {
 		fgs = append(fgs, kvAutoResourceLimits)
+	}
+
+	if featureGates.AlignCPUs != nil && *featureGates.AlignCPUs {
+		fgs = append(fgs, kvAlignCPUs)
 	}
 
 	return fgs

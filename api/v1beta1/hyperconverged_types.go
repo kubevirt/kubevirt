@@ -450,6 +450,14 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	AutoResourceLimits *bool `json:"autoResourceLimits,omitempty"`
+
+	// Enable KubeVirt to request up to two additional dedicated CPUs
+	// in order to complete the total CPU count to an even parity when using emulator thread isolation.
+	// Note: this feature is in Developer Preview.
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	AlignCPUs *bool `json:"alignCPUs,omitempty"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough

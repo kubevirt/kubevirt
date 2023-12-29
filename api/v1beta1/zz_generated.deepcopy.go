@@ -260,6 +260,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AlignCPUs != nil {
+		in, out := &in.AlignCPUs, &out.AlignCPUs
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

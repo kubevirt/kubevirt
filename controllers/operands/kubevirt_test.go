@@ -1680,6 +1680,51 @@ Version: 1.2.3`)
 					})
 				})
 
+				It("should add the AlignCPUs feature gate if AlignCPUs is true in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						AlignCPUs: ptr.To(true),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the AutoResourceLimitsGate feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvAlignCPUs))
+					})
+
+					Expect(existingResource.Annotations).To(HaveKeyWithValue(kubevirtcorev1.EmulatorThreadCompleteToEvenParity, ""))
+				})
+
+				It("should not add the AlignCPUs feature gate if AlignCPUs is false in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						AlignCPUs: ptr.To(false),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should not contain the AlignCPUs feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvAlignCPUs))
+					})
+
+					Expect(existingResource.Annotations).ToNot(HaveKey(kubevirtcorev1.EmulatorThreadCompleteToEvenParity))
+				})
+
+				It("should not add the AlignCPUs feature gate if AlignCPUs is not set in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						AlignCPUs: nil,
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should not contain the AlignCPUs feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvAlignCPUs))
+					})
+
+					Expect(existingResource.Annotations).ToNot(HaveKey(kubevirtcorev1.EmulatorThreadCompleteToEvenParity))
+				})
+
 				It("should not add the feature gates if FeatureGates field is empty", func() {
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
@@ -3643,6 +3688,90 @@ Version: 1.2.3`)
 				Entry("empty defaultRuntimeClass", ptr.To("")),
 			)
 
+		})
+
+		Context("AlignCPUs", func() {
+			DescribeTable("AlignCPUs is enabled in HCO", func(isAlignCPUsFGEnabledOnKV, isAnnotationPresentOnKV bool) {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				if isAlignCPUsFGEnabledOnKV {
+					existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
+						existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+						kvAlignCPUs,
+					)
+				}
+
+				if isAnnotationPresentOnKV {
+					existingResource.Annotations[kubevirtcorev1.EmulatorThreadCompleteToEvenParity] = ""
+				}
+
+				hco.Spec.FeatureGates.AlignCPUs = ptr.To(true)
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Annotations).To(HaveKeyWithValue(kubevirtcorev1.EmulatorThreadCompleteToEvenParity, ""))
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvAlignCPUs))
+			},
+				Entry("FG and annotation are missing in KubeVirt", false, false),
+				Entry("FG and annotation are present in KubeVirt", true, true),
+				Entry("FG missing, annotation is present in KubeVirt", false, true),
+				Entry("FG present, annotation is missing in KubeVirt", true, false),
+			)
+
+			DescribeTable("AlignCPUs is disabled in HCO", func(alignCPUsValue *bool, isAlignCPUsFGEnabledOnKV, isAnnotationPresentOnKV bool) {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				if isAlignCPUsFGEnabledOnKV {
+					existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
+						existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+						kvAlignCPUs,
+					)
+				}
+
+				if isAnnotationPresentOnKV {
+					existingResource.Annotations[kubevirtcorev1.EmulatorThreadCompleteToEvenParity] = ""
+				}
+
+				hco.Spec.FeatureGates.AlignCPUs = alignCPUsValue
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Annotations).ToNot(HaveKey(kubevirtcorev1.EmulatorThreadCompleteToEvenParity))
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvAlignCPUs))
+			},
+				Entry("implicitly disabled, FG and annotation are missing in KubeVirt", nil, false, false),
+				Entry("implicitly disabled, FG and annotation are present in KubeVirt", nil, true, true),
+				Entry("implicitly disabled, FG missing, annotation is present in KubeVirt", nil, false, true),
+				Entry("implicitly disabled, FG present, annotation is missing in KubeVirt", nil, true, false),
+				Entry("explicitly disabled, FG and annotation are missing in KubeVirt", ptr.To(false), false, false),
+				Entry("explicitly disabled, FG and annotation are present in KubeVirt", ptr.To(false), true, true),
+				Entry("explicitly disabled, FG missing, annotation is present in KubeVirt", ptr.To(false), false, true),
+				Entry("explicitly disabled, FG present, annotation is missing in KubeVirt", ptr.To(false), true, false),
+			)
 		})
 	})
 

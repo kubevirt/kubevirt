@@ -221,6 +221,15 @@ and if a resource quota with memory limits is associated with the creation names
 
 **Default**: `false`
 
+### alignCPUs Feature Gate
+Set the `alignCPUs` feature gate to enable KubeVirt
+to request up to two additional dedicated CPUs in order to complete the total CPU count
+to an even parity when using emulator thread isolation.
+
+**Note**: this feature is in Developer Preview.
+
+**Default**: `false`
+
 ### Feature Gates Example
 
 ```yaml

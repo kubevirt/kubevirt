@@ -85,6 +85,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			WithHostPassthroughCPU:      ptr.To(false),
 			EnableManagedTenantQuota:    ptr.To(false),
 			AutoResourceLimits:          ptr.To(false),
+			AlignCPUs:                   ptr.To(false),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {
@@ -108,6 +109,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			Entry("when removing /spec/featureGates/withHostPassthroughCPU", "/spec/featureGates/withHostPassthroughCPU"),
 			Entry("when removing /spec/featureGates/enableManagedTenantQuota", "/spec/featureGates/enableManagedTenantQuota"),
 			Entry("when removing /spec/featureGates/autoResourceLimits", "/spec/featureGates/autoResourceLimits"),
+			Entry("when removing /spec/featureGates/alignCPUs", "/spec/featureGates/alignCPUs"),
 			Entry("when removing /spec/featureGates", "/spec/featureGates"),
 			Entry("when removing /spec", "/spec"),
 		)
