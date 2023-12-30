@@ -311,7 +311,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			By("Updating the VM template spec")
-			vm.Spec.Template.ObjectMeta.Labels["testkey"] = "testvalue"
+			vm.Spec.Template.ObjectMeta.Labels = map[string]string{"testkey": "testvalue"}
 			_, err := virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 

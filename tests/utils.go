@@ -54,7 +54,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
@@ -1398,31 +1397,8 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 }
 
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
-	name := vmi.Name
-	namespace := vmi.Namespace
-	vmLabels := map[string]string{"name": name}
-	for k, v := range vmi.Labels {
-		vmLabels[k] = v
-	}
-	vm := &v1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1.VirtualMachineSpec{
-			Running: &running,
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels:      vmLabels,
-					Name:        name + "makeitinteresting", // this name should have no effect
-					Namespace:   namespace,
-					Annotations: vmi.ObjectMeta.Annotations,
-				},
-				Spec: vmi.Spec,
-			},
-		},
-	}
-	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: v1.GroupVersion.Group, Kind: "VirtualMachine", Version: v1.GroupVersion.Version})
+	vm := libvmi.NewVirtualMachine(vmi)
+	vm.Spec.Running = &running
 	return vm
 }
 

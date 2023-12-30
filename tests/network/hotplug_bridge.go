@@ -321,7 +321,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
 			)
 			vmi = libvmi.NewAlpineWithTestTooling(opts...)
-			vm = tests.NewRandomVirtualMachine(vmi, false)
+			vm = libvmi.NewVirtualMachine(vmi)
 
 			var err error
 			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
