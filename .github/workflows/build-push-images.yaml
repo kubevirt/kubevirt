@@ -6,10 +6,11 @@ on:
       - main
       - release-1*
     paths-ignore:
-      - 'docs/**'
-      - 'images/**'
-      - 'automation/**'
-      - 'cluster/**'
+      - "docs/**"
+      - "images/**"
+      - "automation/**"
+      - "cluster/**"
+      - "renovate.json"
 jobs:
   build_push:
     if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
@@ -28,7 +29,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.20'
+          go-version: "1.20"
       - name: Get latest version
         run: |
           PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
