@@ -16,7 +16,6 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -52,7 +51,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 		vmi := libvmi.NewFedora()
 		vmi.Namespace = util.NamespaceTestDefault
 
-		vm = tests.NewRandomVirtualMachine(vmi, false)
+		vm = libvmi.NewVirtualMachine(vmi)
 
 		vm.Spec.Template.Spec.AccessCredentials = []kubevirtv1.AccessCredential{{
 			SSHPublicKey: &kubevirtv1.SSHPublicKeyAccessCredential{

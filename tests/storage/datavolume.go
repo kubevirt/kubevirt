@@ -354,7 +354,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-				vmSpec := tests.NewRandomVirtualMachine(vmi, false)
+				vmSpec := libvmi.NewVirtualMachine(vmi)
 
 				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec)
 				Expect(err).ToNot(HaveOccurred())
@@ -430,7 +430,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return err
 				}, 30*time.Second, 1*time.Second).Should(Succeed())
 
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 				dvt := &v1.DataVolumeTemplateSpec{
 					ObjectMeta: dv.ObjectMeta,
 					Spec:       dv.Spec,
@@ -455,7 +455,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
-				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), true)
+				vm := libvmi.NewVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), libvmi.WithRunning())
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
 						ObjectMeta: dataVolume.ObjectMeta,
@@ -484,7 +484,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				//  Add the invalid DataVolume to a VMI
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
 				By(creatingVMInvalidDataVolume)
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
@@ -532,7 +532,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				//  Add the invalid DataVolume to a VMI
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 				// Create a VM for this VMI
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1411,7 +1411,7 @@ func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 
 	vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 	vmi.Namespace = targetNamespace
-	vm := tests.NewRandomVirtualMachine(vmi, false)
+	vm := libvmi.NewVirtualMachine(vmi)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm

@@ -614,7 +614,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		createStoppedVM := func(virtClient kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
 			By("Creating an VM object")
-			vm := tests.NewRandomVirtualMachine(newLabeledVMI("vm"), false)
+			vm := libvmi.NewVirtualMachine(newLabeledVMI("vm"))
 
 			By("Creating the VM")
 			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)

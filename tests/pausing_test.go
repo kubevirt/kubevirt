@@ -203,7 +203,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			vmi.Namespace = util.NamespaceTestDefault
-			vm = tests.NewRandomVirtualMachine(vmi, false)
+			vm = libvmi.NewVirtualMachine(vmi)
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 			vm = tests.StartVirtualMachine(vm)

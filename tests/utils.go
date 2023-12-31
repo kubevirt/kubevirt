@@ -574,7 +574,7 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	vm := NewRandomVirtualMachine(vmi, false)
+	vm := libvmi.NewVirtualMachine(vmi)
 
 	return vm
 }
@@ -590,7 +590,7 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	)
 
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	vm := NewRandomVirtualMachine(vmi, false)
+	vm := libvmi.NewVirtualMachine(vmi)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm
@@ -608,7 +608,7 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 	)
 
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	vm := NewRandomVirtualMachine(vmi, false)
+	vm := libvmi.NewVirtualMachine(vmi)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm, true
@@ -617,7 +617,7 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	AddUserData(vmi, "cloud-init", userData)
-	vm := NewRandomVirtualMachine(vmi, false)
+	vm := libvmi.NewVirtualMachine(vmi)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm
@@ -1394,12 +1394,6 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return output, nil
-}
-
-func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
-	vm := libvmi.NewVirtualMachine(vmi)
-	vm.Spec.Running = &running
-	return vm
 }
 
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {

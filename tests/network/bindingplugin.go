@@ -79,7 +79,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 				libvmi.WithInterface(passtIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
 			var err error
 			namespace := testsuite.GetTestNamespace(nil)

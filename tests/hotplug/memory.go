@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 				}
 			}
 
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
 				Memory: &v1.LiveUpdateMemory{
 					MaxGuest: maxGuest,

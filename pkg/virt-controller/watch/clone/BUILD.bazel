@@ -50,7 +50,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//tests:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",

@@ -459,9 +459,9 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					vmi_noevict.Spec.Affinity = affinityRule
 
 					By("Starting the VirtualMachineInstance with eviction set to live migration")
-					vm_evict1 := tests.NewRandomVirtualMachine(vmi_evict1, false)
-					vm_evict2 := tests.NewRandomVirtualMachine(vmi_evict2, false)
-					vm_noevict := tests.NewRandomVirtualMachine(vmi_noevict, false)
+					vm_evict1 := libvmi.NewVirtualMachine(vmi_evict1)
+					vm_evict2 := libvmi.NewVirtualMachine(vmi_evict2)
+					vm_noevict := libvmi.NewVirtualMachine(vmi_noevict)
 
 					// post VMs
 					vm_evict1, err = virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1)

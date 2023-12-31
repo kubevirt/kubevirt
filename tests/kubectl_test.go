@@ -102,7 +102,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		BeforeEach(func() {
 			virtCli = kubevirt.Client()
 
-			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+			vm = libvmi.NewVirtualMachine(tests.NewRandomVMI())
 			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			tests.StartVirtualMachine(vm)

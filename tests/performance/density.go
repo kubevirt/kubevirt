@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests"
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
 	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 
@@ -202,7 +201,7 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 
 func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.KubevirtClient, vmCount int, instancetypeName, preferenceName string) {
 	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
-		vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), true)
+		vm := libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning())
 		vm.Spec.Template.Spec.Domain.Resources = kvv1.ResourceRequirements{}
 		vm.Spec.Instancetype = &kvv1.InstancetypeMatcher{
 			Name: instancetypeName,
@@ -218,7 +217,7 @@ func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.Kube
 
 func createBatchRunningVMWithResourcesWithRateControl(virtClient kubecli.KubevirtClient, vmCount int) {
 	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
-		return tests.NewRandomVirtualMachine(createVMISpecWithResources(), true)
+		return libvmi.NewVirtualMachine(createVMISpecWithResources(), libvmi.WithRunning())
 	})
 }
 
