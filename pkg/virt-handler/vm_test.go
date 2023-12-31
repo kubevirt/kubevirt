@@ -3027,23 +3027,47 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
-			guestOSName := "TestGuestOS"
 
-			vmi.Status.GuestOSInfo = v1.VirtualMachineInstanceGuestOSInfo{
-				Name: guestOSName,
-			}
+			const (
+				guestOSId            = "fedora"
+				guestOSName          = "Fedora Linux"
+				guestOSPrettyName    = "Fedora Linux 35 (Cloud Edition)"
+				guestOSVersion       = "35 (Cloud Edition)"
+				guestOSVersionId     = "35"
+				guestOSMachine       = "x86_64"
+				guestOSKernelRelease = "5.14.10-300.fc35.x86_64"
+				guestOSKernelVersion = "#1 SMP Thu Oct 7 20:48:44 UTC 2021"
+			)
+
+			vmi.Status.GuestOSInfo = v1.VirtualMachineInstanceGuestOSInfo{}
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
-			domain.Status.OSInfo = api.GuestOSInfo{Name: guestOSName}
+			domain.Status.OSInfo = api.GuestOSInfo{
+				Id:            guestOSId,
+				Name:          guestOSName,
+				PrettyName:    guestOSPrettyName,
+				Version:       guestOSVersion,
+				VersionId:     guestOSVersionId,
+				Machine:       guestOSMachine,
+				KernelRelease: guestOSKernelRelease,
+				KernelVersion: guestOSKernelVersion,
+			}
 
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
 			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.Name).To(Equal(guestOSName))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.ID).To(Equal(domain.Status.OSInfo.Id))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.Name).To(Equal(domain.Status.OSInfo.Name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.PrettyName).To(Equal(domain.Status.OSInfo.PrettyName))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.Version).To(Equal(domain.Status.OSInfo.Version))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.VersionID).To(Equal(domain.Status.OSInfo.VersionId))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.Machine).To(Equal(domain.Status.OSInfo.Machine))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.KernelRelease).To(Equal(domain.Status.OSInfo.KernelRelease))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.KernelVersion).To(Equal(domain.Status.OSInfo.KernelVersion))
 			}).Return(vmi, nil)
 
 			controller.Execute()
