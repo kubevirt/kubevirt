@@ -68,7 +68,7 @@ func findOwnResources(ctx context.Context, cl client.Reader, logger logr.Logger)
 			logger.Error(err, "Can't get deployment")
 			return
 		}
-		if GetClusterInfo().IsOpenshift() {
+		if GetClusterInfo().IsManagedByOLM() {
 			var err error
 			or.csv, err = getCSVFromDeployment(or.deployment, cl, operatorNs, logger)
 			if err != nil {
