@@ -61,7 +61,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -1686,7 +1685,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 			}
 
-			getComputeMemoryRequest := func(vmi *virtv1.VirtualMachineInstance) resource.Quantity {
+			getComputeMemoryRequest := func(vmi *v1.VirtualMachineInstance) resource.Quantity {
 				launcherPod := tests.GetPodByVirtualMachineInstance(vmi)
 				computeContainer := tests.GetComputeContainerOfPod(launcherPod)
 				return computeContainer.Resources.Requests[kubev1.ResourceMemory]
@@ -2068,7 +2067,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		When("a ResourceQuota with memory and cpu limits is associated to the creation namespace", func() {
 			var (
-				vmi                       *virtv1.VirtualMachineInstance
+				vmi                       *v1.VirtualMachineInstance
 				expectedLauncherMemLimits *resource.Quantity
 				expectedLauncherCPULimits resource.Quantity
 				vmiRequest                resource.Quantity
@@ -2739,7 +2738,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				Expect(kvmpitmask).To(Equal(vcpuzeromask))
 			},
-				Entry(" with explicit resources set", &virtv1.ResourceRequirements{
+				Entry(" with explicit resources set", &v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("2"),
 						kubev1.ResourceMemory: resource.MustParse("256Mi"),

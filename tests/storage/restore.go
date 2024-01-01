@@ -25,7 +25,6 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -604,12 +603,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
-				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+				vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: instancetype.Name,
 					Kind: "VirtualMachineInstanceType",
 				}
-				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: preference.Name,
 					Kind: "VirtualMachinePreference",
 				}

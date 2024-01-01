@@ -38,7 +38,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/api"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
@@ -54,7 +53,7 @@ var _ = Describe("Pool", func() {
 
 		namespace := "test"
 		baseName := "my-pool"
-		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 
 		for _, name := range existing {
 			vm, _ := DefaultVirtualMachine(true)
@@ -121,13 +120,13 @@ var _ = Describe("Pool", func() {
 			mockQueue.Wait()
 		}
 
-		addVM := func(vm *virtv1.VirtualMachine) {
+		addVM := func(vm *v1.VirtualMachine) {
 			mockQueue.ExpectAdds(1)
 			vmSource.Add(vm)
 			mockQueue.Wait()
 		}
 
-		addVMI := func(vm *virtv1.VirtualMachineInstance, expectQueue bool) {
+		addVMI := func(vm *v1.VirtualMachineInstance, expectQueue bool) {
 			if expectQueue {
 				mockQueue.ExpectAdds(1)
 			}
@@ -281,8 +280,8 @@ var _ = Describe("Pool", func() {
 			vmi.Namespace = vm.Namespace
 			vmi.Labels = vm.Spec.Template.ObjectMeta.Labels
 			vmi.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
 				Controller:         &t,
@@ -302,7 +301,7 @@ var _ = Describe("Pool", func() {
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(0)
 			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).MaxTimes(1).Do(func(ctx context.Context, arg interface{}) {
 				newVM := arg.(*v1.VirtualMachine)
-				revisionName := newVM.Labels[virtv1.VirtualMachinePoolRevisionName]
+				revisionName := newVM.Labels[v1.VirtualMachinePoolRevisionName]
 				Expect(revisionName).To(Equal(newPoolRevision.Name))
 			}).Return(vm, nil)
 
@@ -346,15 +345,15 @@ var _ = Describe("Pool", func() {
 			vmi.Namespace = vm.Namespace
 			vmi.Labels = mapCopy(vm.Spec.Template.ObjectMeta.Labels)
 			vmi.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
 				Controller:         &t,
 				BlockOwnerDeletion: &t,
 			}}
 
-			vmi.Labels[virtv1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
+			vmi.Labels[v1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
 
 			addPool(pool)
 			addVM(vm)

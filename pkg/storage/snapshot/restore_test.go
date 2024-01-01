@@ -23,7 +23,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 
-	kubevirtv1 "kubevirt.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -1194,7 +1193,7 @@ var _ = Describe("Restore controller", func() {
 
 					expectedUpdatedCR := expectedCreatedCR.DeepCopy()
 					expectedUpdatedCR.ResourceVersion = "5"
-					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, kubevirtv1.VirtualMachineGroupVersionKind)}
+					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, v1.VirtualMachineGroupVersionKind)}
 					expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
 
 					if newVM.Spec.Instancetype != nil {
@@ -1269,7 +1268,7 @@ var _ = Describe("Restore controller", func() {
 
 					expectedUpdatedCR := expectedCreatedCR.DeepCopy()
 					expectedUpdatedCR.ResourceVersion = "5"
-					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, kubevirtv1.VirtualMachineGroupVersionKind)}
+					expectedUpdatedCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(newVM, v1.VirtualMachineGroupVersionKind)}
 					expectControllerRevisionUpdate(k8sClient, expectedUpdatedCR)
 
 					if newVM.Spec.Instancetype != nil {

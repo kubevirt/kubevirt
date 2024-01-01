@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -37,7 +36,7 @@ import (
 )
 
 var _ = Describe("Validating Pool Admitter", func() {
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	poolAdmitter := &VMPoolAdmitter{ClusterConfig: config}
 
 	always := v1.RunStrategyAlways

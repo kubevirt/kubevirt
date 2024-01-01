@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Kubevirt VirtualMachine Client", func() {
@@ -237,7 +236,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMPath, "migrate")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachine(k8sv1.NamespaceDefault).Migrate(context.Background(), "testvm", &virtv1.MigrateOptions{})
+		err = client.VirtualMachine(k8sv1.NamespaceDefault).Migrate(context.Background(), "testvm", &v1.MigrateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

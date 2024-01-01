@@ -25,7 +25,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -488,7 +487,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause2.Field).To(Equal(cpuThreadsField))
 		})
 
-		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
+		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources v1.ResourceRequirements, expectedField string) {
 
 			vmi := libvmi.NewCirros()
 			instancetype := newVirtualMachineInstancetype(vmi)
@@ -515,22 +514,22 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, expectedField)))
 			Expect(cause.Field).To(Equal(expectedField))
 		},
-			Entry("CPU resource requests", virtv1.ResourceRequirements{
+			Entry("CPU resource requests", v1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
 			}, "spec.template.spec.domain.resources.requests.cpu"),
-			Entry("CPU resource limits", virtv1.ResourceRequirements{
+			Entry("CPU resource limits", v1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
 			}, "spec.template.spec.domain.resources.limits.cpu"),
-			Entry("Memory resource requests", virtv1.ResourceRequirements{
+			Entry("Memory resource requests", v1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			}, "spec.template.spec.domain.resources.requests.memory"),
-			Entry("Memory resource limits", virtv1.ResourceRequirements{
+			Entry("Memory resource limits", v1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
@@ -892,11 +891,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				vmi := libvmi.NewCirros()
 				removeResourcesAndPreferencesFromVMI(vmi)
 				vm := tests.NewRandomVirtualMachine(vmi, false)
-				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name:         "dummy",
 					RevisionName: instancetypeRevision.Name,
 				}
-				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name:         "dummy",
 					RevisionName: preferenceRevision.Name,
 				}
@@ -1348,7 +1347,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		It("should ignore failure when trying to infer defaults from DataVolumeSpec with unsupported DataVolumeSource when policy is set", func() {
 			guestMemory := resource.MustParse("512Mi")
-			vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
+			vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
 				Guest: &guestMemory,
 			}
 
@@ -1380,7 +1379,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		DescribeTable("should reject VM creation when inference was successful but memory and RejectInferFromVolumeFailure were set", func(explicit bool) {
 			guestMemory := resource.MustParse("512Mi")
-			vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
+			vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
 				Guest: &guestMemory,
 			}
 

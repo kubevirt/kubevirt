@@ -41,7 +41,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -65,7 +64,7 @@ const (
 var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var vmi *virtv1.VirtualMachineInstance
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -145,9 +144,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 		},
-			Entry("(privileged virtiofsd)", testsuite.NamespacePrivileged, func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
+			Entry("(privileged virtiofsd)", testsuite.NamespacePrivileged, func(instance *v1.VirtualMachineInstance) {}, func(instance *v1.VirtualMachineInstance) {}),
 			Entry("with passt enabled (privileged virtiofsd)", testsuite.NamespacePrivileged, libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
-			Entry("(unprivileged virtiofsd)", util.NamespaceTestDefault, func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
+			Entry("(unprivileged virtiofsd)", util.NamespaceTestDefault, func(instance *v1.VirtualMachineInstance) {}, func(instance *v1.VirtualMachineInstance) {}),
 			Entry("with passt enabled (unprivileged virtiofsd)", util.NamespaceTestDefault, libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
 		)
 	})
