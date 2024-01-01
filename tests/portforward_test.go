@@ -45,7 +45,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("should successfully open connection to guest", func() {
+	It("[test_cid:27054]should successfully open connection to guest", func() {
 		vmi := tests.NewRandomFedoraVMI()
 		vmi.Namespace = util.NamespaceTestDefault
 		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)

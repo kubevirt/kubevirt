@@ -177,9 +177,9 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				"virt-controller", multiReplica, "no error occurred on evict of last virt-controller pod"),
 			Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods",
 				"virt-api", multiReplica, "no error occurred on evict of last virt-api pod"),
-			Entry("eviction of single-replica virt-controller pod should succeed",
+			Entry("[test_cid:25085]eviction of single-replica virt-controller pod should succeed",
 				"virt-controller", singleReplica, "error occurred on eviction of single-replica virt-controller pod"),
-			Entry("eviction of multi-replica virt-api pod should succeed",
+			Entry("[test_cid:39492]eviction of multi-replica virt-api pod should succeed",
 				"virt-api", singleReplica, "error occurred on eviction of single-replica virt-api pod"),
 		)
 	})
@@ -258,7 +258,7 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				}
 			}
 
-			It("should fail health checks when connectivity is lost, and recover when connectivity is regained", func() {
+			It("[test_cid:18643]should fail health checks when connectivity is lost, and recover when connectivity is regained", func() {
 				desiredDeamonsSetCount := getVirtHandler().Status.DesiredNumberScheduled
 
 				By("ensuring we have ready pods")

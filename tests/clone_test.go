@@ -288,7 +288,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				return expectVMRunnable(vm, console.LoginToCirros)
 			}
 
-			It("simple default clone", func() {
+			It("[test_cid:27024]simple default clone", func() {
 				sourceVM = createVM()
 				vmClone = generateCloneFromVM()
 
@@ -312,7 +312,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				Expect(vmClone.Status.RestoreName).To(BeNil())
 			})
 
-			It("simple clone with snapshot source", func() {
+			It("[test_cid:23111]simple clone with snapshot source", func() {
 				By("Creating a VM")
 				sourceVM = createVM()
 				Eventually(func() virtv1.VirtualMachinePrintableStatus {
@@ -351,7 +351,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				Expect(err).ShouldNot(HaveOccurred())
 			})
 
-			It("clone with only some of labels/annotations", func() {
+			It("[test_cid:35861]clone with only some of labels/annotations", func() {
 				sourceVM = createVM()
 				vmClone = generateCloneFromVM()
 
@@ -376,7 +376,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				expectEqualAnnotations(targetVM, sourceVM, key2)
 			})
 
-			It("clone with only some of template.labels/template.annotations", func() {
+			It("[test_cid:21797]clone with only some of template.labels/template.annotations", func() {
 				sourceVM = createVM()
 				vmClone = generateCloneFromVM()
 
@@ -400,7 +400,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				expectEqualTemplateAnnotations(targetVM, sourceVM, key2)
 			})
 
-			It("clone with changed MAC address", func() {
+			It("[test_cid:14078]clone with changed MAC address", func() {
 				const newMacAddress = "BE-AD-00-00-BE-04"
 				sourceVM = createVM(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -447,7 +447,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 			})
 
 			Context("regarding domain Firmware", func() {
-				It("clone with changed SMBios serial", func() {
+				It("[test_cid:34473]clone with changed SMBios serial", func() {
 					const sourceSerial = "source-serial"
 					const targetSerial = "target-serial"
 
@@ -480,7 +480,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					expectEqualTemplateAnnotations(targetVM, sourceVM)
 				})
 
-				It("should strip firmware UUID", func() {
+				It("[test_cid:31572]should strip firmware UUID", func() {
 					const fakeFirmwareUUID = "fake-uuid"
 
 					sourceVM = createVM(
@@ -551,14 +551,14 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						sourceVM = StopVirtualMachine(sourceVM)
 					})
 
-					It("with VM source", func() {
+					It("[test_cid:17125]with VM source", func() {
 						vmClone = generateCloneFromVM()
 						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
 						Expect(err).To(HaveOccurred())
 						Expect(err.Error()).Should(ContainSubstring("does not support snapshots"))
 					})
 
-					It("with snapshot source", func() {
+					It("[test_cid:14141]with snapshot source", func() {
 						By("Snapshotting VM")
 						snapshot := createSnapshot(sourceVM)
 						snapshot = waitSnapshotReady(snapshot)
@@ -587,7 +587,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					Expect(snapshotStorageClass).ToNot(BeEmpty(), "no storage class with snapshot support")
 				})
 
-				It("with a simple clone", func() {
+				It("[test_cid:25487]with a simple clone", func() {
 					sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
 					vmClone = generateCloneFromVM()
 
@@ -699,12 +699,12 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, targetVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
 						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, targetVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 					},
-						Entry("with a running VM", true),
-						Entry("with a stopped VM", false),
+						Entry("[test_cid:25673]with a running VM", true),
+						Entry("[test_cid:25056]with a stopped VM", false),
 					)
 				})
 
-				It("double cloning: clone target as a clone source", func() {
+				It("[test_cid:36404]double cloning: clone target as a clone source", func() {
 					addCloneAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
 						filters := []string{"somekey/*"}
 						vmClone.Spec.LabelFilters = filters

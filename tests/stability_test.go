@@ -13,7 +13,7 @@ import (
 // Replace PDescribe with FDescribe in order to measure if your changes made
 // VMI startup any worse
 var _ = PDescribe("Ensure stable functionality", func() {
-	It("by repeately starting vmis many times without issues", func() {
+	It("[test_cid:28258]by repeately starting vmis many times without issues", func() {
 		experiment := gmeasure.NewExperiment("VMs creation")
 		AddReportEntry(experiment.Name, experiment)
 

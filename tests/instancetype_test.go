@@ -73,14 +73,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueRequired))
 		},
-			Entry("without CPU defined", instancetypev1beta1.VirtualMachineInstancetype{
+			Entry("[test_cid:26522]without CPU defined", instancetypev1beta1.VirtualMachineInstancetype{
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1beta1.MemoryInstancetype{
 						Guest: resource.MustParse("128M"),
 					},
 				},
 			}),
-			Entry("without CPU.Guest defined", instancetypev1beta1.VirtualMachineInstancetype{
+			Entry("[test_cid:36363]without CPU.Guest defined", instancetypev1beta1.VirtualMachineInstancetype{
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{},
 					Memory: instancetypev1beta1.MemoryInstancetype{
@@ -88,14 +88,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			}),
-			Entry("without Memory defined", instancetypev1beta1.VirtualMachineInstancetype{
+			Entry("[test_cid:11447]without Memory defined", instancetypev1beta1.VirtualMachineInstancetype{
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
 						Guest: 1,
 					},
 				},
 			}),
-			Entry("without Memory.Guest defined", instancetypev1beta1.VirtualMachineInstancetype{
+			Entry("[test_cid:10372]without Memory.Guest defined", instancetypev1beta1.VirtualMachineInstancetype{
 				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
 						Guest: 1,
@@ -205,7 +205,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			config.DeveloperConfiguration.MemoryOvercommit = 200
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
-		It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
+		It("[test_cid:20508]should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
 			vmi := libvmi.NewCirros()
 
 			instancetype := newVirtualMachineInstancetype(vmi)
@@ -397,7 +397,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
 		})
-		It("should apply memory overcommit instancetype to VMI", func() {
+		It("[test_cid:34684]should apply memory overcommit instancetype to VMI", func() {
 			vmi := libvmi.NewCirros()
 
 			instancetype := newVirtualMachineInstancetype(vmi)
@@ -515,22 +515,22 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, expectedField)))
 			Expect(cause.Field).To(Equal(expectedField))
 		},
-			Entry("CPU resource requests", virtv1.ResourceRequirements{
+			Entry("[test_cid:42728]CPU resource requests", virtv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
 			}, "spec.template.spec.domain.resources.requests.cpu"),
-			Entry("CPU resource limits", virtv1.ResourceRequirements{
+			Entry("[test_cid:26007]CPU resource limits", virtv1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
 			}, "spec.template.spec.domain.resources.limits.cpu"),
-			Entry("Memory resource requests", virtv1.ResourceRequirements{
+			Entry("[test_cid:25396]Memory resource requests", virtv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			}, "spec.template.spec.domain.resources.requests.memory"),
-			Entry("Memory resource limits", virtv1.ResourceRequirements{
+			Entry("[test_cid:12423]Memory resource limits", virtv1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
@@ -911,13 +911,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(expectedCores))
 				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(expectedMemory))
 			},
-				Entry("v1alpha1 VirtualMachineInstancetypeSpecRevisions with APIVersion", func() ([]byte, []byte) {
+				Entry("[test_cid:11408]v1alpha1 VirtualMachineInstancetypeSpecRevisions with APIVersion", func() ([]byte, []byte) {
 					return getV1Alpha1VirtualMachineInstancetypeSpecRevisionBytes(true)
 				}),
-				Entry("v1alpha1 VirtualMachineInstancetypeSpecRevisions without APIVersion", func() ([]byte, []byte) {
+				Entry("[test_cid:31440]v1alpha1 VirtualMachineInstancetypeSpecRevisions without APIVersion", func() ([]byte, []byte) {
 					return getV1Alpha1VirtualMachineInstancetypeSpecRevisionBytes(false)
 				}),
-				Entry("v1alpha1 VirtualMachineInstancetype and VirtualMachinePreference", func() ([]byte, []byte) {
+				Entry("[test_cid:23034]v1alpha1 VirtualMachineInstancetype and VirtualMachinePreference", func() ([]byte, []byte) {
 					instancetype := instancetypev1alpha1.VirtualMachineInstancetype{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
@@ -957,7 +957,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 					return instancetypeBytes, preferenceBytes
 				}),
-				Entry("v1alpha1 VirtualMachineClusterInstancetype and VirtualMachineClusterPreference", func() ([]byte, []byte) {
+				Entry("[test_cid:28654]v1alpha1 VirtualMachineClusterInstancetype and VirtualMachineClusterPreference", func() ([]byte, []byte) {
 					instancetype := instancetypev1alpha1.VirtualMachineClusterInstancetype{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
@@ -997,7 +997,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 					return instancetypeBytes, preferenceBytes
 				}),
-				Entry("v1alpha2 VirtualMachineInstancetype and VirtualMachinePreference", func() ([]byte, []byte) {
+				Entry("[test_cid:20380]v1alpha2 VirtualMachineInstancetype and VirtualMachinePreference", func() ([]byte, []byte) {
 					instancetype := instancetypev1alpha2.VirtualMachineInstancetype{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
@@ -1037,7 +1037,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 					return instancetypeBytes, preferenceBytes
 				}),
-				Entry("v1alpha2 VirtualMachineClusterInstancetype and VirtualMachineClusterPreference", func() ([]byte, []byte) {
+				Entry("[test_cid:17117]v1alpha2 VirtualMachineClusterInstancetype and VirtualMachineClusterPreference", func() ([]byte, []byte) {
 					instancetype := instancetypev1alpha2.VirtualMachineClusterInstancetype{
 						TypeMeta: metav1.TypeMeta{
 							APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
@@ -1206,7 +1206,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			}
 		})
 
-		It("should infer defaults from PersistentVolumeClaimVolumeSource", func() {
+		It("[test_cid:17526]should infer defaults from PersistentVolumeClaimVolumeSource", func() {
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name: inferFromVolumeName,
 				VolumeSource: v1.VolumeSource{
@@ -1220,7 +1220,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			createAndValidateVirtualMachine()
 		})
 
-		It("should infer defaults from existing DataVolume with labels", func() {
+		It("[test_cid:42686]should infer defaults from existing DataVolume with labels", func() {
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name: inferFromVolumeName,
 				VolumeSource: v1.VolumeSource{
@@ -1237,7 +1237,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm.Spec.Template.Spec.Volumes = generateVolumesForDataVolumeTemplates()
 			createAndValidateVirtualMachine()
 		},
-			Entry("and DataVolumeSourcePVC",
+			Entry("[test_cid:19881]and DataVolumeSourcePVC",
 				func() []v1.DataVolumeTemplateSpec {
 					dv := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
@@ -1253,7 +1253,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					}}
 				},
 			),
-			Entry(", DataVolumeSourceRef and DataSource",
+			Entry("[test_cid:40865], DataVolumeSourceRef and DataSource",
 				func() []v1.DataVolumeTemplateSpec {
 					By("Creating a DataSource")
 					// TODO - Replace with libds?
@@ -1290,7 +1290,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					return generateDataVolumeTemplatesFromDataVolume(dataVolume)
 				},
 			),
-			Entry(", DataVolumeSourceRef and DataSource with labels",
+			Entry("[test_cid:20827], DataVolumeSourceRef and DataSource with labels",
 				func() []v1.DataVolumeTemplateSpec {
 					By("Createing a blank DV and PVC without labels")
 					blankDV := libdv.NewDataVolume(
@@ -1346,7 +1346,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 		)
 
-		It("should ignore failure when trying to infer defaults from DataVolumeSpec with unsupported DataVolumeSource when policy is set", func() {
+		It("[test_cid:25145]should ignore failure when trying to infer defaults from DataVolumeSpec with unsupported DataVolumeSource when policy is set", func() {
 			guestMemory := resource.MustParse("512Mi")
 			vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
 				Guest: &guestMemory,
@@ -1404,8 +1404,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
 			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field spec.template.spec.domain.memory conflicts with selected instance type"))
 		},
-			Entry("with explicitly setting RejectInferFromVolumeFailure", true),
-			Entry("with implicitly setting RejectInferFromVolumeFailure (default)", false),
+			Entry("[test_cid:33796]with explicitly setting RejectInferFromVolumeFailure", true),
+			Entry("[test_cid:37489]with implicitly setting RejectInferFromVolumeFailure (default)", false),
 		)
 	})
 
@@ -1415,7 +1415,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			checks.SkipTestIfNoCPUManager()
 		})
 
-		It("should be accepted and result in running VirtualMachineInstance", func() {
+		It("[test_cid:34049]should be accepted and result in running VirtualMachineInstance", func() {
 			vmi := libvmi.NewCirros()
 
 			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
@@ -1512,7 +1512,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			v1alpha2FetchFunc(objName)
 			v1beta1FetchFunc(objName)
 		},
-			Entry("VirtualMachineInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1",
+			Entry("[test_cid:20167]VirtualMachineInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1",
 				func() string {
 					createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachineInstancetype{
 						TypeMeta: metav1.TypeMeta{
@@ -1538,7 +1538,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineInstancetypev1alpha2,
 				fetchVirtualMachineInstancetypev1beta1,
 			),
-			Entry("VirtualMachineInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:15186]VirtualMachineInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
@@ -1563,7 +1563,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineInstancetypev1alpha2,
 				fetchVirtualMachineInstancetypev1beta1,
 			),
-			Entry("VirtualMachineInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:39218]VirtualMachineInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -1588,7 +1588,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineInstancetypev1alpha2,
 				fetchVirtualMachineInstancetypev1beta1,
 			),
-			Entry("VirtualMachineClusterInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:26003]VirtualMachineClusterInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Create(context.Background(), &instancetypev1alpha1.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
@@ -1613,7 +1613,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterInstancetypev1alpha2,
 				fetchVirtualMachineClusterInstancetypev1beta1,
 			),
-			Entry("VirtualMachineClusterInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:16873]VirtualMachineClusterInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Create(context.Background(), &instancetypev1alpha2.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
@@ -1638,7 +1638,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterInstancetypev1alpha2,
 				fetchVirtualMachineClusterInstancetypev1beta1,
 			),
-			Entry("VirtualMachineClusterInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:17866]VirtualMachineClusterInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -1663,7 +1663,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterInstancetypev1alpha2,
 				fetchVirtualMachineClusterInstancetypev1beta1,
 			),
-			Entry("VirtualMachinePreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:17650]VirtualMachinePreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
@@ -1685,7 +1685,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachinePreferencev1alpha2,
 				fetchVirtualMachinePreferencev1beta1,
 			),
-			Entry("VirtualMachinePreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:17742]VirtualMachinePreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
@@ -1707,7 +1707,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachinePreferencev1alpha2,
 				fetchVirtualMachinePreferencev1beta1,
 			),
-			Entry("VirtualMachinePreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:32187]VirtualMachinePreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				preferredCPUTopology := instancetypev1beta1.PreferCores
 				createdObj, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
@@ -1730,7 +1730,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachinePreferencev1alpha2,
 				fetchVirtualMachinePreferencev1beta1,
 			),
-			Entry("VirtualMachineClusterPreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:37016]VirtualMachineClusterPreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterPreferences().Create(context.Background(), &instancetypev1alpha1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
@@ -1752,7 +1752,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterPreferencev1alpha2,
 				fetchVirtualMachineClusterPreferencev1beta1,
 			),
-			Entry("VirtualMachineClusterPreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:33920]VirtualMachineClusterPreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterPreferences().Create(context.Background(), &instancetypev1alpha2.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
@@ -1774,7 +1774,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterPreferencev1alpha2,
 				fetchVirtualMachineClusterPreferencev1beta1,
 			),
-			Entry("VirtualMachineClusterPreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+			Entry("[test_cid:33673]VirtualMachineClusterPreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
 				preferredCPUTopology := instancetypev1beta1.PreferCores
 				createdObj, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
@@ -1821,7 +1821,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("VirtualMachineInstancetype meets CPU requirements",
+			Entry("[test_cid:32518]VirtualMachineInstancetype meets CPU requirements",
 				&instancetypev1beta1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
@@ -1864,7 +1864,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
-			Entry("VirtualMachineInstancetype meets Memory requirements",
+			Entry("[test_cid:38167]VirtualMachineInstancetype meets Memory requirements",
 				&instancetypev1beta1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
@@ -1907,7 +1907,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
-			Entry("VirtualMachine meets CPU (preferSockets default) requirements",
+			Entry("[test_cid:15646]VirtualMachine meets CPU (preferSockets default) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1944,7 +1944,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
-			Entry("VirtualMachine meets CPU (preferCores) requirements",
+			Entry("[test_cid:11137]VirtualMachine meets CPU (preferCores) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1984,7 +1984,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
-			Entry("VirtualMachine meets 1 vCPU requirement through defaults - bug #10047",
+			Entry("[test_cid:34865]VirtualMachine meets 1 vCPU requirement through defaults - bug #10047",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2015,7 +2015,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
-			Entry("VirtualMachine meets CPU (preferThreads) requirements",
+			Entry("[test_cid:42539]VirtualMachine meets CPU (preferThreads) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2055,7 +2055,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
-			Entry("VirtualMachine meets CPU (preferAny) requirements",
+			Entry("[test_cid:19337]VirtualMachine meets CPU (preferAny) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2095,7 +2095,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
-			Entry("VirtualMachine meets Memory requirements",
+			Entry("[test_cid:30172]VirtualMachine meets Memory requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2148,7 +2148,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err.Error()).To(ContainSubstring("failure checking preference requirements"))
 			Expect(err.Error()).To(ContainSubstring(errorSubString))
 		},
-			Entry("VirtualMachineInstancetype does not meet CPU requirements",
+			Entry("[test_cid:36531]VirtualMachineInstancetype does not meet CPU requirements",
 				&instancetypev1beta1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
@@ -2192,7 +2192,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient CPU resources",
 			),
-			Entry("VirtualMachineInstancetype does not meet Memory requirements",
+			Entry("[test_cid:31745]VirtualMachineInstancetype does not meet Memory requirements",
 				&instancetypev1beta1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
@@ -2236,7 +2236,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient Memory resources",
 			),
-			Entry("VirtualMachine does not meet CPU (preferSockets default) requirements",
+			Entry("[test_cid:20668]VirtualMachine does not meet CPU (preferSockets default) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2274,7 +2274,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient CPU resources",
 			),
-			Entry("VirtualMachine does not meet CPU (preferCores) requirements",
+			Entry("[test_cid:22255]VirtualMachine does not meet CPU (preferCores) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2315,7 +2315,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient CPU resources",
 			),
-			Entry("VirtualMachine does not meet CPU (preferThreads) requirements",
+			Entry("[test_cid:31210]VirtualMachine does not meet CPU (preferThreads) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2356,7 +2356,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient CPU resources",
 			),
-			Entry("VirtualMachine does not meet CPU (preferAny) requirements",
+			Entry("[test_cid:27382]VirtualMachine does not meet CPU (preferAny) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2397,7 +2397,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient CPU resources",
 			),
-			Entry("VirtualMachine meets Memory requirements",
+			Entry("[test_cid:28433]VirtualMachine meets Memory requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{

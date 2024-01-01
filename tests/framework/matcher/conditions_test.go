@@ -59,19 +59,19 @@ var _ = Describe("Condition matcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(match).To(Equal(shouldMatch))
 		},
-			Entry("pod that has positive condition", HaveConditionMissingOrFalse(k8sv1.PodReady), readyPod, false),
-			Entry("pod that has negative condition", HaveConditionMissingOrFalse(k8sv1.PodReady), notReadyPod, true),
-			Entry("pod that is missing condition", HaveConditionMissingOrFalse(k8sv1.PodReady), missingReadyPod, true),
+			Entry("[test_cid:31544]pod that has positive condition", HaveConditionMissingOrFalse(k8sv1.PodReady), readyPod, false),
+			Entry("[test_cid:26868]pod that has negative condition", HaveConditionMissingOrFalse(k8sv1.PodReady), notReadyPod, true),
+			Entry("[test_cid:12569]pod that is missing condition", HaveConditionMissingOrFalse(k8sv1.PodReady), missingReadyPod, true),
 
-			Entry("vmi that has positive condition", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), pausedVMI, false),
-			Entry("vmi that has negative condition", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), notPausedVMI, true),
-			Entry("vmi that is missing condition", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), missingPausedVMI, true),
-			Entry("vmi that is missing conditions", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), missingConditionsVMI, true),
+			Entry("[test_cid:18618]vmi that has positive condition", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), pausedVMI, false),
+			Entry("[test_cid:36106]vmi that has negative condition", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), notPausedVMI, true),
+			Entry("[test_cid:27909]vmi that is missing condition", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), missingPausedVMI, true),
+			Entry("[test_cid:33201]vmi that is missing conditions", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), missingConditionsVMI, true),
 
-			Entry("condition type as string", HaveConditionMissingOrFalse("Paused"), notPausedVMI, true),
-			Entry("with nil object", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), nilVMI, false),
-			Entry("with nil", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), nil, false),
-			Entry("with nil as condition type", HaveConditionMissingOrFalse(nil), nil, false),
+			Entry("[test_cid:39899]condition type as string", HaveConditionMissingOrFalse("Paused"), notPausedVMI, true),
+			Entry("[test_cid:30654]with nil object", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), nilVMI, false),
+			Entry("[test_cid:33261]with nil", HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused), nil, false),
+			Entry("[test_cid:18229]with nil as condition type", HaveConditionMissingOrFalse(nil), nil, false),
 		)
 	})
 
@@ -81,19 +81,19 @@ var _ = Describe("Condition matcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(match).To(Equal(shouldMatch))
 		},
-			Entry("pod that has positive condition", HaveConditionTrue(k8sv1.PodReady), readyPod, true),
-			Entry("pod that has negative condition", HaveConditionTrue(k8sv1.PodReady), notReadyPod, false),
-			Entry("pod that is missing condition", HaveConditionTrue(k8sv1.PodReady), missingReadyPod, false),
+			Entry("[test_cid:24831]pod that has positive condition", HaveConditionTrue(k8sv1.PodReady), readyPod, true),
+			Entry("[test_cid:33636]pod that has negative condition", HaveConditionTrue(k8sv1.PodReady), notReadyPod, false),
+			Entry("[test_cid:37723]pod that is missing condition", HaveConditionTrue(k8sv1.PodReady), missingReadyPod, false),
 
-			Entry("vmi that has positive condition", HaveConditionTrue(v1.VirtualMachineInstancePaused), pausedVMI, true),
-			Entry("vmi that has negative condition", HaveConditionTrue(v1.VirtualMachineInstancePaused), notPausedVMI, false),
-			Entry("vmi that is missing condition", HaveConditionTrue(v1.VirtualMachineInstancePaused), missingPausedVMI, false),
-			Entry("vmi that is missing conditions", HaveConditionTrue(v1.VirtualMachineInstancePaused), missingConditionsVMI, false),
+			Entry("[test_cid:38525]vmi that has positive condition", HaveConditionTrue(v1.VirtualMachineInstancePaused), pausedVMI, true),
+			Entry("[test_cid:29790]vmi that has negative condition", HaveConditionTrue(v1.VirtualMachineInstancePaused), notPausedVMI, false),
+			Entry("[test_cid:40828]vmi that is missing condition", HaveConditionTrue(v1.VirtualMachineInstancePaused), missingPausedVMI, false),
+			Entry("[test_cid:29820]vmi that is missing conditions", HaveConditionTrue(v1.VirtualMachineInstancePaused), missingConditionsVMI, false),
 
-			Entry("condition type as string", HaveConditionTrue("Paused"), notPausedVMI, false),
-			Entry("with nil object", HaveConditionTrue(v1.VirtualMachineInstancePaused), nilVMI, false),
-			Entry("with nil", HaveConditionTrue(v1.VirtualMachineInstancePaused), nil, false),
-			Entry("with nil as condition type", HaveConditionTrue(nil), nil, false),
+			Entry("[test_cid:37984]condition type as string", HaveConditionTrue("Paused"), notPausedVMI, false),
+			Entry("[test_cid:11312]with nil object", HaveConditionTrue(v1.VirtualMachineInstancePaused), nilVMI, false),
+			Entry("[test_cid:35674]with nil", HaveConditionTrue(v1.VirtualMachineInstancePaused), nil, false),
+			Entry("[test_cid:23308]with nil as condition type", HaveConditionTrue(nil), nil, false),
 		)
 	})
 
@@ -103,19 +103,19 @@ var _ = Describe("Condition matcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(match).To(Equal(shouldMatch))
 		},
-			Entry("pod that has positive condition", HaveConditionFalse(k8sv1.PodReady), readyPod, false),
-			Entry("pod that has negative condition", HaveConditionFalse(k8sv1.PodReady), notReadyPod, true),
-			Entry("pod that is missing condition", HaveConditionFalse(k8sv1.PodReady), missingReadyPod, false),
+			Entry("[test_cid:17560]pod that has positive condition", HaveConditionFalse(k8sv1.PodReady), readyPod, false),
+			Entry("[test_cid:20561]pod that has negative condition", HaveConditionFalse(k8sv1.PodReady), notReadyPod, true),
+			Entry("[test_cid:26728]pod that is missing condition", HaveConditionFalse(k8sv1.PodReady), missingReadyPod, false),
 
-			Entry("vmi that has positive condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), pausedVMI, false),
-			Entry("vmi that has negative condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), notPausedVMI, true),
-			Entry("vmi that is missing condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), missingPausedVMI, false),
-			Entry("vmi that is missing conditions", HaveConditionFalse(v1.VirtualMachineInstancePaused), missingConditionsVMI, false),
+			Entry("[test_cid:27588]vmi that has positive condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), pausedVMI, false),
+			Entry("[test_cid:10561]vmi that has negative condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), notPausedVMI, true),
+			Entry("[test_cid:19061]vmi that is missing condition", HaveConditionFalse(v1.VirtualMachineInstancePaused), missingPausedVMI, false),
+			Entry("[test_cid:28466]vmi that is missing conditions", HaveConditionFalse(v1.VirtualMachineInstancePaused), missingConditionsVMI, false),
 
-			Entry("condition type as string", HaveConditionFalse("Paused"), notPausedVMI, true),
-			Entry("with nil object", HaveConditionFalse(v1.VirtualMachineInstancePaused), nilVMI, false),
-			Entry("with nil", HaveConditionFalse(v1.VirtualMachineInstancePaused), nil, false),
-			Entry("with nil as condition type", HaveConditionFalse(nil), nil, false),
+			Entry("[test_cid:12884]condition type as string", HaveConditionFalse("Paused"), notPausedVMI, true),
+			Entry("[test_cid:37366]with nil object", HaveConditionFalse(v1.VirtualMachineInstancePaused), nilVMI, false),
+			Entry("[test_cid:21081]with nil", HaveConditionFalse(v1.VirtualMachineInstancePaused), nil, false),
+			Entry("[test_cid:39824]with nil as condition type", HaveConditionFalse(nil), nil, false),
 		)
 	})
 

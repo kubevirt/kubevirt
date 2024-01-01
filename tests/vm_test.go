@@ -238,8 +238,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verify VM will run")
 			vm = startVM(virtClient, vm)
 		},
-			Entry("int type", "2", "2222222"),
-			Entry("float type", "2.2", "2222222.2"),
+			Entry("[test_cid:13789]int type", "2", "2222222"),
+			Entry("[test_cid:16333]float type", "2.2", "2222222.2"),
 		)
 
 		It("[test_id:3161]should carry annotations to VMI", func() {
@@ -292,7 +292,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")
 		})
 
-		It("should sync the generation annotation on the vmi during restarts", func() {
+		It("[test_cid:28158]should sync the generation annotation on the vmi during restarts", func() {
 			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			for i := 1; i <= 3; i++ {
@@ -307,7 +307,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
-		It("should not update the vmi generation annotation when the template changes", func() {
+		It("[test_cid:19478]should not update the vmi generation annotation when the template changes", func() {
 			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			By("Updating the VM template spec")
@@ -339,9 +339,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			defer libstorage.DeleteDataVolume(&dv)
 			startVM(virtClient, createVM(virtClient, template))
 		},
-			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmi.NewCirros(), nil }),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[test_cid:14749]with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmi.NewCirros(), nil }),
+			Entry("[test_cid:39760][Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[test_cid:12300][Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -353,9 +353,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			// Wait until VMI is gone
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 2*time.Second).ShouldNot(Exist())
 		},
-			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmi.NewCirros(), nil }),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[test_cid:41020]with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmi.NewCirros(), nil }),
+			Entry("[test_cid:10308][Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[test_cid:21089][Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -432,9 +432,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			defer libstorage.DeleteDataVolume(&dv)
 			stopVM(virtClient, startVM(virtClient, createVM(virtClient, template)))
 		},
-			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmi.NewCirros(), nil }),
-			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
+			Entry("[test_cid:29404]with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmi.NewCirros(), nil }),
+			Entry("[test_cid:26880][Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
+			Entry("[test_cid:39463][Serial][storage-req]with Block Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
@@ -502,7 +502,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
-		It("should create vm revision when starting vm", func() {
+		It("[test_cid:12665]should create vm revision when starting vm", func() {
 			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
@@ -521,7 +521,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmRevision.Spec).To(Equal(vm.Spec))
 		})
 
-		It("should delete old vm revision and create new one when restarting vm", func() {
+		It("[test_cid:19806]should delete old vm revision and create new one when restarting vm", func() {
 			By("Starting the VM")
 			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
@@ -766,7 +766,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(newVMI.UID).ToNot(Equal(vmi.UID))
 			})
 
-			It("Should force stop a VMI", func() {
+			It("[test_cid:41472]Should force stop a VMI", func() {
 				By("getting a VM with high TerminationGracePeriod")
 				vm := startVM(virtClient, createVM(virtClient, libvmi.New(
 					libvmi.WithResourceMemory("128Mi"),
@@ -1036,7 +1036,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			Context("Using RunStrategyOnce", func() {
-				It("[Serial] Should leave a failed VMI", Serial, func() {
+				It("[test_cid:28695][Serial] Should leave a failed VMI", Serial, func() {
 					By("creating a VM with RunStrategyOnce")
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
 
@@ -1059,7 +1059,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(beReady()))
 				})
 
-				It("Should leave a succeeded VMI", func() {
+				It("[test_cid:17285]Should leave a succeeded VMI", func() {
 					By("creating a VM with RunStrategyOnce")
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
 
@@ -1301,17 +1301,17 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm = createRunningVM(virtClient, libvmi.NewCirros())
 				})
 
-				It("should fail without arguments", func() {
+				It("[test_cid:31271]should fail without arguments", func() {
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND)
 					Expect(expandCommand()).To(MatchError("error invalid arguments - VirtualMachine name or file must be provided"))
 				})
 
-				It("should expand vm", func() {
+				It("[test_cid:24207]should expand vm", func() {
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--vm", vm.Name)
 					Expect(expandCommand()).To(Succeed())
 				})
 
-				It("should fail with non existing vm", func() {
+				It("[test_cid:22169]should fail with non existing vm", func() {
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", "default", "--vm", "non-existing-vm")
 					Expect(expandCommand()).To(MatchError("error expanding VirtualMachine - non-existing-vm in namespace - default: virtualmachine.kubevirt.io \"non-existing-vm\" not found"))
 				})
@@ -1320,11 +1320,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--output", formatName, "--vm", vm.Name)
 					Expect(expandCommand()).To(Succeed())
 				},
-					Entry("supported format output json", virtctl.JSON),
-					Entry("supported format output yaml", virtctl.YAML),
+					Entry("[test_cid:24148]supported format output json", virtctl.JSON),
+					Entry("[test_cid:30733]supported format output yaml", virtctl.YAML),
 				)
 
-				It("should fail with unsupported output format", func() {
+				It("[test_cid:19560]should fail with unsupported output format", func() {
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--output", "fakeJson", "--vm", vm.Name)
 					Expect(expandCommand()).To(MatchError("error not supported output format defined: fakeJson"))
 				})
@@ -1365,19 +1365,19 @@ status:
 					Expect(err).ToNot(HaveOccurred())
 				})
 
-				It("should expand vm defined in file", func() {
+				It("[test_cid:12600]should expand vm defined in file", func() {
 					Expect(os.WriteFile(file.Name(), []byte(vmSpec), 0777)).To(Succeed())
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
 					Expect(expandCommand()).To(Succeed())
 				})
 
-				It("should fail expanding invalid vm defined in file", func() {
+				It("[test_cid:10691]should fail expanding invalid vm defined in file", func() {
 					Expect(os.WriteFile(file.Name(), []byte(invalidVmSpec), 0777)).To(Succeed())
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", "default", "--file", file.Name())
 					Expect(expandCommand()).To(MatchError("error expanding VirtualMachine - testvm in namespace - default: Object is not a valid VirtualMachine"))
 				})
 
-				It("should fail expanding vm when input file does not exist", func() {
+				It("[test_cid:16062]should fail expanding vm when input file does not exist", func() {
 					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "invalid/path")
 					Expect(expandCommand()).To(MatchError("error reading file open invalid/path: no such file or directory"))
 				})
@@ -1460,8 +1460,8 @@ status:
 
 			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 		},
-			Entry("with v1 api", "kubevirt.io/v1"),
-			Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
+			Entry("[test_cid:19308]with v1 api", "kubevirt.io/v1"),
+			Entry("[test_cid:40580]with v1alpha3 api", "kubevirt.io/v1alpha3"),
 		)
 
 		It("[test_id:264]should create and delete via command line", func() {
@@ -1534,8 +1534,8 @@ status:
 				expectedPodName := getExpectedPodName(vm)
 				waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 			},
-				Entry("when --force and --grace-period=0 are provided", []string{"--force", "--grace-period=0"}),
-				Entry("when --now is provided", []string{"--now"}),
+				Entry("[test_cid:25834]when --force and --grace-period=0 are provided", []string{"--force", "--grace-period=0"}),
+				Entry("[test_cid:16763]when --now is provided", []string{"--now"}),
 			)
 		})
 
@@ -1737,7 +1737,7 @@ status:
 	})
 
 	Context("crash loop backoff", func() {
-		It("should backoff attempting to create a new VMI when 'runStrategy: Always' during crash loop.", func() {
+		It("[test_cid:21582]should backoff attempting to create a new VMI when 'runStrategy: Always' during crash loop.", func() {
 			By("Creating VirtualMachine")
 			vm := createRunningVM(virtClient, libvmi.NewCirros(
 				libvmi.WithAnnotation(v1.FuncTestLauncherFailFastAnnotation, ""),
@@ -1776,7 +1776,7 @@ status:
 			Eventually(ThisVM(vm), 300*time.Second, 5*time.Second).Should(notBeInCrashLoop())
 		})
 
-		It("should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
+		It("[test_cid:17470]should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
 			By("Creating VirtualMachine")
 			vm := createRunningVM(virtClient, libvmi.NewCirros(
 				libvmi.WithAnnotation(v1.FuncTestLauncherFailFastAnnotation, ""),
@@ -1835,7 +1835,7 @@ status:
 			}, 2*time.Minute, 1*time.Second).Should(BeTrue(), fmt.Sprintf("vm %s is not deleted", vm.Name))
 		})
 
-		It("should be added when the vm is created and removed when the vm is being deleted", func() {
+		It("[test_cid:10063]should be added when the vm is created and removed when the vm is being deleted", func() {
 			By("Creating VirtualMachine")
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -1858,7 +1858,7 @@ status:
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
-		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", func() {
+		It("[test_cid:22078]should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", func() {
 			By("creating a VirtualMachineClusterInstancetype")
 			instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{

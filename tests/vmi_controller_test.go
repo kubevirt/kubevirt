@@ -43,8 +43,8 @@ var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func(
 			}
 			Expect(found).To(Equal(enabled))
 		},
-			Entry("should appear if enabled", true),
-			Entry("should NOT appear if disabled", false),
+			Entry("[test_cid:23405]should appear if enabled", true),
+			Entry("[test_cid:36694]should NOT appear if disabled", false),
 		)
 	})
 })

@@ -24,11 +24,11 @@ var _ = Describe("Readiness", func() {
 		Expect(HaveReadyReplicasNumerically(comparator, count).FailureMessage(deployment)).ToNot(BeEmpty())
 		Expect(HaveReadyReplicasNumerically(comparator, count).NegatedFailureMessage(deployment)).ToNot(BeEmpty())
 	},
-		Entry("with readyReplicas matching the expectation ", ">=", 2, readyDeployment, true),
-		Entry("cope with a nil deployment", ">=", 2, nil, false),
-		Entry("cope with an object pointing to nil", ">=", 2, toNilPointer, false),
-		Entry("cope with an object which has no readyReplicas", ">=", 2, &v1.Service{}, false),
-		Entry("cope with a non-integer object as expected readReplicas", "<=", nil, readyDeployment, false),
-		Entry("with expected readyReplicas not matching the expectation", "<", 2, readyDeployment, false),
+		Entry("[test_cid:38375]with readyReplicas matching the expectation ", ">=", 2, readyDeployment, true),
+		Entry("[test_cid:21161]cope with a nil deployment", ">=", 2, nil, false),
+		Entry("[test_cid:29972]cope with an object pointing to nil", ">=", 2, toNilPointer, false),
+		Entry("[test_cid:26445]cope with an object which has no readyReplicas", ">=", 2, &v1.Service{}, false),
+		Entry("[test_cid:23127]cope with a non-integer object as expected readReplicas", "<=", nil, readyDeployment, false),
+		Entry("[test_cid:40172]with expected readyReplicas not matching the expectation", "<", 2, readyDeployment, false),
 	)
 })

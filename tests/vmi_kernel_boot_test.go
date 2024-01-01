@@ -65,7 +65,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
-		It("ensure successful boot and deletion when VMI has a disk defined", func() {
+		It("[test_cid:20413]ensure successful boot and deletion when VMI has a disk defined", func() {
 			By("Creating VMI with disk and kernel boot")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
@@ -137,7 +137,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			return vmi
 		}
 
-		It("ensure successful boot", func() {
+		It("[test_cid:39491]ensure successful boot", func() {
 			vmi := getVMIKernelBoot()
 
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
@@ -145,7 +145,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
-		It("ensure successful boot and deletion when VMI has a disk defined", func() {
+		It("[test_cid:19383]ensure successful boot and deletion when VMI has a disk defined", func() {
 			By("Creating VMI with disk and kernel boot")
 			vmi := libvmi.NewAlpine(libvmi.WithResourceMemory("1Gi"))
 

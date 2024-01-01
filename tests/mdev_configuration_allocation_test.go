@@ -161,7 +161,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		AfterEach(func() {
 			cleanupConfiguredMdevs()
 		})
-		It("Should make sure that mdevs listed with ExternalResourceProvider are not removed", func() {
+		It("[test_cid:11847]Should make sure that mdevs listed with ExternalResourceProvider are not removed", func() {
 
 			By("Listing the created mdevs as externally provided ")
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
@@ -181,7 +181,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 		})
 
-		It("Should make sure that no mdev is removed if the feature is gated", func() {
+		It("[test_cid:32101]Should make sure that no mdev is removed if the feature is gated", func() {
 
 			By("Adding feature gate to disable mdevs handling")
 
@@ -249,7 +249,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			cleanupConfiguredMdevs()
 		})
 
-		It("Should successfully passthrough a mediated device", func() {
+		It("[test_cid:18670]Should successfully passthrough a mediated device", func() {
 
 			By("Creating a Fedora VMI")
 			vmi = tests.NewRandomFedoraVMI()
@@ -280,7 +280,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
 			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
 		})
-		It("Should successfully passthrough a mediated device with a disabled display", func() {
+		It("[test_cid:25023]Should successfully passthrough a mediated device with a disabled display", func() {
 			_false := false
 			By("Creating a Fedora VMI")
 			vmi = tests.NewRandomFedoraVMI()
@@ -309,7 +309,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
 		})
-		It("Should override default mdev configuration on a specific node", func() {
+		It("[test_cid:18037]Should override default mdev configuration on a specific node", func() {
 			newDesiredMdevTypeName := "nvidia-223"
 			newExpectedInstancesNum := 8
 			By("Creating a configuration for mediated devices")
@@ -415,7 +415,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			}
 		})
 
-		It("should create mdevs on devices that appear after CR configuration", func() {
+		It("[test_cid:34694]should create mdevs on devices that appear after CR configuration", func() {
 			By("looking for an mdev-compatible PCI device")
 			out, e, err := runBashCmd(findMdevCapableDevices)
 			Expect(err).ToNot(HaveOccurred(), e)

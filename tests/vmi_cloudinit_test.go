@@ -207,7 +207,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				})
 			})
 
-			It("cloud-init instance-id should be stable", func() {
+			It("[test_cid:30255]cloud-init instance-id should be stable", func() {
 				getInstanceId := func(vmi *v1.VirtualMachineInstance) (string, error) {
 					cmd := "cat /var/lib/cloud/data/instance-id"
 					instanceId, err := console.RunCommandAndStoreOutput(vmi, cmd, time.Second*30)
@@ -655,8 +655,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkDataBase64).To(BeEmpty())
 			},
-				Entry("with lowercase labels", "userdata", "networkdata"),
-				Entry("with camelCase labels", "userData", "networkData"),
+				Entry("[test_cid:18121]with lowercase labels", "userdata", "networkdata"),
+				Entry("[test_cid:23040]with camelCase labels", "userData", "networkData"),
 			)
 		})
 

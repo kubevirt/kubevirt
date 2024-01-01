@@ -17,8 +17,8 @@ var _ = Describe("Existence matchers", func() {
 		Expect(Exist().FailureMessage(obj)).ToNot(BeEmpty())
 		Expect(Exist().NegatedFailureMessage(obj)).ToNot(BeEmpty())
 	},
-		Entry("a nil object", nil, false),
-		Entry("a pod", &v1.Pod{}, true),
+		Entry("[test_cid:13704]a nil object", nil, false),
+		Entry("[test_cid:10833]a pod", &v1.Pod{}, true),
 	)
 	DescribeTable("should detect with the negative matcher", func(obj interface{}, existence bool) {
 		exists, err := BeGone().Match(obj)
@@ -27,10 +27,10 @@ var _ = Describe("Existence matchers", func() {
 		Expect(BeGone().FailureMessage(obj)).ToNot(BeEmpty())
 		Expect(BeGone().NegatedFailureMessage(obj)).ToNot(BeEmpty())
 	},
-		Entry("the existence of a set of pods", []*v1.Pod{{}, {}}, false),
-		Entry("the absence of a set of pods", []*v1.Pod{}, true),
-		Entry("a nil object", nil, true),
-		Entry("an object pointing to nil", toNilPointer, true),
-		Entry("a pod", &v1.Pod{}, false),
+		Entry("[test_cid:34413]the existence of a set of pods", []*v1.Pod{{}, {}}, false),
+		Entry("[test_cid:37556]the absence of a set of pods", []*v1.Pod{}, true),
+		Entry("[test_cid:30272]a nil object", nil, true),
+		Entry("[test_cid:10799]an object pointing to nil", toNilPointer, true),
+		Entry("[test_cid:31503]a pod", &v1.Pod{}, false),
 	)
 })

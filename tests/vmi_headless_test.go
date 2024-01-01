@@ -170,7 +170,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				Expect(vncCount).To(Equal(1), "should have exactly one VNC device")
 			})
 
-			It("[Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", Serial, func() {
+			It("[test_cid:41553][Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", Serial, func() {
 				getHandlerConnectionCount := func() int {
 					cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
 					stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, vmi.Status.NodeName, cmd)

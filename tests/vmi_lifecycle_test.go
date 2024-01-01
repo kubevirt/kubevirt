@@ -173,7 +173,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
 		})
 
-		It("Should prevent eviction when EvictionStratgy: External", func() {
+		It("[test_cid:29526]Should prevent eviction when EvictionStratgy: External", func() {
 			vmi := libvmi.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -948,7 +948,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					fmt.Sprintf("Expected CPU model to equal to the default (%v)", v1.DefaultCPUModel),
 				)
 			})
-			It("should add node selector to virt-launcher when setting default cpuModel in kubevirtCR", func() {
+			It("[test_cid:42061]should add node selector to virt-launcher when setting default cpuModel in kubevirtCR", func() {
 				if len(supportedCpuModels) < 1 {
 					Skip("Must have at least one supported cpuModel for this test")
 				}
@@ -965,7 +965,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			})
 
-			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
+			It("[test_cid:17588]should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
 				if len(supportedCpuModels) < 2 {
 					Skip("Must have at least one supported cpuModel for this test")
 				}
@@ -1686,7 +1686,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	})
 
 	Context("replicaset with topology spread constraints", func() {
-		It("Replicas should be spread across nodes", func() {
+		It("[test_cid:15650]Replicas should be spread across nodes", func() {
 			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some schedulable nodes")
 			numNodes := len(nodes.Items)

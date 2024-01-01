@@ -178,7 +178,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 		})
 
-		It("should not appear as ready when paused", func() {
+		It("[test_cid:21035]should not appear as ready when paused", func() {
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 
 			By("Pausing the VMI and expecting to become unready")

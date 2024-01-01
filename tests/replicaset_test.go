@@ -408,7 +408,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(vmis.Items).Should(HaveLen(2))
 	})
 
-	It("should replace a VMI immediately when a virt-launcher pod gets deleted", func() {
+	It("[test_cid:28334]should replace a VMI immediately when a virt-launcher pod gets deleted", func() {
 		By("Creating new replica set")
 		template := libvmi.NewCirros(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

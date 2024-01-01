@@ -71,7 +71,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 		})
 
-		It("should fail to connect to VMI's usbredir socket", func() {
+		It("[test_cid:22348]should fail to connect to VMI's usbredir socket", func() {
 			usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
 			Expect(err).To(HaveOccurred())
 			Expect(usbredirVMI).To(BeNil())
@@ -153,13 +153,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				}
 			}
 
-			It("Should work several times", func() {
+			It("[test_cid:31647]Should work several times", func() {
 				for i := 0; i < 10; i++ {
 					usbredirConnect(nil)
 				}
 			})
 
-			It("Should work in parallel", func() {
+			It("[test_cid:12562]Should work in parallel", func() {
 				connStop := make(chan struct{})
 				defer close(connStop)
 				for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {

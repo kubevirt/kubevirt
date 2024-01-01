@@ -250,7 +250,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			}, 60*time.Second).ShouldNot(HaveOccurred())
 		})
 
-		It("should allow creating a VNC screenshot in PNG format", func() {
+		It("[test_cid:22957]should allow creating a VNC screenshot in PNG format", func() {
 			filePath := filepath.Join(GinkgoT().TempDir(), "screenshot.png")
 			domain, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())

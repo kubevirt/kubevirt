@@ -236,7 +236,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			Entry("[test_id:6224]using configdrive", v1.SSHPublicKeyAccessCredentialPropagationMethod{
 				ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 			}),
-			Entry("using nocloud", v1.SSHPublicKeyAccessCredentialPropagationMethod{
+			Entry("[test_cid:14254]using nocloud", v1.SSHPublicKeyAccessCredentialPropagationMethod{
 				NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
 			}),
 		)

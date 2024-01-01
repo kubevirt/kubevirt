@@ -175,12 +175,12 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("TPM across migration and restart", true, false, "migrate", "restart"),
-			Entry("TPM across restart and migration", true, false, "restart", "migrate"),
-			Entry("EFI across migration and restart", false, true, "migrate", "restart"),
-			Entry("TPM+EFI across migration and restart", true, true, "migrate", "restart"),
+			Entry("[test_cid:29781]TPM across migration and restart", true, false, "migrate", "restart"),
+			Entry("[test_cid:17163]TPM across restart and migration", true, false, "restart", "migrate"),
+			Entry("[test_cid:13868]EFI across migration and restart", false, true, "migrate", "restart"),
+			Entry("[test_cid:27899]TPM+EFI across migration and restart", true, true, "migrate", "restart"),
 		)
-		It("should remove persistent storage PVC if VMI is not owned by a VM", func() {
+		It("[test_cid:31196]should remove persistent storage PVC if VMI is not owned by a VM", func() {
 			By("Creating a VMI with persistent TPM enabled")
 			vmi := tests.NewRandomFedoraVMI()
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{

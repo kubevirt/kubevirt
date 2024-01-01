@@ -296,7 +296,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			}
 		})
 
-		It("Should prevent virt-handler from installing the custom policy", func() {
+		It("[test_cid:41625]Should prevent virt-handler from installing the custom policy", func() {
 			By("Removing custom SELinux policy from all nodes")
 			// The policy may or may not be installed on the node, regardless of the feature gate value,
 			// since the feature gate could have been enabled after deployment. Use error as indication of removal.
@@ -313,7 +313,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 		})
 	})
 	Context("The VMI SELinux context status", func() {
-		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
+		It("[test_cid:39709]Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
 			vmi := libvmi.NewAlpine(libvmi.WithMasqueradeNetworking()...)
 
 			By("Starting a New VMI")

@@ -195,7 +195,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
 			})
 
-			It("should not start with hook sidecar annotation when the version is not provided", func() {
+			It("[test_cid:20383]should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
 				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
@@ -223,7 +223,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		})
 
 		Context("with sidecar-shim", func() {
-			It("should receive Terminal signal on VMI deletion", func() {
+			It("[test_cid:38296]should receive Terminal signal on VMI deletion", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
@@ -296,14 +296,14 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				}, 30*time.Second, 1*time.Second).Should(Succeed())
 			},
 				// See: https://github.com/kubevirt/kubevirt/issues/8395#issuecomment-1619187827
-				Entry("Fails to terminate on migration with < v1alpha3", hooksv1alpha2.Version, false),
-				Entry("Terminates properly on migration with >= v1alpha3", hooksv1alpha3.Version, true),
+				Entry("[test_cid:14631]Fails to terminate on migration with < v1alpha3", hooksv1alpha2.Version, false),
+				Entry("[test_cid:31854]Terminates properly on migration with >= v1alpha3", hooksv1alpha3.Version, true),
 			)
 		})
 
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
-			It("should update domain XML with SM BIOS properties", func() {
+			It("[test_cid:16637]should update domain XML with SM BIOS properties", func() {
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMap(hooksv1alpha2.Version, cm.Name)

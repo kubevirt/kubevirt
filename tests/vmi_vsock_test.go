@@ -93,8 +93,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 				&expect.BExp{R: "/dev/vsock"},
 			}, 300)).To(Succeed(), "Could not find a vsock device")
 		},
-			Entry("Use virtio transitional", true),
-			Entry("Use virtio non-transitional", false),
+			Entry("[test_cid:17740]Use virtio transitional", true),
+			Entry("[test_cid:11986]Use virtio non-transitional", false),
 		)
 	})
 
@@ -120,7 +120,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			}
 		}
 
-		It("should retain the CID for migration target", func() {
+		It("[test_cid:21496]should retain the CID for migration target", func() {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := tests.NewRandomFedoraVMI()
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
@@ -233,11 +233,11 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		default:
 		}
 	},
-		Entry("should succeed with TLS on both sides", true),
-		Entry("should succeed without TLS on both sides", false),
+		Entry("[test_cid:17198]should succeed with TLS on both sides", true),
+		Entry("[test_cid:11288]should succeed without TLS on both sides", false),
 	)
 
-	It("should return err if the port is invalid", func() {
+	It("[test_cid:34743]should return err if the port is invalid", func() {
 		virtClient := kubevirt.Client()
 
 		By("Creating a VMI with VSOCK enabled")
@@ -250,7 +250,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should return err if no app listerns on the port", func() {
+	It("[test_cid:21442]should return err if no app listerns on the port", func() {
 		virtClient := kubevirt.Client()
 
 		By("Creating a VMI with VSOCK enabled")

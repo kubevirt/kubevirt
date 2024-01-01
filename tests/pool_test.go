@@ -153,11 +153,11 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		doScale(newPool.ObjectMeta.Name, int32(stopScale))
 		doScale(newPool.ObjectMeta.Name, int32(0))
 	},
-		Entry("to three, to two and then to zero replicas", 3, 2),
-		Entry("to five, to six and then to zero replicas", 5, 6),
+		Entry("[test_cid:31535]to three, to two and then to zero replicas", 3, 2),
+		Entry("[test_cid:27840]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	It("should be rejected on POST if spec is invalid", func() {
+	It("[test_cid:21476]should be rejected on POST if spec is invalid", func() {
 		newPool := newOfflineVirtualMachinePool()
 		newPool.TypeMeta = v12.TypeMeta{
 			APIVersion: poolv1.SchemeGroupVersion.String(),
@@ -171,7 +171,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err.Error()).To(ContainSubstring("selector does not match labels"))
 	})
 
-	It("should reject POST if vmi spec is invalid", func() {
+	It("[test_cid:18605]should reject POST if vmi spec is invalid", func() {
 		newPool := newOfflineVirtualMachinePool()
 		newPool.TypeMeta = v12.TypeMeta{
 			APIVersion: poolv1.SchemeGroupVersion.String(),
@@ -188,7 +188,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err.Error()).To(ContainSubstring("admission webhook \"virtualmachinepool-validator.kubevirt.io\" denied the request: spec.virtualMachineTemplate.spec.template.spec.domain.devices.disks[2].Name 'testdisk' not found"))
 	})
 
-	It("should remove VMs once they are marked for deletion", func() {
+	It("[test_cid:42278]should remove VMs once they are marked for deletion", func() {
 		newPool := newVirtualMachinePool()
 		// Create a pool with two replicas
 		doScale(newPool.ObjectMeta.Name, 2)
@@ -204,7 +204,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 120*time.Second, 1*time.Second).Should(BeZero())
 	})
 
-	It("should handle pool with dataVolumeTemplates", func() {
+	It("[test_cid:20556]should handle pool with dataVolumeTemplates", func() {
 		newPool := newPersistentStorageVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 2)
 
@@ -320,7 +320,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 	})
 
-	It("should replace deleted VM and get replacement", func() {
+	It("[test_cid:30524]should replace deleted VM and get replacement", func() {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 3)
 
@@ -367,7 +367,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	})
 
-	It("should roll out VM template changes without impacting VMI", func() {
+	It("[test_cid:32931]should roll out VM template changes without impacting VMI", func() {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 1)
 		waitForVMIs(newPool.Namespace, 1)
@@ -425,7 +425,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 5*time.Second, 1*time.Second).Should(BeNil())
 	})
 
-	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
+	It("[test_cid:34072]should roll out VMI template changes and proactively roll out new VMIs", func() {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 1)
 		waitForVMIs(newPool.Namespace, 1)
@@ -489,7 +489,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 60*time.Second, 1*time.Second).Should(BeNil())
 	})
 
-	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {
+	It("[test_cid:16120]should remove owner references on the VirtualMachine if it is orphan deleted", func() {
 		newPool := newOfflineVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 2)
 
@@ -526,7 +526,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should not scale when paused and scale when resume", func() {
+	It("[test_cid:19990]should not scale when paused and scale when resume", func() {
 		pool := newOfflineVirtualMachinePool()
 		// pause controller
 		By("Pausing the pool")

@@ -59,7 +59,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 
-		It("should create an ich9 sound device on empty model", func() {
+		It("[test_cid:21926]should create an ich9 sound device on empty model", func() {
 			checkAudioDevice(vmi, "ich9")
 		})
 	})
@@ -71,14 +71,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 		})
 
-		It("should create ich9 sound device on ich9 model ", func() {
+		It("[test_cid:35682]should create ich9 sound device on ich9 model ", func() {
 			checkXMLSoundCard(virtClient, vmi, "ich9")
 			checkAudioDevice(vmi, "ich9")
 		})
 	})
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with unsupported sound support", func() {
-		It("should fail to create VMI with unsupported sound device", func() {
+		It("[test_cid:40520]should fail to create VMI with unsupported sound device", func() {
 			vmi, err = createSoundVMI(virtClient, "ich7")
 			Expect(err).To(HaveOccurred())
 		})

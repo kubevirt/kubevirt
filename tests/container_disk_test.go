@@ -278,7 +278,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 	Describe("Bogus container disk path", func() {
 		Context("that points to outside of the volume", func() {
-			It("should be rejected on VMI creation", func() {
+			It("[test_cid:37267]should be rejected on VMI creation", func() {
 				vmi := libvmi.NewAlpine()
 				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"
 				By("Starting the VirtualMachineInstance")

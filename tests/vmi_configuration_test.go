@@ -264,20 +264,20 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
 
 		},
-			Entry("provided by domain spec directly",
+			Entry("[test_cid:10610]provided by domain spec directly",
 				[]libvmi.Option{
 					libvmi.WithGuestMemory("512Mi"),
 				},
 				512,
 			),
-			Entry("provided by resources limits",
+			Entry("[test_cid:28440]provided by resources limits",
 				[]libvmi.Option{
 					libvmi.WithLimitMemory("256Mi"),
 					libvmi.WithLimitCPU("1"),
 				},
 				256,
 			),
-			Entry("provided by resources requests and limits",
+			Entry("[test_cid:33249]provided by resources requests and limits",
 				[]libvmi.Option{
 					libvmi.WithResourceCPU("1"),
 					libvmi.WithLimitCPU("1"),
@@ -620,7 +620,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("with ACPI SLIC table", func() {
-			It("Should configure guest APCI SLIC with Secret file", func() {
+			It("[test_cid:29127]Should configure guest APCI SLIC with Secret file", func() {
 				const (
 					volumeSlicSecretName = "volume-slic-secret"
 					secretWithSlicName   = "secret-with-slic-data"
@@ -762,7 +762,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
-			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
+			It("[test_cid:28389]virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
 				vmi := libvmi.NewCirros()
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
@@ -1008,7 +1008,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("with namespace different from provided", func() {
-			It("should fail admission", func() {
+			It("[test_cid:33086]should fail admission", func() {
 				// create a namespace default limit
 				limitRangeObj := kubev1.LimitRange{
 
@@ -1171,7 +1171,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Entry("[Serial][test_id:1671]hugepages-2Mi", Serial, "2Mi", "64Mi", "None", nil, nil),
 				Entry("[Serial][test_id:1672]hugepages-1Gi", Serial, "1Gi", "1Gi", "None", nil, nil),
 				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", Serial, "2Mi", "70Mi", "64Mi", nil, nil),
-				Entry("[Serial]hugepages-2Mi with passt enabled", decorators.PasstGate, Serial, "2Mi", "64Mi", "None",
+				Entry("[test_cid:39983][Serial]hugepages-2Mi with passt enabled", decorators.PasstGate, Serial, "2Mi", "64Mi", "None",
 					libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
 			)
 
@@ -1647,7 +1647,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(deleteRuntimeClass(runtimeClassName)).To(Succeed())
 			})
 
-			It("should apply runtimeClassName to pod when set", func() {
+			It("[test_cid:30724]should apply runtimeClassName to pod when set", func() {
 				By("Configuring a default runtime class")
 				config := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 				config.DefaultRuntimeClass = runtimeClassName
@@ -1665,7 +1665,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
 			})
 		})
-		It("should not apply runtimeClassName to pod when not set", func() {
+		It("[test_cid:20603]should not apply runtimeClassName to pod when not set", func() {
 			By("verifying no default runtime class name is set")
 			config := util.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
@@ -1692,7 +1692,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				return computeContainer.Resources.Requests[kubev1.ResourceMemory]
 			}
 
-			It("should add guest-to-memory headroom", func() {
+			It("[test_cid:22040]should add guest-to-memory headroom", func() {
 				const guestMemoryStr = "1024M"
 				origVmiWithoutHeadroom := libvmi.New(libvmi.WithResourceMemory(guestMemoryStr))
 				origVmiWithHeadroom := libvmi.New(libvmi.WithResourceMemory(guestMemoryStr))
@@ -2011,7 +2011,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
-		It("should not set a CPU limit if the namespace doesn't match the selector", func() {
+		It("[test_cid:38166]should not set a CPU limit if the namespace doesn't match the selector", func() {
 			By("Creating a running VMI")
 			vmi := tests.NewRandomVMI()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -2023,7 +2023,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			_, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
 			Expect(exists).To(BeFalse(), "CPU limit set on the compute container when none was expected")
 		})
-		It("should set a CPU limit if the namespace matches the selector", func() {
+		It("[test_cid:13614]should set a CPU limit if the namespace matches the selector", func() {
 			By("Creating a VMI object")
 			vmi := tests.NewRandomVMI()
 
@@ -2050,7 +2050,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("with automatic resource limits FG enabled", decorators.AutoResourceLimitsGate, func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
-			It("should not automatically set memory limits in the virt-launcher pod", func() {
+			It("[test_cid:11869]should not automatically set memory limits in the virt-launcher pod", func() {
 				vmi := libvmi.NewCirros()
 				By("Creating a running VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -2108,7 +2108,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should set a memory limit in the virt-launcher pod", func() {
+			It("[test_cid:34866]should set a memory limit in the virt-launcher pod", func() {
 				By("Starting the VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
@@ -2739,7 +2739,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				Expect(kvmpitmask).To(Equal(vcpuzeromask))
 			},
-				Entry(" with explicit resources set", &virtv1.ResourceRequirements{
+				Entry("[test_cid:34855] with explicit resources set", &virtv1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("2"),
 						kubev1.ResourceMemory: resource.MustParse("256Mi"),
@@ -2749,7 +2749,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						kubev1.ResourceMemory: resource.MustParse("256Mi"),
 					},
 				}),
-				Entry("without resource requirements set", nil),
+				Entry("[test_cid:24320]without resource requirements set", nil),
 			)
 
 			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
@@ -3219,7 +3219,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				"the %s process is taking too much RAM! (%s > %s). All processes: %v",
 				process, actual.String(), memoryLimit.String(), processRss)
 		}
-		It("should be lower than allocated size", func() {
+		It("[test_cid:37414]should be lower than allocated size", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := tests.NewRandomFedoraVMI()
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
@@ -3282,7 +3282,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("When topology spread constraints are defined for the VMI", func() {
-		It("they should be applied to the launcher pod", func() {
+		It("[test_cid:38806]they should be applied to the launcher pod", func() {
 			vmi := libvmi.NewCirros()
 			tsc := []k8sv1.TopologySpreadConstraint{
 				{

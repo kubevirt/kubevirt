@@ -80,7 +80,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				}
 			})
 
-			It("should be able to migrate", func() {
+			It("[test_cid:21058]should be able to migrate", func() {
 				var err error
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
@@ -95,7 +95,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				libmigration.ConfirmVMIPostMigration(virtClient, reEnlightenmentVMI, migrationUID)
 			})
 
-			It("should have TSC frequency set up in label and domain", func() {
+			It("[test_cid:28796]should have TSC frequency set up in label and domain", func() {
 				var err error
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
@@ -144,7 +144,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				}
 			})
 
-			It("should be able to start successfully", func() {
+			It("[test_cid:18113]should be able to start successfully", func() {
 				var err error
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
@@ -153,7 +153,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
 			})
 
-			It("should be marked as non-migratable", func() {
+			It("[test_cid:30021]should be marked as non-migratable", func() {
 				var err error
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
@@ -185,7 +185,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			})
 		})
 
-		It("the vmi with HyperV feature matching a nfd label on a node should be scheduled", func() {
+		It("[test_cid:37646]the vmi with HyperV feature matching a nfd label on a node should be scheduled", func() {
 			enableHyperVInVMI := func(label string) v1.FeatureHyperv {
 				features := v1.FeatureHyperv{}
 				trueV := true
@@ -281,9 +281,9 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			}
 
 		},
-			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: pointer.BoolPtr(true)}),
-			Entry("EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", decorators.VMX, &v1.FeatureState{Enabled: nil}),
-			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
+			Entry("[test_cid:10378]hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: pointer.BoolPtr(true)}),
+			Entry("[test_cid:10702]EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", decorators.VMX, &v1.FeatureState{Enabled: nil}),
+			Entry("[test_cid:27408]Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
 		)
 	})
 })

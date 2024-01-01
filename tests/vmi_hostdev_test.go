@@ -96,8 +96,8 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 		},
-			Entry("Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),
-			Entry("Should successfully passthrough 2 emulated PCI devices", []string{"8086:2668", "8086:2415"}),
+			Entry("[test_cid:19653]Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),
+			Entry("[test_cid:16364]Should successfully passthrough 2 emulated PCI devices", []string{"8086:2668", "8086:2415"}),
 		)
 	})
 })

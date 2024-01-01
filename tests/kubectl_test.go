@@ -170,7 +170,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		})
 
 		Context("'kubectl get vmim'", func() {
-			It("print the expected columns and their corresponding values", func() {
+			It("[test_cid:38776]print the expected columns and their corresponding values", func() {
 				vmi := libvmi.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -228,7 +228,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			vm *v1.VirtualMachineInstance
 		)
 
-		It("oc/kubectl logs <vmi-pod> return default container log", func() {
+		It("[test_cid:37066]oc/kubectl logs <vmi-pod> return default container log", func() {
 			vm = libvmi.NewCirros()
 			vm = tests.RunVMIAndExpectLaunch(vm, 30)
 

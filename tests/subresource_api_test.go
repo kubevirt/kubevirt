@@ -103,14 +103,14 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Guestfs Command", func() {
 		Context("with authenticated user", func() {
-			It("should be allowed to access subresource guestfs endpoint", func() {
+			It("[test_cid:37208]should be allowed to access subresource guestfs endpoint", func() {
 				saClient := getClientForSA(virtCli, testsuite.SubresourceServiceAccountName)
 				_, err := saClient.GuestfsVersion().Get()
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("Without permissions", func() {
-			It("should be able to access subresource guestfs endpoint", func() {
+			It("[test_cid:35021]should be able to access subresource guestfs endpoint", func() {
 				saClient := getClientForSA(virtCli, testsuite.SubresourceUnprivilegedServiceAccountName)
 				_, err := saClient.GuestfsVersion().Get()
 				Expect(err).ToNot(HaveOccurred())
@@ -140,13 +140,13 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 		})
 
-		It("should be allowed to access expand-vm-spec endpoint with authenticated user", func() {
+		It("[test_cid:28706]should be allowed to access expand-vm-spec endpoint with authenticated user", func() {
 			saClient := getClientForSA(virtCli, testsuite.SubresourceServiceAccountName)
 			_, err = saClient.ExpandSpec(testsuite.GetTestNamespace(nil)).ForVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should not be able to access expand-vm-spec endpoint without authenticated user", func() {
+		It("[test_cid:42658]should not be able to access expand-vm-spec endpoint without authenticated user", func() {
 			saClient := getClientForSA(virtCli, testsuite.SubresourceUnprivilegedServiceAccountName)
 			_, err = saClient.ExpandSpec(testsuite.GetTestNamespace(nil)).ForVirtualMachine(vm)
 			Expect(err).To(HaveOccurred())
@@ -400,7 +400,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				}
 			})
 
-			It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
+			It("[test_cid:33921]Freeze without Unfreeze should trigger unfreeze after timeout", func() {
 				By("Freezing VMI")
 				unfreezeTimeout := 10 * time.Second
 				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, unfreezeTimeout)
@@ -493,8 +493,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(expandedVm.Spec.Instancetype).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
 					Expect(expandedVm.Spec.Template.Spec.Domain.CPU).To(Equal(expectedCpu), "VM should have instancetype expanded")
 				},
-					Entry("with VirtualMachineInstancetype", instancetypeMatcherFn),
-					Entry("with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
+					Entry("[test_cid:36000]with VirtualMachineInstancetype", instancetypeMatcherFn),
+					Entry("[test_cid:18531]with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
 				)
 			})
 
@@ -516,8 +516,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(expandedVm.Spec.Instancetype).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
 					Expect(expandedVm.Spec.Template.Spec.Domain.CPU).To(Equal(expectedCpu), "VM should have instancetype expanded")
 				},
-					Entry("with VirtualMachineInstancetype", instancetypeMatcherFn),
-					Entry("with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
+					Entry("[test_cid:33493]with VirtualMachineInstancetype", instancetypeMatcherFn),
+					Entry("[test_cid:15223]with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
 				)
 
 				DescribeTable("[test_id:TODO] should fail, if referenced instancetype does not exist", func(matcher *v1.InstancetypeMatcher) {
@@ -528,8 +528,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(matcher.Kind + ".instancetype.kubevirt.io \"" + matcher.Name + "\" not found"))
 				},
-					Entry("with VirtualMachineInstancetype", &v1.InstancetypeMatcher{Name: "nonexisting-instancetype", Kind: instancetypeapi.PluralResourceName}),
-					Entry("with VirtualMachineClusterInstancetype", &v1.InstancetypeMatcher{Name: "nonexisting-clusterinstancetype", Kind: instancetypeapi.ClusterPluralResourceName}),
+					Entry("[test_cid:22370]with VirtualMachineInstancetype", &v1.InstancetypeMatcher{Name: "nonexisting-instancetype", Kind: instancetypeapi.PluralResourceName}),
+					Entry("[test_cid:42053]with VirtualMachineClusterInstancetype", &v1.InstancetypeMatcher{Name: "nonexisting-clusterinstancetype", Kind: instancetypeapi.ClusterPluralResourceName}),
 				)
 
 				DescribeTable("[test_id:TODO] should fail, if instancetype expansion hits a conflict", func(matcherFn func() *v1.InstancetypeMatcher) {
@@ -540,8 +540,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError("cannot expand instancetype to VM"))
 				},
-					Entry("with VirtualMachineInstancetype", instancetypeMatcherFn),
-					Entry("with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
+					Entry("[test_cid:20570]with VirtualMachineInstancetype", instancetypeMatcherFn),
+					Entry("[test_cid:27433]with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
 				)
 
 				DescribeTable("[test_id:TODO] should fail, if VM and endpoint namespace are different", func(matcherFn func() *v1.InstancetypeMatcher) {
@@ -554,8 +554,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					errMsg := fmt.Sprintf("VM namespace must be empty or %s", testsuite.GetTestNamespace(nil))
 					Expect(err).To(MatchError(errMsg))
 				},
-					Entry("with VirtualMachineInstancetype", instancetypeMatcherFn),
-					Entry("with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
+					Entry("[test_cid:23645]with VirtualMachineInstancetype", instancetypeMatcherFn),
+					Entry("[test_cid:11190]with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
 				)
 			})
 		})
@@ -639,8 +639,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(expandedVm.Spec.Preference).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
 					Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeTrue(), "VM should have preference expanded")
 				},
-					Entry("with VirtualMachinePreference", preferenceMatcherFn),
-					Entry("with VirtualMachineClusterPreference", clusterPreferenceMatcherFn),
+					Entry("[test_cid:23815]with VirtualMachinePreference", preferenceMatcherFn),
+					Entry("[test_cid:19011]with VirtualMachineClusterPreference", clusterPreferenceMatcherFn),
 				)
 			})
 
@@ -664,8 +664,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(expandedVm.Spec.Preference).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
 					Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeTrue(), "VM should have preference expanded")
 				},
-					Entry("with VirtualMachinePreference", preferenceMatcherFn),
-					Entry("with VirtualMachineClusterPreference", clusterPreferenceMatcherFn),
+					Entry("[test_cid:18541]with VirtualMachinePreference", preferenceMatcherFn),
+					Entry("[test_cid:25158]with VirtualMachineClusterPreference", clusterPreferenceMatcherFn),
 				)
 
 				DescribeTable("[test_id:TODO] should fail, if referenced preference does not exist", func(matcher *v1.PreferenceMatcher) {
@@ -677,8 +677,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(matcher.Kind + ".instancetype.kubevirt.io \"" + matcher.Name + "\" not found"))
 				},
-					Entry("with VirtualMachinePreference", &v1.PreferenceMatcher{Name: "nonexisting-preference", Kind: instancetypeapi.PluralPreferenceResourceName}),
-					Entry("with VirtualMachineClusterPreference", &v1.PreferenceMatcher{Name: "nonexisting-clusterpreference", Kind: instancetypeapi.ClusterPluralPreferenceResourceName}),
+					Entry("[test_cid:33591]with VirtualMachinePreference", &v1.PreferenceMatcher{Name: "nonexisting-preference", Kind: instancetypeapi.PluralPreferenceResourceName}),
+					Entry("[test_cid:24557]with VirtualMachineClusterPreference", &v1.PreferenceMatcher{Name: "nonexisting-clusterpreference", Kind: instancetypeapi.ClusterPluralPreferenceResourceName}),
 				)
 			})
 		})

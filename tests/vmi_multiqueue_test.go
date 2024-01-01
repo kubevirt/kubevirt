@@ -88,7 +88,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(expectedQueueCount))
 		},
 			Entry("[test_id:4599] with default virtio interface", v1.VirtIO, numCpus),
-			Entry("with e1000 interface", "e1000", int32(1)),
+			Entry("[test_cid:35501]with e1000 interface", "e1000", int32(1)),
 		)
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
@@ -134,7 +134,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			}
 		})
 
-		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
+		It("[test_cid:40779]should be able to create a multi-queue VMI when requesting a single vCPU", func() {
 			vmi := libvmi.NewCirros()
 
 			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}

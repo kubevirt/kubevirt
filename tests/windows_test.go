@@ -163,7 +163,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})
 
-			It("should have the domain set properly with subdomain", func() {
+			It("[test_cid:13942]should have the domain set properly with subdomain", func() {
 				searchDomain := getPodSearchDomain(windowsVMI)
 				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
 
@@ -190,7 +190,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})
 
-			It("should be recognized by other pods in cluster", func() {
+			It("[test_cid:22590]should be recognized by other pods in cluster", func() {
 
 				By("Pinging virt-handler Pod from Windows VMI")
 
