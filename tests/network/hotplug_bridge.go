@@ -347,8 +347,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 })
 
 func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string) error {
-	return createNetworkAttachmentDefinition(
-		kubevirt.Client(),
+	return libnet.CreateNetworkAttachmentDefinition(
 		networkName,
 		namespace,
 		fmt.Sprintf(linuxBridgeNAD, networkName, namespace, bridgeCNIType, bridgeName),

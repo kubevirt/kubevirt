@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkvconfig"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -112,7 +113,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		BeforeEach(func() {
 			macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, macvtapNetworkName, testsuite.GetTestNamespace(nil), macvtapLowerDevice, macvtapNetworkName)
 			namespace := testsuite.GetTestNamespace(nil)
-			Expect(createNetworkAttachmentDefinition(kubevirt.Client(), macvtapNetworkName, namespace, macvtapNad)).
+			Expect(libnet.CreateNetworkAttachmentDefinition(macvtapNetworkName, namespace, macvtapNad)).
 				To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 		})
 
@@ -153,8 +154,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 
 func createBasicNetworkAttachmentDefinition(namespace, nadName, typeName string) error {
 	const netAttDefBasicFormat = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":%q,"namespace":%q},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"%s\"}]}"}}`
-	return createNetworkAttachmentDefinition(
-		kubevirt.Client(),
+	return libnet.CreateNetworkAttachmentDefinition(
 		nadName,
 		namespace,
 		fmt.Sprintf(netAttDefBasicFormat, nadName, namespace, nadName, typeName),

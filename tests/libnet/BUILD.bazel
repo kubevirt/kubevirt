@@ -9,6 +9,7 @@ go_library(
         "interface.go",
         "ipaddress.go",
         "namespace.go",
+        "network_attachment_definition.go",
         "ping.go",
         "plumbing.go",
         "skips.go",

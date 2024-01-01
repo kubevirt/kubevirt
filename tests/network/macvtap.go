@@ -60,7 +60,7 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 	createMacvtapNetworkAttachmentDefinition := func(namespace, networkName, macvtapLowerDevice string) error {
 		macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, networkName, namespace, macvtapLowerDevice, networkName)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, macvtapNad)
+		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, macvtapNad)
 	}
 
 	BeforeEach(func() {

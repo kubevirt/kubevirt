@@ -111,8 +111,7 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 })
 
 func createSRIOVNetworkAttachmentDefinition(namespace, networkName string, sriovResourceName string) error {
-	return createNetworkAttachmentDefinition(
-		kubevirt.Client(),
+	return libnet.CreateNetworkAttachmentDefinition(
 		networkName,
 		namespace,
 		fmt.Sprintf(sriovConfNAD, networkName, namespace, sriovResourceName),

@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -63,7 +64,7 @@ var _ = SIGDescribe("kubectl", func() {
 
 	createBridgeNetworkAttachmentDefinition := func(namespace, networkName string, bridgeCNIType string, bridgeName string) error {
 		bridgeNad := fmt.Sprintf(linuxBridgeNAD, networkName, namespace, bridgeCNIType, bridgeName)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, bridgeNad)
+		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, bridgeNad)
 	}
 
 	BeforeEach(func() {
