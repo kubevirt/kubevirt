@@ -26,12 +26,24 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
-const postUrl = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
+const PasstNetAttDef = "netbindingpasst"
+
+func CreatePasstNetworkAttachmentDefinition(namespace string) error {
+	const passtType = "kubevirt-passt-binding" // #nosec G101
+	const netAttDefFmt = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":%q,"namespace":%q},` +
+		`"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"%s\"}]}"}}`
+	return CreateNetworkAttachmentDefinition(
+		PasstNetAttDef,
+		namespace,
+		fmt.Sprintf(netAttDefFmt, PasstNetAttDef, namespace, PasstNetAttDef, passtType),
+	)
+}
 
 func CreateNetworkAttachmentDefinition(name, namespace, netConf string) error {
+	const postURL = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	return kubevirt.Client().RestClient().
 		Post().
-		RequestURI(fmt.Sprintf(postUrl, namespace, name)).
+		RequestURI(fmt.Sprintf(postURL, namespace, name)).
 		Body([]byte(netConf)).
 		Do(context.Background()).
 		Error()

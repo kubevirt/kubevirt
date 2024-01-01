@@ -58,14 +58,13 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		BeforeEach(func() {
 			err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
-				NetworkAttachmentDefinition: passtNetAttDef,
+				NetworkAttachmentDefinition: libnet.PasstNetAttDef,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		BeforeEach(func() {
-			namespace := testsuite.GetTestNamespace(nil)
-			Expect(createBasicNetworkAttachmentDefinition(namespace, passtNetAttDef, passtType)).To(Succeed())
+			Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
 		})
 
 		It("can be used by a VM as its primary network", func() {
@@ -151,12 +150,3 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 
 	})
 })
-
-func createBasicNetworkAttachmentDefinition(namespace, nadName, typeName string) error {
-	const netAttDefBasicFormat = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":%q,"namespace":%q},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"%s\"}]}"}}`
-	return libnet.CreateNetworkAttachmentDefinition(
-		nadName,
-		namespace,
-		fmt.Sprintf(netAttDefBasicFormat, nadName, namespace, nadName, typeName),
-	)
-}
