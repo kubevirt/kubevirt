@@ -22,21 +22,25 @@ package network
 import (
 	"context"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+
+	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
+	BeforeEach(func() {
+		tests.EnableFeatureGate(deprecation.PasstGate)
+	})
 
 	It("can be used by a VM as its primary network", func() {
 		const (
