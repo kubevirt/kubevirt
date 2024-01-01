@@ -19289,9 +19289,17 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"vmStateStorageClass": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
+							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support the access mode defined in VMStateAccessMode.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"vmStateAccessMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMStateAccessMode is the name of the persistent volume access mode to use for the PVCs created to preserve VM state.  The default is ReadWriteMany.\n\nPossible enum values:\n - `\"ReadOnlyMany\"` can be mounted in read-only mode to many hosts\n - `\"ReadWriteMany\"` can be mounted in read/write mode to many hosts\n - `\"ReadWriteOnce\"` can be mounted in read/write mode to exactly 1 host\n - `\"ReadWriteOncePod\"` can be mounted in read/write mode to exactly 1 pod cannot be used in combination with other access modes",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"ReadOnlyMany", "ReadWriteMany", "ReadWriteOnce", "ReadWriteOncePod"},
 						},
 					},
 					"virtualMachineOptions": {

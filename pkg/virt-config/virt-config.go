@@ -86,6 +86,8 @@ const (
 	DefaultVirtWebhookClientBurst         = 400
 
 	DefaultMaxHotplugRatio = 4
+
+	DefaultVMStateAccessMode = k8sv1.ReadWriteMany
 )
 
 func IsAMD64(arch string) bool {
@@ -428,6 +430,10 @@ func (c *ClusterConfig) GetDeveloperConfigurationUseEmulation() bool {
 
 func (c *ClusterConfig) GetVMStateStorageClass() string {
 	return c.GetConfig().VMStateStorageClass
+}
+
+func (c *ClusterConfig) GetVMStateAccessMode() k8sv1.PersistentVolumeAccessMode {
+	return c.GetConfig().VMStateAccessMode
 }
 
 func (c *ClusterConfig) IsFreePageReportingDisabled() bool {

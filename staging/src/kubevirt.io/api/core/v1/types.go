@@ -2394,9 +2394,11 @@ type KubeVirtConfiguration struct {
 	SeccompConfiguration           *SeccompConfiguration             `json:"seccompConfiguration,omitempty"`
 
 	// VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-	// The storage class must support RWX in filesystem mode.
-	VMStateStorageClass   string                 `json:"vmStateStorageClass,omitempty"`
-	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
+	// The storage class must support the access mode defined in VMStateAccessMode.
+	VMStateStorageClass string `json:"vmStateStorageClass,omitempty"`
+	// VMStateAccessMode is the name of the persistent volume access mode to use for the PVCs created to preserve VM state.  The default is ReadWriteMany.
+	VMStateAccessMode     k8sv1.PersistentVolumeAccessMode `json:"vmStateAccessMode,omitempty"`
+	VirtualMachineOptions *VirtualMachineOptions           `json:"virtualMachineOptions,omitempty"`
 
 	// KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).
 	KSMConfiguration *KSMConfiguration `json:"ksmConfiguration,omitempty"`

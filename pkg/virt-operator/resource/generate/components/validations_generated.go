@@ -1482,10 +1482,15 @@ var CRDsValidation map[string]string = map[string]string{
                     if AutoattachSerialConsole is disabled.
                   type: object
               type: object
+            vmStateAccessMode:
+              description: VMStateAccessMode is the name of the persistent volume
+                access mode to use for the PVCs created to preserve VM state.  The
+                default is ReadWriteMany.
+              type: string
             vmStateStorageClass:
               description: VMStateStorageClass is the name of the storage class to
                 use for the PVCs created to preserve VM state, like TPM. The storage
-                class must support RWX in filesystem mode.
+                class must support the access mode defined in VMStateAccessMode.
               type: string
             webhookConfiguration:
               description: ReloadableComponentConfiguration holds all generic k8s
