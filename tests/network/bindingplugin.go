@@ -41,13 +41,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const (
-	passtBindingName  = "passt"
-	passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
-	passtNetAttDef    = "netbindingpasst"
-	passtType         = "kubevirt-passt-binding"
-)
-
 var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
 
 	BeforeEach(func() {
@@ -56,6 +49,9 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 
 	Context("passt", func() {
 		BeforeEach(func() {
+			const passtBindingName = "passt"
+			const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+
 			err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
 				NetworkAttachmentDefinition: libnet.PasstNetAttDef,
@@ -71,9 +67,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			const (
 				macAddress = "02:00:00:00:00:02"
 			)
-			passtIface := libvmi.InterfaceDeviceWithBindingPlugin(
-				libvmi.DefaultInterfaceName, v1.PluginBinding{Name: passtBindingName},
-			)
+			passtIface := libvmi.InterfaceWithPasstBindingPlugin()
 			passtIface.MacAddress = macAddress
 			vmi := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(passtIface),
@@ -130,7 +124,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			chosenMAC = chosenMACHW.String()
 
 			ifaceName := "macvtapIface"
-			macvtapIface := libvmi.InterfaceDeviceWithBindingPlugin(
+			macvtapIface := libvmi.InterfaceWithBindingPlugin(
 				ifaceName, v1.PluginBinding{Name: macvtapBindingName},
 			)
 			vmi = libvmi.NewAlpineWithTestTooling(
