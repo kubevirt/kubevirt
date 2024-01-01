@@ -11,10 +11,142 @@
         "hack/config"
       ],
       "matchStrings": [
+        "KUBEVIRT_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt/kubevirt"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
         "CDI_VERSION=\"(?<currentValue>.*)\""
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "kubevirt/containerized-data-importer"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "NETWORK_ADDONS_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt/cluster-network-addons-operator"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "SSP_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt/ssp-operator"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "HPPO_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt/hostpath-provisioner-operator"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "HPP_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt/hostpath-provisioner"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "MTQ_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt/managed-tenant-quota"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "KUBEVIRT_CONSOLE_PLUGIN_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt-ui/kubevirt-plugin"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "KUBEVIRT_CONSOLE_PROXY_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubevirt-ui/kubevirt-apiserver-proxy"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "NODE_DRIVER_REG_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubernetes-csi/node-driver-registrar"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "LIVENESS_PROBE_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubernetes-csi/livenessprobe"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "CSI_SNAPSHOT_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubernetes-csi/external-snapshotter"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "hack/config"
+      ],
+      "matchStrings": [
+        "CSI_SIG_STORAGE_PROVISIONER_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubernetes-csi/external-provisioner"
     }
   ],
   "packageRules": [
