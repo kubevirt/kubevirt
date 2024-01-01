@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1868,7 +1869,7 @@ var _ = SIGDescribe("Export", func() {
 
 		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 		tests.AddUserData(vmi, "cloud-init", bashHelloScript)
-		vm := tests.NewRandomVirtualMachine(vmi, false)
+		vm := libvmi.NewVirtualMachine(vmi)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 		vm.Spec.Running = pointer.Bool(true)
 		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{

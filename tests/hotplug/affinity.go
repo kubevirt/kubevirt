@@ -20,7 +20,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -100,7 +99,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 				options...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
 				Affinity: &v1.LiveUpdateAffinity{},
 			}
@@ -160,7 +159,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 				libvmi.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
 				Affinity: &v1.LiveUpdateAffinity{},
 			}

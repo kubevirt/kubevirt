@@ -154,7 +154,7 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 }
 
 func newVMWithOneInterface() *v1.VirtualMachine {
-	vm := tests.NewRandomVirtualMachine(libvmi.NewAlpineWithTestTooling(), true)
+	vm := libvmi.NewVirtualMachine(libvmi.NewAlpineWithTestTooling(), libvmi.WithRunning())
 	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	return vm

@@ -66,7 +66,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
 			for i := 0; i < 5; i++ {
 				vmi := tests.NewRandomVMI()
-				vm := tests.NewRandomVirtualMachine(vmi, false)
+				vm := libvmi.NewVirtualMachine(vmi)
 				_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -85,7 +85,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		BeforeEach(func() {
 			vmi := tests.NewRandomVMI()
-			vm = tests.NewRandomVirtualMachine(vmi, false)
+			vm = libvmi.NewVirtualMachine(vmi)
 
 			By("Create a VirtualMachine")
 			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)

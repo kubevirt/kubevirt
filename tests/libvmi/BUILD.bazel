@@ -11,6 +11,7 @@ go_library(
         "network.go",
         "status.go",
         "storage.go",
+        "vm.go",
         "vmi.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libvmi",

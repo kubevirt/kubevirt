@@ -80,7 +80,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	Context("An invalid VirtualMachine given", func() {
 		It("[test_id:1518]should be rejected on POST", func() {
-			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+			vm := libvmi.NewVirtualMachine(libvmi.NewCirros())
 			// because we're marshaling this ourselves, we have to make sure
 			// we're using the same version the virtClient is using.
 			vm.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
@@ -105,7 +105,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
-			vm := tests.NewRandomVirtualMachine(template, false)
+			vm := libvmi.NewVirtualMachine(template)
 
 			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(vm)).Body(vm).Do(context.Background())
 
@@ -172,10 +172,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineWithRunStrategy := func(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(
+			vm := libvmi.NewVirtualMachine(libvmi.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			), false)
+			))
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
 
@@ -210,7 +210,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			const oldCpu = "222"
 			const oldMemory = "2222222"
 
-			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+			vm := libvmi.NewVirtualMachine(libvmi.NewCirros())
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 			vm.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
 			vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
@@ -311,7 +311,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			By("Updating the VM template spec")
-			vm.Spec.Template.ObjectMeta.Labels["testkey"] = "testvalue"
+			vm.Spec.Template.ObjectMeta.Labels = map[string]string{"testkey": "testvalue"}
 			_, err := virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1243,7 +1243,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmi.Spec.Domain.Firmware.KernelBoot.Container.Image = cd.ContainerDiskFor(cd.ContainerDiskCirros)
 
 					By("Creating a VM with RunStrategyManual")
-					vm := tests.NewRandomVirtualMachine(vmi, false)
+					vm := libvmi.NewVirtualMachine(vmi)
 					vm.Spec.Running = nil
 					vm.Spec.RunStrategy = &runStrategyManual
 
@@ -1399,8 +1399,8 @@ status:
 			vmRunningRe = regexp.MustCompile("Phase.*Running")
 		})
 
-		createVMAndGenerateJson := func(running bool) (*v1.VirtualMachine, string) {
-			vm := tests.NewRandomVirtualMachine(libvmi.NewAlpine(), running)
+		createVMAndGenerateJson := func(opts ...libvmi.VMOption) (*v1.VirtualMachine, string) {
+			vm := libvmi.NewVirtualMachine(libvmi.NewAlpine(), opts...)
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 
 			vmJson, err := tests.GenerateVMJson(vm, workDir)
@@ -1410,7 +1410,7 @@ status:
 		}
 
 		It("[test_id:243][posneg:negative]should create VM only once", func() {
-			vm, vmJson := createVMAndGenerateJson(true)
+			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1429,7 +1429,7 @@ status:
 
 		DescribeTable("[release-blocker][test_id:299]should create VM via command line using all supported API versions", func(version string) {
 			vmi := libvmi.NewAlpine()
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 			vm.APIVersion = version
 
@@ -1465,7 +1465,7 @@ status:
 		)
 
 		It("[test_id:264]should create and delete via command line", func() {
-			vm, vmJson := createVMAndGenerateJson(false)
+			vm, vmJson := createVMAndGenerateJson()
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1503,7 +1503,7 @@ status:
 					libvmi.WithResourceMemory("128Mi"),
 					libvmi.WithTerminationGracePeriod(1600),
 				)
-				vm := tests.NewRandomVirtualMachine(vmi, true)
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 				vm.Namespace = testsuite.GetTestNamespace(vm)
 
 				vmJson, err := tests.GenerateVMJson(vm, workDir)
@@ -1541,7 +1541,7 @@ status:
 
 		Context("should not change anything if dry-run option is passed", func() {
 			It("[test_id:7530]in start command", func() {
-				vm, vmJson := createVMAndGenerateJson(false)
+				vm, vmJson := createVMAndGenerateJson()
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1557,7 +1557,7 @@ status:
 			})
 
 			DescribeTable("in stop command", func(flags ...string) {
-				vm, vmJson := createVMAndGenerateJson(true)
+				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1609,7 +1609,7 @@ status:
 			)
 
 			It("[test_id:7528]in restart command", func() {
-				vm, vmJson := createVMAndGenerateJson(true)
+				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1641,7 +1641,7 @@ status:
 		})
 
 		It("[test_id:232]should create same manifest twice via command line", func() {
-			vm, vmJson := createVMAndGenerateJson(true)
+			vm, vmJson := createVMAndGenerateJson(libvmi.WithRunning())
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1666,7 +1666,7 @@ status:
 		})
 
 		It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", func() {
-			vmi := tests.NewRandomVirtualMachine(libvmi.NewAlpine(), false)
+			vmi := libvmi.NewVirtualMachine(libvmi.NewAlpine())
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, stdErr, err := clientcmd.RunCommand(k8sClient, "delete", "vm", vmi.Name)
@@ -1804,7 +1804,7 @@ status:
 
 		BeforeEach(func() {
 			vmi = tests.NewRandomVMI()
-			vm = tests.NewRandomVirtualMachine(vmi, true)
+			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			Expect(vm.Finalizers).To(BeEmpty())
 			vm.Finalizers = append(vm.Finalizers, customFinalizer)
 		})
@@ -1942,7 +1942,7 @@ func waitForResourceDeletion(k8sClient string, resourceType string, resourceName
 
 func createVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 	By("Creating stopped VirtualMachine")
-	vm := tests.NewRandomVirtualMachine(template, false)
+	vm := libvmi.NewVirtualMachine(template)
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 	Expect(err).ToNot(HaveOccurred())
 	return vm
@@ -1950,7 +1950,7 @@ func createVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInst
 
 func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 	By("Creating running VirtualMachine")
-	vm := tests.NewRandomVirtualMachine(template, true)
+	vm := libvmi.NewVirtualMachine(template, libvmi.WithRunning())
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 	Expect(err).ToNot(HaveOccurred())
 	return vm

@@ -95,7 +95,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				Cores:   2,
 				Threads: 1,
 			}
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
 				CPU: &v1.LiveUpdateCPU{
 					MaxSockets: pointer.P(maxSockets),
@@ -188,7 +188,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				Threads:               1,
 				DedicatedCPUPlacement: true,
 			}
-			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
 				CPU: &v1.LiveUpdateCPU{
 					MaxSockets: pointer.P(maxSockets),

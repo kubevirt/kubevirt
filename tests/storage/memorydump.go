@@ -94,17 +94,11 @@ var _ = SIGDescribe("Memory dump", func() {
 		memoryDumpPVCName2 = "fs-pvc2" + rand.String(5)
 	})
 
-	createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
-		By("Creating VirtualMachine")
-		vm := tests.NewRandomVirtualMachine(template, running)
-		newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
-		Expect(err).ToNot(HaveOccurred())
-		return newVM
-	}
-
 	createAndStartVM := func() *v1.VirtualMachine {
-		template := libvmi.NewCirros()
-		vm := createVirtualMachine(true, template)
+		By("Creating VirtualMachine")
+		vm := libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning())
+		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			if errors.IsNotFound(err) {

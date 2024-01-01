@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -296,7 +295,7 @@ var _ = Describe("Clone", func() {
 			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 		)
 		sourceVMI.Namespace = testNamespace
-		sourceVM = tests.NewRandomVirtualMachine(sourceVMI, false)
+		sourceVM = libvmi.NewVirtualMachine(sourceVMI)
 		sourceVM.Spec.Running = nil
 		runStrategy := virtv1.RunStrategyHalted
 		sourceVM.Spec.RunStrategy = &runStrategy

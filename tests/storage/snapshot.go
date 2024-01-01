@@ -229,7 +229,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 	Context("With simple VM", func() {
 		BeforeEach(func() {
 			var err error
-			vm = tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+			vm = libvmi.NewVirtualMachine(libvmi.NewCirros())
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -414,7 +414,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -495,7 +495,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -557,7 +557,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			It("[test_id:6769]without volumes with guest agent available", func() {
 				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 
 				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -737,7 +737,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Creating VM")
 				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 
 				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -819,7 +819,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Creating VM")
 				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 
 				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1338,7 +1338,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 
 				vmi := vmif(dataVolume.Name)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -1389,7 +1389,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vmi := tests.NewRandomVMI()
 				vmi = tests.AddPVCDisk(vmi, "snapshotablevolume", v1.DiskBusVirtio, includedDataVolume.Name)
 				vmi = tests.AddPVCDisk(vmi, "notsnapshotablevolume", v1.DiskBusVirtio, excludedDataVolume.Name)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())

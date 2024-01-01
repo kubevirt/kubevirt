@@ -269,11 +269,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		}
 
 		BeforeEach(func() {
-			vm = tests.NewRandomVirtualMachine(
+			vm = libvmi.NewVirtualMachine(
 				libvmi.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				), false)
+				))
 			vm.Labels = map[string]string{
 				"kubevirt.io/dummy-webhook-identifier": vm.Name,
 			}
@@ -479,7 +479,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
-				newVM := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+				newVM := libvmi.NewVirtualMachine(libvmi.NewCirros())
 				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), newVM)
 				Expect(err).ToNot(HaveOccurred())
 				defer deleteVM(newVM)
@@ -1230,7 +1230,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				originalPVCName := pvc.Name
 
 				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, bashHelloScript)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 
 				vm, vmi = createAndStartVM(vm)
 
@@ -1274,7 +1274,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 				vm.Namespace = testsuite.GetTestNamespace(nil)
 
 				dvName := "dv-" + vm.Name
@@ -1465,7 +1465,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
-				vm = tests.NewRandomVirtualMachine(vmi, false)
+				vm = libvmi.NewVirtualMachine(vmi)
 				dvName := "dv-" + vm.Name
 				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
 					{
@@ -1823,7 +1823,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 					tests.AddUserData(vmi, "cloud-init", bashHelloScript)
-					vm := tests.NewRandomVirtualMachine(vmi, false)
+					vm := libvmi.NewVirtualMachine(vmi)
 					libstorage.AddDataVolumeTemplate(vm, dataVolume)
 					return vm
 				}
