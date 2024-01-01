@@ -45,7 +45,42 @@ var _ = Describe("Network Binding", func() {
 		testBindingName2  = "binding2"
 		testSidecarImage2 = "image2"
 		testNetworkName3  = "net1"
+		testBindingName3  = "binding3"
 	)
+
+	Context("validation", func() {
+		It("should fail when unregistered binding plugin is being used", func() {
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, Binding: &v1.PluginBinding{Name: testBindingName1}}), libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName2, Binding: &v1.PluginBinding{Name: testBindingName2}}), libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName3, Binding: &v1.PluginBinding{Name: testBindingName3}}), libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
+			)
+			config := &v1.KubeVirtConfiguration{
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					Binding: map[string]v1.InterfaceBindingPlugin{testBindingName2: {}},
+				},
+			}
+			Expect(netbinding.ValidateVMINetBindingPlugins(vmi, config)).ToNot(Succeed())
+		})
+
+		It("should succeed when used binding plugin are registered", func() {
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, Binding: &v1.PluginBinding{Name: testBindingName1}}), libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName2, Binding: &v1.PluginBinding{Name: testBindingName2}}), libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName3, Binding: &v1.PluginBinding{Name: testBindingName3}}), libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
+			)
+			config := &v1.KubeVirtConfiguration{
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					Binding: map[string]v1.InterfaceBindingPlugin{
+						testBindingName2: {},
+						testBindingName1: {},
+						testBindingName3: {},
+					},
+				},
+			}
+			Expect(netbinding.ValidateVMINetBindingPlugins(vmi, config)).To(Succeed())
+		})
+	})
 
 	Context("binding plugin sidecar list", func() {
 		DescribeTable("should create the correct sidecars", func(vmi *v1.VirtualMachineInstance, bindings map[string]v1.InterfaceBindingPlugin, expectedSidecars hooks.HookSidecarList) {

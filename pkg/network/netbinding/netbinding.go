@@ -20,7 +20,9 @@
 package netbinding
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
@@ -122,4 +124,36 @@ func ReadNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, plugi
 	}
 
 	return nil
+}
+
+func ValidateVMINetBindingPlugins(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) error {
+	var plugins map[string]v1.InterfaceBindingPlugin
+	if kvc.NetworkConfiguration != nil {
+		plugins = kvc.NetworkConfiguration.Binding
+	}
+
+	invalidPluginByIface := map[string]string{}
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Binding != nil {
+			if _, exist := plugins[iface.Binding.Name]; !exist {
+				invalidPluginByIface[iface.Name] = iface.Binding.Name
+			}
+		}
+	}
+
+	if len(invalidPluginByIface) > 0 {
+		return composeUnregisteredPluginError(invalidPluginByIface)
+	}
+
+	return nil
+}
+
+func composeUnregisteredPluginError(invalidPluginByIface map[string]string) error {
+	var sb strings.Builder
+	for ifaceName, pluginName := range invalidPluginByIface {
+		sb.WriteString(fmt.Sprintf("network interface %[1]q is set with unregistered network binding plugin %[2]q. ",
+			ifaceName, pluginName))
+	}
+	sb.WriteString("Make sure all network binding plugins are registered in Kubevirt config.")
+	return errors.New(sb.String())
 }

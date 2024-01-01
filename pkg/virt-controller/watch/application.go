@@ -606,6 +606,10 @@ func (vca *VirtControllerApp) initCommon() {
 			}),
 		services.WithSidecarCreator(
 			func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+				if err := netbinding.ValidateVMINetBindingPlugins(vmi, kvc); err != nil {
+					vca.vmiRecorder.Eventf(vmi, k8sv1.EventTypeWarning, netbinding.UnregisteredNetworkBindingPluginReason, err.Error())
+					return nil, err
+				}
 				return netbinding.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
 			}),
 	)
