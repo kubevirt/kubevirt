@@ -168,7 +168,6 @@ go_test(
         "//pkg/network/dns:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/testutils:go_default_library",
-        "//pkg/util:go_default_library",
         "//pkg/util/cluster:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
