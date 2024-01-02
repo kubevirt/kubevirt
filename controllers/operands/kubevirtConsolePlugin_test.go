@@ -4,10 +4,6 @@ import (
 	"context"
 	"reflect"
 
-	"k8s.io/utils/ptr"
-
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -17,7 +13,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -442,9 +441,8 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				existingResource := deploymentManifestor(hco)
 
 				// now, modify HCO's node placement
-				seconds34 := int64(34)
 				hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, v1.Toleration{
-					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: &seconds34,
+					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: ptr.To[int64](34),
 				})
 				hco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "something entirely else"
 
@@ -491,9 +489,8 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				req.HCOTriggered = false
 
 				// now, modify deployment Kubevirt Console Plugin Deployment node placement
-				seconds34 := int64(34)
 				existingResource.Spec.Template.Spec.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, v1.Toleration{
-					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: &seconds34,
+					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: ptr.To[int64](34),
 				})
 				existingResource.Spec.Template.Spec.NodeSelector["key3"] = "BADvalue3"
 

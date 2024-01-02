@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/discovery"
-
 	"github.com/go-logr/logr"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -159,8 +159,7 @@ func getDeletionOption(dryRun bool, wait bool) *client.DeleteOptions {
 		opts.DryRun = []string{metav1.DryRunAll}
 	}
 	if wait {
-		foreground := metav1.DeletePropagationForeground
-		opts.PropagationPolicy = &foreground
+		opts.PropagationPolicy = ptr.To(metav1.DeletePropagationForeground)
 	}
 	return opts
 }

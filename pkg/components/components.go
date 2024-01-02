@@ -744,15 +744,12 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			"spec": map[string]interface{}{},
 		})
 
-	sideEffect := admissionregistrationv1.SideEffectClassNone
 	// Explicitly fail on unvalidated (for any reason) requests:
 	// this can make removing HCO CR harder if HCO webhook is not able
 	// to really validate the requests.
 	// In that case the user can only directly remove the
 	// ValidatingWebhookConfiguration object first (eventually bypassing the OLM if needed).
-	failurePolicy := admissionregistrationv1.Fail
-	webhookPath := util.HCOWebhookPath
-	var webhookTimeout int32 = 10
+	// so failurePolicy = admissionregistrationv1.Fail
 
 	validatingWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoValidatingWebhook,
@@ -760,9 +757,9 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		DeploymentName:          hcoWhDeploymentName,
 		ContainerPort:           util.WebhookPort,
 		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
-		SideEffects:             &sideEffect,
-		FailurePolicy:           &failurePolicy,
-		TimeoutSeconds:          &webhookTimeout,
+		SideEffects:             ptr.To(admissionregistrationv1.SideEffectClassNone),
+		FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
+		TimeoutSeconds:          ptr.To[int32](10),
 		Rules: []admissionregistrationv1.RuleWithOperations{
 			{
 				Operations: []admissionregistrationv1.OperationType{
@@ -777,10 +774,8 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 			},
 		},
-		WebhookPath: &webhookPath,
+		WebhookPath: ptr.To(util.HCOWebhookPath),
 	}
-
-	mutatingWebhookSideEffects := admissionregistrationv1.SideEffectClassNoneOnDryRun
 
 	mutatingNamespaceWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoMutatingWebhookNS,
@@ -788,9 +783,9 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		DeploymentName:          hcoWhDeploymentName,
 		ContainerPort:           util.WebhookPort,
 		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
-		SideEffects:             &mutatingWebhookSideEffects,
-		FailurePolicy:           &failurePolicy,
-		TimeoutSeconds:          &webhookTimeout,
+		SideEffects:             ptr.To(admissionregistrationv1.SideEffectClassNoneOnDryRun),
+		FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
+		TimeoutSeconds:          ptr.To[int32](10),
 		ObjectSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{util.KubernetesMetadataName: params.Namespace},
 		},
@@ -815,9 +810,9 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		DeploymentName:          hcoWhDeploymentName,
 		ContainerPort:           util.WebhookPort,
 		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
-		SideEffects:             &mutatingWebhookSideEffects,
-		FailurePolicy:           &failurePolicy,
-		TimeoutSeconds:          &webhookTimeout,
+		SideEffects:             ptr.To(admissionregistrationv1.SideEffectClassNoneOnDryRun),
+		FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
+		TimeoutSeconds:          ptr.To[int32](10),
 		Rules: []admissionregistrationv1.RuleWithOperations{
 			{
 				Operations: []admissionregistrationv1.OperationType{
@@ -1023,13 +1018,12 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 		}
 	}
 
-	defaultMode := int32(420)
 	volume := v1.Volume{
 		Name: certVolume,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName:  deploy.Name + "-service-cert",
-				DefaultMode: &defaultMode,
+				DefaultMode: ptr.To[int32](420),
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "tls.crt",

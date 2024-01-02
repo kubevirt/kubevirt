@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gomodules.xyz/jsonpatch/v2"
@@ -14,8 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
@@ -48,8 +49,7 @@ var _ = Describe("test HyperConverged mutator", func() {
 				},
 				Spec: v1beta1.HyperConvergedSpec{},
 			}
-			evictionStrategy := kubevirtcorev1.EvictionStrategyLiveMigrate
-			cr.Spec.EvictionStrategy = &evictionStrategy
+			cr.Spec.EvictionStrategy = ptr.To(kubevirtcorev1.EvictionStrategyLiveMigrate)
 			cli = commontestutils.InitClient(nil)
 			mutator = initHCMutator(s, cli)
 		})

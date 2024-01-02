@@ -4,16 +4,16 @@ import (
 	"context"
 	"time"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
@@ -198,9 +198,8 @@ var _ = Describe("CNA Operand", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// now, modify HCO's node placement
-			seconds3 := int64(3)
 			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 			})
 
 			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
@@ -240,12 +239,11 @@ var _ = Describe("CNA Operand", func() {
 			req.HCOTriggered = false
 
 			// now, modify CNAO node placement
-			seconds3 := int64(3)
 			existingResource.Spec.PlacementConfiguration.Infra.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 			})
 			existingResource.Spec.PlacementConfiguration.Workloads.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 			})
 
 			existingResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"] = "BADvalue1"
@@ -540,11 +538,10 @@ var _ = Describe("CNA Operand", func() {
 				existingCNAO.Spec.KubeSecondaryDNS = &networkaddonsshared.KubeSecondaryDNS{}
 			}
 
-			kubeSecondaryDNSNameServerIP := "127.0.0.1"
+			const kubeSecondaryDNSNameServerIP = "127.0.0.1"
 			if o.setFeatureGate {
-				deployKubeSecondaryDNS := o.featureGateValue
-				hco.Spec.FeatureGates.DeployKubeSecondaryDNS = &deployKubeSecondaryDNS
-				hco.Spec.KubeSecondaryDNSNameServerIP = &kubeSecondaryDNSNameServerIP
+				hco.Spec.FeatureGates.DeployKubeSecondaryDNS = ptr.To(o.featureGateValue)
+				hco.Spec.KubeSecondaryDNSNameServerIP = ptr.To(kubeSecondaryDNSNameServerIP)
 			}
 
 			cl := commontestutils.InitClient([]client.Object{hco, existingCNAO})
@@ -1075,12 +1072,11 @@ var _ = Describe("CNA Operand", func() {
 	})
 
 	Context("hcoConfig2CnaoPlacement", func() {
-		seconds1, seconds2 := int64(1), int64(2)
 		tolr1 := corev1.Toleration{
-			Key: "key1", Operator: "operator1", Value: "value1", Effect: "effect1", TolerationSeconds: &seconds1,
+			Key: "key1", Operator: "operator1", Value: "value1", Effect: "effect1", TolerationSeconds: ptr.To[int64](1),
 		}
 		tolr2 := corev1.Toleration{
-			Key: "key2", Operator: "operator2", Value: "value2", Effect: "effect2", TolerationSeconds: &seconds2,
+			Key: "key2", Operator: "operator2", Value: "value2", Effect: "effect2", TolerationSeconds: ptr.To[int64](2),
 		}
 
 		It("Should return nil if HCO's input is empty", func() {

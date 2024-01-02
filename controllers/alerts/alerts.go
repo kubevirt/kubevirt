@@ -17,6 +17,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -188,7 +189,6 @@ func createUnsafeModificationAlertRule() monitoringv1.Rule {
 }
 
 func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
-	var hour1 monitoringv1.Duration = "1h"
 	return monitoringv1.Rule{
 		Alert: installationNotCompletedAlert,
 		Expr:  intstr.FromString("kubevirt_hco_hyperconverged_cr_exists == 0"),
@@ -196,7 +196,7 @@ func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
 			"description": "the installation was not completed; the HyperConverged custom resource is missing. In order to complete the installation of the Hyperconverged Cluster Operator you should create the HyperConverged custom resource.",
 			"summary":     "the installation was not completed; to complete the installation, create a HyperConverged custom resource.",
 		},
-		For: &hour1,
+		For: ptr.To[monitoringv1.Duration]("1h"),
 		Labels: map[string]string{
 			severityAlertLabelKey:     "info",
 			healthImpactAlertLabelKey: "critical",

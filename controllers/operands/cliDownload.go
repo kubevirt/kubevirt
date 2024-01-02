@@ -13,6 +13,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -193,7 +194,6 @@ func (*cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Cl
 func (cliDownloadsRouteHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
-	weight := int32(100)
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cliDownloadsServiceName,
@@ -211,7 +211,7 @@ func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
 			To: routev1.RouteTargetReference{
 				Kind:   "Service",
 				Name:   cliDownloadsServiceName,
-				Weight: &weight,
+				Weight: ptr.To[int32](100),
 			},
 		},
 	}

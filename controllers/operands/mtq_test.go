@@ -219,12 +219,10 @@ var _ = Describe("MTQ tests", func() {
 	Context("check update", func() {
 
 		It("should update MTQ fields, if not matched to the requirements", func() {
-			wrongPC := mtqv1alpha1.MTQPriorityClass("wrongPC")
-
 			hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
 			mtq := NewMTQWithNameOnly(hco)
 			mtq.Spec.Infra = testNodePlacement
-			mtq.Spec.PriorityClass = &wrongPC
+			mtq.Spec.PriorityClass = ptr.To(mtqv1alpha1.MTQPriorityClass("wrongPC"))
 			mtq.Spec.CertConfig = &mtqv1alpha1.MTQCertConfig{
 				CA: &mtqv1alpha1.CertConfig{
 					Duration:    &metav1.Duration{Duration: time.Hour * 72},

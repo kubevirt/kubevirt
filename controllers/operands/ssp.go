@@ -29,7 +29,7 @@ const (
 	// This is initially set to 2 replicas, to maintain the behavior of the previous SSP operator.
 	// After SSP implements its defaulting webhook, we can change this to 0 replicas,
 	// and let the webhook set the default.
-	defaultTemplateValidatorReplicas = 2
+	defaultTemplateValidatorReplicas = int32(2)
 
 	defaultCommonTemplatesNamespace = hcoutil.OpenshiftNamespace
 
@@ -124,7 +124,6 @@ func (h *sspHooks) justBeforeComplete(req *common.HcoRequest) {
 }
 
 func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []hcov1beta1.DataImportCronTemplateStatus, error) {
-	replicas := int32(defaultTemplateValidatorReplicas)
 	templatesNamespace := defaultCommonTemplatesNamespace
 
 	if hc.Spec.CommonTemplatesNamespace != nil {
@@ -145,7 +144,7 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 
 	spec := sspv1beta2.SSPSpec{
 		TemplateValidator: &sspv1beta2.TemplateValidator{
-			Replicas: &replicas,
+			Replicas: ptr.To(defaultTemplateValidatorReplicas),
 		},
 		CommonTemplates: sspv1beta2.CommonTemplates{
 			Namespace:               templatesNamespace,

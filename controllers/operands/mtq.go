@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
@@ -141,7 +142,6 @@ func (*mtqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 func (*mtqHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewMTQ(hc *hcov1beta1.HyperConverged, opts ...string) *mtqv1alpha1.MTQ {
-	priorityClassName := mtqv1alpha1.MTQPriorityClass(kvPriorityClass)
 	spec := mtqv1alpha1.MTQSpec{
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		CertConfig: &mtqv1alpha1.MTQCertConfig{
@@ -154,7 +154,7 @@ func NewMTQ(hc *hcov1beta1.HyperConverged, opts ...string) *mtqv1alpha1.MTQ {
 				RenewBefore: hc.Spec.CertConfig.Server.RenewBefore,
 			},
 		},
-		PriorityClass: &priorityClassName,
+		PriorityClass: ptr.To[mtqv1alpha1.MTQPriorityClass](kvPriorityClass),
 	}
 
 	if hc.Spec.Infra.NodePlacement != nil {

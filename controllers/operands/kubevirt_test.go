@@ -6,12 +6,9 @@ import (
 	"os"
 	"time"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
-	"k8s.io/utils/ptr"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -19,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
@@ -334,17 +332,13 @@ Version: 1.2.3`)
 			existKv.Spec.Configuration.EmulatedMachines = []string{"wrong"}
 
 			// LiveMigration Configurations
-			bandwidthPerMigration := resource.MustParse("16Mi")
-			wrongNumeric64Value := int64(0)
-			wrongNumeric32Value := uint32(0)
-			network := "testNetwork"
 			existKv.Spec.Configuration.MigrationConfiguration = &kubevirtcorev1.MigrationConfiguration{
-				BandwidthPerMigration:             &bandwidthPerMigration,
-				CompletionTimeoutPerGiB:           &wrongNumeric64Value,
-				ParallelMigrationsPerCluster:      &wrongNumeric32Value,
-				ParallelOutboundMigrationsPerNode: &wrongNumeric32Value,
-				ProgressTimeout:                   &wrongNumeric64Value,
-				Network:                           &network,
+				BandwidthPerMigration:             ptr.To(resource.MustParse("16Mi")),
+				CompletionTimeoutPerGiB:           ptr.To[int64](0),
+				ParallelMigrationsPerCluster:      ptr.To[uint32](0),
+				ParallelOutboundMigrationsPerNode: ptr.To[uint32](0),
+				ProgressTimeout:                   ptr.To[int64](0),
+				Network:                           ptr.To("testNetwork"),
 				AllowAutoConverge:                 ptr.To(false),
 				AllowPostCopy:                     ptr.To(false),
 			}
@@ -415,8 +409,7 @@ Version: 1.2.3`)
 		})
 
 		It("should fail if the Spec.LiveMigrationConfig.BandwidthPerMigration is wrongly formatted", func() {
-			wrongFormat := "Wrong Format"
-			hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &wrongFormat
+			hco.Spec.LiveMigrationConfig.BandwidthPerMigration = ptr.To("Wrong Format")
 
 			_, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).To(HaveOccurred())
@@ -519,19 +512,21 @@ Version: 1.2.3`)
 			existKv, err := NewKubeVirt(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			bandwidthPerMigration := "16Mi"
-			completionTimeoutPerGiB := int64(100)
-			parallelOutboundMigrationsPerNode := uint32(7)
-			parallelMigrationsPerCluster := uint32(18)
-			progressTimeout := int64(5000)
-			network := "testNetwork"
+			const (
+				bandwidthPerMigration             = "16Mi"
+				completionTimeoutPerGiB           = int64(100)
+				parallelOutboundMigrationsPerNode = uint32(7)
+				parallelMigrationsPerCluster      = uint32(18)
+				progressTimeout                   = int64(5000)
+				network                           = "testNetwork"
+			)
 
-			hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
-			hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
-			hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
-			hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
-			hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
-			hco.Spec.LiveMigrationConfig.Network = &network
+			hco.Spec.LiveMigrationConfig.BandwidthPerMigration = ptr.To(bandwidthPerMigration)
+			hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = ptr.To(completionTimeoutPerGiB)
+			hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = ptr.To(parallelOutboundMigrationsPerNode)
+			hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = ptr.To(parallelMigrationsPerCluster)
+			hco.Spec.LiveMigrationConfig.ProgressTimeout = ptr.To(progressTimeout)
+			hco.Spec.LiveMigrationConfig.Network = ptr.To(network)
 			hco.Spec.LiveMigrationConfig.AllowAutoConverge = ptr.To(true)
 			hco.Spec.LiveMigrationConfig.AllowPostCopy = ptr.To(true)
 
@@ -552,14 +547,14 @@ Version: 1.2.3`)
 
 			mc := foundResource.Spec.Configuration.MigrationConfiguration
 			Expect(mc).ToNot(BeNil())
-			Expect(*mc.BandwidthPerMigration).To(Equal(resource.MustParse(bandwidthPerMigration)))
-			Expect(*mc.CompletionTimeoutPerGiB).To(Equal(completionTimeoutPerGiB))
-			Expect(*mc.ParallelOutboundMigrationsPerNode).To(Equal(parallelOutboundMigrationsPerNode))
-			Expect(*mc.ParallelMigrationsPerCluster).To(Equal(parallelMigrationsPerCluster))
-			Expect(*mc.ProgressTimeout).To(Equal(progressTimeout))
-			Expect(*mc.Network).To(Equal(network))
-			Expect(*mc.AllowAutoConverge).To(BeTrue())
-			Expect(*mc.AllowPostCopy).To(BeTrue())
+			Expect(mc.BandwidthPerMigration).To(HaveValue(Equal(resource.MustParse(bandwidthPerMigration))))
+			Expect(mc.CompletionTimeoutPerGiB).To(HaveValue(Equal(completionTimeoutPerGiB)))
+			Expect(mc.ParallelOutboundMigrationsPerNode).To(HaveValue(Equal(parallelOutboundMigrationsPerNode)))
+			Expect(mc.ParallelMigrationsPerCluster).To(HaveValue(Equal(parallelMigrationsPerCluster)))
+			Expect(mc.ProgressTimeout).To(HaveValue(Equal(progressTimeout)))
+			Expect(mc.Network).To(HaveValue(Equal(network)))
+			Expect(mc.AllowAutoConverge).To(HaveValue(BeTrue()))
+			Expect(mc.AllowPostCopy).To(HaveValue(BeTrue()))
 
 			// ObjectReference should have been updated
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -1249,11 +1244,14 @@ Version: 1.2.3`)
 				existKv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
-				oldKVCPUmodel := "oldKVCPUmodel"
+				const (
+					oldKVCPUmodel = "oldKVCPUmodel"
+					testCPUModel  = "testValue"
+				)
+
 				existKv.Spec.Configuration.CPUModel = oldKVCPUmodel
 
-				testCPUModel := "testValue"
-				hco.Spec.DefaultCPUModel = &testCPUModel
+				hco.Spec.DefaultCPUModel = ptr.To(testCPUModel)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 
@@ -1292,9 +1290,7 @@ Version: 1.2.3`)
 							foundResource),
 					).To(Succeed())
 
-					kvCPUModel := foundResource.Spec.Configuration.CPUModel
-					Expect(kvCPUModel).ToNot(BeNil())
-					Expect(kvCPUModel).To(Equal(testCPUModel))
+					Expect(foundResource.Spec.Configuration.CPUModel).To(Equal(testCPUModel))
 				})
 
 			})
@@ -1391,9 +1387,8 @@ Version: 1.2.3`)
 				Expect(err).ToNot(HaveOccurred())
 
 				// now, modify HCO's node placement
-				seconds3 := int64(3)
 				hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 
 				hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
@@ -1441,12 +1436,11 @@ Version: 1.2.3`)
 				req.HCOTriggered = false
 
 				// now, modify KV's node placement
-				seconds3 := int64(3)
 				existingResource.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 				existingResource.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
@@ -2442,7 +2436,8 @@ Version: 1.2.3`)
 		})
 
 		Context("Workload Update Strategy", func() {
-			defaultBatchEvictionSize := 10
+			const defaultBatchEvictionSize = 10
+
 			getClusterInfo := hcoutil.GetClusterInfo
 
 			BeforeEach(func() {
@@ -2462,7 +2457,7 @@ Version: 1.2.3`)
 				hco.Spec.WorkloadUpdateStrategy = hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
 					WorkloadUpdateMethods: []string{"aaa", "bbb"},
 					BatchEvictionInterval: &metav1.Duration{Duration: time.Minute * 1},
-					BatchEvictionSize:     &defaultBatchEvictionSize,
+					BatchEvictionSize:     ptr.To(defaultBatchEvictionSize),
 				}
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -2482,7 +2477,7 @@ Version: 1.2.3`)
 				Expect(foundResource.Spec.WorkloadUpdateStrategy).ToNot(BeNil())
 				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
 				Expect(kvUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("1m0s"))
-				Expect(*kvUpdateStrategy.BatchEvictionSize).Should(Equal(defaultBatchEvictionSize))
+				Expect(kvUpdateStrategy.BatchEvictionSize).Should(HaveValue(Equal(defaultBatchEvictionSize)))
 				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(2))
 				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(kubevirtcorev1.WorkloadUpdateMethod("aaa"), kubevirtcorev1.WorkloadUpdateMethod("bbb")))
 
@@ -2509,7 +2504,7 @@ Version: 1.2.3`)
 				Expect(foundResource.Spec.WorkloadUpdateStrategy).ToNot(BeNil())
 				kvUpdateStrategy := foundResource.Spec.WorkloadUpdateStrategy
 				Expect(kvUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("1m0s"))
-				Expect(*kvUpdateStrategy.BatchEvictionSize).Should(Equal(defaultBatchEvictionSize))
+				Expect(kvUpdateStrategy.BatchEvictionSize).Should(HaveValue(Equal(defaultBatchEvictionSize)))
 				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(HaveLen(1))
 				Expect(kvUpdateStrategy.WorkloadUpdateMethods).Should(
 					ContainElements(
@@ -2525,10 +2520,10 @@ Version: 1.2.3`)
 				existingKv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
-				modifiedBatchEvictionSize := 5
+				const modifiedBatchEvictionSize = 5
 				hco.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []string{"aaa", "bbb", "ccc"}
 				hco.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: time.Minute * 3}
-				hco.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &modifiedBatchEvictionSize
+				hco.Spec.WorkloadUpdateStrategy.BatchEvictionSize = ptr.To(modifiedBatchEvictionSize)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
@@ -2553,19 +2548,19 @@ Version: 1.2.3`)
 					),
 				)
 
-				Expect(*foundKv.Spec.WorkloadUpdateStrategy.BatchEvictionInterval).Should(Equal(metav1.Duration{Duration: time.Minute * 3}))
-				Expect(*foundKv.Spec.WorkloadUpdateStrategy.BatchEvictionSize).Should(Equal(modifiedBatchEvictionSize))
+				Expect(foundKv.Spec.WorkloadUpdateStrategy.BatchEvictionInterval).Should(HaveValue(Equal(metav1.Duration{Duration: time.Minute * 3})))
+				Expect(foundKv.Spec.WorkloadUpdateStrategy.BatchEvictionSize).Should(HaveValue(Equal(modifiedBatchEvictionSize)))
 			})
 
 			It("should overwrite Workload Update Strategy if directly set on KV CR", func() {
-
-				hcoModifiedBatchEvictionSize := 5
-				kvModifiedBatchEvictionSize := 7
-
+				const (
+					hcoModifiedBatchEvictionSize = 5
+					kvModifiedBatchEvictionSize  = 7
+				)
 				hco.Spec.WorkloadUpdateStrategy = hcov1beta1.HyperConvergedWorkloadUpdateStrategy{
 					WorkloadUpdateMethods: []string{"LiveMigrate"},
 					BatchEvictionInterval: &metav1.Duration{Duration: time.Minute * 5},
-					BatchEvictionSize:     &hcoModifiedBatchEvictionSize,
+					BatchEvictionSize:     ptr.To(hcoModifiedBatchEvictionSize),
 				}
 
 				existingKV, err := NewKubeVirt(hco)
@@ -2576,7 +2571,7 @@ Version: 1.2.3`)
 
 				By("Modify KV's Workload Update Strategy configuration")
 				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: 3 * time.Minute}
-				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &kvModifiedBatchEvictionSize
+				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionSize = ptr.To(kvModifiedBatchEvictionSize)
 				existingKV.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []kubevirtcorev1.WorkloadUpdateMethod{kubevirtcorev1.WorkloadUpdateMethodEvict}
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingKV})
@@ -2609,7 +2604,7 @@ Version: 1.2.3`)
 				Expect(foundUpdateStrategy.WorkloadUpdateMethods).Should(ContainElements(
 					kubevirtcorev1.WorkloadUpdateMethodLiveMigrate,
 				))
-				Expect(*foundUpdateStrategy.BatchEvictionSize).Should(Equal(hcoModifiedBatchEvictionSize))
+				Expect(foundUpdateStrategy.BatchEvictionSize).Should(HaveValue(Equal(hcoModifiedBatchEvictionSize)))
 				Expect(foundUpdateStrategy.BatchEvictionInterval.Duration.String()).Should(Equal("5m0s"))
 			})
 
@@ -2802,8 +2797,7 @@ Version: 1.2.3`)
 				existingResource, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
-				liveMigrateEvictionStrategy := kubevirtcorev1.EvictionStrategyLiveMigrate
-				hco.Spec.EvictionStrategy = &liveMigrateEvictionStrategy
+				hco.Spec.EvictionStrategy = ptr.To(kubevirtcorev1.EvictionStrategyLiveMigrate)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
@@ -2828,14 +2822,12 @@ Version: 1.2.3`)
 
 			It("should modify eviction strategy according to HCO CR", func() {
 
-				evictionStrategyNone := kubevirtcorev1.EvictionStrategyNone
-				hco.Spec.EvictionStrategy = &evictionStrategyNone
+				hco.Spec.EvictionStrategy = ptr.To(kubevirtcorev1.EvictionStrategyNone)
 				existingResource, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Modify HCO's eviction strategy configuration")
-				evictionStrategyExternal := kubevirtcorev1.EvictionStrategyLiveMigrateIfPossible
-				hco.Spec.EvictionStrategy = &evictionStrategyExternal
+				hco.Spec.EvictionStrategy = ptr.To(kubevirtcorev1.EvictionStrategyLiveMigrateIfPossible)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
@@ -3060,13 +3052,13 @@ Version: 1.2.3`)
 
 		Context("VmiCPUAllocationRatio", func() {
 			It("should add CPUAllocationRatio if missing in KV CR", func() {
-				expectedCPUAllocationRatio := 16
+				const expectedCPUAllocationRatio = 16
 
 				existingResource, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
 				hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
-					VmiCPUAllocationRatio: &expectedCPUAllocationRatio,
+					VmiCPUAllocationRatio: ptr.To(expectedCPUAllocationRatio),
 				}
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -3089,11 +3081,11 @@ Version: 1.2.3`)
 			})
 
 			It("should remove CPUAllocationRatio if missing in HCO CR", func() {
-				initialCPUAllocationRatio := 16
+				const initialCPUAllocationRatio = 16
 
 				hcoResourceRequirements := commontestutils.NewHco()
 				hcoResourceRequirements.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
-					VmiCPUAllocationRatio: &initialCPUAllocationRatio,
+					VmiCPUAllocationRatio: ptr.To(initialCPUAllocationRatio),
 				}
 
 				existingResource, err := NewKubeVirt(hcoResourceRequirements)
@@ -3122,19 +3114,21 @@ Version: 1.2.3`)
 			})
 
 			It("should modify CPUAllocationRatio according to HCO CR", func() {
-				initialCPUAllocationRatio := 16
-				expectedCPUAllocationRatio := 25
+				const (
+					initialCPUAllocationRatio  = 16
+					expectedCPUAllocationRatio = 25
+				)
 				hcoResourceRequirements := commontestutils.NewHco()
 
 				hcoResourceRequirements.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
-					VmiCPUAllocationRatio: &initialCPUAllocationRatio,
+					VmiCPUAllocationRatio: ptr.To(initialCPUAllocationRatio),
 				}
 
 				existingResource, err := NewKubeVirt(hcoResourceRequirements)
 				Expect(err).ToNot(HaveOccurred())
 
 				hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
-					VmiCPUAllocationRatio: &expectedCPUAllocationRatio,
+					VmiCPUAllocationRatio: ptr.To(expectedCPUAllocationRatio),
 				}
 
 				Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
@@ -3669,8 +3663,8 @@ Version: 1.2.3`)
 		Context("DefaultRuntimeClass", func() {
 
 			It("Should be defined for KubevirtCR if defined in HCO CR", func() {
-				runtimeClass := "myCustomRuntimeClass"
-				hco.Spec.DefaultRuntimeClass = &runtimeClass
+				const runtimeClass = "myCustomRuntimeClass"
+				hco.Spec.DefaultRuntimeClass = ptr.To(runtimeClass)
 				kv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -3777,35 +3771,36 @@ Version: 1.2.3`)
 
 	Context("Test hcLiveMigrationToKv", func() {
 
-		bandwidthPerMigration := "64Mi"
-		completionTimeoutPerGiB := int64(100)
-		parallelMigrationsPerCluster := uint32(100)
-		parallelOutboundMigrationsPerNode := uint32(100)
-		progressTimeout := int64(100)
-		network := "testNetwork"
-
+		const (
+			bandwidthPerMigration             = "64Mi"
+			completionTimeoutPerGiB           = int64(100)
+			parallelMigrationsPerCluster      = uint32(100)
+			parallelOutboundMigrationsPerNode = uint32(100)
+			progressTimeout                   = int64(100)
+			network                           = "testNetwork"
+		)
 		It("should create valid KV LM config from a valid HC LM config", func() {
 			lmc := hcov1beta1.LiveMigrationConfigurations{
-				BandwidthPerMigration:             &bandwidthPerMigration,
-				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-				ProgressTimeout:                   &progressTimeout,
-				Network:                           &network,
+				BandwidthPerMigration:             ptr.To(bandwidthPerMigration),
+				CompletionTimeoutPerGiB:           ptr.To(completionTimeoutPerGiB),
+				ParallelMigrationsPerCluster:      ptr.To(parallelMigrationsPerCluster),
+				ParallelOutboundMigrationsPerNode: ptr.To(parallelOutboundMigrationsPerNode),
+				ProgressTimeout:                   ptr.To(progressTimeout),
+				Network:                           ptr.To(network),
 				AllowAutoConverge:                 ptr.To(true),
 				AllowPostCopy:                     ptr.To(true),
 			}
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(*mc.BandwidthPerMigration).Should(Equal(resource.MustParse(bandwidthPerMigration)))
-			Expect(*mc.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
-			Expect(*mc.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
-			Expect(*mc.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
-			Expect(*mc.ProgressTimeout).Should(Equal(progressTimeout))
-			Expect(*mc.Network).Should(Equal(network))
-			Expect(*mc.AllowAutoConverge).Should(BeTrue())
-			Expect(*mc.AllowPostCopy).Should(BeTrue())
+			Expect(mc.BandwidthPerMigration).Should(HaveValue(Equal(resource.MustParse(bandwidthPerMigration))))
+			Expect(mc.CompletionTimeoutPerGiB).Should(HaveValue(Equal(completionTimeoutPerGiB)))
+			Expect(mc.ParallelMigrationsPerCluster).Should(HaveValue(Equal(parallelMigrationsPerCluster)))
+			Expect(mc.ParallelOutboundMigrationsPerNode).Should(HaveValue(Equal(parallelOutboundMigrationsPerNode)))
+			Expect(mc.ProgressTimeout).Should(HaveValue(Equal(progressTimeout)))
+			Expect(mc.Network).Should(HaveValue(Equal(network)))
+			Expect(mc.AllowAutoConverge).Should(HaveValue(BeTrue()))
+			Expect(mc.AllowPostCopy).Should(HaveValue(BeTrue()))
 		})
 
 		It("should create valid empty KV LM config from a valid empty HC LM config", func() {
@@ -3824,14 +3819,13 @@ Version: 1.2.3`)
 		})
 
 		It("should return error if the value of the BandwidthPerMigration field is not valid", func() {
-			wrongBandwidthPerMigration := "Wrong BandwidthPerMigration"
 			lmc := hcov1beta1.LiveMigrationConfigurations{
-				BandwidthPerMigration:             &wrongBandwidthPerMigration,
-				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-				ProgressTimeout:                   &progressTimeout,
-				Network:                           &network,
+				BandwidthPerMigration:             ptr.To("Wrong BandwidthPerMigration"),
+				CompletionTimeoutPerGiB:           ptr.To(completionTimeoutPerGiB),
+				ParallelMigrationsPerCluster:      ptr.To(parallelMigrationsPerCluster),
+				ParallelOutboundMigrationsPerNode: ptr.To(parallelOutboundMigrationsPerNode),
+				ProgressTimeout:                   ptr.To(progressTimeout),
+				Network:                           ptr.To(network),
 				AllowAutoConverge:                 ptr.To(true),
 				AllowPostCopy:                     ptr.To(true),
 			}

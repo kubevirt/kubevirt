@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
@@ -192,7 +193,7 @@ var (
 
 // KubeVirt containerDisk verification memory usage limit
 var (
-	kvDiskVerificationMemoryLimit, _ = resource.ParseQuantity("2G")
+	kvDiskVerificationMemoryLimit = resource.MustParse("2G")
 )
 
 // ************  KubeVirt Handler  **************
@@ -694,11 +695,10 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) *kubevirtcorev1.DeveloperConf
 
 // Static for now, could be configured in the HCO CR in the future
 func getKVSeccompConfig() *kubevirtcorev1.SeccompConfiguration {
-	kubevirtProfile := "kubevirt/kubevirt.json"
 	return &kubevirtcorev1.SeccompConfiguration{
 		VirtualMachineInstanceProfile: &kubevirtcorev1.VirtualMachineInstanceProfile{
 			CustomProfile: &kubevirtcorev1.CustomProfile{
-				LocalhostProfile: &kubevirtProfile,
+				LocalhostProfile: ptr.To("kubevirt/kubevirt.json"),
 			},
 		},
 	}
@@ -721,8 +721,7 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, infrastructur
 
 	kvConfig := &kubevirtcorev1.ComponentConfig{}
 	if !infrastructureHighlyAvailable {
-		var singleReplica uint8 = 1
-		kvConfig.Replicas = &singleReplica
+		kvConfig.Replicas = ptr.To[uint8](1)
 	}
 
 	if hcoConfig.NodePlacement != nil {

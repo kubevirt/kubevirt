@@ -824,8 +824,7 @@ var _ = Describe("webhooks validator", func() {
 				hco.DeepCopyInto(newHco)
 
 				// change something in the LiveMigrationConfig field
-				newVal := int64(200)
-				hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &newVal
+				hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = ptr.To[int64](200)
 
 				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			})
@@ -839,8 +838,7 @@ var _ = Describe("webhooks validator", func() {
 				hco.DeepCopyInto(newHco)
 
 				// change something in the LiveMigrationConfig field
-				wrongVal := "Wrong Value"
-				newHco.Spec.LiveMigrationConfig.BandwidthPerMigration = &wrongVal
+				newHco.Spec.LiveMigrationConfig.BandwidthPerMigration = ptr.To("Wrong Value")
 
 				Expect(
 					wh.ValidateUpdate(ctx, dryRun, newHco, hco),
@@ -1794,7 +1792,6 @@ var _ = Describe("webhooks validator", func() {
 })
 
 func newHyperConvergedConfig() *sdkapi.NodePlacement {
-	seconds1, seconds2 := int64(1), int64(2)
 	return &sdkapi.NodePlacement{
 		NodeSelector: map[string]string{
 			"key1": "value1",
@@ -1819,8 +1816,8 @@ func newHyperConvergedConfig() *sdkapi.NodePlacement {
 			},
 		},
 		Tolerations: []corev1.Toleration{
-			{Key: "key1", Operator: "operator1", Value: "value1", Effect: "effect1", TolerationSeconds: &seconds1},
-			{Key: "key2", Operator: "operator2", Value: "value2", Effect: "effect2", TolerationSeconds: &seconds2},
+			{Key: "key1", Operator: "operator1", Value: "value1", Effect: "effect1", TolerationSeconds: ptr.To[int64](1)},
+			{Key: "key2", Operator: "operator2", Value: "value2", Effect: "effect2", TolerationSeconds: ptr.To[int64](2)},
 		},
 	}
 }

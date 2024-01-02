@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/ptr"
 
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -207,9 +208,8 @@ var _ = Describe("CDI Operand", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// now, modify HCO's node placement
-				seconds3 := int64(3)
 				hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 
 				hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
@@ -248,12 +248,11 @@ var _ = Describe("CDI Operand", func() {
 				req.HCOTriggered = false
 
 				// now, modify CDI's node placement
-				seconds3 := int64(3)
 				existingResource.Spec.Infra.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 				existingResource.Spec.Workloads.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 
 				existingResource.Spec.Infra.NodeSelector["key1"] = "BADvalue1"
@@ -518,13 +517,12 @@ var _ = Describe("CDI Operand", func() {
 		Context("Log verbosity", func() {
 
 			It("Should be defined for CDI CR if defined in HCO CR", func() {
-				logVerbosity := int32(4)
-				hco.Spec.LogVerbosityConfig = &hcov1beta1.LogVerbosityConfiguration{CDI: &logVerbosity}
+				hco.Spec.LogVerbosityConfig = &hcov1beta1.LogVerbosityConfiguration{CDI: ptr.To[int32](4)}
 				cdi, err := NewCDI(hco)
 
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(cdi).ToNot(BeNil())
-				Expect(*cdi.Spec.Config.LogVerbosity).To(Equal(logVerbosity))
+				Expect(cdi.Spec.Config.LogVerbosity).To(HaveValue(Equal(int32(4))))
 			})
 
 			DescribeTable("Should not be defined for CDI CR if not defined in HCO CR", func(logConfig *hcov1beta1.LogVerbosityConfiguration) {
@@ -542,13 +540,15 @@ var _ = Describe("CDI Operand", func() {
 
 		Context("Test ScratchSpaceStorageClass", func() {
 
-			hcoScratchSpaceStorageClassValue := "hcoScratchSpaceStorageClassValue"
-			cdiScratchSpaceStorageClassValue := "cdiScratchSpaceStorageClassValue"
+			const (
+				hcoScratchSpaceStorageClassValue = "hcoScratchSpaceStorageClassValue"
+				cdiScratchSpaceStorageClassValue = "cdiScratchSpaceStorageClassValue"
+			)
 
 			It("should add ScratchSpaceStorageClass if missing in CDI", func() {
 				existingResource, err := NewCDI(hco)
 				Expect(err).ToNot(HaveOccurred())
-				hco.Spec.ScratchSpaceStorageClass = &hcoScratchSpaceStorageClassValue
+				hco.Spec.ScratchSpaceStorageClass = ptr.To(hcoScratchSpaceStorageClassValue)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
@@ -566,8 +566,7 @@ var _ = Describe("CDI Operand", func() {
 				).ToNot(HaveOccurred())
 
 				Expect(foundCdi.Spec.Config).ToNot(BeNil())
-				Expect(foundCdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
-				Expect(*foundCdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(hcoScratchSpaceStorageClassValue))
+				Expect(foundCdi.Spec.Config.ScratchSpaceStorageClass).Should(HaveValue(Equal(hcoScratchSpaceStorageClassValue)))
 			})
 
 			It("should remove ScratchSpaceStorageClass if missing in HCO CR", func() {
@@ -575,11 +574,10 @@ var _ = Describe("CDI Operand", func() {
 
 				existingCdi, err := NewCDI(hcoResourceRequirements)
 				Expect(err).ToNot(HaveOccurred())
-				existingCdi.Spec.Config.ScratchSpaceStorageClass = &cdiScratchSpaceStorageClassValue
+				existingCdi.Spec.Config.ScratchSpaceStorageClass = ptr.To(cdiScratchSpaceStorageClassValue)
 
 				Expect(existingCdi.Spec.Config).ToNot(BeNil())
-				Expect(existingCdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
-				Expect(*existingCdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(cdiScratchSpaceStorageClassValue))
+				Expect(existingCdi.Spec.Config.ScratchSpaceStorageClass).Should(HaveValue(Equal(cdiScratchSpaceStorageClassValue)))
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingCdi})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
@@ -601,14 +599,14 @@ var _ = Describe("CDI Operand", func() {
 			})
 
 			It("should modify ScratchSpaceStorageClass according to HCO CR", func() {
-				hco.Spec.ScratchSpaceStorageClass = &cdiScratchSpaceStorageClassValue
+				hco.Spec.ScratchSpaceStorageClass = ptr.To(cdiScratchSpaceStorageClassValue)
 				existingCDI, err := NewCDI(hco)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(existingCDI.Spec.Config).ToNot(BeNil())
 				Expect(*existingCDI.Spec.Config.ScratchSpaceStorageClass).To(Equal(cdiScratchSpaceStorageClassValue))
 
-				hco.Spec.ScratchSpaceStorageClass = &hcoScratchSpaceStorageClassValue
+				hco.Spec.ScratchSpaceStorageClass = ptr.To(hcoScratchSpaceStorageClassValue)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingCDI})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
@@ -625,8 +623,7 @@ var _ = Describe("CDI Operand", func() {
 						foundCDI),
 				).ToNot(HaveOccurred())
 
-				Expect(foundCDI.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
-				Expect(*foundCDI.Spec.Config.ScratchSpaceStorageClass).To(Equal(hcoScratchSpaceStorageClassValue))
+				Expect(foundCDI.Spec.Config.ScratchSpaceStorageClass).To(HaveValue(Equal(hcoScratchSpaceStorageClassValue)))
 			})
 		})
 
@@ -790,11 +787,9 @@ var _ = Describe("CDI Operand", func() {
 			req.HCOTriggered = false
 
 			// modify a cfg
-			storageClass := "aa"
-			proxyURLOverride := "proxyOverride"
 			expectedResource.Spec.Config = &cdiv1beta1.CDIConfigSpec{
-				UploadProxyURLOverride:   &proxyURLOverride,
-				ScratchSpaceStorageClass: &storageClass,
+				UploadProxyURLOverride:   ptr.To("proxyOverride"),
+				ScratchSpaceStorageClass: ptr.To("aa"),
 				PodResourceRequirements:  &corev1.ResourceRequirements{},
 				FeatureGates:             []string{"SomeFeatureGate"},
 				FilesystemOverhead:       &cdiv1beta1.FilesystemOverhead{Global: "5"},

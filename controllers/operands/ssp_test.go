@@ -88,14 +88,13 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should reconcile to default", func() {
-			cTNamespace := "nonDefault"
-			hco.Spec.CommonTemplatesNamespace = &cTNamespace
+			const cTNamespace = "nonDefault"
+			hco.Spec.CommonTemplatesNamespace = ptr.To(cTNamespace)
 			expectedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
 			existingResource := expectedResource.DeepCopy()
 
-			replicas := int32(defaultTemplateValidatorReplicas * 2) // non-default value
-			existingResource.Spec.TemplateValidator.Replicas = &replicas
+			existingResource.Spec.TemplateValidator.Replicas = ptr.To(defaultTemplateValidatorReplicas * 2) // non-default value
 
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 
@@ -214,15 +213,13 @@ var _ = Describe("SSP Operands", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// now, modify HCO's node placement
-				seconds12 := int64(12)
 				hco.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key12", Operator: "operator12", Value: "value12", Effect: "effect12", TolerationSeconds: &seconds12,
+					Key: "key12", Operator: "operator12", Value: "value12", Effect: "effect12", TolerationSeconds: ptr.To[int64](12),
 				})
 				hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-				seconds34 := int64(34)
 				hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: &seconds34,
+					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: ptr.To[int64](34),
 				})
 				hco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "something entirely else"
 
@@ -492,11 +489,6 @@ var _ = Describe("SSP Operands", func() {
 			dir := path.Join(os.TempDir(), fmt.Sprint(time.Now().UTC().Unix()))
 			origFunc := getDataImportCronTemplatesFileLocation
 
-			url1 := "docker://someregistry/image1"
-			url2 := "docker://someregistry/image2"
-			url3 := "docker://someregistry/image3"
-			url4 := "docker://someregistry/image4"
-
 			image1 := hcov1beta1.DataImportCronTemplate{
 				ObjectMeta: metav1.ObjectMeta{Name: "image1"},
 				Spec: &cdiv1beta1.DataImportCronSpec{
@@ -504,7 +496,7 @@ var _ = Describe("SSP Operands", func() {
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
 							Source: &cdiv1beta1.DataVolumeSource{
-								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url1},
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image1")},
 							},
 						},
 					},
@@ -527,7 +519,7 @@ var _ = Describe("SSP Operands", func() {
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
 							Source: &cdiv1beta1.DataVolumeSource{
-								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url2},
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image2")},
 							},
 						},
 					},
@@ -550,7 +542,7 @@ var _ = Describe("SSP Operands", func() {
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
 							Source: &cdiv1beta1.DataVolumeSource{
-								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url3},
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image3")},
 							},
 						},
 					},
@@ -573,7 +565,7 @@ var _ = Describe("SSP Operands", func() {
 					Template: cdiv1beta1.DataVolume{
 						Spec: cdiv1beta1.DataVolumeSpec{
 							Source: &cdiv1beta1.DataVolumeSource{
-								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &url4},
+								Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image4")},
 							},
 						},
 					},
@@ -785,12 +777,14 @@ var _ = Describe("SSP Operands", func() {
 
 				It("Should replace the common DICT registry field if the CR list includes it", func() {
 
-					modifiedURL := "docker://someregistry/modified"
-					anotherURL := "docker://someregistry/anotherURL"
+					const (
+						modifiedURL = "docker://someregistry/modified"
+						anotherURL  = "docker://someregistry/anotherURL"
+					)
 
 					image1FromFile := image1.DeepCopy()
 					image1FromFile.Spec.Template.Spec.Source = &cdiv1beta1.DataVolumeSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &modifiedURL},
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To(modifiedURL)},
 					}
 
 					dataImportCronTemplateHardCodedMap = map[string]hcov1beta1.DataImportCronTemplate{
@@ -803,7 +797,7 @@ var _ = Describe("SSP Operands", func() {
 
 					modifiedImage1 := image1.DeepCopy()
 					modifiedImage1.Spec.Template.Spec.Source = &cdiv1beta1.DataVolumeSource{
-						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: &anotherURL},
+						Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To(anotherURL)},
 					}
 
 					By("check that if the CR schedule is empty, HCO adds it from the common dict")
@@ -1068,11 +1062,8 @@ var _ = Describe("SSP Operands", func() {
 
 					fedoraDic := commonFedora.DeepCopy()
 
-					retentionPolicy := cdiv1beta1.DataImportCronRetainAll
-					garbageCollect := cdiv1beta1.DataImportCronGarbageCollectOutdated
-
-					fedoraDic.Spec.RetentionPolicy = &retentionPolicy
-					fedoraDic.Spec.GarbageCollect = &garbageCollect
+					fedoraDic.Spec.RetentionPolicy = ptr.To(cdiv1beta1.DataImportCronRetainAll)
+					fedoraDic.Spec.GarbageCollect = ptr.To(cdiv1beta1.DataImportCronGarbageCollectOutdated)
 					fedoraDic.Spec.ImportsToKeep = ptr.To(int32(5))
 					fedoraDic.Spec.Template.Spec.Source.Registry = &cdiv1beta1.DataVolumeSourceRegistry{
 						URL: ptr.To("docker://not-the-same-image"),
@@ -1653,6 +1644,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("should create ssp with 1 modified common DICT and 2 custom DICTs, when one of the common is modified", func() {
+						const scName = "anotherStorageClassName"
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 						origSSP, _, err := NewSSP(hco)
@@ -1660,8 +1652,7 @@ var _ = Describe("SSP Operands", func() {
 
 						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
 						modifiedCentos8 := sspCentos8.DeepCopy()
-						scName := "anotherStorageClassName"
-						modifiedCentos8.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: &scName}
+						modifiedCentos8.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: ptr.To(scName)}
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 
@@ -1684,7 +1675,7 @@ var _ = Describe("SSP Operands", func() {
 						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 						for _, dict := range foundSSP.Spec.CommonTemplates.DataImportCronTemplates {
 							if dict.Name == "centos8-image-cron" {
-								Expect(*dict.Spec.Template.Spec.Storage.StorageClassName).Should(Equal(scName))
+								Expect(dict.Spec.Template.Spec.Storage.StorageClassName).Should(HaveValue(Equal(scName)))
 							}
 						}
 
@@ -1736,6 +1727,7 @@ var _ = Describe("SSP Operands", func() {
 					})
 
 					It("only non modified common dict should use the custom namespace", func() {
+						const scName = "anotherStorageClassName"
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 						origSSP, _, err := NewSSP(hco)
@@ -1743,8 +1735,7 @@ var _ = Describe("SSP Operands", func() {
 
 						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
 						modifiedCentos8 := sspCentos8.DeepCopy()
-						scName := "anotherStorageClassName"
-						modifiedCentos8.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: &scName}
+						modifiedCentos8.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: ptr.To(scName)}
 						modifiedCentos8.ObjectMeta.Namespace = ""
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
@@ -1769,7 +1760,7 @@ var _ = Describe("SSP Operands", func() {
 						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 						for _, dict := range foundSSP.Spec.CommonTemplates.DataImportCronTemplates {
 							if dict.Name == "centos8-image-cron" {
-								Expect(*dict.Spec.Template.Spec.Storage.StorageClassName).Should(Equal(scName))
+								Expect(dict.Spec.Template.Spec.Storage.StorageClassName).Should(HaveValue(Equal(scName)))
 							}
 
 							if dict.Name == "fedora-image-cron" {

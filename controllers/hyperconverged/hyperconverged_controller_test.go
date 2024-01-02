@@ -8,8 +8,6 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -28,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -718,12 +717,11 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 
 				// now, modify KV's node placement
-				seconds3 := int64(3)
 				existingResource.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 				existingResource.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
@@ -778,12 +776,11 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.Kind // necessary for metrics
 
 				// now, modify KV's node placement
-				seconds3 := int64(3)
 				existingResource.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 				existingResource.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: ptr.To[int64](3),
 				})
 
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
@@ -2107,12 +2104,14 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			Context("Amend bad defaults", func() {
-				badBandwidthPerMigration := "64Mi"
-				customBandwidthPerMigration := "32Mi"
+				const (
+					badBandwidthPerMigration    = "64Mi"
+					customBandwidthPerMigration = "32Mi"
+				)
 
 				It("should drop spec.livemigrationconfig.bandwidthpermigration if == 64Mi when upgrading from < 1.5.0", func() {
 					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.4.99")
-					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &badBandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = ptr.To(badBandwidthPerMigration)
 
 					cl := expected.initClient()
 					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
@@ -2126,28 +2125,26 @@ var _ = Describe("HyperconvergedController", func() {
 
 				It("should preserve spec.livemigrationconfig.bandwidthpermigration if != 64Mi when upgrading from < 1.5.0", func() {
 					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.4.99")
-					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &customBandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = ptr.To(customBandwidthPerMigration)
 
 					cl := expected.initClient()
 					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
-					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Not(BeNil()))
-					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(customBandwidthPerMigration))
+					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(HaveValue(Equal(customBandwidthPerMigration)))
 				})
 
 				It("should preserve spec.livemigrationconfig.bandwidthpermigration even if == 64Mi when upgrading from >= 1.5.1", func() {
 					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.5.1")
-					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &badBandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = ptr.To(badBandwidthPerMigration)
 
 					cl := expected.initClient()
 					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
-					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Not(BeNil()))
-					Expect(*foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(badBandwidthPerMigration))
+					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(HaveValue(Equal(badBandwidthPerMigration)))
 				})
 			})
 

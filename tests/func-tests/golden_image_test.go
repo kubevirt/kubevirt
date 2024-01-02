@@ -377,22 +377,19 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 })
 
 func getDICT() hcov1beta1.DataImportCronTemplate {
-	gcType := cdiv1beta1.DataImportCronGarbageCollectOutdated
-	pullMethod := cdiv1beta1.RegistryPullNode
-
 	return hcov1beta1.DataImportCronTemplate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom",
 		},
 		Spec: &cdiv1beta1.DataImportCronSpec{
-			GarbageCollect:    &gcType,
+			GarbageCollect:    ptr.To(cdiv1beta1.DataImportCronGarbageCollectOutdated),
 			ManagedDataSource: "centos7",
 			Schedule:          "18 1/12 * * *",
 			Template: cdiv1beta1.DataVolume{
 				Spec: cdiv1beta1.DataVolumeSpec{
 					Source: &cdiv1beta1.DataVolumeSource{
 						Registry: &cdiv1beta1.DataVolumeSourceRegistry{
-							PullMethod: &pullMethod,
+							PullMethod: ptr.To(cdiv1beta1.RegistryPullNode),
 							URL:        ptr.To("docker://quay.io/containerdisks/centos:7-2009"),
 						},
 					},
