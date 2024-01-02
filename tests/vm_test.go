@@ -30,11 +30,11 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
-	"github.com/pborman/uuid"
 	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -1678,7 +1678,7 @@ status:
 			var testUser string
 
 			BeforeEach(func() {
-				testUser = "testuser-" + uuid.NewRandom().String()
+				testUser = "testuser-" + uuid.NewString()
 			})
 
 			Context("should succeed with right rights", func() {

@@ -32,9 +32,9 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -307,7 +307,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				idx = i
 
-				secretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 				spec := volume.CloudInitNoCloud
 				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
 
@@ -388,7 +388,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					}
 					idx = i
 
-					secretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+					secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 					spec := volume.CloudInitNoCloud
 					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
 
@@ -530,7 +530,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					}
 					idx = i
 
-					secretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+					secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 					spec := volume.CloudInitConfigDrive
 					spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
 					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
@@ -586,11 +586,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					}
 					idx = i
 
-					uSecretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+					uSecretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 					spec := volume.CloudInitConfigDrive
 					spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: uSecretID}
 
-					nSecretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+					nSecretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: nSecretID}
 
 					// Store cloudinit data as k8s secret

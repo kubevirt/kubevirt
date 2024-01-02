@@ -9,9 +9,9 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
@@ -1988,7 +1988,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		It("should honour any firmware UUID present in the template", func() {
-			uid := uuid.NewRandom().String()
+			uid := uuid.NewString()
 			vm1, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
 			vm1.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{UUID: types.UID(uid)}
 

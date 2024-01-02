@@ -29,9 +29,9 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 	"golang.org/x/crypto/ssh"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -89,7 +89,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			BeforeEach(func() {
-				configMapName = "configmap-" + uuid.NewRandom().String()
+				configMapName = "configmap-" + uuid.NewString()
 				configMapPath = config.GetConfigMapSourcePath(configMapName)
 
 				data := map[string]string{
@@ -150,7 +150,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				for i := 0; i < configMapsCnt; i++ {
-					name := "configmap-" + uuid.NewRandom().String()
+					name := "configmap-" + uuid.NewString()
 					tests.CreateConfigMap(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
 					configMaps = append(configMaps, name)
 				}
@@ -184,7 +184,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			BeforeEach(func() {
-				secretName = "secret-" + uuid.NewRandom().String()
+				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
 				data := map[string]string{
@@ -243,7 +243,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				for i := 0; i < secretsCnt; i++ {
-					name := "secret-" + uuid.NewRandom().String()
+					name := "secret-" + uuid.NewString()
 					tests.CreateSecret(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
 					secrets = append(secrets, name)
 				}
@@ -333,9 +333,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			BeforeEach(func() {
-				configMapName = "configmap-" + uuid.NewRandom().String()
+				configMapName = "configmap-" + uuid.NewString()
 				configMapPath = config.GetConfigMapSourcePath(configMapName)
-				secretName = "secret-" + uuid.NewRandom().String()
+				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
 				configData := map[string]string{
@@ -465,7 +465,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			privateKeyBytes := encodePrivateKeyToPEM(privateKey)
 
 			BeforeEach(func() {
-				secretName = "secret-" + uuid.NewRandom().String()
+				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
 				data := map[string]string{
@@ -534,7 +534,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("With a DownwardAPI defined", func() {
 
-		downwardAPIName := "downwardapi-" + uuid.NewRandom().String()
+		downwardAPIName := "downwardapi-" + uuid.NewString()
 		downwardAPIPath := config.GetDownwardAPISourcePath(downwardAPIName)
 
 		testLabelKey := "kubevirt.io.testdownwardapi"

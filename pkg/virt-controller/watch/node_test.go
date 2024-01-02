@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 	appv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -460,7 +460,7 @@ func NewVirtHandlerPod(nodeName string) *k8sv1.Pod {
 
 func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *virtv1.VirtualMachineInstance {
 	vmi := api.NewMinimalVMI(vmiName)
-	vmi.UID = types.UID(uuid.NewRandom().String())
+	vmi.UID = types.UID(uuid.NewString())
 	vmi.Status.Phase = virtv1.Running
 	vmi.Status.NodeName = node.Name
 	vmi.Labels = map[string]string{

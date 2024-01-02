@@ -42,9 +42,9 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -591,7 +591,7 @@ var _ = SIGDescribe("Storage", func() {
 					var diskName string
 					var diskPath string
 					BeforeEach(func() {
-						diskName = fmt.Sprintf("disk-%s.img", uuid.NewRandom().String())
+						diskName = fmt.Sprintf("disk-%s.img", uuid.NewString())
 						diskPath = filepath.Join(hostDiskDir, diskName)
 					})
 
@@ -655,7 +655,7 @@ var _ = SIGDescribe("Storage", func() {
 					var diskPath string
 					var diskName string
 					BeforeEach(func() {
-						diskName = fmt.Sprintf("disk-%s.img", uuid.NewRandom().String())
+						diskName = fmt.Sprintf("disk-%s.img", uuid.NewString())
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
 						job := tests.CreateHostDiskImage(diskPath)

@@ -37,10 +37,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
@@ -2346,7 +2346,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("creating a disk image")
 			var nodeName string
 			tmpHostDiskDir := tests.RandTmpDir()
-			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewRandom().String()))
+			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewString()))
 
 			job := tests.CreateHostDiskImage(tmpHostDiskPath)
 			job, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
