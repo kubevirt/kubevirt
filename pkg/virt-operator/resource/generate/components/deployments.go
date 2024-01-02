@@ -261,7 +261,7 @@ func newBaseDeployment(deploymentName, imageName, namespace, repository, version
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: int32Ptr(2),
+			Replicas: pointer.Int32(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					kubevirtLabelKey: deploymentName,
@@ -327,7 +327,7 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ApiServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   boolPtr(true),
+		RunAsNonRoot:   pointer.Bool(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -408,7 +408,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ControllerServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   boolPtr(true),
+		RunAsNonRoot:   pointer.Bool(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -510,7 +510,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: int32Ptr(2),
+			Replicas: pointer.Int32(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					virtv1.AppLabel: VirtOperatorName,
@@ -606,7 +606,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 						},
 					},
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot:   boolPtr(true),
+						RunAsNonRoot:   pointer.Bool(true),
 						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
 				},
@@ -646,7 +646,7 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ExportProxyServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot: boolPtr(true),
+		RunAsNonRoot: pointer.Bool(true),
 	}
 
 	const shortName = "exportproxy"
@@ -696,14 +696,6 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 	}
 
 	return deployment, nil
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }
 
 func criticalAddonsToleration() []corev1.Toleration {

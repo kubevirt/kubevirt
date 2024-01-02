@@ -123,7 +123,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				"node-labeller.sh",
 			},
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: boolPtr(true),
+				Privileged: pointer.Bool(true),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -193,7 +193,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{
-		Privileged: boolPtr(true),
+		Privileged: pointer.Bool(true),
 		SELinuxOptions: &corev1.SELinuxOptions{
 			Level: "s0",
 		},
