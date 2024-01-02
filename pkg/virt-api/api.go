@@ -921,6 +921,9 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)
 	})
+	http.HandleFunc(components.VolumeMigrationValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVolumeMigrations(w, r, app.clusterConfig, app.virtCli)
+	})
 }
 
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {

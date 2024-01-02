@@ -904,16 +904,10 @@ func NewVolumeMigrationCrd() (*extv1.CustomResourceDefinition, error) {
 		},
 		[]extv1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
-			{Name: "Total", Type: "integer", JSONPath: ".status.total",
-				Description: "Number of triggered VM migrations"},
-			{Name: "Failed", Type: "integer", JSONPath: ".status.failed",
-				Description: "Number of failed VM migrations"},
-			{Name: "Completed", Type: "integer", JSONPath: ".status.completed",
-				Description: "Number of completed VM migrations"},
-			{Name: "NotStarted", Type: "integer", JSONPath: ".status.notStarted",
-				Description: "Number of VM migrations to start"},
-			{Name: "Running", Type: "integer", JSONPath: ".status.running",
-				Description: "Number of running VM migrations"},
+			{Name: "phase", Type: "string", JSONPath: ".status.phase",
+				Description: "Phase of the volume migration"},
+			{Name: "VM migration", Type: "string", JSONPath: ".status.volumeMigrationState.virtualMachineMigrationName",
+				Description: "Name of the VM migration"},
 		},
 	)
 	if err != nil {

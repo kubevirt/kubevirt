@@ -91,6 +91,10 @@ func ServeVmClusterPreferences(resp http.ResponseWriter, req *http.Request, clus
 	validating_webhooks.Serve(resp, req, &admitters.ClusterPreferenceAdmitter{})
 }
 
+func ServeVolumeMigrations(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, admitters.NewVolumeMigrationAdmitter(clusterConfig, virtCli))
+}
+
 func ServeStatusValidation(resp http.ResponseWriter,
 	req *http.Request,
 	clusterConfig *virtconfig.ClusterConfig,

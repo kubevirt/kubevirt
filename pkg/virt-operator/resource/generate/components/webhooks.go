@@ -26,6 +26,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	virtstorage "kubevirt.io/api/storage/v1alpha1"
 )
 
 var sideEffectNone = admissionregistrationv1.SideEffectClassNone
@@ -310,6 +311,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	statusValidatePath := StatusValidatePath
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	vmCloneCreateValidatePath := VMCloneCreateValidatePath
+	volumeMigrationValidatePath := VolumeMigrationValidatePath
 	failurePolicy := admissionregistrationv1.Fail
 	ignorePolicy := admissionregistrationv1.Ignore
 
@@ -821,6 +823,30 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 					},
 				},
 			},
+			{
+				Name:                    "volume-migration-validator.storage.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{virtstorage.SchemeGroupVersion.Group},
+						APIVersions: []string{virtstorage.SchemeGroupVersion.Version},
+						Resources:   []string{"volumemigrations"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &volumeMigrationValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -892,3 +918,5 @@ const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"
 const VMCloneCreateValidatePath = "/vm-clone-validate-create"
 
 const VMCloneCreateMutatePath = "/vm-clone-mutate-create"
+
+const VolumeMigrationValidatePath = "/volume-migration-validate-create"
