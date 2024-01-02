@@ -39,7 +39,13 @@ import (
 )
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	SRIOVInterfaces := vmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
+	SRIOVInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		if iface.SRIOV == nil {
+			return false
+		}
+		ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
+		return ifaceStatus != nil && vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+	})
 	if len(SRIOVInterfaces) == 0 {
 		return []api.HostDevice{}, nil
 	}
