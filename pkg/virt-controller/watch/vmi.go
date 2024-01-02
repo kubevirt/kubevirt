@@ -709,6 +709,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	case vmi.IsRunning():
 		if !vmiPodExists {
+			vmiCopy.Status.Phase = virtv1.Failed
 			break
 		}
 
@@ -729,7 +730,9 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 	case vmi.IsScheduled():
-		// Nothing here
+		if !vmiPodExists {
+			vmiCopy.Status.Phase = virtv1.Failed
+		}
 		break
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
@@ -868,6 +871,13 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/activePods", "value": %s }`, string(newPods)))
 
 		log.Log.V(3).Object(oldVMI).Infof("Patching VMI activePods")
+	}
+
+	if newVMI.Status.Phase != oldVMI.Status.Phase {
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/phase", "value": "%s" }`, oldVMI.Status.Phase))
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/phase", "value": "%s" }`, newVMI.Status.Phase))
+
+		log.Log.V(3).Object(oldVMI).Infof("Patching VMI phase")
 	}
 
 	if newVMI.Status.LauncherContainerImageVersion != oldVMI.Status.LauncherContainerImageVersion {

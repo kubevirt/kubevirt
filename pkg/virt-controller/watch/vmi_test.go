@@ -1763,11 +1763,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 		})
 
-		DescribeTable("should do nothing if the vmi is handed over to virt-handler, the pod disappears", func(phase virtv1.VirtualMachineInstancePhase) {
+		DescribeTable("should mark the vmi as Failed if launcher-pod does not exist", func(phase virtv1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
 
 			addVirtualMachine(vmi)
+
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/phase", "value": "%s" }, { "op": "replace", "path": "/status/phase", "value": "Failed" }]`, phase)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		},
