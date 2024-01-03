@@ -26,11 +26,12 @@ const (
 	defaultVerbosityLevel = 2
 	unknownTypeErrFmt     = "clone controller expected object of type %s but found object of unknown type"
 
-	SnapshotCreated Event = "SnapshotCreated"
-	SnapshotReady   Event = "SnapshotReady"
-	RestoreCreated  Event = "RestoreCreated"
-	RestoreReady    Event = "RestoreReady"
-	TargetVMCreated Event = "TargetVMCreated"
+	SnapshotCreated       Event = "SnapshotCreated"
+	SnapshotReady         Event = "SnapshotReady"
+	RestoreCreated        Event = "RestoreCreated"
+	RestoreCreationFailed Event = "RestoreCreationFailed"
+	RestoreReady          Event = "RestoreReady"
+	TargetVMCreated       Event = "TargetVMCreated"
 
 	SnapshotDeleted    Event = "SnapshotDeleted"
 	SourceDoesNotExist Event = "SourceDoesNotExist"
