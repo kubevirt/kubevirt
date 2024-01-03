@@ -632,13 +632,6 @@ func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, use
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
-func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return vmi
-}
-
 func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 
@@ -772,11 +765,6 @@ func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachi
 		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands)),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData),
 	)
-}
-
-func NewRandomFedoraVMIWithEphemeralDiskHighMemory() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
-	return vmi
 }
 
 func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
@@ -943,10 +931,6 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 }
 
 func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string) {
-	AddConfigMapDiskWithCustomLabel(vmi, configMapName, volumeName, "")
-
-}
-func AddConfigMapDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string, volumeLabel string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
@@ -954,7 +938,7 @@ func AddConfigMapDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, configMapNa
 				LocalObjectReference: k8sv1.LocalObjectReference{
 					Name: configMapName,
 				},
-				VolumeLabel: volumeLabel,
+				VolumeLabel: "",
 			},
 		},
 	})
