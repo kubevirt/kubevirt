@@ -101,7 +101,6 @@ var _ = Describe("netconf", func() {
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 		Expect(stateCache.stateCache).To(BeEmpty())
 	},
-		Entry("binding", v1.InterfaceBindingMethod{}),
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
 		Entry("macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}),
 	)
