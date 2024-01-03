@@ -147,7 +147,7 @@ var _ = Describe("Clone", func() {
 			validateOwnerReference(snapshotcreated.OwnerReferences[0], vmClone)
 			Expect(snapshotcreated.Name).To(Equal(snapshot.Name))
 
-			return true, create.GetObject(), errors.NewAlreadyExists(schema.GroupResource{}, snapshot.Name)
+			return true, nil, errors.NewAlreadyExists(schema.GroupResource{}, snapshot.Name)
 		})
 	}
 	expectRestoreCreate := func(restoreName string, vmClone *clonev1alpha1.VirtualMachineClone) {
@@ -173,7 +173,7 @@ var _ = Describe("Clone", func() {
 			Expect(restorecreated.OwnerReferences).To(HaveLen(1))
 			validateOwnerReference(restorecreated.OwnerReferences[0], vmClone)
 
-			return true, create.GetObject(), errors.NewAlreadyExists(schema.GroupResource{}, restorecreated.Name)
+			return true, nil, errors.NewAlreadyExists(schema.GroupResource{}, restorecreated.Name)
 		})
 	}
 
@@ -220,6 +220,32 @@ var _ = Describe("Clone", func() {
 
 			vmClone := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
 			Expect(vmClone.Status.Phase).To(Equal(phase))
+
+			return true, update.GetObject(), nil
+		})
+	}
+
+	expectCloneUpdateWithSnapshotName := func(phase clonev1alpha1.VirtualMachineClonePhase, snapshotName string) {
+		client.Fake.PrependReactor("update", clone.ResourceVMClonePlural, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+
+			vmClone := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			Expect(vmClone.Status.Phase).To(Equal(phase))
+			Expect(*vmClone.Status.SnapshotName).To(Equal(snapshotName))
+
+			return true, update.GetObject(), nil
+		})
+	}
+
+	expectCloneUpdateWithRestoreName := func(phase clonev1alpha1.VirtualMachineClonePhase, restoreName string) {
+		client.Fake.PrependReactor("update", clone.ResourceVMClonePlural, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+
+			vmClone := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			Expect(vmClone.Status.Phase).To(Equal(phase))
+			Expect(*vmClone.Status.RestoreName).To(Equal(restoreName))
 
 			return true, update.GetObject(), nil
 		})
@@ -506,7 +532,7 @@ var _ = Describe("Clone", func() {
 				addSnapshot(snapshot)
 
 				expectSnapshotCreateAlreadyExists(sourceVM.Name, vmClone, snapshot)
-				expectCloneUpdate(clonev1alpha1.SnapshotInProgress)
+				expectCloneUpdateWithSnapshotName(clonev1alpha1.SnapshotInProgress, snapshot.Name)
 
 				controller.Execute()
 
@@ -522,14 +548,14 @@ var _ = Describe("Clone", func() {
 
 						vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
 
-						vmClone.Status.Phase = clonev1alpha1.SnapshotInProgress
+						vmClone.Status.Phase = clonev1alpha1.RestoreInProgress
 
 						addVM(sourceVM)
 						addClone(vmClone)
 						addSnapshot(snapshot)
 						addRestore(restore)
 						expectRestoreCreateAlreadyExists(snapshot.Name, vmClone, restore.Name)
-						expectCloneUpdate(clonev1alpha1.RestoreInProgress)
+						expectCloneUpdateWithRestoreName(clonev1alpha1.RestoreInProgress, restore.Name)
 
 						controller.Execute()
 					})
@@ -596,7 +622,7 @@ var _ = Describe("Clone", func() {
 				addSnapshotContent(snapshotcontent)
 
 				expectRestoreCreateAlreadyExists(snapshot.Name, vmClone, restore.Name)
-				expectCloneUpdate(clonev1alpha1.RestoreInProgress)
+				expectCloneUpdateWithRestoreName(clonev1alpha1.RestoreInProgress, restore.Name)
 
 				controller.Execute()
 			})
@@ -993,7 +1019,6 @@ func createVirtualMachineSnapshotSnapshotContent(vm *virtv1.VirtualMachine, snap
 		Status: &snapshotv1alpha1.VirtualMachineSnapshotContentStatus{},
 	}
 }
-
 
 func validateOwnerReference(ownerRef metav1.OwnerReference, expectedOwner metav1.Object) {
 	const err = "owner reference verification failed"
