@@ -381,8 +381,9 @@ add_to_label_filter() {
   fi
 }
 
-# Set label_filter only if KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP are not set.
-if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
+label_filter="${KUBEVIRT_LABEL_FILTER}"
+# Set label_filter only if KUBEVIRT_E2E_FOCUS, KUBEVIRT_E2E_SKIP and KUBEVIRT_LABEL_FILTER are not set.
+if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} ]]; then
   echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
   if [[ $TARGET =~ windows_sysprep.* ]]; then
     label_filter='(Sysprep)'
