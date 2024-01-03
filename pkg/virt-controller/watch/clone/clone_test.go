@@ -114,6 +114,11 @@ var _ = Describe("Clone", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
+	addSnapshotContent := func(restore *snapshotv1alpha1.VirtualMachineSnapshotContent) {
+		err := snapshotContentInformer.GetStore().Add(restore)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
+
 	expectSnapshotCreate := func(sourceVMName string, vmClone *clonev1alpha1.VirtualMachineClone) {
 		client.Fake.PrependReactor("create", snapshotResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 			create, ok := action.(testing.CreateAction)
@@ -581,12 +586,15 @@ var _ = Describe("Clone", func() {
 				restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
 
 				vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
-				vmClone.Status.Phase = clonev1alpha1.PhaseUnset
+				vmClone.Status.Phase = clonev1alpha1.RestoreInProgress
 
-				addVM(sourceVM)
+				snapshotcontent := createVirtualMachineSnapshotSnapshotContent(sourceVM, snapshot.Name)
+
 				addClone(vmClone)
 				addSnapshot(snapshot)
 				addRestore(restore)
+				addSnapshotContent(snapshotcontent)
+
 				expectRestoreCreateAlreadyExists(snapshot.Name, vmClone, restore.Name)
 				expectCloneUpdate(clonev1alpha1.RestoreInProgress)
 
@@ -961,6 +969,31 @@ func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string)
 		Status: &snapshotv1alpha1.VirtualMachineRestoreStatus{},
 	}
 }
+
+func createVirtualMachineSnapshotSnapshotContent(vm *virtv1.VirtualMachine, snapshotName string) *snapshotv1alpha1.VirtualMachineSnapshotContent {
+	vmCpy := &snapshotv1alpha1.VirtualMachine{}
+	vmCpy.ObjectMeta = *vm.ObjectMeta.DeepCopy()
+	vmCpy.Spec = *vm.Spec.DeepCopy()
+	vmCpy.ResourceVersion = "1"
+	vmCpy.Status = *vm.Status.DeepCopy()
+	return &snapshotv1alpha1.VirtualMachineSnapshotContent{
+
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vmsnapshot-content-snapshot-UID",
+			Namespace: vm.Namespace,
+			UID:       "snapshotcontent-UID",
+		},
+		Spec: snapshotv1alpha1.VirtualMachineSnapshotContentSpec{
+			VirtualMachineSnapshotName: pointer.String(snapshotName),
+			Source: snapshotv1alpha1.SourceSpec{
+				VirtualMachine: vmCpy,
+			},
+		},
+
+		Status: &snapshotv1alpha1.VirtualMachineSnapshotContentStatus{},
+	}
+}
+
 
 func validateOwnerReference(ownerRef metav1.OwnerReference, expectedOwner metav1.Object) {
 	const err = "owner reference verification failed"
