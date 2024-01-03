@@ -347,7 +347,7 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.ExportSource = getExportSource()
 	vmeInfo.OutputFile = outputFile
 	// User wants the output in a file, create
-	if outputFile != "" {
+	if outputFile != "" && outputFile != "-" {
 		output, err := os.Create(vmeInfo.OutputFile)
 		if err != nil {
 			return err
@@ -962,6 +962,9 @@ func handleDownloadFlags() error {
 		if pvc != "" {
 			return fmt.Errorf(ErrIncompatibleFlag, PVC_FLAG, MANIFEST_FLAG)
 		}
+	}
+	if !exportManifest && outputFile == "" {
+		return fmt.Errorf("Warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file.", OUTPUT_FLAG, OUTPUT_FLAG)
 	}
 
 	return nil
