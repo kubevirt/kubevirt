@@ -326,5 +326,27 @@ func IsMigratedVolume(name string, vmi *virtv1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
 
+func GetTotalSizeMigratedVolumes(vmi *virtv1.VirtualMachineInstance) *resource.Quantity {
+	size := int64(0)
+	srcVols := make(map[string]bool)
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.SourcePVCInfo == nil {
+			continue
+		}
+		srcVols[v.SourcePVCInfo.ClaimName] = true
+	}
+	for _, vstatus := range vmi.Status.VolumeStatus {
+		if vstatus.PersistentVolumeClaimInfo == nil {
+			continue
+		}
+		if _, ok := srcVols[vstatus.PersistentVolumeClaimInfo.ClaimName]; ok {
+			if s := GetDiskCapacity(vstatus.PersistentVolumeClaimInfo); s != nil {
+				size += *s
+			}
+		}
+	}
+
+	return resource.NewScaledQuantity(size, resource.Giga)
 }
