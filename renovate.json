@@ -140,6 +140,28 @@
     {
       "customType": "regex",
       "fileMatch": [
+        "deploy/images.tmp.env"
+      ],
+      "matchStrings": [
+        "registry.k8s.io/sig-storage/csi-snapshotter@(?<currentDigest>.*)(\"?) # (?<currentValue>.*)"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "registry.k8s.io/sig-storage/csi-snapshotter"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "deploy/images.tmp.env"
+      ],
+      "matchStrings": [
+        "registry.k8s.io/sig-storage/csi-node-driver-registrar@(?<currentDigest>.*)(\"?) # (?<currentValue>.*)"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "registry.k8s.io/sig-storage/csi-node-driver-registrar"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
         "hack/config"
       ],
       "matchStrings": [
@@ -162,14 +184,30 @@
         "kubevirt/managed-tenant-quota",
         "kubevirt-ui/kubevirt-plugin",
         "kubevirt-ui/kubevirt-apiserver-proxy",
-        "kubernetes-csi/node-driver-registrar",
         "kubernetes-csi/livenessprobe",
-        "kubernetes-csi/external-snapshotter",
         "kubernetes-csi/external-provisioner"
       ],
       "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
       "dependencyDashboardApproval": true,
       "groupName": null
+    },
+    {
+      "description": "csi snapshot",
+      "matchPackageNames": [
+        "kubernetes-csi/external-snapshotter",
+        "registry.k8s.io/sig-storage/csi-snapshotter"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
+      "groupName": "csi-snapshot"
+    },
+    {
+      "description": "csi node driver",
+      "matchPackageNames": [
+        "kubernetes-csi/node-driver-registrar",
+        "registry.k8s.io/sig-storage/csi-node-driver-registrar"
+      ],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
+      "groupName": "csi-node-driver"
     },
     {
       "description": "Group GitHub Actions updates",
@@ -185,16 +223,6 @@
         "pip_requirements"
       ],
       "groupName": "pip_requirements"
-    },
-    {
-      "description": "Group dockerfile updates",
-      "matchManagers": [
-        "dockerfile"
-      ],
-      "excludePackageNames": [
-        "docker.io/golang"
-      ],
-      "groupName": "dockerfile"
     },
     {
       "matchPackageNames": [
@@ -215,12 +243,6 @@
         "gomod"
       ],
       "enabled": false
-    },
-    {
-      "excludePackageNames": [
-        "registry.ci.openshift.org/ocp/builder:rhel-9-golang"
-      ],
-      "groupName": "dockerfile"
     }
   ]
 }
