@@ -298,3 +298,13 @@ func IsHotplugVolume(vol *virtv1.Volume) bool {
 
 	return false
 }
+
+func GetDisksFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.Disk {
+	disks := map[string]*virtv1.Disk{}
+
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		disks[disk.Name] = disk.DeepCopy()
+	}
+
+	return disks
+}
