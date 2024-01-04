@@ -31,9 +31,9 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -60,7 +60,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 
 		BeforeEach(func() {
 			// We use the ConfigMap name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
-			configMapName = "configmap-" + uuid.NewRandom().String()[:6]
+			configMapName = "configmap-" + uuid.NewString()[:6]
 			configMapPath = config.GetConfigMapSourcePath(configMapName)
 
 			data := map[string]string{
@@ -118,7 +118,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 
 		BeforeEach(func() {
 			// We use the Secret name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
-			secretName = "secret-" + uuid.NewRandom().String()[:6]
+			secretName = "secret-" + uuid.NewString()[:6]
 			secretPath = config.GetSecretSourcePath(secretName)
 
 			data := map[string]string{
@@ -222,7 +222,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 
 	Context("With a DownwardAPI defined", func() {
 		// We use the DownwardAPI name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
-		downwardAPIName := "downwardapi-" + uuid.NewRandom().String()[:6]
+		downwardAPIName := "downwardapi-" + uuid.NewString()[:6]
 		downwardAPIPath := config.GetDownwardAPISourcePath(downwardAPIName)
 
 		testLabelKey := "kubevirt.io.testdownwardapi"

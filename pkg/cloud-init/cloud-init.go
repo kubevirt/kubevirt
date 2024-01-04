@@ -31,7 +31,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -116,7 +116,7 @@ func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 
 func cloudInitUUIDFromVMI(vmi *v1.VirtualMachineInstance) string {
 	if vmi.Spec.Domain.Firmware == nil {
-		return uuid.NewRandom().String()
+		return uuid.NewString()
 	}
 	return string(vmi.Spec.Domain.Firmware.UUID)
 }

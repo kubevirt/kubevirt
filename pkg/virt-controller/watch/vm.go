@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
@@ -1662,7 +1662,7 @@ func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 // TODO: do we want to use another constants? see examples in RFC4122
 const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
 
-var firmwareUUIDns = uuid.Parse(magicUUID)
+var firmwareUUIDns = uuid.MustParse(magicUUID)
 
 // setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
 // The UUID is 'stable' if doesn't change across reboots.
