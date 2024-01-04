@@ -153,7 +153,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		deleteOperator                         func(string)
 		deleteTestingManifests                 func(string)
 		deleteAllKvAndWait                     func(bool)
-		usesSha                                func(string) bool
 		ensureShasums                          func()
 		getVirtLauncherSha                     func() string
 		generatePreviousVersionVmYamls         func(string, string)
@@ -672,10 +671,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 			}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-		}
-
-		usesSha = func(image string) bool {
-			return strings.Contains(image, "@sha256:")
 		}
 
 		ensureShasums = func() {
@@ -3480,4 +3475,8 @@ func nodeSelectorExistInDeployment(virtClient kubecli.KubevirtClient, deployment
 		return false
 	}
 	return true
+}
+
+func usesSha(image string) bool {
+	return strings.Contains(image, "@sha256:")
 }
