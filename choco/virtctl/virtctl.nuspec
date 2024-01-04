@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>virtctl</id>
+    <version>1.0.0</version>
+    <title>Virtctl</title>
+    <authors>Muhammad Rafay</authors>
+    <owners>virtctl</owners>
+    <projectUrl>https://github.com/kubevirt/kubevirt</projectUrl>
+<!--     <iconUrl>https://example.com/virtctl/icon.png</iconUrl>  --><!-- Add an icon URL if available -->
+    <tags>kubevirt virtctl k8s kubernetes</tags>
+    <summary>Command-line utility for managing KubeVirt.</summary>
+    <description>Virtctl is a command-line utility for managing KubeVirt.</description>
+    <releaseNotes>Release notes for version 1.0.0.</releaseNotes> <!-- Add release notes if applicable -->
+<!--     <copyright></copyright>  --><!-- Update the copyright year -->
+    <language>en-US</language> <!-- Replace with the appropriate language code -->
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
