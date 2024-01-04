@@ -280,3 +280,21 @@ func GetDiskCapacity(pvcInfo *virtv1.PersistentVolumeClaimInfo) *int64 {
 	preferredSize := Min(storageRequest, storageCapacity)
 	return &preferredSize
 }
+
+func IsHotplugVolume(vol *virtv1.Volume) bool {
+	if vol == nil {
+		return false
+	}
+	volSrc := vol.VolumeSource
+	if volSrc.PersistentVolumeClaim != nil && volSrc.PersistentVolumeClaim.Hotpluggable {
+		return true
+	}
+	if volSrc.DataVolume != nil && volSrc.DataVolume.Hotpluggable {
+		return true
+	}
+	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
+		return true
+	}
+
+	return false
+}
