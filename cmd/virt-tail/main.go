@@ -200,7 +200,8 @@ func main() {
 	}
 
 	// Create context that listens for the interrupt signal from the container runtime.
-	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
 	g, gctx := errgroup.WithContext(ctx)
 
