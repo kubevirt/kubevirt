@@ -7583,6 +7583,7 @@ var CRDsValidation map[string]string = map[string]string{
           format: int64
           type: integer
         printableStatus:
+          default: Stopped
           description: PrintableStatus is a human readable, high-level representation
             of the status of the virtual machine
           type: string
@@ -26905,6 +26906,7 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int64
                       type: integer
                     printableStatus:
+                      default: Stopped
                       description: PrintableStatus is a human readable, high-level
                         representation of the status of the virtual machine
                       type: string
