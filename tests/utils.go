@@ -43,7 +43,7 @@ import (
 
 	v12 "k8s.io/api/apps/v1"
 
-	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -1061,10 +1061,6 @@ func AddWatchdog(vmi *v1.VirtualMachineInstance, action v1.WatchdogAction) {
 	}
 }
 
-func NewInt32(x int32) *int32 {
-	return &x
-}
-
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -1084,10 +1080,6 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 		},
 	}
 	return rs
-}
-
-func NewBool(x bool) *bool {
-	return &x
 }
 
 // CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
@@ -1153,9 +1145,9 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 		Capabilities: &k8sv1.Capabilities{
 			Drop: []k8sv1.Capability{"ALL"},
 		},
-		Privileged:   NewBool(true),
+		Privileged:   pointer.P(true),
 		RunAsUser:    &rootUser,
-		RunAsNonRoot: NewBool(false),
+		RunAsNonRoot: pointer.P(false),
 	}
 
 	RunPodAndExpectCompletion(pod)
@@ -1428,7 +1420,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = k6tpointer.P(false)
+		updatedVM.Spec.Running = pointer.P(false)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
@@ -1463,7 +1455,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = k6tpointer.P(true)
+		updatedVM.Spec.Running = pointer.P(true)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
