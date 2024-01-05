@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -96,20 +97,31 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			})
 
 			It("[test_id:1591]should close console connection when new console connection is opened", func() {
-				vmi := libvmi.NewAlpine()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi := tests.RunVMIAndExpectLaunch(libvmi.NewAlpine(), 30)
 
 				By("opening 1st console connection")
-				expecter, errChan, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
+				stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				defer stream.AsConn().Close()
 
-				defer expecter.Close()
+				firstConsoleErrChan := make(chan error, 1)
+				outReader, outWriter := io.Pipe()
+				inReader, _ := io.Pipe()
+				go func() {
+					io.Copy(io.Discard, outReader)
+				}()
+				go func() {
+					firstConsoleErrChan <- stream.Stream(kubecli.StreamOptions{
+						In:  inReader,
+						Out: outWriter,
+					})
+				}()
 
 				By("opening 2nd console connection")
 				expectConsoleOutput(vmi, "login")
 
 				By("expecting error on 1st console connection")
-				Expect(errChan).To(Receive())
+				Eventually(firstConsoleErrChan, 1*time.Minute, 1*time.Second).Should(Receive(MatchError(ContainSubstring("EOF"))))
 			})
 
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
