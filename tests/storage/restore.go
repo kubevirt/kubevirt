@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1229,7 +1231,18 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				originalPVCName := pvc.Name
 
-				vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, bashHelloScript)
+				memory := "128Mi"
+				if checks.IsARM64(testsuite.Arch) {
+					memory = "256Mi"
+				}
+				vmi = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libvmi.WithResourceMemory(memory),
+					libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
+					libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
+				)
 				vm = libvmi.NewVirtualMachine(vmi)
 
 				vm, vmi = createAndStartVM(vm)

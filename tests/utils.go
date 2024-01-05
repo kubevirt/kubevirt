@@ -936,17 +936,6 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-// NewRandomVMIWithPVCAndUserData
-//
-// Deprecated: Use libvmi
-func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
-	AddUserData(vmi, "disk1", userData)
-	return vmi
-}
-
 func DeletePvAndPvc(name string) {
 	virtCli := kubevirt.Client()
 
