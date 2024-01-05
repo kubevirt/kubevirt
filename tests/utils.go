@@ -1330,30 +1330,6 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	return pod
 }
 
-// CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
-func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValue string) *v1.VirtualMachineInstance {
-	virtClient := kubevirt.Client()
-
-	vmi.Spec.Affinity = &k8sv1.Affinity{
-		NodeAffinity: &k8sv1.NodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-					{
-						MatchExpressions: []k8sv1.NodeSelectorRequirement{
-							{Key: nodeLabel, Operator: k8sv1.NodeSelectorOpIn, Values: []string{labelValue}},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	var err error
-	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return vmi
-}
-
 func GetVmiPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

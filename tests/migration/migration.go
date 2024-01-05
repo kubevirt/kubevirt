@@ -2999,10 +2999,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 	Context("with dedicated CPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		var (
-			virtClient    kubecli.KubevirtClient
-			err           error
 			nodes         []k8sv1.Node
-			migratableVMI *v1.VirtualMachineInstance
 			pausePod      *k8sv1.Pod
 			testLabel1    = "kubevirt.io/testlabel1"
 			testLabel2    = "kubevirt.io/testlabel2"
@@ -3090,16 +3087,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
 			checks.SkipTestIfNotEnoughNodesWithCPUManager(2)
-			virtClient = kubevirt.Client()
 			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient)
-
-			By("creating a migratable VMI with 2 dedicated CPU cores")
-			migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			migratableVMI.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 uint32(2),
-				DedicatedCPUPlacement: true,
-			}
-			migratableVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 			By("creating a template for a pause pod with 1 dedicated CPU core")
 			pausePod = libpod.RenderPod("pause-", nil, nil)
@@ -3141,7 +3129,18 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			By("starting a VMI on the first node of the list")
 			libnode.AddLabelToNode(nodes[0].Name, testLabel1, "true")
-			vmi := tests.CreateVmiOnNodeLabeled(migratableVMI, testLabel1, "true")
+
+			By("creating a migratable VMI with 2 dedicated CPU cores")
+			vmi := libvmi.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCPUCount(2, 1, 1),
+				libvmi.WithDedicatedCPUPlacement(),
+				libvmi.WithResourceMemory("512Mi"),
+				libvmi.WithNodeAffinityForLabel(testLabel1, "true"),
+			)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting until the VirtualMachineInstance starts")
 			libwait.WaitForSuccessfulVMIStart(vmi,
