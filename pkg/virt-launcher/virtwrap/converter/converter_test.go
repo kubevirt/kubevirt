@@ -68,6 +68,8 @@ var (
 	embedDomainTemplateARM64 string
 	//go:embed testdata/domain_x86_64_root.xml.tmpl
 	embedDomainTemplateRootBus string
+	//go:embed testdata/domain_x86_64_clipboard.xml.tmpl
+	embedDomainTemplateWithClipboard string
 )
 
 const (
@@ -624,6 +626,8 @@ var _ = Describe("Converter", func() {
 
 		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, domainType))
 
+		var convertedDomainWithClipboard = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateWithClipboard, domainType))
+
 		var c *ConverterContext
 
 		isBlockPVCMap := make(map[string]bool)
@@ -696,6 +700,12 @@ var _ = Describe("Converter", func() {
 			Entry("when context define 0 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith0Period, uint(0)),
 			Entry("when context define 0 period on memballoon device for arm64", "arm64", convertedDomainarm64With0Period, uint(0)),
 		)
+
+		It("should use qemu-vdagent channel if requested", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Desktop = &v1.VirtualDesktop{Clipboard: true}
+			Expect(strings.TrimSpace(vmiToDomainXML(vmi, c))).To(Equal(strings.TrimSpace(convertedDomainWithClipboard)))
+		})
 
 		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)

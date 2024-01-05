@@ -1053,8 +1053,18 @@ type ChannelTarget struct {
 }
 
 type ChannelSource struct {
+	Mode      string           `xml:"mode,attr"`
+	Path      string           `xml:"path,attr"`
+	Clipboard *ClipboardSource `xml:"clipboard,omitempty"`
+	Mouse     *MouseSource     `xml:"mouse,omitempty"`
+}
+
+type ClipboardSource struct {
+	CopyPaste string `xml:"copypaste,attr"`
+}
+
+type MouseSource struct {
 	Mode string `xml:"mode,attr"`
-	Path string `xml:"path,attr"`
 }
 
 //END Channel --------------------

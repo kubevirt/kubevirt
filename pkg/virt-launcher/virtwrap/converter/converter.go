@@ -623,6 +623,38 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
 	return
 }
 
+func Add_QEMUVDAgent_To_api_Channel() api.Channel {
+	return api.Channel{
+		Type: "qemu-vdagent",
+		Target: &api.ChannelTarget{
+			Name: "com.redhat.spice.0",
+			Type: v1.VirtIO,
+		},
+		Source: &api.ChannelSource{
+			Clipboard: &api.ClipboardSource{
+				CopyPaste: "yes",
+			},
+			Mouse: &api.MouseSource{
+				Mode: "client",
+			},
+		},
+	}
+}
+
+func Convert_v1_Desktop_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) error {
+	desktop := vmi.Spec.Domain.Desktop
+	if desktop == nil {
+		return nil
+	}
+
+	channels := &domain.Spec.Devices.Channels
+	if desktop.Clipboard {
+		*channels = append(*channels, Add_QEMUVDAgent_To_api_Channel())
+	}
+
+	return nil
+}
+
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int) error {
 
 	if source.ContainerDisk != nil {
@@ -1447,6 +1479,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	newChannel := Add_Agent_To_api_Channel()
 	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
+
+	err = Convert_v1_Desktop_To_related_apis(vmi, domain, c)
+	if err != nil {
+		return err
+	}
 
 	if downwardmetrics.HasDevice(&vmi.Spec) {
 		// Handle downwardMetrics
