@@ -1354,11 +1354,6 @@ func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValu
 	return vmi
 }
 
-// CreateVmiOnNode creates a VMI on the specified node
-func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
-	return CreateVmiOnNodeLabeled(vmi, util2.KubernetesIoHostName, nodeName)
-}
-
 func GetVmiPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
