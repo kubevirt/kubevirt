@@ -5600,6 +5600,14 @@ var CRDsValidation map[string]string = map[string]string{
                           format: int32
                           type: integer
                       type: object
+                    desktop:
+                      description: Virtual Desktop allow for VDI related customizations
+                      properties:
+                        clipboard:
+                          description: If user wants to enable clipboard passing to
+                            the remote VM using the underlying remote protocol.
+                          type: boolean
+                      type: object
                     devices:
                       description: Devices allows adding disks, network interfaces,
                         and others
@@ -10203,6 +10211,14 @@ var CRDsValidation map[string]string = map[string]string{
                   format: int32
                   type: integer
               type: object
+            desktop:
+              description: Virtual Desktop allow for VDI related customizations
+              properties:
+                clipboard:
+                  description: If user wants to enable clipboard passing to the remote
+                    VM using the underlying remote protocol.
+                  type: boolean
+              type: object
             devices:
               description: Devices allows adding disks, network interfaces, and others
               properties:
@@ -12982,6 +12998,14 @@ var CRDsValidation map[string]string = map[string]string{
                   format: int32
                   type: integer
               type: object
+            desktop:
+              description: Virtual Desktop allow for VDI related customizations
+              properties:
+                clipboard:
+                  description: If user wants to enable clipboard passing to the remote
+                    VM using the underlying remote protocol.
+                  type: boolean
+              type: object
             devices:
               description: Devices allows adding disks, network interfaces, and others
               properties:
@@ -15153,6 +15177,14 @@ var CRDsValidation map[string]string = map[string]string{
                             the vmi. Must be a value greater or equal 1.
                           format: int32
                           type: integer
+                      type: object
+                    desktop:
+                      description: Virtual Desktop allow for VDI related customizations
+                      properties:
+                        clipboard:
+                          description: If user wants to enable clipboard passing to
+                            the remote VM using the underlying remote protocol.
+                          type: boolean
                       type: object
                     devices:
                       description: Devices allows adding disks, network interfaces,
@@ -19536,6 +19568,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     1.
                                   format: int32
                                   type: integer
+                              type: object
+                            desktop:
+                              description: Virtual Desktop allow for VDI related customizations
+                              properties:
+                                clipboard:
+                                  description: If user wants to enable clipboard passing
+                                    to the remote VM using the underlying remote protocol.
+                                  type: boolean
                               type: object
                             devices:
                               description: Devices allows adding disks, network interfaces,
@@ -24714,6 +24754,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         or equal 1.
                                       format: int32
                                       type: integer
+                                  type: object
+                                desktop:
+                                  description: Virtual Desktop allow for VDI related
+                                    customizations
+                                  properties:
+                                    clipboard:
+                                      description: If user wants to enable clipboard
+                                        passing to the remote VM using the underlying
+                                        remote protocol.
+                                      type: boolean
                                   type: object
                                 devices:
                                   description: Devices allows adding disks, network

@@ -16873,6 +16873,10 @@
       "description": "CPU allow specified the detailed CPU topology inside the vmi.",
       "$ref": "#/definitions/v1.CPU"
      },
+     "desktop": {
+      "description": "Virtual Desktop allow for VDI related customizations",
+      "$ref": "#/definitions/v1.VirtualDesktop"
+     },
      "devices": {
       "description": "Devices allows adding disks, network interfaces, and others",
       "default": {},
@@ -19569,6 +19573,16 @@
     "properties": {
      "display": {
       "$ref": "#/definitions/v1.VGPUDisplayOptions"
+     }
+    }
+   },
+   "v1.VirtualDesktop": {
+    "description": "Virtual Desktop Interface related APIs",
+    "type": "object",
+    "properties": {
+     "clipboard": {
+      "description": "If user wants to enable clipboard passing to the remote VM using the underlying remote protocol.",
+      "type": "boolean"
      }
     }
    },

@@ -95,6 +95,14 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
 		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
+		"desktop":         "Virtual Desktop allow for VDI related customizations\n+optional",
+	}
+}
+
+func (VirtualDesktop) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "Virtual Desktop Interface related APIs",
+		"clipboard": "If user wants to enable clipboard passing to the remote VM using the underlying remote\nprotocol.",
 	}
 }
 
