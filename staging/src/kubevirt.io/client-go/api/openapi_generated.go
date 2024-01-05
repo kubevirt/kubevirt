@@ -502,6 +502,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstance":                                             schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceCondition":                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystem":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystem(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemDisk":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemInfo":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemInfo(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemList":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemList(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceGuestAgentInfo":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref),
@@ -22834,8 +22835,51 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystem(ref common.R
 							Format:  "int32",
 						},
 					},
+					"disk": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemDisk"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"diskName", "mountPoint", "fileSystemType", "usedBytes", "totalBytes"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemDisk"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceFileSystemDisk represents the guest os FS disks",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"serial": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"bus-type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"serial", "bus-type"},
 			},
 		},
 	}
