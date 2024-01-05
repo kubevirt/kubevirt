@@ -1615,10 +1615,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					By("checking that we were never able to connect")
 					tlsErrorFound := false
 					for err := range errors {
-						if strings.Contains(err.Error(), "remote error: tls: bad certificate") {
+						if strings.Contains(err.Error(), "remote error: tls:") {
 							tlsErrorFound = true
 						}
-						Expect(err.Error()).To(Or(ContainSubstring("remote error: tls: bad certificate"), ContainSubstring("EOF")))
+						Expect(err.Error()).To(Or(ContainSubstring("remote error: tls: unknown certificate authority"), Or(ContainSubstring("remote error: tls: bad certificate")), ContainSubstring("EOF")))
 					}
 
 					Expect(tlsErrorFound).To(BeTrue())

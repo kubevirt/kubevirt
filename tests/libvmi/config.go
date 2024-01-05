@@ -52,9 +52,10 @@ func WithLabelledConfigMapDisk(configMapName, volumeName, label string) Option {
 
 func WithServiceAccountDisk(name string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newServiceAccountVolume(name, name+"-disk"))
+		const volumeSuffix = "-disk"
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newServiceAccountVolume(name, name+volumeSuffix))
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: name + "-disk",
+			Name: name + volumeSuffix,
 		})
 	}
 }
