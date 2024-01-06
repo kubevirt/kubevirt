@@ -166,7 +166,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		fetchVirtHandlerCommand                func() string
 	)
 
-	tests.DeprecatedBeforeAll(func() {
+	deprecatedBeforeAll(func() {
 		virtClient = kubevirt.Client()
 		config, err := kubecli.GetKubevirtClientConfig()
 		util2.PanicOnError(err)
@@ -3475,6 +3475,18 @@ func nodeSelectorExistInDeployment(virtClient kubecli.KubevirtClient, deployment
 		return false
 	}
 	return true
+}
+
+// Deprecated: deprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
+// parallel execution.
+func deprecatedBeforeAll(fn func()) {
+	first := true
+	BeforeEach(func() {
+		if first {
+			fn()
+			first = false
+		}
+	})
 }
 
 func usesSha(image string) bool {
