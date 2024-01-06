@@ -62,9 +62,6 @@ func (icp *iterableCheckpointManager) ListKeys() []string {
 
 	keys := []string{}
 	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
 		keys = append(keys, entry.Name())
 	}
 	return keys
