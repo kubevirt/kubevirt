@@ -24,7 +24,6 @@ import (
 	"io"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -149,8 +148,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 		Context("without a serial console", func() {
 			It("[test_id:4118]should run but not be connectable via the serial console", func() {
-				vmi := libvmi.NewAlpine()
-				vmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(false)
+				vmi := libvmi.NewAlpine(libvmi.WithoutSerialConsole())
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("failing to connect to serial console")

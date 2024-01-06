@@ -292,6 +292,13 @@ func WithStartStrategy(startStrategy v1.StartStrategy) Option {
 	}
 }
 
+func WithoutSerialConsole() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		enabled := false
+		vmi.Spec.Domain.Devices.AutoattachSerialConsole = &enabled
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
