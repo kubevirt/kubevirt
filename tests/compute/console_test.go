@@ -17,14 +17,13 @@
  *
  */
 
-package tests_test
+package compute
 
 import (
 	"context"
 	"io"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	expect "github.com/google/goexpect"
@@ -60,7 +59,7 @@ func withNodeAffinityTo(label string, value string) libvmi.Option {
 	}
 }
 
-var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Console", decorators.SigCompute, func() {
+var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
 
 	var virtClient kubecli.KubevirtClient
 

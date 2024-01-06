@@ -106,7 +106,6 @@ go_test(
         "canary_upgrade_test.go",
         "clone_test.go",
         "config_test.go",
-        "console_test.go",
         "container_disk_test.go",
         "dryrun_test.go",
         "hyperv_test.go",
