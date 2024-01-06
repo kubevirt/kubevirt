@@ -59,10 +59,6 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			}, 300*time.Second, 1*time.Second).Should(Succeed())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			By("Ensuring the firmware is done so we don't send any keystroke to it")
-			err = console.LinuxExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
 			Expect(err).ToNot(HaveOccurred())
