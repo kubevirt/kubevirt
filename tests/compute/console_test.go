@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -40,24 +41,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
-
-func withNodeAffinityTo(label string, value string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Affinity = &k8sv1.Affinity{
-			NodeAffinity: &k8sv1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{Key: label, Operator: k8sv1.NodeSelectorOpIn, Values: []string{value}},
-							},
-						},
-					},
-				},
-			},
-		}
-	}
-}
 
 var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
 
@@ -134,7 +117,13 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 			})
 
 			It("[test_id:1593]should not be connected if scheduled to non-existing host", func() {
-				vmi := libvmi.NewAlpine(withNodeAffinityTo("kubernetes.io/hostname", "nonexistent"))
+				vmi := libvmi.NewAlpine(
+					libvmi.WithNodeAffinityFor(&k8sv1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nonexistent",
+						},
+					}),
+				)
 
 				By("Creating a new VirtualMachineInstance")
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
