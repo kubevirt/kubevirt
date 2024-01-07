@@ -17,41 +17,23 @@
  *
  */
 
-package configuration
+package virt_operator
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-)
-
-const emulationEnabledGauge = "emulationEnabledGauge"
+import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
 var (
-	metrics = map[string]prometheus.Opts{
-		emulationEnabledGauge: {
-			Name: "kubevirt_configuration_emulation_enabled",
-			Help: "Indicates whether the Software Emulation is enabled in the configuration.",
-		},
+	configurationMetrics = []operatormetrics.Metric{
+		emulationEnabled,
 	}
 
-	emulationEnabled = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: metrics[emulationEnabledGauge].Name,
-			Help: metrics[emulationEnabledGauge].Help,
+	emulationEnabled = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_configuration_emulation_enabled",
+			Help: "Indicates whether the Software Emulation is enabled in the configuration.",
 		},
 	)
 )
 
-func init() {
-	prometheus.MustRegister(emulationEnabled)
-}
-
 func SetEmulationEnabledMetric(isEmulationEnabled bool) {
 	emulationEnabled.Set(boolToFloat64(isEmulationEnabled))
-}
-
-func boolToFloat64(b bool) float64 {
-	if b {
-		return 1
-	}
-	return 0
 }

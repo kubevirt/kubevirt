@@ -50,14 +50,12 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/monitoring/configuration"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/service"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
@@ -109,29 +107,6 @@ type VirtOperatorApp struct {
 	ctx context.Context
 
 	reInitChan chan string
-}
-
-var (
-	_ service.Service = &VirtOperatorApp{}
-
-	leaderGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_operator_leading_status",
-			Help: "Indication for an operating virt-operator.",
-		},
-	)
-
-	readyGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_operator_ready_status",
-			Help: "Indication for a virt-operator that is ready to take the lead.",
-		},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(leaderGauge)
-	prometheus.MustRegister(readyGauge)
 }
 
 func Execute() {
@@ -323,6 +298,11 @@ func Execute() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldUpdateConfigurationMetrics)
 
+	// Setup monitoring
+	if err := metrics.SetupMetrics(); err != nil {
+		golog.Fatalf("Error setting up metrics: %v", err)
+	}
+
 	go app.Run()
 	<-app.reInitChan
 }
@@ -430,14 +410,14 @@ func (app *VirtOperatorApp) Run() {
 			RetryPeriod:   app.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
-					leaderGauge.Set(1)
+					metrics.SetLeader(true)
 					log.Log.Infof("Started leading")
 
 					// run app
 					go app.kubeVirtController.Run(controllerThreads, stop)
 				},
 				OnStoppedLeading: func() {
-					leaderGauge.Set(0)
+					metrics.SetLeader(false)
 					log.Log.V(5).Info("stop monitoring the kubevirt-config configMap")
 					golog.Fatal("leaderelection lost")
 				},
@@ -447,7 +427,7 @@ func (app *VirtOperatorApp) Run() {
 		golog.Fatal(err)
 	}
 
-	readyGauge.Set(1)
+	metrics.SetReady(true)
 	log.Log.Infof("Attempting to acquire leader status")
 	leaderElector.Run(app.ctx)
 
@@ -518,5 +498,5 @@ func (app *VirtOperatorApp) shouldChangeLogVerbosity() {
 
 func (app *VirtOperatorApp) shouldUpdateConfigurationMetrics() {
 	emulationEnabled := app.clusterConfig.GetDeveloperConfigurationUseEmulation()
-	configuration.SetEmulationEnabledMetric(emulationEnabled)
+	metrics.SetEmulationEnabledMetric(emulationEnabled)
 }
