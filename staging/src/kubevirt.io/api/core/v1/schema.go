@@ -578,7 +578,10 @@ type Filesystem struct {
 	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
 }
 
-type FilesystemVirtiofs struct{}
+type FilesystemVirtiofs struct {
+	ReadOnly bool   `json:"readOnly,omitempty"`
+	SubPath  string `json:"subPath,omitempty"`
+}
 
 type DownwardMetrics struct{}
 
