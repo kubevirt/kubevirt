@@ -10,7 +10,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
+	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 )
 
 func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {

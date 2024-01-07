@@ -21,14 +21,11 @@ package virt_api
 
 import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
-var (
-	metrics = [][]operatormetrics.Metric{
-		vmMetrics,
-	}
-)
-
 func SetupMetrics() error {
-	return operatormetrics.RegisterMetrics(metrics...)
+	return operatormetrics.RegisterMetrics(
+		connectionMetrics,
+		vmMetrics,
+	)
 }
 
 func ListMetrics() []operatormetrics.Metric {

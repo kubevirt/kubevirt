@@ -17,7 +17,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
+	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 
 	"github.com/mitchellh/go-vnc"
 )

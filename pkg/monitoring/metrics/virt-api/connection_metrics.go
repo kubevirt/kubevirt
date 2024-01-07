@@ -1,47 +1,67 @@
-package api
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright the KubeVirt Authors.
+ */
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-)
+package virt_api
+
+import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
 var (
-	namespaceAndVMILabels    = []string{"namespace", "vmi"}
-	activePortForwardTunnels = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+	connectionMetrics = []operatormetrics.Metric{
+		activePortForwardTunnels,
+		activeVNCConnections,
+		activeConsoleConnections,
+		activeUSBRedirConnections,
+	}
+
+	namespaceAndVMILabels = []string{"namespace", "vmi"}
+
+	activePortForwardTunnels = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
 			Name: "kubevirt_portforward_active_tunnels",
-			Help: "Amount of active portforward tunnels, broken down by namespace and vmi name",
+			Help: "Amount of active portforward tunnels, broken down by namespace and vmi name.",
 		},
 		namespaceAndVMILabels,
 	)
-	activeVNCConnections = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+
+	activeVNCConnections = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
 			Name: "kubevirt_vnc_active_connections",
-			Help: "Amount of active VNC connections, broken down by namespace and vmi name",
+			Help: "Amount of active VNC connections, broken down by namespace and vmi name.",
 		},
 		namespaceAndVMILabels,
 	)
-	activeConsoleConnections = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+
+	activeConsoleConnections = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
 			Name: "kubevirt_console_active_connections",
-			Help: "Amount of active Console connections, broken down by namespace and vmi name",
+			Help: "Amount of active Console connections, broken down by namespace and vmi name.",
 		},
 		namespaceAndVMILabels,
 	)
-	activeUSBRedirConnections = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+
+	activeUSBRedirConnections = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
 			Name: "kubevirt_usbredir_active_connections",
-			Help: "Amount of active USB redirection connections, broken down by namespace and vmi name",
+			Help: "Amount of active USB redirection connections, broken down by namespace and vmi name.",
 		},
 		namespaceAndVMILabels,
 	)
 )
-
-func init() {
-	prometheus.MustRegister(activePortForwardTunnels)
-	prometheus.MustRegister(activeVNCConnections)
-	prometheus.MustRegister(activeConsoleConnections)
-	prometheus.MustRegister(activeUSBRedirConnections)
-}
 
 type Decrementer interface {
 	Dec()
