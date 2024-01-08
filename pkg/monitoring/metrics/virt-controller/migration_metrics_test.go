@@ -17,7 +17,7 @@
  *
  */
 
-package migration
+package virt_controller
 
 import (
 	"time"
@@ -30,9 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var _ = BeforeSuite(func() {
-})
-
 var _ = Describe("VMI migration phase transition time histogram", func() {
 	Context("Transition Time calculations", func() {
 		DescribeTable("time diff calculations", func(expectedVal float64, curPhase v1.VirtualMachineInstanceMigrationPhase, oldPhase v1.VirtualMachineInstanceMigrationPhase) {
@@ -43,7 +40,7 @@ var _ = Describe("VMI migration phase transition time histogram", func() {
 			oldMigration = migration.DeepCopy()
 			oldMigration.Status.Phase = oldPhase
 
-			diffSeconds, err := getTransitionTimeSeconds(migration)
+			diffSeconds, err := getVMIMigrationTransitionTimeSeconds(migration)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))

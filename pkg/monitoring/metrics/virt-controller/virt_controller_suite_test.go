@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virt_controller_test
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestMigrationStats(t *testing.T) {
+func TestVirtController(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

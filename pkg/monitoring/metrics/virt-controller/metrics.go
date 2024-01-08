@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright the KubeVirt Authors.
  *
  */
 
 package virt_controller
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -29,6 +33,8 @@ import (
 var (
 	metrics = [][]operatormetrics.Metric{
 		operatorMetrics,
+		migrationMetrics,
+		perfscaleMetrics,
 	}
 
 	vmInformer                  cache.SharedIndexInformer
@@ -77,4 +83,43 @@ func UpdateVMIMigrationInformer(informer cache.SharedIndexInformer) {
 
 func ListMetrics() []operatormetrics.Metric {
 	return operatormetrics.ListMetrics()
+}
+
+func phaseTransitionTimeBuckets() []float64 {
+	return []float64{
+		(0.5 * time.Second.Seconds()),
+		(1 * time.Second.Seconds()),
+		(2 * time.Second.Seconds()),
+		(5 * time.Second.Seconds()),
+		(10 * time.Second.Seconds()),
+		(20 * time.Second.Seconds()),
+		(30 * time.Second.Seconds()),
+		(40 * time.Second.Seconds()),
+		(50 * time.Second.Seconds()),
+		(60 * time.Second).Seconds(),
+		(90 * time.Second).Seconds(),
+		(2 * time.Minute).Seconds(),
+		(3 * time.Minute).Seconds(),
+		(5 * time.Minute).Seconds(),
+		(10 * time.Minute).Seconds(),
+		(20 * time.Minute).Seconds(),
+		(30 * time.Minute).Seconds(),
+		(1 * time.Hour).Seconds(),
+	}
+}
+
+func getTransitionTimeSeconds(oldTime *metav1.Time, newTime *metav1.Time) (float64, error) {
+	if newTime == nil || oldTime == nil {
+		// no phase transition timestamp found
+		return 0.0, fmt.Errorf("missing phase transition timestamp, newTime: %v, oldTime: %v", newTime, oldTime)
+	}
+
+	diffSeconds := newTime.Time.Sub(oldTime.Time).Seconds()
+
+	// when transitions are very fast, we can encounter time skew. Make 0 the floor
+	if diffSeconds < 0 {
+		diffSeconds = 0.0
+	}
+
+	return diffSeconds, nil
 }

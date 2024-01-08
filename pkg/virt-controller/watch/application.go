@@ -37,8 +37,6 @@ import (
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/migration"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -534,7 +532,10 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			metrics.UpdateVMIMigrationInformer(vca.migrationInformer)
 		}
 		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
-		migration.RegisterMigrationMetrics(vca.migrationInformer)
+
+		if err := metrics.CreateVMIMigrationHandler(vca.migrationInformer); err != nil {
+			golog.Fatalf("failed to add vmi phase transition time handler: %v", err)
+		}
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
