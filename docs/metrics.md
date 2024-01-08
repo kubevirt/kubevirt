@@ -21,11 +21,20 @@ The total number of requests to deprecated KubeVirt APIs. Type: Counter.
 ### kubevirt_configuration_emulation_enabled
 Indicates whether the Software Emulation is enabled in the configuration. Type: Gauge.
 
+### kubevirt_console_active_connections
+Amount of active Console connections, broken down by namespace and vmi name. Type: Gauge.
+
 ### kubevirt_nodes_with_kvm
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 
 ### kubevirt_number_of_vms
 The number of VMs in the cluster by namespace. Type: Gauge.
+
+### kubevirt_portforward_active_tunnels
+Amount of active portforward tunnels, broken down by namespace and vmi name. Type: Gauge.
+
+### kubevirt_usbredir_active_connections
+Amount of active USB redirection connections, broken down by namespace and vmi name. Type: Gauge.
 
 ### kubevirt_virt_api_up
 The number of virt-api pods that are up. Type: Gauge.
@@ -254,6 +263,9 @@ Returns the amount of space in bytes restored from the source virtual machine. T
 
 ### kubevirt_vmsnapshot_persistentvolumeclaim_labels
 Returns the labels of the persistent volume claims that are used for restoring virtual machines. Type: Gauge.
+
+### kubevirt_vnc_active_connections
+Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
 
 ## Developing new metrics
 After developing new metrics or changing old ones, please run `make generate` to regenerate this document.

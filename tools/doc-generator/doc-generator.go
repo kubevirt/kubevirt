@@ -10,11 +10,13 @@ import (
 	"sort"
 	"strings"
 
-	virtcontrollermetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	"kubevirt.io/kubevirt/pkg/monitoring/rules"
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
-	_ "kubevirt.io/kubevirt/pkg/monitoring/configuration"
 	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
+	virt_api "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
+	virt_controller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	virt_operator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	_ "kubevirt.io/kubevirt/pkg/virt-controller/watch"
 )
 
@@ -148,52 +150,24 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 			description: "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
 			mType:       "Gauge",
 		},
-		{
-			name:        "kubevirt_vmi_migration_phase_transition_time_from_creation_seconds",
-			description: "Histogram of VM migration phase transitions duration from creation time in seconds.",
-			mType:       "Histogram",
-		},
-		{
-			name:        "kubevirt_vmi_phase_transition_time_seconds",
-			description: "Histogram of VM phase transitions duration between different phases in seconds.",
-			mType:       "Histogram",
-		},
-		{
-			name:        "kubevirt_vmi_phase_transition_time_from_creation_seconds",
-			description: "Histogram of VM phase transitions duration from creation time in seconds.",
-			mType:       "Histogram",
-		},
-		{
-			name:        "kubevirt_vmi_phase_transition_time_from_deletion_seconds",
-			description: "Histogram of VM phase transitions duration from deletion time in seconds.",
-			mType:       "Histogram",
-		},
-		{
-			name:        "kubevirt_virt_operator_leading_status",
-			description: "Indication for an operating virt-operator.",
-			mType:       "Gauge",
-		},
-		{
-			name:        "kubevirt_virt_operator_ready_status",
-			description: "Indication for a virt-operator that is ready to take the lead.",
-			mType:       "Gauge",
-		},
-		{
-			name:        "kubevirt_vm_created_total",
-			description: "Amount of VMs created, broken down by namespace, since install.",
-			mType:       "Counter",
-		},
 	}
 
-	err := virtcontrollermetrics.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+	err := virt_controller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
 	checkError(err)
+	for _, m := range virt_controller.ListMetrics() {
+		metrics = append(metrics, newMetric(m))
+	}
 
-	for _, m := range virtcontrollermetrics.ListMetrics() {
-		metrics = append(metrics, metric{
-			name:        m.GetOpts().Name,
-			description: m.GetOpts().Help,
-			mType:       strings.Replace(string(m.GetType()), "Vec", "", 1),
-		})
+	err = virt_api.SetupMetrics()
+	checkError(err)
+	for _, m := range virt_api.ListMetrics() {
+		metrics = append(metrics, newMetric(m))
+	}
+
+	err = virt_operator.SetupMetrics()
+	checkError(err)
+	for _, m := range virt_operator.ListMetrics() {
+		metrics = append(metrics, newMetric(m))
 	}
 
 	err = rules.SetupRules("")
@@ -208,6 +182,14 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 	}
 
 	return metrics
+}
+
+func newMetric(om operatormetrics.Metric) metric {
+	return metric{
+		name:        om.GetOpts().Name,
+		description: om.GetOpts().Help,
+		mType:       strings.Replace(string(om.GetType()), "Vec", "", 1),
+	}
 }
 
 func parseMetricDesc(line string) (string, string) {
