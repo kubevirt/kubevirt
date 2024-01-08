@@ -32,7 +32,7 @@ import (
 
 var (
 	metrics = [][]operatormetrics.Metric{
-		operatorMetrics,
+		componentMetrics,
 		migrationMetrics,
 		perfscaleMetrics,
 	}
