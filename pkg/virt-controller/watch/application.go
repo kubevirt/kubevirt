@@ -75,7 +75,6 @@ import (
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
-	"kubevirt.io/kubevirt/pkg/monitoring/perfscale"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -526,7 +525,10 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
-		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
+		if err := metrics.AddVMIPhaseTransitionHandlers(vca.vmiInformer); err != nil {
+			golog.Fatalf("failed to add vmi phase transition handler: %v", err)
+		}
+
 		if vca.migrationInformer == nil {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
 			metrics.UpdateVMIMigrationInformer(vca.migrationInformer)

@@ -17,7 +17,7 @@
  *
  */
 
-package perfscale
+package virt_controller
 
 import (
 	"time"
@@ -30,9 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var _ = BeforeSuite(func() {
-})
-
 var _ = Describe("VMI phase transition time histogram", func() {
 	Context("Transition Time calculations", func() {
 		DescribeTable("time diff calculations", func(expectedVal float64, curPhase v1.VirtualMachineInstancePhase, oldPhase v1.VirtualMachineInstancePhase) {
@@ -43,7 +40,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 			oldVMI = vmi.DeepCopy()
 			oldVMI.Status.Phase = oldPhase
 
-			diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, vmi)
+			diffSeconds, err := getVMITransitionTimeSeconds(false, false, oldVMI, vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
@@ -71,7 +68,7 @@ var _ = Describe("VMI phase transition time histogram", func() {
 				oldVMI.Status.Phase = oldPhase
 			}
 
-			diffSeconds, err := getTransitionTimeSeconds(creation, !creation, oldVMI, vmi)
+			diffSeconds, err := getVMITransitionTimeSeconds(creation, !creation, oldVMI, vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Time since created or deleted timestamp
