@@ -47,7 +47,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
 	})
 
-	Context("passt", func() {
+	Context("with CNI and Sidecar", func() {
 		BeforeEach(func() {
 			const passtBindingName = "passt"
 			const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
@@ -95,7 +95,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		})
 	})
 
-	Context("macvtap", func() {
+	Context("with domain attachment type", func() {
 		const (
 			macvtapNetworkConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
 			macvtapBindingName    = "macvtap"
