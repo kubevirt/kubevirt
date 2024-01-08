@@ -1551,28 +1551,6 @@ func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance
 	return podName
 }
 
-// AppendEmptyDisk
-//
-// Deprecated: Use libvmi
-func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName string, busName v1.DiskBus, diskSize string) {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: busName,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: diskName,
-		VolumeSource: v1.VolumeSource{
-			EmptyDisk: &v1.EmptyDiskSource{
-				Capacity: resource.MustParse(diskSize),
-			},
-		},
-	})
-}
-
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
 	runningVMISpec := launcherApi.DomainSpec{}
 	cli := kubevirt.Client()
