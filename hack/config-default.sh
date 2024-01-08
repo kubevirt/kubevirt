@@ -43,9 +43,9 @@ conn_check_ipv6_address=${CONN_CHECK_IPV6_ADDRESS:-""}
 conn_check_dns=${CONN_CHECK_DNS:-""}
 migration_network_nic=${MIGRATION_NETWORK_NIC:-"eth1"}
 infra_replicas=${KUBEVIRT_INFRA_REPLICAS:-0}
-common_instancetypes_version=${COMMON_INSTANCETYPES_VERSION:-"v0.3.4"}
-cluster_instancetypes_sha256=${CLUSTER_INSTANCETYPES_SHA256:-"80b6ba927a16e2bff8933ff6b0968158372b21633d38dc99573592c4a136073f"}
-cluster_preferences_sha256=${CLUSTER_PREFERENCES_SHA256:-"f5bcffc1a94027564b2e69da19e3e4db3532446209ff05c7e5ffd90894bb3e31"}
+common_instancetypes_version=${COMMON_INSTANCETYPES_VERSION:-"v0.4.0"}
+cluster_instancetypes_sha256=${CLUSTER_INSTANCETYPES_SHA256:-"0df36cacd86b00fff1bc2c173eb4579573be9c4cc7f291cb06318542a12c2ed2"}
+cluster_preferences_sha256=${CLUSTER_PREFERENCES_SHA256:-"8c5c0102e74bea61e2ee9d2b2816d006149d45a037ba09afbe642b2ffa8e0438"}
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"
