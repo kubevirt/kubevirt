@@ -124,7 +124,9 @@ var _ = Describe("Clone", func() {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 
-			snapshot := create.GetObject().(*snapshotv1alpha1.VirtualMachineSnapshot)
+			snapshot, ok := create.GetObject().(*snapshotv1alpha1.VirtualMachineSnapshot)
+			Expect(ok).To(BeTrue())
+
 			Expect(snapshot.Name).To(Equal("tmp-snapshot-clone-uid"))
 			Expect(snapshot.Spec.Source.Kind).To(Equal("VirtualMachine"))
 			Expect(snapshot.Spec.Source.Name).To(Equal(sourceVMName))
@@ -140,7 +142,9 @@ var _ = Describe("Clone", func() {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 
-			snapshotcreated := create.GetObject().(*snapshotv1alpha1.VirtualMachineSnapshot)
+			snapshotcreated, ok := create.GetObject().(*snapshotv1alpha1.VirtualMachineSnapshot)
+			Expect(ok).To(BeTrue())
+
 			Expect(snapshotcreated.Spec.Source.Kind).To(Equal("VirtualMachine"))
 			Expect(snapshotcreated.Spec.Source.Name).To(Equal(sourceVMName))
 			Expect(snapshotcreated.OwnerReferences).To(HaveLen(1))
@@ -155,7 +159,9 @@ var _ = Describe("Clone", func() {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 
-			restore := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			restore, ok := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			Expect(ok).To(BeTrue())
+
 			Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(restoreName))
 			Expect(restore.OwnerReferences).To(HaveLen(1))
 			validateOwnerReference(restore.OwnerReferences[0], vmClone)
@@ -168,7 +174,9 @@ var _ = Describe("Clone", func() {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 
-			restorecreated := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			restorecreated, ok := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			Expect(ok).To(BeTrue())
+
 			Expect(restorecreated.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
 			Expect(restorecreated.OwnerReferences).To(HaveLen(1))
 			validateOwnerReference(restorecreated.OwnerReferences[0], vmClone)
@@ -182,7 +190,9 @@ var _ = Describe("Clone", func() {
 			create, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 
-			restorecreated := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			restorecreated, ok := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+			Expect(ok).To(BeTrue())
+
 			Expect(restorecreated.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
 			Expect(restorecreated.OwnerReferences).To(HaveLen(1))
 			validateOwnerReference(restorecreated.OwnerReferences[0], vmClone)
@@ -218,7 +228,9 @@ var _ = Describe("Clone", func() {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
 
-			vmClone := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			vmClone, ok := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			Expect(ok).To(BeTrue())
+
 			Expect(vmClone.Status.Phase).To(Equal(phase))
 
 			return true, update.GetObject(), nil
@@ -230,9 +242,11 @@ var _ = Describe("Clone", func() {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
 
-			vmClone := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			vmClone, ok := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			Expect(ok).To(BeTrue())
+
 			Expect(vmClone.Status.Phase).To(Equal(phase))
-			Expect(*vmClone.Status.SnapshotName).To(Equal(snapshotName))
+			Expect(vmClone.Status.SnapshotName).To(HaveValue(Equal(snapshotName)))
 
 			return true, update.GetObject(), nil
 		})
@@ -243,9 +257,11 @@ var _ = Describe("Clone", func() {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
 
-			vmClone := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			vmClone, ok := update.GetObject().(*clonev1alpha1.VirtualMachineClone)
+			Expect(ok).To(BeTrue())
+
 			Expect(vmClone.Status.Phase).To(Equal(phase))
-			Expect(*vmClone.Status.RestoreName).To(Equal(restoreName))
+			Expect(vmClone.Status.RestoreName).To(HaveValue(Equal(restoreName)))
 
 			return true, update.GetObject(), nil
 		})
@@ -686,7 +702,9 @@ var _ = Describe("Clone", func() {
 				create, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
 
-				restore := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+				restore, ok := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+				Expect(ok).To(BeTrue())
+
 				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
 
 				patchedVM, err := offlinePatchVM(sourceVM, restore.Spec.Patches)
@@ -1002,8 +1020,8 @@ func createVirtualMachineSnapshotSnapshotContent(vm *virtv1.VirtualMachine, snap
 	vmCpy.Spec = *vm.Spec.DeepCopy()
 	vmCpy.ResourceVersion = "1"
 	vmCpy.Status = *vm.Status.DeepCopy()
-	return &snapshotv1alpha1.VirtualMachineSnapshotContent{
 
+	return &snapshotv1alpha1.VirtualMachineSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "vmsnapshot-content-snapshot-UID",
 			Namespace: vm.Namespace,
@@ -1015,7 +1033,6 @@ func createVirtualMachineSnapshotSnapshotContent(vm *virtv1.VirtualMachine, snap
 				VirtualMachine: vmCpy,
 			},
 		},
-
 		Status: &snapshotv1alpha1.VirtualMachineSnapshotContentStatus{},
 	}
 }
