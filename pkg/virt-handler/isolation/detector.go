@@ -50,10 +50,6 @@ type PodIsolationDetector interface {
 
 	DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error)
 
-	// Allowlist allows specifying cgroup controller which should be considered to detect the cgroup slice
-	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
-	Allowlist(controller []string) PodIsolationDetector
-
 	// Adjust system resources to run the passed VM
 	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
 }
@@ -61,16 +57,14 @@ type PodIsolationDetector interface {
 const isolationDialTimeout = 5
 
 type socketBasedIsolationDetector struct {
-	socketDir  string
-	controller []string
+	socketDir string
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
 func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
 	return &socketBasedIsolationDetector{
-		socketDir:  socketDir,
-		controller: []string{"devices"},
+		socketDir: socketDir,
 	}
 }
 
@@ -100,11 +94,6 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 	}
 
 	return NewIsolationResult(pid, ppid), nil
-}
-
-func (s *socketBasedIsolationDetector) Allowlist(controller []string) PodIsolationDetector {
-	s.controller = controller
-	return s
 }
 
 func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
