@@ -2204,7 +2204,7 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 			socketFile, err = d.clientManager.Socket(vmi)
 			if err != nil {
 				// socket does not exist, but let's see if the pod is still there
-				if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+				if err = d.podIsolationDetector.DetectPod(vmi); err != nil {
 					// no pod meanst that waiting for it to initialize makes no sense
 					return true, true, nil
 				}
@@ -2228,7 +2228,7 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 		// no socket file, no VMI, so it's unresponsive
 		if err != nil {
 			// socket does not exist, but let's see if the pod is still there
-			if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+			if err = d.podIsolationDetector.DetectPod(vmi); err != nil {
 				// no pod meanst that waiting for it to initialize makes no sense
 				return true, true, nil
 			}

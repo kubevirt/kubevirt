@@ -471,6 +471,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
+			// Pod exists
+			mockIsolationDetector.EXPECT().DetectPod(gomock.Eq(vmi)).AnyTimes().Return(nil)
+
 			controller.Execute()
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
@@ -496,6 +499,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
+			// Pod exists
+			mockIsolationDetector.EXPECT().DetectPod(gomock.Eq(vmi)).AnyTimes().Return(nil)
+
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMICrashed)
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -519,6 +525,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			// Pod does not exists
+			mockIsolationDetector.EXPECT().DetectPod(gomock.Any()).AnyTimes().Return(fmt.Errorf("No command socketdir for vmi"))
 
 			controller.Execute()
 			Expect(mockQueue.Len()).To(Equal(0))
