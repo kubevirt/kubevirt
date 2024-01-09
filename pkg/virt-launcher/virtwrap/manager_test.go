@@ -2208,6 +2208,12 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
+				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+					{
+						BusType: "scsi",
+						Serial:  "testserial-1234",
+					},
+				},
 			},
 		})
 
@@ -2228,6 +2234,12 @@ var _ = Describe("Manager", func() {
 			FileSystemType: "fs",
 			UsedBytes:      0,
 			TotalBytes:     0,
+			Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+				{
+					BusType: "scsi",
+					Serial:  "testserial-1234",
+				},
+			},
 		}))
 	})
 
@@ -2259,6 +2271,12 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
+				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+					{
+						BusType: "scsi",
+						Serial:  "testserial-1234",
+					},
+				},
 			},
 		})
 
@@ -2280,6 +2298,12 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
+				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+					{
+						BusType: "scsi",
+						Serial:  "testserial-1234",
+					},
+				},
 			},
 		})
 
@@ -2320,6 +2344,12 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
+				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+					{
+						BusType: "scsi",
+						Serial:  "testserial-1234",
+					},
+				},
 			},
 		})
 
