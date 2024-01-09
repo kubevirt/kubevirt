@@ -548,7 +548,7 @@ func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []
 			return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 		}
 
-		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
+		if iface.SRIOV != nil || iface.Macvtap != nil {
 			continue
 		}
 

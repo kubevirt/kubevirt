@@ -96,8 +96,15 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return err
 			}
 
-		// Skip the discovery for all other known network interface bindings.
 		case vmiSpecIface.Binding != nil:
+			// The existence of the pod interface depends on the network binding plugin implementation
+			if podIfaceExists {
+				if err := n.storePodInterfaceData(vmiSpecIface, podIfaceStatus); err != nil {
+					return err
+				}
+			}
+
+		// Skip the discovery for all other known network interface bindings.
 		case vmiSpecIface.Macvtap != nil:
 		case vmiSpecIface.SRIOV != nil:
 		default:
