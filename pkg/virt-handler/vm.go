@@ -1600,6 +1600,13 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(tscRequirement.Reason, v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable), isBlockMigration
 	}
 
+	if vmi.Spec.Domain.Desktop != nil && vmi.Spec.Domain.Desktop.Clipboard {
+		// TODO: Support for clipboard live migration is doable in the future.
+		// See: https://gitlab.com/qemu-project/qemu/-/issues/1380
+		return newNonMigratableCondition("VMI uses VNC's clipboard",
+			v1.VirtualMachineInstanceReasonDesktopClipboardNotMigratable), isBlockMigration
+	}
+
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,

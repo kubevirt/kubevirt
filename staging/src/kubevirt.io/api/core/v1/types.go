@@ -558,6 +558,8 @@ const (
 	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
 	// Indicates that the VMI is hot(un)plugging memory
 	VirtualMachineInstanceMemoryChange = "HotMemoryChange"
+	// Reason means that VMI is not live migratable due VNC's clipboard lack of support
+	VirtualMachineInstanceReasonDesktopClipboardNotMigratable = "DesktopClipboard"
 )
 
 const (

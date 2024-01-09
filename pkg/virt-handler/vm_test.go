@@ -2687,6 +2687,19 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable))
 		})
 
+		It("should not be allowed to live-migrate if the VMI uses Desktop's Clipboard", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Desktop = &v1.VirtualDesktop{
+				Clipboard: true,
+			}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonDesktopClipboardNotMigratable))
+		})
+
 		It("should not be allowed to live-migrate if the VMI does not use masquerade to connect to the pod network", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 
