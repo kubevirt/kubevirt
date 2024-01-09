@@ -79,16 +79,14 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
-	var pid int
-	var ppid int
-	var err error
-
-	if pid, err = s.getPid(socket); err != nil {
+	pid, err := s.getPid(socket)
+	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
 	}
 
-	if ppid, err = getPPid(pid); err != nil {
+	ppid, err := getPPid(pid)
+	if err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner PPid of socket %s", socket)
 		return nil, err
 	}
