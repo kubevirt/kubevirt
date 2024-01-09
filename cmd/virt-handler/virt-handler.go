@@ -359,6 +359,7 @@ func (app *virtHandlerApp) Run() {
 		downwardMetricsManager,
 		capabilities,
 		hostCpuModel,
+		cmdclient.NewClientManager(),
 	)
 	if err != nil {
 		panic(err)

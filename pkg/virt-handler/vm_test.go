@@ -228,6 +228,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			fakeDownwardMetricsManager,
 			nil,
 			"",
+			cmdclient.NewClientManager(),
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
