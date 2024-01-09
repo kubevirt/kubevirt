@@ -209,6 +209,16 @@ type DomainSpec struct {
 	// Launch Security setting of the vmi.
 	// +optional
 	LaunchSecurity *LaunchSecurity `json:"launchSecurity,omitempty"`
+	// Virtual Desktop allow for VDI related customizations
+	// +optional
+	Desktop *VirtualDesktop `json:"desktop,omitempty"`
+}
+
+// Virtual Desktop Interface related APIs
+type VirtualDesktop struct {
+	// If user wants to enable clipboard passing to the remote VM using the underlying remote
+	// protocol.
+	Clipboard bool `json:"clipboard,omitempty"`
 }
 
 // Chassis specifies the chassis info passed to the domain.
