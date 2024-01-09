@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libstorage"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -16,6 +17,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -27,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.RequiresRWXFilesystemStorage, func() {
@@ -112,7 +115,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			}, 10)).To(Succeed(), "expected efivar is missing")
 		}
 
-		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, func(withTPM, withEFI bool, ops ...string) {
+		testBackendStoragePersistence := func(withTPM, withEFI bool, ops ...string) {
 			By("Creating a migratable Fedora VM with UEFI")
 			vmi := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -170,13 +173,9 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			Expect(err).ToNot(HaveOccurred())
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-		},
-			Entry("TPM across migration and restart", true, false, "migrate", "restart"),
-			Entry("TPM across restart and migration", true, false, "restart", "migrate"),
-			Entry("EFI across migration and restart", false, true, "migrate", "restart"),
-			Entry("TPM+EFI across migration and restart", true, true, "migrate", "restart"),
-		)
-		It("should remove persistent storage PVC if VMI is not owned by a VM", func() {
+		}
+
+		testPersistentStorageRemoval := func() {
 			By("Creating a VMI with persistent TPM enabled")
 			vmi := tests.NewRandomFedoraVMI()
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
@@ -208,6 +207,47 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				}
 				return nil
 			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}
+
+		Context("and ReadWriteMany backend storage", func() {
+			DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, testBackendStoragePersistence,
+				Entry("TPM across migration and restart", true, false, "migrate", "restart"),
+				Entry("TPM across restart and migration", true, false, "restart", "migrate"),
+				Entry("EFI across migration and restart", false, true, "migrate", "restart"),
+				Entry("TPM+EFI across migration and restart", true, true, "migrate", "restart"),
+			)
+			It("should remove persistent storage PVC if VMI is not owned by a VM", testPersistentStorageRemoval)
+		})
+
+		Context("and ReadWriteOnce backend storage", Serial, func() {
+			var originalKV *v1.KubeVirt
+
+			BeforeEach(func() {
+				storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
+				if exists {
+					kv := util.GetCurrentKv(virtClient)
+					originalKV = kv.DeepCopy()
+					kv.Spec.Configuration.VMStateStorageClass = storageClass
+					kv.Spec.Configuration.VMStateAccessMode = k8sv1.ReadWriteOnce
+					tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				} else {
+					Skip("skip test because no ReadWriteOnce storage backend is available")
+				}
+			})
+
+			AfterEach(func() {
+				_, exists := libstorage.GetRWOFileSystemStorageClass()
+				if exists {
+					tests.UpdateKubeVirtConfigValueAndWait(originalKV.Spec.Configuration)
+				}
+			})
+
+			DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, testBackendStoragePersistence,
+				Entry("TPM across restart", true, false, "restart"),
+				Entry("EFI across restart", false, true, "restart"),
+				Entry("TPM+EFI across restart", true, true, "restart"),
+			)
+			It("should remove persistent storage PVC if VMI is not owned by a VM", testPersistentStorageRemoval)
 		})
 	})
 })
