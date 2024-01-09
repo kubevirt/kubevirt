@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -88,6 +89,38 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				Entry("without AutoattachSerialConsole but with LogSerialConsole", false, true, false),
 				Entry("without AutoattachSerialConsole and without LogSerialConsole", false, false, false),
 			)
+
+			It("it should exit cleanly when the shutdown is initiated by the guest", func() {
+				By("Starting a VMI")
+				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+
+				By("Finding virt-launcher pod")
+				virtlauncherPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
+				foundContainer := false
+				for _, container := range virtlauncherPod.Spec.Containers {
+					if container.Name == "guest-console-log" {
+						foundContainer = true
+					}
+				}
+				Expect(foundContainer).To(Equal(true))
+
+				By("Triggering a shutdown from the guest OS")
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "sudo poweroff\n"},
+					&expect.BExp{R: "The system is going down NOW!"},
+				}, 240)).To(Succeed())
+
+				By("Ensuring virt-launcher pod is not reporting errors")
+				Eventually(func(g Gomega) {
+					virtlauncherPod, err := ThisPod(virtlauncherPod)()
+					g.Expect(err).ToNot(HaveOccurred())
+					Expect(virtlauncherPod).ToNot(BeInPhase(k8sv1.PodFailed))
+					g.Expect(virtlauncherPod).To(BeInPhase(k8sv1.PodSucceeded))
+				}, 60*time.Second, 1*time.Second).Should(Succeed(), "virt-launcher should reach the PodSucceeded phase never hitting the PodFailed one")
+			})
+
 		})
 
 		Context("fetch logs", func() {
