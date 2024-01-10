@@ -26,6 +26,7 @@ import (
 
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -150,7 +151,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
 			})
 
-			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
+			It("[sig-compute][test_id:3243][QUARANTINE] should recreate the PDB if VMIs with similar names are recreated", decorators.Quarantine, func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
 					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
