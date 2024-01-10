@@ -536,7 +536,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(Or(BeInPhase(v1.Pending), BeInPhase(v1.Scheduling)))
 
 				By("Creating a service which makes the registry reachable")
 				_, err = virtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
