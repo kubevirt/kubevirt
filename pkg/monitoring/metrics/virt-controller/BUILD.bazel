@@ -6,7 +6,7 @@ go_library(
         "component_metrics.go",
         "metrics.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/monitoring/virt-controller/metrics",
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",

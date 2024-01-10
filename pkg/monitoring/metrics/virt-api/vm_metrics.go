@@ -17,20 +17,27 @@
  *
  */
 
-package metrics
+package virt_api
 
-import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
-
-var (
-	metrics = [][]operatormetrics.Metric{
-		vmMetrics,
-	}
+import (
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	v1 "kubevirt.io/api/core/v1"
 )
 
-func SetupMetrics() error {
-	return operatormetrics.RegisterMetrics(metrics...)
-}
+var (
+	vmMetrics = []operatormetrics.Metric{
+		vmsCreatedCounter,
+	}
 
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+	vmsCreatedCounter = operatormetrics.NewCounterVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_created_total",
+			Help: "Amount of VMs created, broken down by namespace, since install.",
+		},
+		[]string{"namespace"},
+	)
+)
+
+func NewVMCreated(vm *v1.VirtualMachine) {
+	vmsCreatedCounter.WithLabelValues(vm.Namespace).Inc()
 }

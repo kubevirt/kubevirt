@@ -6,7 +6,7 @@ go_library(
         "metrics.go",
         "vm_metrics.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/monitoring/virt-api/metrics",
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
