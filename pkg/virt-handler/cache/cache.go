@@ -43,7 +43,6 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const socketDialTimeout = 5
@@ -339,7 +338,6 @@ func (d *DomainWatcher) startBackground() error {
 			case <-resyncTickerChan:
 				d.handleResync()
 			case <-expiredWatchdogTickerChan:
-				d.handleStaleWatchdogFiles()
 				d.handleStaleSocketConnections()
 			case err := <-srvErr:
 				if err != nil {
@@ -356,26 +354,7 @@ func (d *DomainWatcher) startBackground() error {
 	return nil
 }
 
-// TODO remove watchdog file usage eventually and only rely on detecting stale socket connections
-// for now we have to keep watchdog files around for backwards compatibility with old VMIs
-func (d *DomainWatcher) handleStaleWatchdogFiles() error {
-	domains, err := watchdog.GetExpiredDomains(d.watchdogTimeout, d.virtShareDir)
-	if err != nil {
-		log.Log.Reason(err).Error("failed to detect expired watchdog files in domain informer")
-		return err
-	}
-
-	for _, domain := range domains {
-		log.Log.Object(domain).Warning("detected expired watchdog for domain")
-		now := k8sv1.Now()
-		domain.ObjectMeta.DeletionTimestamp = &now
-		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-	}
-	return nil
-}
-
 func (d *DomainWatcher) handleResync() {
-
 	socketFiles, err := listSockets()
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")

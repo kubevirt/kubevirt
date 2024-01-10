@@ -36,7 +36,6 @@ import (
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/golang/glog"
@@ -259,12 +258,6 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	// Legacy directory for watchdog files
-	err = os.MkdirAll(watchdog.WatchdogFileDirectory(app.VirtShareDir), 0755)
-	if err != nil {
-		panic(err)
-	}
-
 	// We keep a record on disk of every VMI virt-handler starts.
 	// That record isn't deleted from this node until the VMI
 	// is completely torn down.
@@ -349,7 +342,6 @@ func (app *virtHandlerApp) Run() {
 		vmiSourceInformer,
 		vmiTargetInformer,
 		domainSharedInformer,
-		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		app.clusterConfig,
 		podIsolationDetector,

@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 var _ = Describe("Domain informer", func() {
@@ -321,41 +320,6 @@ var _ = Describe("Domain informer", func() {
 
 			Expect(ok).To(BeTrue())
 			Expect(val).To(Equal("some-value"))
-		})
-
-		It("should detect expired legacy watchdog file.", func() {
-			f, err := os.Create(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
-			d := &DomainWatcher{
-				backgroundWatcherStarted: false,
-				virtShareDir:             shareDir,
-				watchdogTimeout:          1,
-				unresponsiveSockets:      make(map[string]int64),
-				resyncPeriod:             time.Duration(1) * time.Hour,
-			}
-
-			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
-			os.MkdirAll(filepath.Dir(watchdogFile), 0755)
-			watchdog.WatchdogFileUpdate(watchdogFile, "somestring")
-
-			err = d.startBackground()
-			Expect(err).ToNot(HaveOccurred())
-			defer d.Stop()
-
-			timedOut := false
-			timeout := time.After(3 * time.Second)
-			select {
-			case event := <-d.eventChan:
-				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
-				Expect(event.Type).To(Equal(watch.Modified))
-			case <-timeout:
-				timedOut = true
-			}
-
-			Expect(timedOut).To(BeFalse())
-
 		})
 
 		It("should detect unresponsive sockets.", func() {

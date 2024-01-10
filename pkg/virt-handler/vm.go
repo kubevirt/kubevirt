@@ -103,7 +103,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 type netconf interface {
@@ -210,7 +209,6 @@ func NewController(
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
-	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
@@ -233,7 +231,6 @@ func NewController(
 		vmiTargetInformer:           vmiTargetInformer,
 		domainInformer:              domainInformer,
 		heartBeatInterval:           1 * time.Minute,
-		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, filepath.Join(virtPrivateDir, "container-disk-mount-state"), clusterConfig),
@@ -320,7 +317,6 @@ type VirtualMachineController struct {
 	domainInformer           cache.SharedInformer
 	launcherClients          virtcache.LauncherClientInfoByVMI
 	heartBeatInterval        time.Duration
-	watchdogTimeoutSeconds   int
 	deviceManagerController  *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
@@ -2095,13 +2091,6 @@ func (d *VirtualMachineController) execute(key string) error {
 		if uid != "" {
 			log.Log.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
 			vmi.UID = uid
-		} else {
-			// legacy support, attempt to find UID from watchdog file it exists.
-			uid := watchdog.WatchdogFileGetUID(d.virtShareDir, vmi)
-			if uid != "" {
-				log.Log.Object(vmi).V(3).Infof("watchdog file provided %s as UID", uid)
-				vmi.UID = types.UID(uid)
-			}
 		}
 	}
 
@@ -2211,13 +2200,6 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		close(clientInfo.DomainPipeStopChan)
 	}
 
-	// for legacy support, ensure watchdog is removed when client is removed
-	// in the event that watchdog VMIs are still in use
-	err := watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
-	if err != nil {
-		return err
-	}
-
 	virtcache.DeleteGhostRecord(vmi.Namespace, vmi.Name)
 	d.launcherClients.Delete(vmi.UID)
 	return nil
@@ -2274,8 +2256,7 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 		clientInfo.Ready = true
 		clientInfo.SocketFile = socketFile
 	}
-	isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
-	return isUnresponsive, true, nil
+	return cmdclient.IsSocketUnresponsive(socketFile), true, nil
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
