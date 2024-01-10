@@ -412,7 +412,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
     label_filter='(sig-compute-migrations && !(GPU,VGPU))'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,exclude-native-ssh))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -436,6 +436,9 @@ fi
 
 # No lane currently supports loading a custom policy
 add_to_label_filter '(!CustomSELinux)' '&&'
+
+# We do not want to run tests which exclude native SSH functionality
+add_to_label_filter '(!exclude-native-ssh)' '&&'
 
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
