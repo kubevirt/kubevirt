@@ -34,7 +34,6 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -136,34 +135,7 @@ func SetPodsBaseDir(baseDir string) {
 func ListAllSockets() ([]string, error) {
 	var socketFiles []string
 
-	socketsDir := filepath.Join(legacyBaseDir, "sockets")
-	exists, err := diskutils.FileExists(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if exists == false {
-		return socketFiles, nil
-	}
-
-	files, err := os.ReadDir(socketsDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
-			continue
-		}
-		// legacy support.
-		// The old way of handling launcher sockets was to
-		// dump them all in the same directory. So if we encounter
-		// a legacy socket, still process it. This is necessary
-		// for update support.
-		socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
-	}
-
-	podsDir := podsBaseDir
-	dirs, err := os.ReadDir(podsDir)
+	dirs, err := os.ReadDir(podsBaseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +145,7 @@ func ListAllSockets() ([]string, error) {
 		}
 
 		socketPath := SocketFilePathOnHost(dir.Name())
-		exists, err = diskutils.FileExists(socketPath)
+		exists, err := diskutils.FileExists(socketPath)
 		if err != nil {
 			return socketFiles, err
 		}
@@ -188,21 +160,6 @@ func ListAllSockets() ([]string, error) {
 
 func LegacySocketsDirectory() string {
 	return filepath.Join(legacyBaseDir, "sockets")
-}
-
-func IsLegacySocket(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return false
-	}
-
-	return true
-}
-
-func SocketMonitoringEnabled(socket string) bool {
-	if filepath.Base(socket) == StandardLauncherSocketFileName {
-		return true
-	}
-	return false
 }
 
 func IsSocketUnresponsive(socket string) bool {
@@ -262,15 +219,6 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 
 // gets the cmd socket for a VMI
 func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
-	if string(vmi.UID) != "" {
-		legacySockFile := string(vmi.UID) + "_sock"
-		legacySock := filepath.Join(LegacySocketsDirectory(), legacySockFile)
-		exists, _ := diskutils.FileExists(legacySock)
-		if exists {
-			return legacySock, nil
-		}
-	}
-
 	socketsFound := 0
 	foundSocket := ""
 	// It is possible for multiple pods to be active on a single VMI

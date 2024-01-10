@@ -393,10 +393,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 
-			exists, err = diskutils.FileExists(legacyMockSockFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeFalse())
-
 			exists, err = diskutils.FileExists(watchdogFile)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
@@ -1107,21 +1103,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, vmi *v1.VirtualMachineInstance, options metav1.UpdateOptions) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
-			controller.Execute()
-			testutils.ExpectEvent(recorder, VMICrashed)
-		})
-		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is expired", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.UID = vmiTestUUID
-			vmi.Status.Phase = v1.Scheduled
-
-			mockWatchdog.CreateFile(vmi)
-			vmiFeeder.Add(vmi)
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, vmi *v1.VirtualMachineInstance, options metav1.UpdateOptions) {
-				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
-			})
-			time.Sleep(2 * time.Second)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMICrashed)
 		})

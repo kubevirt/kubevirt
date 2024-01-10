@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -2210,14 +2209,6 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	if exists && clientInfo.Client != nil {
 		clientInfo.Client.Close()
 		close(clientInfo.DomainPipeStopChan)
-
-		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
-		if cmdclient.IsLegacySocket(clientInfo.SocketFile) {
-			err := os.RemoveAll(clientInfo.SocketFile)
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	// for legacy support, ensure watchdog is removed when client is removed
@@ -2283,18 +2274,8 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 		clientInfo.Ready = true
 		clientInfo.SocketFile = socketFile
 	}
-	// The new way of detecting unresponsive VMIs monitors the
-	// cmd socket. This requires an updated VMI image. Old VMIs
-	// still use the watchdog method.
-	watchDogExists, _ := watchdog.WatchdogFileExists(d.virtShareDir, vmi)
-	if cmdclient.SocketMonitoringEnabled(socketFile) && !watchDogExists {
-		isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
-		return isUnresponsive, true, nil
-	}
-
-	// fall back to legacy watchdog support for backwards compatibility
-	isUnresponsive, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
-	return isUnresponsive, true, err
+	isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
+	return isUnresponsive, true, nil
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
@@ -2321,15 +2302,12 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	}
 
 	domainPipeStopChan := make(chan struct{})
-	// if this isn't a legacy socket, we need to
-	// pipe in the domain socket into the VMI's filesystem
-	if !cmdclient.IsLegacySocket(socketFile) {
-		err = d.startDomainNotifyPipe(domainPipeStopChan, vmi)
-		if err != nil {
-			client.Close()
-			close(domainPipeStopChan)
-			return nil, err
-		}
+	//we pipe in the domain socket into the VMI's filesystem
+	err = d.startDomainNotifyPipe(domainPipeStopChan, vmi)
+	if err != nil {
+		client.Close()
+		close(domainPipeStopChan)
+		return nil, err
 	}
 
 	d.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{

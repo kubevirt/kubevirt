@@ -419,12 +419,6 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 	}
 
 	for _, socket := range socketFiles {
-		if !cmdclient.SocketMonitoringEnabled(socket) {
-			// don't process legacy sockets here. They still use the
-			// old watchdog file method
-			continue
-		}
-
 		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
 		if err == nil {
 			// socket is alive still
