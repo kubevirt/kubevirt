@@ -96,6 +96,7 @@ type KubevirtClient interface {
 	MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
 	kubernetes.Interface
 	Config() *rest.Config
+	SetRestTimeout(timeout time.Duration) (KubevirtClient, error)
 }
 
 type kubevirt struct {
@@ -116,6 +117,20 @@ type kubevirt struct {
 	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
 	cloneClient             *clonev1alpha1.CloneV1alpha1Client
 	*kubernetes.Clientset
+}
+
+func (k kubevirt) SetRestTimeout(timeout time.Duration) (KubevirtClient, error) {
+	config := rest.CopyConfig(k.config)
+	config.Timeout = timeout
+	k.config = config
+
+	restClient, err := rest.RESTClientFor(k.config)
+	if err != nil {
+		return &k, err
+	}
+	k.restClient = restClient
+
+	return &k, nil
 }
 
 func (k kubevirt) Config() *rest.Config {
