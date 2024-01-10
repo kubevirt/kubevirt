@@ -2867,13 +2867,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
 			Expect(cdiInformer.GetIndexer().Add(&cdi2)).To(Succeed())
 
-			fsOverhead, err := controller.getFilesystemOverhead(&k8sv1.PersistentVolumeClaim{})
+			fsOverhead, err := storagetypes.GetFilesystemOverheadInformers(controller.cdiInformer,
+				controller.cdiConfigInformer,
+				&k8sv1.PersistentVolumeClaim{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fsOverhead).To(Equal(storagetypes.DefaultFSOverhead))
 		})
 
 		It("Should get default filesystem overhead if there is no CDI available", func() {
-			fsOverhead, err := controller.getFilesystemOverhead(&k8sv1.PersistentVolumeClaim{})
+			fsOverhead, err := storagetypes.GetFilesystemOverheadInformers(controller.cdiInformer,
+				controller.cdiConfigInformer,
+				&k8sv1.PersistentVolumeClaim{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fsOverhead).To(Equal(storagetypes.DefaultFSOverhead))
 		})
@@ -2887,7 +2891,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
 
-			fsOverhead, err := controller.getFilesystemOverhead(nil)
+			fsOverhead, err := storagetypes.GetFilesystemOverheadInformers(controller.cdiInformer,
+				controller.cdiConfigInformer,
+				nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Failed to find CDIConfig but CDI exists"))
 			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
@@ -2928,7 +2934,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(cdiInformer.GetIndexer().Add(&cdi)).To(Succeed())
 			Expect(cdiConfigInformer.GetIndexer().Add(&cfg)).To(Succeed())
 
-			fsOverhead, err := controller.getFilesystemOverhead(pvc)
+			fsOverhead, err := storagetypes.GetFilesystemOverheadInformers(controller.cdiInformer,
+				controller.cdiConfigInformer,
+				pvc)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fsOverhead).To(Equal(expectedOverhead))
 		},

@@ -2257,7 +2257,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					Requests:     pvc.Spec.Resources.Requests,
 					Preallocated: storagetypes.IsPreallocated(pvc.ObjectMeta.Annotations),
 				}
-				filesystemOverhead, err := c.getFilesystemOverhead(pvc)
+				filesystemOverhead, err := storagetypes.GetFilesystemOverheadInformers(c.cdiInformer, c.cdiConfigInformer, pvc)
 				if err != nil {
 					log.Log.Reason(err).Errorf("Failed to get filesystem overhead for PVC %s/%s", vmi.Namespace, pvcName)
 					return err
@@ -2295,29 +2295,6 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 
 func (c *VMIController) volumeReady(phase virtv1.VolumePhase) bool {
 	return phase == virtv1.VolumeReady
-}
-
-func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
-	// To avoid conflicts, we only allow having one CDI instance
-	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
-		if cdiInstances > 1 {
-			log.Log.V(3).Object(pvc).Reason(storagetypes.ErrMultipleCdiInstances).Infof(storagetypes.FSOverheadMsg)
-		} else {
-			log.Log.V(3).Object(pvc).Reason(storagetypes.ErrFailedToFindCdi).Infof(storagetypes.FSOverheadMsg)
-		}
-		return storagetypes.DefaultFSOverhead, nil
-	}
-
-	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigInformer.GetStore().GetByKey(storagetypes.ConfigName)
-	if !cdiConfigExists || err != nil {
-		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
-	}
-	cdiConfig, ok := cdiConfigInterface.(*cdiv1.CDIConfig)
-	if !ok {
-		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
-	}
-
-	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
 }
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {

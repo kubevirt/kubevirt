@@ -27,6 +27,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/client-go/tools/cache"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -81,4 +83,27 @@ func GetSizeIncludingDefaultFSOverhead(size *resource.Quantity) (*resource.Quant
 func GetSizeIncludingFSOverhead(size *resource.Quantity, storageClass *string, volumeMode *k8sv1.PersistentVolumeMode, cdiConfig *cdiv1.CDIConfig) (*resource.Quantity, error) {
 	cdiFSOverhead := GetFilesystemOverhead(volumeMode, storageClass, cdiConfig)
 	return GetSizeIncludingGivenOverhead(size, cdiFSOverhead)
+}
+
+func GetFilesystemOverheadInformers(cdiInformer cache.SharedIndexInformer, cdiConfigInformer cache.SharedIndexInformer, pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
+	// To avoid conflicts, we only allow having one CDI instance
+	if cdiInstances := len(cdiInformer.GetStore().List()); cdiInstances != 1 {
+		if cdiInstances > 1 {
+			log.Log.V(3).Object(pvc).Reason(ErrMultipleCdiInstances).Infof(FSOverheadMsg)
+		} else {
+			log.Log.V(3).Object(pvc).Reason(ErrFailedToFindCdi).Infof(FSOverheadMsg)
+		}
+		return DefaultFSOverhead, nil
+	}
+
+	cdiConfigInterface, cdiConfigExists, err := cdiConfigInformer.GetStore().GetByKey(ConfigName)
+	if !cdiConfigExists || err != nil {
+		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
+	}
+	cdiConfig, ok := cdiConfigInterface.(*cdiv1.CDIConfig)
+	if !ok {
+		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
+	}
+
+	return GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
 }
