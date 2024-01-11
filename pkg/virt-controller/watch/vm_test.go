@@ -266,9 +266,8 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(ok).To(BeTrue())
 
 				createObj := created.GetObject().(*appsv1.ControllerRevision)
-				Expect(createObj).To(Equal(vmRevision))
 
-				return true, created.GetObject(), nil
+				return createObj == vmRevision, created.GetObject(), nil
 			})
 		}
 
@@ -288,10 +287,10 @@ var _ = Describe("VirtualMachine", func() {
 			return runtime.RawExtension{Raw: patch}
 		}
 
-		createVMRevision := func(vm *virtv1.VirtualMachine) *appsv1.ControllerRevision {
+		createVMRevision := func(vm *virtv1.VirtualMachine, prefix string) *appsv1.ControllerRevision {
 			return &appsv1.ControllerRevision{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      getVMRevisionName(vm.UID, vm.Generation),
+					Name:      getVMRevisionName(vm.UID, vm.Generation, prefix),
 					Namespace: vm.Namespace,
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
@@ -1341,11 +1340,13 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			vmRevision := createVMRevision(vm)
-			expectControllerRevisionCreation(vmRevision)
+			vmRevisionStart := createVMRevision(vm, revisionPrefixStart)
+			vmRevisionLastSeen := createVMRevision(vm, revisionPrefixLastSeen)
+			expectControllerRevisionCreation(vmRevisionStart)
+			expectControllerRevisionCreation(vmRevisionLastSeen)
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
-				Expect(arg.(*virtv1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
+				Expect(arg.(*virtv1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevisionStart.Name))
 			}).Return(vmi, nil)
 
 			// expect update status is called
@@ -1362,11 +1363,11 @@ var _ = Describe("VirtualMachine", func() {
 		It("should delete older vmRevision and create VMI with new one", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.Generation = 1
-			oldVMRevision := createVMRevision(vm)
+			oldVMRevision := createVMRevision(vm, revisionPrefixStart)
 
 			vm.Generation = 2
 			addVirtualMachine(vm)
-			vmRevision := createVMRevision(vm)
+			vmRevision := createVMRevision(vm, revisionPrefixStart)
 
 			expectControllerRevisionList(oldVMRevision)
 			expectControllerRevisionDelete(oldVMRevision)
@@ -1481,8 +1482,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(gen).To(Equal(desiredGeneration))
 				}
 			},
-				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), asInt64Ptr(3)),
-				Entry("with one dash in name", getVMRevisionName("abcdef", 5), asInt64Ptr(5)),
+				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3, revisionPrefixStart), asInt64Ptr(3)),
+				Entry("with one dash in name", getVMRevisionName("abcdef", 5, revisionPrefixStart), asInt64Ptr(5)),
 				Entry("with no dash in name", "12345", nil),
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
@@ -1502,7 +1503,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Generation = 1
 					vm.Spec = revisionVmSpec
 
-					crName, err := controller.createVMRevision(vm)
+					crName, err := controller.createVMRevision(vm, revisionPrefixStart)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), crName, metav1.GetOptions{})
@@ -1709,7 +1710,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmi.ObjectMeta.Annotations = initialAnnotations
 				vm.Generation = revisionVmGeneration
 
-				crName, err := controller.createVMRevision(vm)
+				crName, err := controller.createVMRevision(vm, revisionPrefixStart)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi.Status.VirtualMachineRevisionName = crName
@@ -1816,7 +1817,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Generation = revisionVmGeneration
 					vm.Spec = revisionVmSpec
 
-					crName, err := controller.createVMRevision(vm)
+					crName, err := controller.createVMRevision(vm, revisionPrefixStart)
 					Expect(err).ToNot(HaveOccurred())
 
 					vmi.Status.VirtualMachineRevisionName = crName

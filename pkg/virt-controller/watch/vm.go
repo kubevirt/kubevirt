@@ -76,6 +76,9 @@ const (
 	fetchingRunStrategyErrFmt = "Error fetching RunStrategy: %v"
 	fetchingVMKeyErrFmt       = "Error fetching vmKey: %v"
 	startingVMIFailureFmt     = "Failure while starting VMI: %v"
+
+	revisionPrefixStart    = "start"
+	revisionPrefixLastSeen = "last-seen"
 )
 
 type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error)
@@ -288,7 +291,6 @@ func (c *VMController) Execute() bool {
 }
 
 func (c *VMController) execute(key string) error {
-
 	obj, exists, err := c.vmInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return nil
@@ -1123,7 +1125,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 
 	// start it
 	vmi := c.setupVMIFromVM(vm)
-	vmRevisionName, err := c.createVMRevision(vm)
+	vmRevisionName, err := c.createVMRevision(vm, revisionPrefixStart)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
 		return err
@@ -1472,12 +1474,12 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	return nil
 }
 
-func vmRevisionNamePrefix(vmUID types.UID) string {
-	return fmt.Sprintf("revision-start-vm-%s", vmUID)
+func vmRevisionNamePrefix(vmUID types.UID, prefix string) string {
+	return fmt.Sprintf("revision-%s-vm-%s", prefix, vmUID)
 }
 
-func getVMRevisionName(vmUID types.UID, generation int64) string {
-	return fmt.Sprintf("%s-%d", vmRevisionNamePrefix(vmUID), generation)
+func getVMRevisionName(vmUID types.UID, generation int64, prefix string) string {
+	return fmt.Sprintf("%s-%d", vmRevisionNamePrefix(vmUID, prefix), generation)
 }
 
 func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
@@ -1497,7 +1499,7 @@ func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
 	return patch, err
 }
 
-func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, error) {
+func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine, prefix string) (bool, error) {
 	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return false, err
@@ -1505,24 +1507,24 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 
 	createNotNeeded := false
 	for _, key := range keys {
+		if !strings.Contains(key, vmRevisionNamePrefix(vm.UID, prefix)) {
+			continue
+		}
+
 		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
 		if !exists || err != nil {
 			return false, err
 		}
-
 		cr, ok := storeObj.(*appsv1.ControllerRevision)
 		if !ok {
 			return false, fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		// check the revision is of the revisions that are created in the vm startup
-		if !strings.HasPrefix(cr.Name, vmRevisionNamePrefix(vm.UID)) {
-			continue
-		}
 		if cr.Revision == vm.ObjectMeta.Generation {
 			createNotNeeded = true
 			continue
 		}
+
 		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
 		if err != nil {
 			return false, err
@@ -1546,9 +1548,80 @@ func (c *VMController) getControllerRevision(namespace string, name string) (*ap
 	return cr, nil
 }
 
-func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, error) {
-	vmRevisionName := getVMRevisionName(vm.UID, vm.ObjectMeta.Generation)
-	createNotNeeded, err := c.deleteOlderVMRevision(vm)
+func (c *VMController) getVMSpecForKey(key string) (*virtv1.VirtualMachineSpec, error) {
+	obj, exists, err := c.crInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("could not find key %s", key)
+	}
+
+	cr, ok := obj.(*appsv1.ControllerRevision)
+	if !ok {
+		return nil, fmt.Errorf("unexpected resource %+v", obj)
+	}
+
+	raw := map[string]interface{}{}
+	err = json.Unmarshal(cr.Data.Raw, &raw)
+	if err != nil {
+		return nil, err
+	}
+	patch, err := json.Marshal(raw["spec"])
+	if err != nil {
+		return nil, err
+	}
+	vmSpec := virtv1.VirtualMachineSpec{}
+	err = json.Unmarshal(patch, &vmSpec)
+	if err != nil {
+		return nil, err
+	}
+	return &vmSpec, nil
+}
+
+func genFromKey(key string) (int64, error) {
+	items := strings.Split(key, "-")
+	genString := items[len(items)-1]
+	return strconv.ParseInt(genString, 10, 64)
+}
+
+func (c *VMController) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineSpec, error) {
+	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	var highestGen int64 = 0
+	var key string
+	for _, k := range keys {
+		if !strings.Contains(k, vmRevisionNamePrefix(vm.UID, revisionPrefixLastSeen)) {
+			continue
+		}
+		gen, err := genFromKey(k)
+		if err != nil {
+			return nil, fmt.Errorf("invalid key: %s", k)
+		}
+		if gen > highestGen {
+			if key != "" {
+				log.Log.Object(vm).Warningf("expected no more than 1 revision, found at least 2")
+			}
+			highestGen = gen
+			key = k
+		}
+	}
+
+	if key == "" {
+		return nil, fmt.Errorf("no revision found")
+	}
+	return c.getVMSpecForKey(key)
+}
+
+func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine, prefix string) (string, error) {
+	vmRevisionName := getVMRevisionName(vm.UID, vm.Generation, prefix)
+	createNotNeeded, err := c.deleteOlderVMRevision(vm, prefix)
 	if err != nil || createNotNeeded {
 		return vmRevisionName, err
 	}
@@ -2761,9 +2834,17 @@ func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (*virtv1.VirtualMachine, syncError, error) {
 	var syncErr syncError
 	var err error
+	var lastSeenVMSpec *virtv1.VirtualMachineSpec
 
 	if !c.needsSync(key) {
 		return vm, nil, nil
+	}
+
+	if vm.Generation > 1 {
+		lastSeenVMSpec, err = c.getLastVMRevisionSpec(vm)
+		if err != nil {
+			log.Log.Object(vm).Reason(err).Infof("no revision found")
+		}
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
@@ -2879,9 +2960,11 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			}
 		}
 
-		err = c.handleCPUChangeRequest(vmCopy, vmi)
-		if err != nil {
-			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
+		if lastSeenVMSpec == nil || !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec.Domain.CPU, vm.Spec.Template.Spec.Domain.CPU) {
+			err = c.handleCPUChangeRequest(vmCopy, vmi)
+			if err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
+			}
 		}
 
 		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
@@ -2904,6 +2987,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			}
 		}
 	}
+
+	_, err = c.createVMRevision(vm, revisionPrefixLastSeen)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
+		return vm, syncErr, err
+	}
+
 	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
 	return vm, syncErr, nil
