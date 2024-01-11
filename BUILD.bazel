@@ -54,12 +54,10 @@ nogo(
     # that are always correct).
     # You can see the what `go vet` does by running `go doc cmd/vet`.
     deps = [
-        # Nogo dependencies removed due to issue with gazelle recreating the
-        # Build.bazel files
-        #"//vendor/github.com/nunnatsa/ginkgolinter:go_default_library",
+        "//vendor/github.com/nunnatsa/ginkgolinter:go_default_library",
         "//tools/analyzers/banncheck:go_default_library",
-        #"//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_default_library",
-        #"//vendor/github.com/kisielk/errcheck/errcheck:go_default_library",
+        "//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_default_library",
+        "//vendor/github.com/kisielk/errcheck/errcheck:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/asmdecl:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/assign:go_default_library",
         "@org_golang_x_tools//go/analysis/passes/atomic:go_default_library",
