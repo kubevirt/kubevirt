@@ -323,3 +323,13 @@ func GetDiskCapacity(pvcInfo *virtv1.PersistentVolumeClaimInfo) *int64 {
 	preferredSize := Min(storageRequest, storageCapacity)
 	return &preferredSize
 }
+
+func GetFilesystemsFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.Filesystem {
+	fs := map[string]*virtv1.Filesystem{}
+
+	for _, f := range vmi.Spec.Domain.Devices.Filesystems {
+		fs[f.Name] = f.DeepCopy()
+	}
+
+	return fs
+}
