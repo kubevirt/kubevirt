@@ -255,6 +255,53 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		)
 	})
 
+	Context("Create upload volume using volume-mode flag", func() {
+		DescribeTable("Should succeed", func(volumeMode string) {
+			sc, exists := libstorage.GetRWOBlockStorageClass()
+			if !exists {
+				Skip("Skip test when RWOBlock storage class is not present")
+			}
+			targetName := "alpine-dv-" + rand.String(12)
+			defer deleteDataVolume(targetName)
+
+			By("Upload image")
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
+				"dv", targetName,
+				namespaceArg, testsuite.GetTestNamespace(nil),
+				"--image-path", imagePath,
+				sizeArg, pvcSize,
+				"--storage-class", sc,
+				"--volume-mode", volumeMode,
+				insecureArg)
+			err := virtctlCmd()
+			if err != nil {
+				fmt.Printf("UploadImage Error: %+v\n", err)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			validateDataVolume(targetName, sc)
+		},
+			Entry("block volumeMode", "block"),
+			Entry("filesystem volumeMode", "filesystem"),
+		)
+
+		It("Should fail with invalid volume-mode", func() {
+			targetName := "alpine-bad-dv-" + rand.String(12)
+			defer deleteDataVolume(targetName)
+
+			By("Upload image")
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
+				"dv", targetName,
+				namespaceArg, testsuite.GetTestNamespace(nil),
+				"--image-path", imagePath,
+				sizeArg, pvcSize,
+				"--volume-mode", "test",
+				insecureArg)
+			err := virtctlCmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Invalid volume mode 'test'. Valid values are 'block' and 'filesystem'"))
+		})
+	})
+
 	Context("Upload fails when DV is in WFFC/PendingPopulation phase", func() {
 		It("but uploads after consumer is created", func() {
 			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
