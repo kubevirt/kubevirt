@@ -834,7 +834,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("should automatically cancel unschedulable migration after a timeout period", func() {
 				// Add node affinity to ensure VMI affinity rules block target pod from being created
-				vmi := tests.NewRandomFedoraVMI(libvmi.WithNodeAffinityFor(&nodes.Items[0]))
+				vmi := tests.NewRandomFedoraVMI(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")

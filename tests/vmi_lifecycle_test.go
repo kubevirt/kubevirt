@@ -800,13 +800,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1635]the vmi with tolerations should be scheduled", func() {
-				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(&nodes.Items[0]))
+				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 			})
 
 			It("[test_id:1636]the vmi without tolerations should not be scheduled", func() {
-				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(&nodes.Items[0]))
+				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -832,7 +832,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
-				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(&nodes.Items[0]))
+				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
@@ -841,13 +841,13 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
-				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(&nodes.Items[0]))
+				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "VMI should run on the same node")
 
-				vmiB := libvmi.NewCirros(libvmi.WithNodeAffinityFor(&nodes.Items[0]))
+				vmiB := libvmi.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 
 				vmiB.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
@@ -1188,7 +1188,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				// Add node affinity first to test later on that although there is node affinity to
 				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
-				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(&nodes.Items[0]))
+				vmi := libvmi.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Features: []v1.CPUFeature{
