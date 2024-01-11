@@ -33,8 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
-	"kubevirt.io/kubevirt/pkg/util/hardware"
-
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
@@ -92,6 +90,9 @@ const (
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
 	failedMemoryDump                      = "Memory dump failed"
+	failedCleanupRestartRequired          = "Failed to delete RestartRequired condition or last-seen controller revisions"
+	failedGetLastSeenCRforVmErrMsg        = "Failed to get last-seen controller revision"
+	failedCreateLastSeenCRforVmErrMsg     = "Failed to create last-seen controller revision"
 
 	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
 	// ServiceAccount doesn't have permission to create a DataVolume
@@ -634,10 +635,6 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 }
 
 func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		return nil
-	}
-
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
@@ -646,9 +643,7 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
-	vmTemplVCPUs := hardware.GetNumberOfVCPUs(vm.Spec.Template.Spec.Domain.CPU)
-	vmiVCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-	if vmTemplVCPUs == vmiVCPUs {
+	if vm.Spec.Template.Spec.Domain.CPU.Sockets == vmi.Spec.Domain.CPU.Sockets {
 		return nil
 	}
 
@@ -659,6 +654,20 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 
 	if migrations.IsMigrating(vmi) {
 		return fmt.Errorf("CPU hotplug is not allowed while VMI is migrating")
+	}
+
+	// If the following is true, MaxSockets was calculated, not manually specified (or the validation webhook would have rejected the change).
+	// Since we're here, we can also assume MaxSockets was not changed in the VM spec since last boot.
+	// Therefore, bumping Sockets to a value higher than MaxSockets is fine, it just requires a reboot.
+	if vm.Spec.Template.Spec.Domain.CPU.Sockets > vmi.Spec.Domain.CPU.MaxSockets {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "CPU sockets updated in template spec to a value higher than what's available",
+		})
+		return nil
 	}
 
 	if err := c.VMICPUsPatch(vm, vmi); err != nil {
@@ -1111,12 +1120,27 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 	}
 }
 
+func (c *VMController) cleanupRestartRequired(vm *virtv1.VirtualMachine) error {
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
+	}
+
+	return c.deleteVMRevisions(vm, revisionPrefixLastSeen)
+}
+
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
 		return nil
+	}
+
+	err = c.cleanupRestartRequired(vm)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error(failedCleanupRestartRequired)
+		return err
 	}
 
 	// start it
@@ -1464,6 +1488,12 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		return err
 	}
 
+	err = c.cleanupRestartRequired(vm)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error(failedCleanupRestartRequired)
+		return nil
+	}
+
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
 	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s with phase %s", controller.NamespacedKey(vmi.Namespace, vmi.Name), vmi.Status.Phase)
 
@@ -1528,6 +1558,35 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine, prefix s
 	}
 
 	return createNotNeeded, nil
+}
+
+func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine, prefix string) error {
+	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return err
+	}
+
+	for _, key := range keys {
+		if !strings.Contains(key, vmRevisionNamePrefix(vm.UID, prefix)) {
+			continue
+		}
+
+		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
+		if !exists || err != nil {
+			return err
+		}
+		cr, ok := storeObj.(*appsv1.ControllerRevision)
+		if !ok {
+			return fmt.Errorf("unexpected resource %+v", storeObj)
+		}
+
+		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // getControllerRevision attempts to get the controller revision by name and
@@ -1597,6 +1656,7 @@ func (c *VMController) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1
 			continue
 		}
 		gen, err := genFromKey(k)
+
 		if err != nil {
 			return nil, fmt.Errorf("invalid key: %s", k)
 		}
@@ -1610,9 +1670,28 @@ func (c *VMController) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1
 	}
 
 	if key == "" {
-		return nil, fmt.Errorf("no revision found")
+		return nil, nil
 	}
+
 	return c.getVMSpecForKey(key)
+}
+
+func (c *VMController) hasLastSeenRevision(vm *virtv1.VirtualMachine) (bool, error) {
+	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return false, err
+	}
+	if len(keys) == 0 {
+		return false, nil
+	}
+
+	for _, k := range keys {
+		if strings.Contains(k, vmRevisionNamePrefix(vm.UID, revisionPrefixLastSeen)) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine, prefix string) (string, error) {
@@ -1694,7 +1773,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		}
 	}
 
-	c.setupLiveFeatures(vmi, VMIDefaults)
+	c.setupHotplug(vmi, VMIDefaults)
 
 	return vmi
 }
@@ -1796,6 +1875,10 @@ func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDe
 }
 
 func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
+	if vmi.Spec.Domain.Memory == nil {
+		return
+	}
+
 	if vmi.Spec.Domain.Memory.MaxGuest == nil {
 		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
 	}
@@ -2812,6 +2895,41 @@ func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 	vm.Status.VolumeRequests = tmpVolRequests
 }
 
+// addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
+func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
+	if lastSeenVMSpec == nil {
+		return false
+	}
+	// Ignore all the live-updatable fields by copying them over. (If the feature gate is disabled, nothing is live-updatable)
+	// Note: this list needs to stay up-to-date with everything that can be live-updated
+	// Note2: destroying lastSeenVMSpec here is fine, we don't need it later
+	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
+		lastSeenVMSpec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+		lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && vm.Spec.Template.Spec.Domain.CPU != nil {
+			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets
+		}
+		if lastSeenVMSpec.Template.Spec.Domain.Memory != nil && vm.Spec.Template.Spec.Domain.Memory != nil {
+			lastSeenVMSpec.Template.Spec.Domain.Memory.Guest = vm.Spec.Template.Spec.Domain.Memory.Guest
+		}
+		lastSeenVMSpec.Template.Spec.NodeSelector = vm.Spec.Template.Spec.NodeSelector
+		lastSeenVMSpec.Template.Spec.Affinity = vm.Spec.Template.Spec.Affinity
+	}
+
+	if !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec, vm.Spec.Template.Spec) {
+		vmConditionManager := controller.NewVirtualMachineConditionManager()
+		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "a non-live-updatable field was changed in the template spec",
+		})
+		return true
+	}
+
+	return false
+}
+
 func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (*virtv1.VirtualMachine, syncError, error) {
 	var syncErr syncError
 	var err error
@@ -2824,7 +2942,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	if vm.Generation > 1 {
 		lastSeenVMSpec, err = c.getLastVMRevisionSpec(vm)
 		if err != nil {
-			log.Log.Object(vm).Reason(err).Infof("no revision found")
+			return vm, nil, err
 		}
 	}
 
@@ -2897,6 +3015,8 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 	}
 
+	restartRequired := c.addRestartRequiredIfNeeded(lastSeenVMSpec, vm)
+
 	// Must check needsSync again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
 	// hotplugged volumes and interfaces
@@ -2941,21 +3061,21 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			}
 		}
 
-		if lastSeenVMSpec == nil || !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec.Domain.CPU, vm.Spec.Template.Spec.Domain.CPU) {
+		if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 			err = c.handleCPUChangeRequest(vmCopy, vmi)
 			if err != nil {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
 			}
-		}
 
-		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
-			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
-		}
+			if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
+			}
 
-		if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
-			syncErr = &syncErrorImpl{
-				err:    fmt.Errorf("error encountered while handling memory hotplug requests: %v", err),
-				reason: HotPlugMemoryErrorReason,
+			if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
+				syncErr = &syncErrorImpl{
+					err:    fmt.Errorf("error encountered while handling memory hotplug requests: %v", err),
+					reason: HotPlugMemoryErrorReason,
+				}
 			}
 		}
 
@@ -2969,9 +3089,18 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 	}
 
-	_, err = c.createVMRevision(vm, revisionPrefixLastSeen)
+	// Adding last-seen VM revision only once for now, since we don't yet have a revert process.
+	// Remove the hasLastSeenRevision() check to keep the last-seen CR up-to-date.
+	hasIt, err := c.hasLastSeenRevision(vm)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
+		log.Log.Object(vm).Reason(err).Error(failedGetLastSeenCRforVmErrMsg)
+		return vm, syncErr, err
+	}
+	if !hasIt {
+		_, err = c.createVMRevision(vm, revisionPrefixLastSeen)
+	}
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error(failedCreateLastSeenCRforVmErrMsg)
 		return vm, syncErr, err
 	}
 
@@ -3063,11 +3192,9 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		vmi.Status.Memory.GuestCurrent == nil ||
 		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*guestMemory) {
 		return nil
-
 	}
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
-
 	if conditionManager.HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionTrue) {
 		return fmt.Errorf("another memory hotplug is in progress")
@@ -3075,6 +3202,21 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	if migrations.IsMigrating(vmi) {
 		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
+	}
+
+	// If the following is true, MaxGuest was calculated, not manually specified (or the validation webhook would have rejected the change).
+	// Since we're here, we can also assume MaxGuest was not changed in the VM spec since last boot.
+	// Therefore, bumping Guest to a value higher than MaxGuest is fine, it just requires a reboot.
+	if vm.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Spec.Domain.Memory.MaxGuest != nil &&
+		vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Spec.Domain.Memory.MaxGuest) == 1 {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec to a value higher than what's available",
+		})
+		return nil
 	}
 
 	newMemoryReq := vm.Spec.Template.Spec.Domain.Memory.Guest.DeepCopy()
@@ -3136,8 +3278,7 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 	return err
 }
 
-func (c *VMController) setupLiveFeatures(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
-
+func (c *VMController) setupHotplug(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
 	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
 		return
 	}
