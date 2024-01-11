@@ -101,15 +101,18 @@ func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Op
 }
 
 func addDisk(vmi *v1.VirtualMachineInstance, disk v1.Disk) {
-	if !diskExists(vmi, disk) {
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+	if diskExists(vmi, disk) {
+		panic(fmt.Sprintf("Conflic! disk %s already exists", disk.Name))
 	}
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
 }
 
 func addVolume(vmi *v1.VirtualMachineInstance, volume v1.Volume) {
-	if !volumeExists(vmi, volume) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+	if volumeExists(vmi, volume) {
+		panic(fmt.Sprintf("Conflic! volume %s already exists", volume.Name))
 	}
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+
 }
 
 func addFilesystem(vmi *v1.VirtualMachineInstance, filesystem v1.Filesystem) {
