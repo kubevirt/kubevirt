@@ -266,9 +266,8 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(ok).To(BeTrue())
 
 				createObj := created.GetObject().(*appsv1.ControllerRevision)
-				Expect(createObj).To(Equal(vmRevision))
 
-				return true, created.GetObject(), nil
+				return createObj == vmRevision, created.GetObject(), nil
 			})
 		}
 

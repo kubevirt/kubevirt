@@ -288,7 +288,6 @@ func (c *VMController) Execute() bool {
 }
 
 func (c *VMController) execute(key string) error {
-
 	obj, exists, err := c.vmInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return nil
@@ -1505,6 +1504,10 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 
 	createNotNeeded := false
 	for _, key := range keys {
+		if !strings.Contains(key, vmRevisionNamePrefix(vm.UID)) {
+			continue
+		}
+
 		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
 		if !exists || err != nil {
 			return false, err
@@ -1515,10 +1518,6 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 			return false, fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		// check the revision is of the revisions that are created in the vm startup
-		if !strings.HasPrefix(cr.Name, vmRevisionNamePrefix(vm.UID)) {
-			continue
-		}
 		if cr.Revision == vm.ObjectMeta.Generation {
 			createNotNeeded = true
 			continue
@@ -1546,8 +1545,71 @@ func (c *VMController) getControllerRevision(namespace string, name string) (*ap
 	return cr, nil
 }
 
+func (c *VMController) getVMSpecForKey(key string) (*virtv1.VirtualMachineSpec, error) {
+	obj, exists, err := c.crInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("could not find key %s", key)
+	}
+
+	cr, ok := obj.(*appsv1.ControllerRevision)
+	if !ok {
+		return nil, fmt.Errorf("unexpected resource %+v", obj)
+	}
+
+	revisionData := VirtualMachineRevisionData{}
+	err = json.Unmarshal(cr.Data.Raw, &revisionData)
+	if err != nil {
+		return nil, err
+	}
+
+	return &revisionData.Spec, nil
+}
+
+func genFromKey(key string) (int64, error) {
+	items := strings.Split(key, "-")
+	genString := items[len(items)-1]
+	return strconv.ParseInt(genString, 10, 64)
+}
+
+func (c *VMController) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineSpec, error) {
+	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	var highestGen int64 = 0
+	var key string
+	for _, k := range keys {
+		if !strings.Contains(k, vmRevisionNamePrefix(vm.UID)) {
+			continue
+		}
+		gen, err := genFromKey(k)
+		if err != nil {
+			return nil, fmt.Errorf("invalid key: %s", k)
+		}
+		if gen > highestGen {
+			if key != "" {
+				log.Log.Object(vm).Warningf("expected no more than 1 revision, found at least 2")
+			}
+			highestGen = gen
+			key = k
+		}
+	}
+
+	if key == "" {
+		return nil, fmt.Errorf("no revision found")
+	}
+	return c.getVMSpecForKey(key)
+}
+
 func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, error) {
-	vmRevisionName := getVMRevisionName(vm.UID, vm.ObjectMeta.Generation)
+	vmRevisionName := getVMRevisionName(vm.UID, vm.Generation)
 	createNotNeeded, err := c.deleteOlderVMRevision(vm)
 	if err != nil || createNotNeeded {
 		return vmRevisionName, err
