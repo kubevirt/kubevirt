@@ -586,7 +586,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		DescribeTable("should report an error status when VM scheduling error occurs", func(unschedulableFunc func(vmi *v1.VirtualMachineInstance)) {
 			vmi := libvmi.New(
-				libvmi.WithContainerImage("no-such-image"),
+				libvmi.WithContainerDisk("disk0", "no-such-image"),
 				libvmi.WithResourceMemory("128Mi"),
 			)
 			unschedulableFunc(vmi)
@@ -612,7 +612,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("[test_id:6869]should report an error status when image pull error occurs", func() {
 			vmi := libvmi.New(
-				libvmi.WithContainerImage("no-such-image"),
+				libvmi.WithContainerDisk("disk0", "no-such-image"),
 				libvmi.WithResourceMemory("128Mi"),
 			)
 

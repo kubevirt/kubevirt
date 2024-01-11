@@ -43,7 +43,7 @@ bootcmd:
 func newFedoraRealtime(realtimeMask string) *v1.VirtualMachineInstance {
 	return libvmi.New(
 		libvmi.WithRng(),
-		libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
+		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
 		libvmi.WithCloudInitNoCloudEncodedUserData(tuneAdminRealtimeCloudInitData),
 		libvmi.WithLimitMemory(memory),
 		libvmi.WithLimitCPU("2"),

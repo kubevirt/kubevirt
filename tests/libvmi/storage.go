@@ -28,12 +28,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-// WithContainerImage specifies the name of the container image to be used.
-func WithContainerImage(name string) Option {
+// WithContainerDisk specifies the disk name and the name of the container image to be used.
+func WithContainerDisk(diskName, imageName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		diskName := "disk0"
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
-		addVolume(vmi, newContainerVolume(diskName, name))
+		addVolume(vmi, newContainerVolume(diskName, imageName))
 	}
 }
 

@@ -62,7 +62,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		const noMask = ""
 		vmi = libvmi.New(
 			libvmi.WithRng(),
-			libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
+			libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraRealtime)),
 			libvmi.WithCloudInitNoCloudEncodedUserData(tuneAdminRealtimeCloudInitData),
 			libvmi.WithResourceCPU("2"),
 			libvmi.WithLimitCPU("2"),
