@@ -70,15 +70,18 @@ github.com/emicklei/go-restful/v3/log
 # github.com/evanphx/json-patch v5.6.0+incompatible
 ## explicit
 github.com/evanphx/json-patch
-# github.com/fatih/color v1.10.0
+# github.com/fatih/color v1.13.0
 ## explicit; go 1.13
 github.com/fatih/color
 # github.com/fsnotify/fsnotify v1.6.0
 ## explicit; go 1.16
 github.com/fsnotify/fsnotify
-# github.com/go-kit/kit v0.10.0
-## explicit; go 1.13
+# github.com/go-kit/kit v0.13.0
+## explicit; go 1.17
 github.com/go-kit/kit/log
+# github.com/go-kit/log v0.2.1
+## explicit; go 1.17
+github.com/go-kit/log
 # github.com/go-logfmt/logfmt v0.6.0
 ## explicit; go 1.17
 github.com/go-logfmt/logfmt
@@ -247,11 +250,11 @@ github.com/machadovilaca/operator-observability/pkg/operatorrules
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/mattn/go-colorable v0.1.8
-## explicit; go 1.13
+# github.com/mattn/go-colorable v0.1.13
+## explicit; go 1.15
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
-## explicit; go 1.12
+# github.com/mattn/go-isatty v0.0.16
+## explicit; go 1.15
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 ## explicit; go 1.9
@@ -271,7 +274,7 @@ github.com/mitchellh/go-ps
 # github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 ## explicit
 github.com/mitchellh/go-vnc
-# github.com/mitchellh/mapstructure v1.4.1
+# github.com/mitchellh/mapstructure v1.5.0
 ## explicit; go 1.14
 github.com/mitchellh/mapstructure
 # github.com/moby/spdystream v0.2.0
