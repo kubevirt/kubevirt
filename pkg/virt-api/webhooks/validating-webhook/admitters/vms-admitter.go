@@ -796,40 +796,6 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 	return nil
 }
 
-func (admitter *VMsAdmitter) validateVMUpdate(oldVM, newVM *v1.VirtualMachine) []metav1.StatusCause {
-	if newVM.Status.Ready {
-		// Memory Hotplug
-		if oldVM.Spec.Template.Spec.Domain.Memory != nil && newVM.Spec.Template.Spec.Domain.Memory != nil {
-			oldGuestMemory := oldVM.Spec.Template.Spec.Domain.Memory.Guest
-			newGuestMemory := newVM.Spec.Template.Spec.Domain.Memory.Guest
-
-			if !oldGuestMemory.Equal(*newGuestMemory) {
-				if causeErr := admitter.shouldAllowMemoryHotPlug(newVM); causeErr != nil {
-					return []metav1.StatusCause{{
-						Type:    metav1.CauseTypeFieldValueNotSupported,
-						Message: causeErr.Error(),
-						Field:   k8sfield.NewPath("spec.template.spec.domain.memory.guest").String(),
-					}}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func (admitter *VMsAdmitter) shouldAllowMemoryHotPlug(vm *v1.VirtualMachine) error {
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Status.Memory.GuestAtBoot) < 0 {
-		return fmt.Errorf("cannot set less memory than what the guest booted with")
-	}
-	return nil
-}
-
 func (admitter *VMsAdmitter) isMigrationInProgress(vmi *v1.VirtualMachineInstance) error {
 	if vmi.Status.MigrationState != nil &&
 		!vmi.Status.MigrationState.Completed {
