@@ -55,6 +55,7 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				expectExactRuleExists(clusterRole.Rules, apiGroup, resource, verbs...)
 
 			},
+				Entry(fmt.Sprintf("get and list %s/%s", GroupName, ApiKubevirts), GroupName, ApiKubevirts, "get", "list"),
 				Entry(fmt.Sprintf("get and list %s/%s", virtv1.SubresourceGroupName, ApiVersion), virtv1.SubresourceGroupName, ApiVersion, "get", "list"),
 				Entry(fmt.Sprintf("get and list %s/%s", virtv1.SubresourceGroupName, ApiGuestFs), virtv1.SubresourceGroupName, ApiGuestFs, "get", "list"),
 			)
