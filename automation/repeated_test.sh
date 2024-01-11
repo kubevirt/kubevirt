@@ -41,7 +41,7 @@ export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
     cat <<EOF
-usage: [NUM_TESTS=x] [NEW_TESTS=tests/file_1.go|...|tests/file_n.go [TARGET_COMMIT=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
+usage: [NUM_TESTS=x] [NEW_TESTS=tests/file_1.go|...|tests/file_n.go [TARGET_COMMIT=a1b2c3d4] $0 [--dry-run|--force] [TEST_LANE]
 
     run tests repeatedly using the set of test files that have been changed or added since last merge commit
     set NEW_TESTS to explicitly name the test files to run
@@ -109,6 +109,7 @@ function should_skip_test_run_due_to_too_many_tests() {
 }
 
 ginko_params=''
+force_run_tests=''
 if (( $# > 0 )); then
     if [[ "$1" =~ -h ]]; then
         usage
@@ -117,6 +118,9 @@ if (( $# > 0 )); then
 
     if [[ "$1" =~ --dry-run ]]; then
         ginko_params='-dry-run'
+        shift
+    elif [[ "$1" =~ --force ]]; then
+        force_run_tests='true'
         shift
     fi
 fi
@@ -168,7 +172,7 @@ echo "Test files touched: $(echo "${NEW_TESTS}" | tr '|' ',')"
 NUM_TESTS=${NUM_TESTS-5}
 echo "Number of per lane runs: $NUM_TESTS"
 
-if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
+if [[ -z "${force_run_tests}" ]] && should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     echo "Skipping run due to number of tests in total being too high for repeated run."
     exit 0
 fi
