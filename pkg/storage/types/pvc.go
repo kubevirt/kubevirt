@@ -308,3 +308,13 @@ func GetDisksFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.
 
 	return disks
 }
+
+func GetFilesystemsFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.Filesystem {
+	fs := map[string]*virtv1.Filesystem{}
+
+	for _, f := range vmi.Spec.Domain.Devices.Filesystems {
+		fs[f.Name] = &f
+	}
+
+	return fs
+}
