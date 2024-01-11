@@ -2138,22 +2138,28 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			vmi := tests.NewRandomVMI()
+			tmpHostDiskDir := tests.RandTmpDir()
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerDisk("ephemeral-disk3", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n"),
+				libvmi.WithHostDisk("hostdisk", filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate),
+				// hostdisk needs a privileged namespace
+				libvmi.WithNamespace(testsuite.NamespacePrivileged),
+			)
 
-			By("adding disks to a VMI")
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			By("setting disk caches")
+			//ephemeral-disk1
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			//ephemeral-disk2
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
-
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk5", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			//ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-			tmpHostDiskDir := tests.RandTmpDir()
-			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -2185,7 +2191,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'none' has been set to cloud-init disk")
-			Expect(disks[4].Alias.GetName()).To(Equal("cloud-init"))
+			Expect(disks[4].Alias.GetName()).To(Equal("disk1"))
 			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
@@ -2346,7 +2352,15 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			nodeName = pod.Spec.NodeName
 			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
 
-			vmi := tests.NewRandomVMIWithHostDisk(tmpHostDiskPath, v1.HostDiskExistsOrCreate, nodeName)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithHostDisk("host-disk", tmpHostDiskPath, v1.HostDiskExists),
+				libvmi.WithNodeAffinityFor(nodeName),
+				// hostdisk needs a privileged namespace
+				libvmi.WithNamespace(testsuite.NamespacePrivileged),
+			)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{

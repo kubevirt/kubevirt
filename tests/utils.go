@@ -961,65 +961,6 @@ func DeletePvAndPvc(name string) {
 	}
 }
 
-// AddHostDisk
-//
-// Deprecated: Use libvmi
-func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDiskType, name string) {
-	hostDisk := v1.HostDisk{
-		Path: path,
-		Type: diskType,
-	}
-	if diskType == v1.HostDiskExistsOrCreate {
-		hostDisk.Capacity = resource.MustParse(defaultDiskSize)
-	}
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			HostDisk: &hostDisk,
-		},
-	})
-
-	// hostdisk needs a privileged namespace
-	vmi.Namespace = testsuite.NamespacePrivileged
-}
-
-// NewRandomVMIWithHostDisk
-//
-// Deprecated: Use libvmi
-func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-	AddHostDisk(vmi, diskPath, diskType, "host-disk")
-	if nodeName != "" {
-		vmi.Spec.Affinity = &k8sv1.Affinity{
-			NodeAffinity: &k8sv1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{
-									Key:      util2.KubernetesIoHostName,
-									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{nodeName},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-	}
-	return vmi
-}
-
 // AddConfigMapDisk
 //
 // Deprecated: Use libvmi

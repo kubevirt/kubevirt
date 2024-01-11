@@ -548,7 +548,14 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[Serial]With feature gates disabled for", Serial, func() {
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
 				tests.DisableFeatureGate(virtconfig.HostDiskGate)
-				vmi = tests.NewRandomVMIWithHostDisk("somepath", v1.HostDiskExistsOrCreate, "")
+				vmi = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithHostDisk("host-disk", "somepath", v1.HostDiskExistsOrCreate),
+					// hostdisk needs a privileged namespace
+					libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				)
 				virtClient := kubevirt.Client()
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).To(HaveOccurred())
@@ -597,8 +604,14 @@ var _ = SIGDescribe("Storage", func() {
 
 					DescribeTable("Should create a disk image and start", func(driver v1.DiskBus) {
 						By(startingVMInstance)
-						// do not choose a specific node to run the test
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
+						vmi = libvmi.New(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
+							// hostdisk needs a privileged namespace
+							libvmi.WithNamespace(testsuite.NamespacePrivileged),
+						)
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
 
 						tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -621,9 +634,15 @@ var _ = SIGDescribe("Storage", func() {
 
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
 						By(startingVMInstance)
-						// do not choose a specific node to run the test
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
-						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), v1.HostDiskExistsOrCreate, "anotherdisk")
+						vmi = libvmi.New(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
+							libvmi.WithHostDisk("anotherdisk", filepath.Join(hostDiskDir, "another.img"), v1.HostDiskExistsOrCreate),
+							// hostdisk needs a privileged namespace
+							libvmi.WithNamespace(testsuite.NamespacePrivileged),
+						)
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if another.img has been created")
@@ -670,7 +689,15 @@ var _ = SIGDescribe("Storage", func() {
 
 					It("[test_id:2306]Should use existing disk image and start", func() {
 						By(startingVMInstance)
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
+						vmi = libvmi.New(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExists),
+							libvmi.WithNodeAffinityFor(nodeName),
+							// hostdisk needs a privileged namespace
+							libvmi.WithNamespace(testsuite.NamespacePrivileged),
+						)
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img exists")
@@ -687,7 +714,15 @@ var _ = SIGDescribe("Storage", func() {
 
 					It("[test_id:847]Should fail with a capacity option", func() {
 						By(startingVMInstance)
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
+						vmi = libvmi.New(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExists),
+							libvmi.WithNodeAffinityFor(nodeName),
+							// hostdisk needs a privileged namespace
+							libvmi.WithNamespace(testsuite.NamespacePrivileged),
+						)
 						for i, volume := range vmi.Spec.Volumes {
 							if volume.HostDisk != nil {
 								vmi.Spec.Volumes[i].HostDisk.Capacity = resource.MustParse("1Gi")
@@ -702,7 +737,14 @@ var _ = SIGDescribe("Storage", func() {
 				Context("With unknown hostDisk type", func() {
 					It("[test_id:852]Should fail to start VMI", func() {
 						By(startingVMInstance)
-						vmi = tests.NewRandomVMIWithHostDisk("/data/unknown.img", "unknown", "")
+						vmi = libvmi.New(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithResourceMemory("128Mi"),
+							libvmi.WithHostDisk("host-disk", "/data/unknown.img", "unknown"),
+							// hostdisk needs a privileged namespace
+							libvmi.WithNamespace(testsuite.NamespacePrivileged),
+						)
 						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 						Expect(err).To(HaveOccurred())
 					})
@@ -824,7 +866,15 @@ var _ = SIGDescribe("Storage", func() {
 					configureToleration(10)
 
 					By(startingVMInstance)
-					vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+					vmi = libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
+						libvmi.WithNodeAffinityFor(pod.Spec.NodeName),
+						// hostdisk needs a privileged namespace
+						libvmi.WithNamespace(testsuite.NamespacePrivileged),
+					)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMI(vmi, 30)
 
@@ -842,7 +892,15 @@ var _ = SIGDescribe("Storage", func() {
 					configureToleration(30)
 
 					By(startingVMInstance)
-					vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+					vmi = libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithHostDisk("host-disk", diskPath, v1.HostDiskExistsOrCreate),
+						libvmi.WithNodeAffinityFor(pod.Spec.NodeName),
+						// hostdisk needs a privileged namespace
+						libvmi.WithNamespace(testsuite.NamespacePrivileged),
+					)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMIAndExpectLaunch(vmi, 30)
 
