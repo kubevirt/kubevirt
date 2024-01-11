@@ -114,6 +114,17 @@ func newDefaultClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
+					GroupName,
+				},
+				Resources: []string{
+					ApiKubevirts,
+				},
+				Verbs: []string{
+					"get", "list",
+				},
+			},
+			{
+				APIGroups: []string{
 					virtv1.SubresourceGroupName,
 				},
 				Resources: []string{
