@@ -1462,7 +1462,12 @@ func (t *templateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 }
 
 func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
-	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch(), t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
+	vmiCPUArch := vmi.Spec.Architecture
+	if vmiCPUArch == "" {
+		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
+	}
+	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	return VMIResourcePredicates{
 		vmi: vmi,
