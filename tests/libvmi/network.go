@@ -25,10 +25,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-const (
-	PasstBindingName = "passt"
-)
-
 // WithInterface adds a Domain Device Interface.
 func WithInterface(iface kvirtv1.Interface) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
@@ -102,9 +98,10 @@ func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 
 // InterfaceWithPasstBinding returns an Interface named "default" with passt binding plugin.
 func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
+	const passtBindingName = "passt"
 	return kvirtv1.Interface{
 		Name:    kvirtv1.DefaultPodNetwork().Name,
-		Binding: &kvirtv1.PluginBinding{Name: PasstBindingName},
+		Binding: &kvirtv1.PluginBinding{Name: passtBindingName},
 		Ports:   ports,
 	}
 }
