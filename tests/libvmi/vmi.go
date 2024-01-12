@@ -35,10 +35,16 @@ type Option func(vmi *v1.VirtualMachineInstance)
 
 // New instantiates a new VMI configuration,
 // building its properties based on the specified With* options.
+// By default, terminationGracePeriod=1 to imply that
+// the corresponded pod will not be deleted with force trying to
+// kill containers and unmount volumes first.
 func New(opts ...Option) *v1.VirtualMachineInstance {
 	vmi := baseVmi(randName())
 
-	WithTerminationGracePeriod(0)(vmi)
+	// The behavior for pods with spec.terminationGracePeriod: 0
+	// deleted without force is different, let's avoid that.
+	// See: https://github.com/kubernetes/kubernetes/issues/120671
+	WithTerminationGracePeriod(1)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}

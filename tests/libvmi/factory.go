@@ -37,6 +37,9 @@ const (
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, SR-IOV and more.
+// By default, terminationGracePeriod=1 to imply that
+// the corresponded pod will not be deleted with force trying to
+// kill containers and unmount volumes first.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []Option{
 		WithResourceMemory("512Mi"),
@@ -48,6 +51,9 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 }
 
 // NewCirros instantiates a new CirrOS based VMI configuration
+// By default, terminationGracePeriod=1 to imply that
+// the corresponded pod will not be deleted with force trying to
+// kill containers and unmount volumes first.
 func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, Cirros image takes 230s to allow login
 	withNonEmptyUserData := WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
@@ -62,6 +68,9 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
+// By default, terminationGracePeriod=1 to imply that
+// the corresponded pod will not be deleted with force trying to
+// kill containers and unmount volumes first.
 func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	alpineMemory := cirrosMemory
 	alpineOpts := []Option{

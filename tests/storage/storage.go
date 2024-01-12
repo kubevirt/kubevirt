@@ -295,8 +295,11 @@ var _ = SIGDescribe("Storage", func() {
 				)
 			})
 
-			DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
+			DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc, terminationGracePeriod *int64) {
 				vmi = newVMI(tests.DiskAlpineHostPath)
+				if terminationGracePeriod != nil {
+					vmi.Spec.TerminationGracePeriodSeconds = terminationGracePeriod
+				}
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
@@ -315,8 +318,10 @@ var _ = SIGDescribe("Storage", func() {
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			},
-				Entry("[test_id:3132]with Disk PVC", newRandomVMIWithPVC),
-				Entry("[test_id:3133]with CDRom PVC", newRandomVMIWithCDRom),
+				Entry("[test_id:3132]with Disk PVC", newRandomVMIWithPVC, nil),
+				Entry("[test_id:3133]with CDRom PVC", newRandomVMIWithCDRom, nil),
+				Entry("with Disk PVC and terminationGracePeriod = 0", newRandomVMIWithPVC, pointer.P(int64(0))),
+				Entry("with CDRom PVC and terminationGracePeriod = 0", newRandomVMIWithCDRom, pointer.P(int64(0))),
 			)
 		})
 
