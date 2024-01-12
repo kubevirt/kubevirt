@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -96,56 +95,6 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	deletePVC := func(targetName string) {
-		err := virtClient.CoreV1().PersistentVolumeClaims((testsuite.GetTestNamespace(nil))).Delete(context.Background(), targetName, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			return
-		}
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(func() bool {
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return true
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return false
-		}, 90*time.Second, 2*time.Second).Should(BeTrue())
-
-		Eventually(func() bool {
-			pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			for _, pv := range pvList.Items {
-				if ref := pv.Spec.ClaimRef; ref != nil {
-					if ref.Name == targetName {
-						return false
-					}
-				}
-			}
-			return true
-		}, 120*time.Second, 2*time.Second).Should(BeTrue())
-	}
-
-	deleteDataVolume := func(targetName string) {
-		err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			deletePVC(targetName)
-			return
-		}
-		Expect(err).ToNot(HaveOccurred())
-
-		Eventually(func() bool {
-			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return true
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return false
-		}, 90*time.Second, 2*time.Second).Should(BeTrue())
-
-		deletePVC(targetName)
-	}
-
 	validatePVC := func(targetName string, storageClass string) {
 		By("Validate no DataVolume")
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
@@ -158,12 +107,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	}
 
 	Context("[storage-req] Upload an image and start a VMI with PVC", decorators.StorageReq, func() {
-		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
+		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), startVM bool) {
 			sc, exists := libstorage.GetRWOBlockStorageClass()
 			if !exists {
 				Skip("Skip test when RWOBlock storage class is not present")
 			}
-			defer deleteFunc(targetName)
 
 			By("Upload image")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
@@ -199,8 +147,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolume, deleteDataVolume, true),
-			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVC, deletePVC, false),
+			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolume, true),
+			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVC, false),
 		)
 	})
 
@@ -229,12 +177,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	}
 
 	Context("Create upload volume with force-bind flag", func() {
-		DescribeTable("Should succeed", func(resource, targetName string, validateFunc func(string), deleteFunc func(string)) {
+		DescribeTable("Should succeed", func(resource, targetName string, validateFunc func(string)) {
 			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
 				Skip("Skip no wffc storage class available")
 			}
-			defer deleteFunc(targetName)
 
 			By("Upload image")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
@@ -250,8 +197,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(virtctlCmd()).To(Succeed())
 			validateFunc(targetName)
 		},
-			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolumeForceBind, deleteDataVolume),
-			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVCForceBind, deletePVC),
+			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolumeForceBind),
+			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVCForceBind),
 		)
 	})
 
@@ -262,7 +209,6 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				Skip("Skip test when RWOBlock storage class is not present")
 			}
 			targetName := "alpine-dv-" + rand.String(12)
-			defer deleteDataVolume(targetName)
 
 			By("Upload image")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
@@ -286,7 +232,6 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 		It("Should fail with invalid volume-mode", func() {
 			targetName := "alpine-bad-dv-" + rand.String(12)
-			defer deleteDataVolume(targetName)
 
 			By("Upload image")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
@@ -308,7 +253,6 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
 				Skip("Skip no wffc storage class available")
 			}
-			defer deleteDataVolume("target-dv")
 
 			By("Upload image")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
@@ -387,9 +331,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(contentType).To(Equal(string(cdiv1.DataVolumeArchive)))
 		}
 
-		DescribeTable("Should succeed", func(resource, targetName string, uploadDV bool, deleteFunc func(string)) {
-			defer deleteFunc(targetName)
-
+		DescribeTable("Should succeed", func(resource, targetName string, uploadDV bool) {
 			By("Upload archive content")
 			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				resource, targetName,
@@ -402,8 +344,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(virtctlCmd()).To(Succeed())
 			validateArchiveUpload(targetName, uploadDV)
 		},
-			Entry("DataVolume", "dv", "alpine-archive-dv-"+rand.String(12), true, deleteDataVolume),
-			Entry("PVC", "pvc", "alpine-archive-pvc-"+rand.String(12), false, deletePVC),
+			Entry("DataVolume", "dv", "alpine-archive-dv-"+rand.String(12), true),
+			Entry("PVC", "pvc", "alpine-archive-pvc-"+rand.String(12), false),
 		)
 	})
 
