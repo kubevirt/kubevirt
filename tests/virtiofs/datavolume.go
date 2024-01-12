@@ -82,7 +82,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 		}
 
-		DescribeTable("[Serial] should be successfully started and accessible", Serial, func(namespace string, option1, option2 libvmi.Option) {
+		DescribeTable("[Serial] should be successfully started and accessible", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
 				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			} else {
@@ -112,7 +112,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithFilesystemPVC(pvc1),
 				libvmi.WithFilesystemPVC(pvc2),
 				libvmi.WithNamespace(namespace),
-				option1, option2,
 			)
 
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
@@ -145,10 +144,8 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 		},
-			Entry("(privileged virtiofsd)", testsuite.NamespacePrivileged, func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
-			Entry("with passt enabled (privileged virtiofsd)", testsuite.NamespacePrivileged, libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
-			Entry("(unprivileged virtiofsd)", util.NamespaceTestDefault, func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
-			Entry("with passt enabled (unprivileged virtiofsd)", util.NamespaceTestDefault, libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
+			Entry("(privileged virtiofsd)", testsuite.NamespacePrivileged),
+			Entry("(unprivileged virtiofsd)", util.NamespaceTestDefault),
 		)
 	})
 

@@ -84,7 +84,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 
 	createSriovNetworkAttachmentDefinition := func(networkName string, namespace string, networkAttachmentDefinition string) error {
 		sriovNad := fmt.Sprintf(networkAttachmentDefinition, networkName, namespace, sriovResourceName)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, sriovNad)
+		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, sriovNad)
 	}
 
 	BeforeEach(func() {

@@ -26,23 +26,13 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	k8sv1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
 	expect "github.com/google/goexpect"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	netservice "kubevirt.io/kubevirt/tests/libnet/service"
-
 	batchv1 "k8s.io/api/batch/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,13 +41,21 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkvconfig"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/job"
+	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -108,9 +106,6 @@ var istioTests = func(vmType VmType) {
 	)
 	BeforeEach(func() {
 		namespace = testsuite.GetTestNamespace(nil)
-		if vmType == Passt {
-			Expect(checks.HasFeature(deprecation.PasstGate)).To(BeTrue())
-		}
 	})
 
 	BeforeEach(func() {
@@ -467,12 +462,31 @@ var istioTestsWithMasqueradeBinding = func() {
 }
 
 var istioTestsWithPasstBinding = func() {
+	BeforeEach(func() {
+		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+	})
+
+	BeforeEach(func() {
+		const passtBindingName = "passt"
+		const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+
+		err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+			SidecarImage:                passtSidecarImage,
+			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	BeforeEach(func() {
+		Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
+	})
+
 	istioTests(Passt)
 }
 
 var _ = SIGDescribe("[Serial] Istio with masquerade binding", decorators.Istio, Serial, istioTestsWithMasqueradeBinding)
 
-var _ = SIGDescribe("[Serial] Istio with passt binding", decorators.Istio, decorators.PasstGate, Serial, istioTestsWithPasstBinding)
+var _ = SIGDescribe("[Serial] Istio with passt binding", decorators.Istio, decorators.NetCustomBindingPlugins, Serial, istioTestsWithPasstBinding)
 
 func istioServiceMeshDeployed() bool {
 	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"
@@ -505,7 +519,7 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(ports...)),
+		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.ISTIO_INJECT_ANNOTATION, "true"),
 		libvmi.WithCloudInitNoCloudEncodedUserData(enablePasswordAuth()),

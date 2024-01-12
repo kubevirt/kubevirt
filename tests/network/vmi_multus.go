@@ -60,7 +60,6 @@ const (
 )
 
 const (
-	postUrl            = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	linuxBridgeConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\", \"vlan\": %d, \"ipam\": {%s}, \"macspoofchk\": %t, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
 	ptpConfNAD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
 )
@@ -147,11 +146,11 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 	createBridgeNetworkAttachmentDefinition := func(namespace, networkName string, bridgeCNIType string, bridgeName string, vlan int, ipam string, macSpoofCheck bool) error {
 		bridgeNad := fmt.Sprintf(linuxBridgeConfNAD, networkName, namespace, bridgeCNIType, bridgeName, vlan, ipam, macSpoofCheck)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, bridgeNad)
+		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, bridgeNad)
 	}
 	createPtpNetworkAttachmentDefinition := func(namespace, networkName, subnet string) error {
 		ptpNad := fmt.Sprintf(ptpConfNAD, networkName, namespace, subnet)
-		return createNetworkAttachmentDefinition(virtClient, networkName, namespace, ptpNad)
+		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, ptpNad)
 	}
 
 	BeforeEach(func() {
@@ -750,15 +749,6 @@ func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName str
 	}
 
 	return nil
-}
-
-func createNetworkAttachmentDefinition(virtClient kubecli.KubevirtClient, name, namespace, nad string) error {
-	return virtClient.RestClient().
-		Post().
-		RequestURI(fmt.Sprintf(postUrl, namespace, name)).
-		Body([]byte(nad)).
-		Do(context.Background()).
-		Error()
 }
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string, userModifierPrefix ...string) error {

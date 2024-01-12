@@ -33,18 +33,12 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkvconfig"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-)
-
-const (
-	passtBindingName  = "passt"
-	passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
-	passtNetAttDef    = "netbindingpasst"
-	passtType         = "kubevirt-passt-binding"
 )
 
 var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
@@ -53,27 +47,27 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
 	})
 
-	Context("passt", func() {
+	Context("with CNI and Sidecar", func() {
 		BeforeEach(func() {
+			const passtBindingName = "passt"
+			const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+
 			err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
-				NetworkAttachmentDefinition: passtNetAttDef,
+				NetworkAttachmentDefinition: libnet.PasstNetAttDef,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		BeforeEach(func() {
-			namespace := testsuite.GetTestNamespace(nil)
-			Expect(createBasicNetworkAttachmentDefinition(namespace, passtNetAttDef, passtType)).To(Succeed())
+			Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
 		})
 
 		It("can be used by a VM as its primary network", func() {
 			const (
 				macAddress = "02:00:00:00:00:02"
 			)
-			passtIface := libvmi.InterfaceDeviceWithBindingPlugin(
-				libvmi.DefaultInterfaceName, v1.PluginBinding{Name: passtBindingName},
-			)
+			passtIface := libvmi.InterfaceWithPasstBindingPlugin()
 			passtIface.MacAddress = macAddress
 			vmi := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(passtIface),
@@ -101,7 +95,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		})
 	})
 
-	Context("macvtap", func() {
+	Context("with domain attachment type", func() {
 		const (
 			macvtapNetworkConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
 			macvtapBindingName    = "macvtap"
@@ -112,7 +106,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 		BeforeEach(func() {
 			macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, macvtapNetworkName, testsuite.GetTestNamespace(nil), macvtapLowerDevice, macvtapNetworkName)
 			namespace := testsuite.GetTestNamespace(nil)
-			Expect(createNetworkAttachmentDefinition(kubevirt.Client(), macvtapNetworkName, namespace, macvtapNad)).
+			Expect(libnet.CreateNetworkAttachmentDefinition(macvtapNetworkName, namespace, macvtapNad)).
 				To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 		})
 
@@ -130,7 +124,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			chosenMAC = chosenMACHW.String()
 
 			ifaceName := "macvtapIface"
-			macvtapIface := libvmi.InterfaceDeviceWithBindingPlugin(
+			macvtapIface := libvmi.InterfaceWithBindingPlugin(
 				ifaceName, v1.PluginBinding{Name: macvtapBindingName},
 			)
 			vmi = libvmi.NewAlpineWithTestTooling(
@@ -150,13 +144,3 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 
 	})
 })
-
-func createBasicNetworkAttachmentDefinition(namespace, nadName, typeName string) error {
-	const netAttDefBasicFormat = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":%q,"namespace":%q},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"%s\"}]}"}}`
-	return createNetworkAttachmentDefinition(
-		kubevirt.Client(),
-		nadName,
-		namespace,
-		fmt.Sprintf(netAttDefBasicFormat, nadName, namespace, nadName, typeName),
-	)
-}

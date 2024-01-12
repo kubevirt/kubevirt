@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bindingplugin.go",
+        "bindingplugin_passt.go",
         "dual_stack_cluster.go",
         "expose.go",
         "framework.go",

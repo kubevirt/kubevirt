@@ -247,10 +247,6 @@ func WithCPUFeature(featureName, policy string) Option {
 	}
 }
 
-func WithPasstInterfaceWithPort() Option {
-	return WithInterface(InterfaceDeviceWithPasstBinding([]v1.Port{{Port: 1234, Protocol: "TCP"}}...))
-}
-
 func WithNodeAffinityFor(node *k8sv1.Node) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		nodeSelectorTerm := k8sv1.NodeSelectorTerm{
