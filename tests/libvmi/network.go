@@ -26,8 +26,7 @@ import (
 )
 
 const (
-	DefaultInterfaceName = "default"
-	PasstBindingName     = "passt"
+	PasstBindingName = "passt"
 )
 
 // WithInterface adds a Domain Device Interface.
@@ -62,7 +61,7 @@ func WithPasstInterfaceWithPort() Option {
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
-		Name: DefaultInterfaceName,
+		Name: kvirtv1.DefaultPodNetwork().Name,
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
 			Masquerade: &kvirtv1.InterfaceMasquerade{},
 		},
@@ -104,7 +103,7 @@ func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 // InterfaceWithPasstBinding returns an Interface named "default" with passt binding plugin.
 func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
-		Name:    DefaultInterfaceName,
+		Name:    kvirtv1.DefaultPodNetwork().Name,
 		Binding: &kvirtv1.PluginBinding{Name: PasstBindingName},
 		Ports:   ports,
 	}

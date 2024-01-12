@@ -410,7 +410,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
 		It("[test_id:1773]should configure custom MAC address", func() {
 			By(checkingEth0MACAddr)
-			slirpIface := libvmi.InterfaceDeviceWithSlirpBinding(libvmi.DefaultInterfaceName)
+			slirpIface := libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name)
 			slirpIface.MacAddress = "de:ad:00:00:be:af"
 			deadbeafVMI := libvmi.NewAlpine(
 				libvmi.WithInterface(slirpIface),
