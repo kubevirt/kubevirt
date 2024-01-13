@@ -41,12 +41,12 @@ import (
 
 var _ = Describe("Virt remote commands", func() {
 
-	var err error
-	var shareDir string
-	var socketsDir string
-	var podsDir string
-	var vmi *v1.VirtualMachineInstance
-	var podSocketFile string
+	var (
+		shareDir      string
+		podsDir       string
+		vmi           *v1.VirtualMachineInstance
+		podSocketFile string
+	)
 
 	host := "myhost"
 	podUID := "poduid123"
@@ -60,20 +60,19 @@ var _ = Describe("Virt remote commands", func() {
 			},
 		}
 
+		var err error
 		shareDir, err = os.MkdirTemp("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
 		podsDir, err = os.MkdirTemp("", "pods")
 		Expect(err).ToNot(HaveOccurred())
 
-		socketsDir = filepath.Join(shareDir, "sockets")
-		os.Mkdir(socketsDir, 0755)
-
 		SetLegacyBaseDir(shareDir)
 		SetPodsBaseDir(podsDir)
 
 		podSocketFile = SocketFilePathOnHost(podUID)
 
+		// Create a new socket
 		os.MkdirAll(filepath.Dir(podSocketFile), 0755)
 		f, err := os.Create(podSocketFile)
 		Expect(err).ToNot(HaveOccurred())
@@ -111,35 +110,33 @@ var _ = Describe("Virt remote commands", func() {
 			sock, err := FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
+			Expect(IsSocketUnresponsive(sock)).To(BeFalse())
+
 			os.RemoveAll(sock)
 
 			// unresponsive is true when no socket file exists
-			unresponsive := IsSocketUnresponsive(sock)
-			Expect(unresponsive).To(BeTrue())
+			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
 
 			// unresponsive is false when socket file exists
 			os.Mkdir(filepath.Dir(sock), 0755)
 			f, err := os.Create(sock)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
-			unresponsive = IsSocketUnresponsive(sock)
-			Expect(unresponsive).To(BeFalse())
+			Expect(IsSocketUnresponsive(sock)).To(BeFalse())
 
 			// unresponsive is true when marked as unresponsive
 			MarkSocketUnresponsive(sock)
-			unresponsive = IsSocketUnresponsive(sock)
-			Expect(unresponsive).To(BeTrue())
+			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
 		})
 
 		Context("exec", func() {
 			var (
-				ctrl          *gomock.Controller
 				mockCmdClient *cmdv1.MockCmdClient
 				client        LauncherClient
 			)
 
 			BeforeEach(func() {
-				ctrl = gomock.NewController(GinkgoT())
+				ctrl := gomock.NewController(GinkgoT())
 				mockCmdClient = cmdv1.NewMockCmdClient(ctrl)
 				client = newV1Client(mockCmdClient, nil)
 			})
