@@ -68,6 +68,7 @@ var _ = Describe("Virt remote commands", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		SetLegacyBaseDir(shareDir)
+		SetBaseDir(shareDir)
 		SetPodsBaseDir(podsDir)
 
 		podSocketFile = SocketFilePathOnHost(podUID)

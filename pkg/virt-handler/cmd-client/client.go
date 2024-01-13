@@ -61,6 +61,7 @@ var (
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
 	legacyBaseDir        = "/var/run/kubevirt"
+	baseDir              = "/var/run/kubevirt"
 	podsBaseDir          = "/pods"
 )
 
@@ -124,6 +125,10 @@ const (
 	longTimeout  time.Duration = 20 * time.Second
 )
 
+func SetBaseDir(dir string) {
+	baseDir = dir
+}
+
 func SetLegacyBaseDir(baseDir string) {
 	legacyBaseDir = baseDir
 }
@@ -160,6 +165,10 @@ func ListAllSockets() ([]string, error) {
 
 func LegacySocketsDirectory() string {
 	return filepath.Join(legacyBaseDir, "sockets")
+}
+
+func SocketsDirectory() string {
+	return filepath.Join(baseDir, "sockets")
 }
 
 func IsSocketUnresponsive(socket string) bool {
@@ -242,12 +251,12 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 
 func SocketOnGuest() string {
 	sockFile := StandardLauncherSocketFileName
-	return filepath.Join(LegacySocketsDirectory(), sockFile)
+	return filepath.Join(SocketsDirectory(), sockFile)
 }
 
 func UninitializedSocketOnGuest() string {
 	sockFile := StandardInitLauncherSocketFileName
-	return filepath.Join(LegacySocketsDirectory(), sockFile)
+	return filepath.Join(SocketsDirectory(), sockFile)
 }
 
 func NewClient(socketPath string) (LauncherClient, error) {
