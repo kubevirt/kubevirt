@@ -267,7 +267,6 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	cmdclient.SetPodsBaseDir("/pods")
-	cmdclient.SetLegacyBaseDir(app.VirtShareDir)
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
 	if err := app.prepareCertManager(); err != nil {

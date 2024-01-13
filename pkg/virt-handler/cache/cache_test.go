@@ -53,7 +53,6 @@ var _ = Describe("Domain informer", func() {
 	var err error
 	var shareDir string
 	var podsDir string
-	var socketsDir string
 	var ghostCacheDir string
 	var informer cache.SharedInformer
 	var stopChan chan struct{}
@@ -81,12 +80,7 @@ var _ = Describe("Domain informer", func() {
 
 		InitializeGhostRecordCache(ghostCacheDir)
 
-		cmdclient.SetLegacyBaseDir(shareDir)
 		cmdclient.SetPodsBaseDir(podsDir)
-
-		socketsDir = filepath.Join(shareDir, "sockets")
-		os.Mkdir(socketsDir, 0755)
-		os.Mkdir(filepath.Join(socketsDir, "1234"), 0755)
 
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
@@ -416,11 +410,6 @@ var _ = Describe("Domain informer", func() {
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
 			domainManager.EXPECT().InterfacesStatus().Return([]api.InterfaceStatus{})
 
-			// This file doesn't have a unix sock server behind it
-			// verify list still completes regardless
-			f, err := os.Create(filepath.Join(socketsDir, "default_fakevm_sock"))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 			// ensure we can connect to the server first.
 			client, err := cmdclient.NewClient(socketPath)

@@ -156,7 +156,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
 
-		cmdclient.SetLegacyBaseDir(shareDir)
 		cmdclient.SetPodsBaseDir(podsDir)
 
 		store, err := certificates.GenerateSelfSignedCert(certDir, "test", "test")

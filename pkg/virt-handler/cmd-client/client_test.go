@@ -67,7 +67,6 @@ var _ = Describe("Virt remote commands", func() {
 		podsDir, err = os.MkdirTemp("", "pods")
 		Expect(err).ToNot(HaveOccurred())
 
-		SetLegacyBaseDir(shareDir)
 		SetBaseDir(shareDir)
 		SetPodsBaseDir(podsDir)
 

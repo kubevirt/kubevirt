@@ -60,7 +60,6 @@ var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
-	legacyBaseDir        = "/var/run/kubevirt"
 	baseDir              = "/var/run/kubevirt"
 	podsBaseDir          = "/pods"
 )
@@ -129,10 +128,6 @@ func SetBaseDir(dir string) {
 	baseDir = dir
 }
 
-func SetLegacyBaseDir(baseDir string) {
-	legacyBaseDir = baseDir
-}
-
 func SetPodsBaseDir(baseDir string) {
 	podsBaseDir = baseDir
 }
@@ -161,10 +156,6 @@ func ListAllSockets() ([]string, error) {
 	}
 
 	return socketFiles, nil
-}
-
-func LegacySocketsDirectory() string {
-	return filepath.Join(legacyBaseDir, "sockets")
 }
 
 func SocketsDirectory() string {
