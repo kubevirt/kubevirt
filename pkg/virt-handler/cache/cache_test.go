@@ -50,7 +50,6 @@ func clearGhostRecordCache() {
 }
 
 var _ = Describe("Domain informer", func() {
-	var err error
 	var shareDir string
 	var podsDir string
 	var ghostCacheDir string
@@ -69,6 +68,7 @@ var _ = Describe("Domain informer", func() {
 		stopChan = make(chan struct{})
 		wg = &sync.WaitGroup{}
 
+		var err error
 		shareDir, err = os.MkdirTemp("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -430,7 +430,7 @@ var _ = Describe("Domain informer", func() {
 			client := notifyclient.NewNotifier(shareDir)
 
 			// verify add
-			err = client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
+			err := client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 
