@@ -269,10 +269,6 @@ func (app *virtHandlerApp) Run() {
 	cmdclient.SetPodsBaseDir("/pods")
 	cmdclient.SetLegacyBaseDir(app.VirtShareDir)
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
-	err = os.MkdirAll(cmdclient.LegacySocketsDirectory(), 0755)
-	if err != nil {
-		panic(err)
-	}
 
 	if err := app.prepareCertManager(); err != nil {
 		glog.Fatalf("Error preparing the certificate manager: %v", err)
