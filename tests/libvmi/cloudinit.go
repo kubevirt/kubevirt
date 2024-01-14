@@ -56,6 +56,9 @@ func WithCloudInitNoCloudNetworkData(data string) Option {
 		addDiskVolumeWithCloudInitNoCloud(vmi, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
+		if volume.CloudInitNoCloud.NetworkData != "" {
+			panic("Network Data are already set in NoCloud")
+		}
 		volume.CloudInitNoCloud.NetworkData = data
 	}
 }
@@ -79,12 +82,14 @@ func addDiskVolumeWithCloudInitConfigDrive(vmi *v1.VirtualMachineInstance, diskN
 }
 
 func addDiskVolumeWithCloudInitNoCloud(vmi *v1.VirtualMachineInstance, bus v1.DiskBus) {
-	addDisk(vmi, newDisk(cloudInitDiskName, bus))
-	v := newVolume(cloudInitDiskName)
-	setCloudInitNoCloud(&v, &v1.CloudInitNoCloudSource{})
-	addVolume(vmi, v)
-}
+	disk := newDisk(cloudInitDiskName, bus)
+	if !diskExists(vmi, disk) {
+		addDisk(vmi, disk)
+	}
 
-func setCloudInitNoCloud(volume *v1.Volume, source *v1.CloudInitNoCloudSource) {
-	volume.VolumeSource = v1.VolumeSource{CloudInitNoCloud: source}
+	volume := newVolume(cloudInitDiskName)
+	if !volumeExists(vmi, volume) {
+		volume.VolumeSource = v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{}}
+		addVolume(vmi, volume)
+	}
 }
