@@ -30,7 +30,7 @@ const cloudInitDiskName = "disk1"
 // WithCloudInitNoCloudUserData adds cloud-init no-cloud user data.
 func WithCloudInitNoCloudUserData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+		addDiskVolumeWithCloudInitNoCloud(vmi, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
 		volume.CloudInitNoCloud.UserData = data
@@ -41,7 +41,7 @@ func WithCloudInitNoCloudUserData(data string) Option {
 // WithCloudInitNoCloudEncodedUserData adds cloud-init no-cloud base64-encoded user data
 func WithCloudInitNoCloudEncodedUserData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+		addDiskVolumeWithCloudInitNoCloud(vmi, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
 		encodedData := base64.StdEncoding.EncodeToString([]byte(data))
@@ -53,7 +53,7 @@ func WithCloudInitNoCloudEncodedUserData(data string) Option {
 // WithCloudInitNoCloudNetworkData adds cloud-init no-cloud network data.
 func WithCloudInitNoCloudNetworkData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+		addDiskVolumeWithCloudInitNoCloud(vmi, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
 		volume.CloudInitNoCloud.NetworkData = data
@@ -78,9 +78,9 @@ func addDiskVolumeWithCloudInitConfigDrive(vmi *v1.VirtualMachineInstance, diskN
 	addVolume(vmi, v)
 }
 
-func addDiskVolumeWithCloudInitNoCloud(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus) {
-	addDisk(vmi, newDisk(diskName, bus))
-	v := newVolume(diskName)
+func addDiskVolumeWithCloudInitNoCloud(vmi *v1.VirtualMachineInstance, bus v1.DiskBus) {
+	addDisk(vmi, newDisk(cloudInitDiskName, bus))
+	v := newVolume(cloudInitDiskName)
 	setCloudInitNoCloud(&v, &v1.CloudInitNoCloudSource{})
 	addVolume(vmi, v)
 }
