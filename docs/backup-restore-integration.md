@@ -285,3 +285,146 @@ PersistentVolumeClaims ***owned by DataVolumes*** must have the following ***ann
 ```yaml
 cdi.kubevirt.io/storage.populatedFor: <datavolume name>
 ```
+
+## Validate backup partner compatibility
+In this section, we will describe the different scenarios a backup partner should test in order to assess its compatibility with Kubevirt.
+
+### Prerequisites
+Cluster with the backup software and storage existing and Kubevirt + CDI installed.
+
+To validate there are two options:
+### Automatically
+This requires some extra effort.
+The tests are in our kubevirt-velero-plugin [repo](https://github.com/kubevirt/kubevirt-velero-plugin/tree/main/tests) marked with a label `PartnerComp`.
+You will need to adjust some env variables and the **backup and restore functions** in those tests.
+The env variables to adjust if needed:
+export KUBEVIRT_PROVIDER=external
+KUBECONFIG
+KUBECTL
+KVP_STORAGE_CLASS - define the storage class that should be used for the volumes storage (if not set the default is chosen)
+KVP_BACKUP_NS - the backup namespace (if not set velero is chosen)
+To run the tests run the following command:
+`$make TEST_ARGS="--test-args=-ginkgo.label-filter=PartnerComp" test-functional`
+
+### Manually
+All the manifests are at: [https://github.com/kubevirt/kubevirt-velero-plugin/tree/main/tests/manifests](https://github.com/kubevirt/kubevirt-velero-plugin/tree/main/tests/manifests)
+You will need to replace manually the storageClassName in each yaml with the appropriate storageclass, or you can use the following command instead of each apply in the tests descriptions:
+`$cat <YAML_PATH> | sed 's/{{KVP_STORAGE_CLASS}}/<DESIRED_STORAGE_CLASS>/g' | kubectl create -f -n <NAMESPACE> -`
+
+#### VMI with a standalone DV
+Create namespace
+`$kubectl create ns <NAMESPACE>`
+
+Apply DV yaml and wait for it to reach Succeeded state
+`$kubectl apply -f -n <NAMESPACE> dv-with-guest-agent-image.yaml`
+
+Apply VMI yaml and wait for it to be Running:
+`$kubectl apply -f -n <NAMESPACE> vmi_with_dv.yaml.yaml`
+Make sure you see in the VMI conditions `AgentConnected`
+
+Create backup for the namespace, wait for it to complete successfully.
+
+Delete namespace
+
+Create restore from the backup and wait for completion.
+
+Check DV reaches succeeded state right away.
+
+Check VMI reaches Running state.
+
+#### VM stopped with ConfigMap, Secret and DVTemplate
+Create namespace
+`$kubectl create ns <NAMESPACE>`
+
+Apply ConfigMap
+`$kubectl apply -f -n <NAMESPACE> configmap.yaml`
+
+Apply Secret
+`$kubectl apply -f -n <NAMESPACE> secret.yaml`
+
+Apply VM yaml and wait for it to be Running:
+`$kubectl apply -f -n <NAMESPACE> vm_with_different_volume_types.yaml`
+
+Stop VM and wait for it to be Stopped
+
+Create backup for the namespace, wait for it to complete successfully.
+
+Delete namespace
+
+Create restore from the backup and wait for completion.
+
+Check DV reaches succeeded state right away.
+
+check ConfigMap and Secret exists
+
+Check VM is in stopped state.
+
+Start VM and wait for it to be Running.
+
+#### VM running with standalone PVC
+Create namespace
+`$kubectl create ns <NAMESPACE>`
+
+Apply DV manifest to get a populated PVC wait for DV to be succeeded:
+`$kubectl apply -f -n <NAMESPACE> dv-for-pvc.yaml`
+
+Apply VM yaml and wait for it to be Running:
+`$kubectl apply -f -n <NAMESPACE> vm_with_pvc.yaml`
+
+Stop VM and wait for it to be Stopped
+
+Create backup for the namespace, wait for it to complete successfully.
+
+Delete namespace
+
+Create restore from the backup and wait for completion.
+
+Check PVC exists and Bound
+
+Check VM reaches Running state.
+
+#### VM with hotplug
+Create namespace
+`$kubectl create ns <NAMESPACE>`
+
+Apply VM yaml and wait for it to be Running:
+`$kubectl apply -f -n <NAMESPACE> vm_for_hotplug.yaml`
+
+Apply DV manifest and wait for it to be succeeded:
+`$kubectl apply -f -n <NAMESPACE> blank_datavolume.yaml`
+
+Dynamically attach a volume to the running VM.
+`$virtctl addvolume test-vm-for-hotplug --volume-name=test-dv`
+Wait to see the attached volume in the VMI volumes and disks lists(vmi.Spec.Volumes, vmi.Spec.Domain.Devices.Disks)
+
+Create backup for the namespace, wait for it to complete successfully.
+
+Delete namespace
+
+Create restore from the backup and wait for completion.
+
+Check DV test-dv succeeded state right away.
+
+Check VM reaches Running state and that the attached volume is in the VMI volumes and disks lists(vmi.Spec.Volumes, vmi.Spec.Domain.Devices.Disks)
+
+#### VM with instancetype and preference
+Create namespace
+`$kubectl create ns <NAMESPACE>`
+
+Apply Instancetype
+`$kubectl apply -f -n <NAMESPACE> instancetype.yaml`
+
+Apply Preference
+`$kubectl apply -f -n <NAMESPACE> preference.yaml`
+
+Apply VM yaml and wait for it to be Running:
+`$kubectl apply -f -n <NAMESPACE> vm_with_instancetype_and_preference.yaml`
+Check revision names updated in VM spec (vm.Spec.Instancetype.RevisionName, vm.Spec.Preference.RevisionName)
+
+Create backup for the namespace, wait for it to complete successfully.
+
+Delete namespace
+
+Create restore from the backup and wait for completion.
+
+Check VM reaches Running state
