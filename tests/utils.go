@@ -675,31 +675,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	return vmi
 }
 
-
-// AddPVCDisk
-//
-// Deprecated: Use libvmi
-func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, claimName string) *v1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			}},
-		},
-	})
-
-	return vmi
-}
-
 // NewRandomFedoraVMI
 //
 // Deprecated: Use libvmi directly
@@ -836,7 +811,7 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
+	libvmi.WithPersistentVolumeClaim("disk0", claimName)(vmi)
 	return vmi
 }
 

@@ -1386,9 +1386,14 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), excludedDataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi := tests.NewRandomVMI()
-				vmi = tests.AddPVCDisk(vmi, "snapshotablevolume", v1.DiskBusVirtio, includedDataVolume.Name)
-				vmi = tests.AddPVCDisk(vmi, "notsnapshotablevolume", v1.DiskBusVirtio, excludedDataVolume.Name)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
+					libvmi.WithPersistentVolumeClaim("notsnapshotablevolume", excludedDataVolume.Name),
+				)
 				vm = libvmi.NewVirtualMachine(vmi)
 
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)

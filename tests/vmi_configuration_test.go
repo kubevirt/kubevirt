@@ -2203,21 +2203,18 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			vmi := tests.NewRandomVMI()
-
-			By("adding disks to a VMI")
-			// disk[0]:  File, sparsed, no user-input, cache=none
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				// disk[1]:  Block, no user-input, cache=none
+				libvmi.WithPersistentVolumeClaim("block-pvc", dataVolume.Name),
+				// disk[2]: File, not-sparsed, no user-input, cache=none
+				libvmi.WithPersistentVolumeClaim("hostpath-pvc", tests.DiskAlpineHostPath),
+				// disk[3]:  File, sparsed, user-input=threads, cache=none
+				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+			)
+			// disk[0]cache=none
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-
-			// disk[1]:  Block, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "block-pvc", v1.DiskBusVirtio, dataVolume.Name)
-
-			// disk[2]: File, not-sparsed, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "hostpath-pvc", v1.DiskBusVirtio, tests.DiskAlpineHostPath)
-
-			// disk[3]:  File, sparsed, user-input=threads, cache=none
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
