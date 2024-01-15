@@ -349,8 +349,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				tests.AddEphemeralDisk(vmi, "disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 				By("setting boot order")
-				vmi = tests.AddBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
-				vmi = tests.AddBootOrderToDisk(vmi, "disk2", &cirrosBootOrder)
+				vmi = addBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
+				vmi = addBootOrderToDisk(vmi, "disk2", &cirrosBootOrder)
 				By("starting VMI")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
@@ -1831,4 +1831,14 @@ func nowAsJSONWithOffset(offset time.Duration) string {
 	data, err := json.Marshal(now)
 	Expect(err).ToNot(HaveOccurred(), "Should marshal to json")
 	return strings.Trim(string(data), `"`)
+}
+
+func addBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
+	for i, d := range vmi.Spec.Domain.Devices.Disks {
+		if d.Name == diskName {
+			vmi.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
+			return vmi
+		}
+	}
+	return vmi
 }

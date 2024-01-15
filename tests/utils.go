@@ -675,18 +675,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	return vmi
 }
 
-// AddBootOrderToDisk
-//
-// Deprecated: Use libvmi
-func AddBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
-	for i, d := range vmi.Spec.Domain.Devices.Disks {
-		if d.Name == diskName {
-			vmi.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
-			return vmi
-		}
-	}
-	return vmi
-}
 
 // AddPVCDisk
 //
