@@ -638,22 +638,6 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImag
 	return vmi
 }
 
-func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
-	return &v1.VirtualMachineInstanceMigration{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachineInstanceMigration",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-migration-",
-			Namespace:    namespace,
-		},
-		Spec: v1.VirtualMachineInstanceMigrationSpec{
-			VMIName: vmiName,
-		},
-	}
-}
-
 // NewRandomVMIWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly

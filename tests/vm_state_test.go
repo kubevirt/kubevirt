@@ -70,7 +70,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 
 		migrateVMI := func(vmi *v1.VirtualMachineInstance) {
 			By("Migrating the VMI")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 		}

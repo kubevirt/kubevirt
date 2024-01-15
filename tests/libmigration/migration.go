@@ -37,6 +37,22 @@ import (
 
 const MigrationWaitTime = 240
 
+func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       "VirtualMachineInstanceMigration",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "test-migration-",
+			Namespace:    namespace,
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmiName,
+		},
+	}
+}
+
 func ExpectMigrationToSucceed(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	return ExpectMigrationToSucceedWithOffset(2, virtClient, migration, timeout)
 }

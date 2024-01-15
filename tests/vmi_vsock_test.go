@@ -153,7 +153,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 			By("Migrating the 2nd VMI")
 			checks.SkipIfMigrationIsNotPossible()
-			migration := tests.NewRandomMigration(vmi2.Name, vmi2.Namespace)
+			migration := libmigration.NewRandomMigration(vmi2.Name, vmi2.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			domain2, err = tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi2)

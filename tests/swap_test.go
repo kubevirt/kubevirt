@@ -205,7 +205,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime*2)
 
 			// check VMI, confirm migration state
@@ -271,7 +271,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
-			migration := tests.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			migration := libmigration.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			By("The workloads in the node should consume more memory than the memory size eventually.")

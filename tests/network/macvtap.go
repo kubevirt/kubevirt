@@ -184,7 +184,7 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 		It("should be successful when the VMI MAC address is defined in its spec", func() {
 			By("starting the migration")
-			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
+			migration := libmigration.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			// check VMI, confirm migration state
@@ -258,7 +258,7 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 			It("should keep connectivity after a migration", func() {
 				const containerCompletionWaitTime = 60
-				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
+				migration := libmigration.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
 				// will be reachable only when the original launcher pod terminates.
