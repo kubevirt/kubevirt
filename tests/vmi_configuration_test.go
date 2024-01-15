@@ -3054,15 +3054,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("With ephemeral CD-ROM", func() {
-		var vmi *v1.VirtualMachineInstance
 		var DiskBusIDE v1.DiskBus = "ide"
 
-		BeforeEach(func() {
-			vmi = libvmi.NewFedora()
-		})
-
 		DescribeTable("For various bus types", func(bus v1.DiskBus, errMsg string) {
-			tests.AddEphemeralCdrom(vmi, "cdrom-0", bus, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := libvmi.NewFedora(
+				libvmi.WithEphemeralCDRom("cdrom-0", bus, cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+			)
 
 			By(fmt.Sprintf("Starting a VMI with a %s CD-ROM", bus))
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)

@@ -456,10 +456,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:6970]should migrate vmi with cdroms on various bus types", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					append(libvmi.WithMasqueradeNetworking(),
+						libvmi.WithEphemeralCDRom("cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+						libvmi.WithEphemeralCDRom("cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+					)...,
 				)
-				tests.AddEphemeralCdrom(vmi, "cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				tests.AddEphemeralCdrom(vmi, "cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -500,14 +501,39 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("should migrate vmi and use Live Migration method with read-only disks", func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				if !libstorage.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				sc, exists := libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
+				dv := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
+						libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+					),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer), BeInPhase(cdiv1.PendingPopulation)))
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dv.Name),
+					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithEphemeralCDRom("cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+					libvmi.WithEphemeralCDRom("cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+				)
 				vmi.Spec.Hostname = string(cd.ContainerDiskAlpine)
-
-				tests.AddEphemeralCdrom(vmi, "cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				tests.AddEphemeralCdrom(vmi, "cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(240))
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
