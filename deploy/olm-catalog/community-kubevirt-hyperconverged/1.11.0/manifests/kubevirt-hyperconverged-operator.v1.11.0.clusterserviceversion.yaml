@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-    createdAt: "2024-01-14 17:56:02"
+    createdAt: "2024-01-14 21:07:08"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -3600,7 +3600,7 @@ spec:
                 - name: NODE_DRIVER_REG_IMAGE
                   value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:0f64602ea791246712b51df334bbd701a0f31df9950a4cb9c28c059f367baa9e
                 - name: LIVENESS_PROBE_IMAGE
-                  value: registry.k8s.io/sig-storage/livenessprobe@sha256:82adbebdf5d5a1f40f246aef8ddbee7f89dea190652aefe83336008e69f9a89f
+                  value: registry.k8s.io/sig-storage/livenessprobe@sha256:5baeb4a6d7d517434292758928bb33efc6397368cbb48c8a4cf29496abf4e987
                 - name: CSI_SNAPSHOT_IMAGE
                   value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:4c5a1b57e685b2631909b958487f65af7746361346fcd82a8635bea3ef14509d
                 - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
@@ -4390,7 +4390,7 @@ spec:
     name: kubevirt-plugin
   - image: quay.io/kubevirt/libguestfs-tools@sha256:4971af1ee42959d366a3db6129ab684d11064e00bbd3c2b36324ad14e90cb903
     name: libguestfs-tools
-  - image: registry.k8s.io/sig-storage/livenessprobe@sha256:82adbebdf5d5a1f40f246aef8ddbee7f89dea190652aefe83336008e69f9a89f
+  - image: registry.k8s.io/sig-storage/livenessprobe@sha256:5baeb4a6d7d517434292758928bb33efc6397368cbb48c8a4cf29496abf4e987
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:850b89343ace7c7ea6b18dd8e11964613974e9d1f7377af03854d407fb15230a
     name: macvtap-cni
