@@ -80,3 +80,56 @@ jobs:
           export TARGET_BRANCH=${{ env.TARGET_BRANCH }}
           export HCO_BOT_TOKEN=${{ secrets.HCO_BOT_TOKEN }}
           curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/main/automation/publisher/publisher.sh | bash
+
+      - name: get next version
+        env:
+          CSV_VERSION: ${{ env.CSV_VERSION }}
+        run:
+          NEW_VERSION=./hack/get-next-version.sh "${CSV_VERSION}"
+          NEW_IMAGE_TAG="${NEW_VERSION}-unstable"
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+          echo "NEW_IMAGE_TAG=${NEW_IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Build Applications next version Images
+        env:
+          NEW_IMAGE_TAG: ${{ env.NEW_IMAGE_TAG }}
+        run: |
+          IMAGE_TAG=${NEW_IMAGE_TAG} make container-build
+      - name: Push next version Application Images
+        env:
+          NEW_IMAGE_TAG: ${{ env.NEW_IMAGE_TAG }}
+        run: |
+          IMAGE_TAG=${NEW_IMAGE_TAG} make container-push
+      - name: run manifest for next version
+        env:
+          PACKAGE_DIR: ${{ env.PACKAGE_DIR }}
+          CSV_VERSION: ${{ env.NEW_VERSION }}
+        run:
+          mkdir -p "${PACKAGE_DIR}/${CSV_VERSION}"
+          ./hack/build-manifests.sh
+          VERSION_4_SED=$(echo "${CSV_VERSION}" | sed -E "s|\.|\\\\\\\\\\\.|g")
+          sed -i -E "s|(ARG VERSION=).*|\1${CSV_VERSION}|g" deploy/index-image/bundle.Dockerfile
+          sed -i -E "s|(ARG INITIAL_VERSION=).*|\1${CSV_VERSION}|g;s|(ARG INITIAL_VERSION_SED=).*|\1\"${VERSION_4_SED}\"|g" deploy/index-image/Dockerfile.bundle.ci-index-image-upgrade
+          sed -i -E "s|(ARG VERSION=).*|\1${CSV_VERSION}|g" deploy/olm-catalog/bundle.Dockerfile
+          sed -i -E "s|(ARG INITIAL_VERSION=).*|\1${CSV_VERSION}|g;s|(ARG INITIAL_VERSION_SED=).*|\1\"${VERSION_4_SED}\"|g" deploy/olm-catalog/Dockerfile.bundle.ci-index-image-upgrade
+          git add ./deploy/
+
+      - uses: peter-evans/create-pull-request@v3
+        if: ${{ env.CHANGED }}
+        with:
+          token: ${{ secrets.HCO_BOT_TOKEN }}
+          commit-message: |
+            Prepare version ${{ env.NEW_VERSION }}
+            Signed-off-by: HCO Bump Bot <noreply@github.com>
+          committer: HCO Bump Bot <noreply@github.com>
+          title: "Prepare version ${{ env.NEW_VERSION }}"
+          body: |
+            Prepare version ${{ env.NEW_VERSION }}
+            Executed by HCO Release-Bumper Bot.
+            ```release-note
+            Prepare version ${{ env.NEW_VERSION }}
+            ```
+          assignees: tiraboschi,orenc1,nunnatsa
+          reviewers: tiraboschi,orenc1,nunnatsa
+          team-reviewers: owners, maintainers
+          branch: prepare_version_${{ env.NEW_VERSION }}
