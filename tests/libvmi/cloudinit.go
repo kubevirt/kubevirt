@@ -33,8 +33,13 @@ func WithCloudInitNoCloudUserData(data string) Option {
 		addDiskVolumeWithCloudInitNoCloud(vmi, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
+		if volume.CloudInitNoCloud.UserData != "" {
+			panic("User Data are already set in NoCloud")
+		}
+		if volume.CloudInitNoCloud.UserDataBase64 != "" {
+			panic("User Data (base64) are already set in NoCloud")
+		}
 		volume.CloudInitNoCloud.UserData = data
-		volume.CloudInitNoCloud.UserDataBase64 = ""
 	}
 }
 
