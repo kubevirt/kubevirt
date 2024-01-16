@@ -40,9 +40,14 @@ import (
 )
 
 type TermFileError struct{}
+type SocketFileError struct{}
 
 func (m *TermFileError) Error() string {
 	return "termFile got detected"
+}
+
+func (m *SocketFileError) Error() string {
+	return "socketFile got removed"
 }
 
 type VirtTail struct {
@@ -164,7 +169,7 @@ func (v *VirtTail) watchFS() error {
 			} else if event.Has(fsnotify.Remove) {
 				if event.Name == socketFile {
 					// socket file got deleted, we should quickly terminate
-					rerr := errors.New("socketFile got removed")
+					rerr := &SocketFileError{}
 					log.Log.V(3).Infof("watchFS error: %v", rerr)
 					return rerr
 				} else if event.Name == termFile {
@@ -216,11 +221,11 @@ func main() {
 
 	// wait for all errgroup goroutines
 	if err := g.Wait(); err != nil {
-		// Exit cleanly on clean termination errors
-		if !(errors.Is(err, context.Canceled) || errors.Is(err, &TermFileError{})) {
+		if !(errors.Is(err, context.Canceled) || errors.Is(err, &TermFileError{}) || errors.Is(err, &SocketFileError{})) {
 			log.Log.V(3).Infof("received error: %v", err)
 			os.Exit(1)
 		}
+		// Exit cleanly on clean termination errors
 	}
 }
 
