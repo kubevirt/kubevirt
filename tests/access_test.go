@@ -342,7 +342,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("default")),
 			Entry("[test_id:TODO]given a virtualmachineclusterpreference",
 				instancetypeapi.GroupName,
-				instancetypeapi.ClusterPluralResourceName,
+				instancetypeapi.ClusterPluralPreferenceResourceName,
 				// only ClusterRoles bound with a ClusterRoleBinding should have access
 				true,
 				denyAllFor("admin"),
