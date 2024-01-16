@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -178,6 +179,7 @@ func (v *VirtTail) watchFS() error {
 			log.Log.V(3).Infof("watcher error: %v", werr)
 			return werr
 		case <-v.ctx.Done():
+			log.Log.V(3).Infof("ctx.Done")
 			return v.ctx.Err()
 		}
 	}
@@ -200,7 +202,7 @@ func main() {
 	}
 
 	// Create context that listens for the interrupt signal from the container runtime.
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGCHLD)
 	defer cancel()
 
 	g, gctx := errgroup.WithContext(ctx)
