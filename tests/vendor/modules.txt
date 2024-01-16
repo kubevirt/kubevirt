@@ -1068,7 +1068,7 @@ kubevirt.io/kubevirt/tests/libwait
 kubevirt.io/kubevirt/tests/testsuite
 kubevirt.io/kubevirt/tests/util
 kubevirt.io/kubevirt/tests/watcher
-# kubevirt.io/managed-tenant-quota v1.1.11
+# kubevirt.io/managed-tenant-quota v1.2.0
 ## explicit; go 1.19
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1
