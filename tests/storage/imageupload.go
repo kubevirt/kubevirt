@@ -226,11 +226,11 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			}
 			validateDataVolume(targetName, sc)
 		},
-			Entry("block volumeMode", "block"),
-			Entry("filesystem volumeMode", "filesystem"),
+			Entry("[test_id:10671]block volumeMode", "block"),
+			Entry("[test_id:10672]filesystem volumeMode", "filesystem"),
 		)
 
-		It("Should fail with invalid volume-mode", func() {
+		It("[test_id:10674]Should fail with invalid volume-mode", func() {
 			targetName := "alpine-bad-dv-" + rand.String(12)
 
 			By("Upload image")
