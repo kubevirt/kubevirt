@@ -71,7 +71,6 @@ type syncInfoType struct {
 
 	// This flag is true when we need to reenqueue and return syncInfo from sync() for a reason not specified above.
 	needToReenqueue bool
-	logger          *log.FilteredLogger
 }
 
 // vmCloneInfo stores the current vmclone information
@@ -170,7 +169,7 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clonev1alpha1.VirtualM
 
 func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoType {
 	vmClone := vmCloneInfo.vmClone
-	syncInfo := syncInfoType{logger: log.Log.Object(vmClone)}
+	syncInfo := syncInfoType{}
 
 	switch vmClone.Status.Phase {
 	case clonev1alpha1.PhaseUnset, clonev1alpha1.SnapshotInProgress:
@@ -333,7 +332,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 
 func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clonev1alpha1.VirtualMachineClone, vm *k6tv1.VirtualMachine, syncInfo syncInfoType) (*snapshotv1alpha1.VirtualMachineSnapshot, syncInfoType) {
 	snapshot := generateSnapshot(vmClone, vm)
-	syncInfo.logger.Infof("creating snapshot %s for clone %s", snapshot.Name, vmClone.Name)
+	log.Log.Object(vmClone).Infof("creating snapshot %s for clone %s", snapshot.Name, vmClone.Name)
 
 	createdSnapshot, err := ctrl.client.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 	if err != nil {
@@ -348,7 +347,7 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clonev1alpha1.Virtu
 	ctrl.logAndRecord(vmClone, SnapshotCreated, fmt.Sprintf("created snapshot %s for clone %s", snapshot.Name, vmClone.Name))
 	syncInfo.snapshotName = snapshot.Name
 
-	syncInfo.logger.V(defaultVerbosityLevel).Infof("snapshot %s was just created, reenqueuing to let snapshot time to finish", snapshot.Name)
+	log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("snapshot %s was just created, reenqueuing to let snapshot time to finish", snapshot.Name)
 	return snapshot, syncInfo
 }
 
@@ -360,10 +359,10 @@ func (ctrl *VMCloneController) verifySnapshotReady(vmClone *clonev1alpha1.Virtua
 		return nil, addErrorToSyncInfo(syncInfo, fmt.Errorf("snapshot %s is not created yet for clone %s", name, vmClone.Name))
 	}
 	snapshot := obj.(*snapshotv1alpha1.VirtualMachineSnapshot)
-	syncInfo.logger.Infof("found snapshot %s for clone %s", snapshot.Name, vmClone.Name)
+	log.Log.Object(vmClone).Infof("found snapshot %s for clone %s", snapshot.Name, vmClone.Name)
 
 	if !virtsnapshot.VmSnapshotReady(snapshot) {
-		syncInfo.logger.V(defaultVerbosityLevel).Infof("snapshot %s for clone %s is not ready to use yet", snapshot.Name, vmClone.Name)
+		log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("snapshot %s for clone %s is not ready to use yet", snapshot.Name, vmClone.Name)
 		return snapshot, syncInfo
 	}
 
@@ -395,7 +394,7 @@ func (ctrl *VMCloneController) getSnapshot(snapshotName string, sourceNamespace 
 func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.VirtualMachineClone, vm *k6tv1.VirtualMachine, snapshotName string, syncInfo syncInfoType) syncInfoType {
 	patches := generatePatches(vm, &vmClone.Spec)
 	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches)
-	syncInfo.logger.Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
+	log.Log.Object(vmClone).Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
 	createdRestore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
@@ -410,7 +409,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.Virtua
 	ctrl.logAndRecord(vmClone, RestoreCreated, fmt.Sprintf("created restore %s for clone %s", restore.Name, vmClone.Name))
 	syncInfo.restoreName = restore.Name
 
-	syncInfo.logger.V(defaultVerbosityLevel).Infof("restore %s was just created, reenqueuing to let snapshot time to finish", restore.Name)
+	log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("restore %s was just created, reenqueuing to let snapshot time to finish", restore.Name)
 	return syncInfo
 }
 
@@ -423,10 +422,10 @@ func (ctrl *VMCloneController) verifyRestoreReady(vmClone *clonev1alpha1.Virtual
 	}
 
 	restore := obj.(*snapshotv1alpha1.VirtualMachineRestore)
-	syncInfo.logger.Infof("found target restore %s for clone %s", restore.Name, vmClone.Name)
+	log.Log.Object(vmClone).Infof("found target restore %s for clone %s", restore.Name, vmClone.Name)
 
 	if virtsnapshot.VmRestoreProgressing(restore) {
-		syncInfo.logger.V(defaultVerbosityLevel).Infof("restore %s for clone %s is not ready to use yet", restore.Name, vmClone.Name)
+		log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("restore %s for clone %s is not ready to use yet", restore.Name, vmClone.Name)
 		syncInfo.needToReenqueue = true
 		return syncInfo
 	}
@@ -473,7 +472,7 @@ func (ctrl *VMCloneController) verifyPVCBound(vmClone *clonev1alpha1.VirtualMach
 
 		pvc := obj.(*corev1.PersistentVolumeClaim)
 		if pvc.Status.Phase != corev1.ClaimBound {
-			syncInfo.logger.V(defaultVerbosityLevel).Infof("pvc %s for clone %s is not bound yet", pvc.Name, vmClone.Name)
+			log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("pvc %s for clone %s is not bound yet", pvc.Name, vmClone.Name)
 			syncInfo.needToReenqueue = true
 			return syncInfo
 		}
