@@ -249,33 +249,33 @@ func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBou
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (bool, bool) {
-	available, running := loadKSM()
+func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs bool) {
+	available, enabled := loadKSM()
 	if !available {
-		return running, false
+		return false, false
 	}
 
 	ksmConfig := clusterConfig.GetKSMConfiguration()
 	if ksmConfig == nil {
-		if disableKSM(node, running) {
-			return false, false
-		} else {
-			return running, false
+		if enabled {
+			disableKSM(node)
 		}
+
+		return false, false
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
 	if err != nil {
 		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
-		return running, false
+		return false, false
 	}
 
 	if !selector.Matches(labels.Set(node.ObjectMeta.Labels)) {
-		if disableKSM(node, running) {
-			return false, false
-		} else {
-			return running, false
+		if enabled {
+			disableKSM(node)
 		}
+
+		return false, false
 	}
 
 	pagesBoost = getIntParam(node, kubevirtv1.KSMPagesBoostOverride, pagesBoostDefault, 0, math.MaxInt)
@@ -286,32 +286,26 @@ func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (bool, bo
 	sleepMsBaseline = uint64(getIntParam(node, kubevirtv1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
 	freePercent = getFloatParam(node, kubevirtv1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 
-	ksm, err := calculateNewRunSleepAndPages(running)
+	ksm, err := calculateNewRunSleepAndPages(enabled)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
-		return running, false
+		return true, false
 	}
 
 	err = writeKsmValuesToFiles(ksm)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while writing the new KSM values")
-		return running, false
+		return true, false
 	}
 
-	return ksm.running, ksm.running
+	return true, ksm.running
 }
 
-func disableKSM(node *v1.Node, enabled bool) bool {
-	if enabled {
-		if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
-			err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
-			if err != nil {
-				log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
-				return false
-			}
-			return true
+func disableKSM(node *v1.Node) {
+	if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
+		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
+		if err != nil {
+			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
 		}
 	}
-
-	return false
 }

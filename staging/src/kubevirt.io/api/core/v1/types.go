@@ -966,7 +966,7 @@ const (
 	// SEVESLabel marks the node as capable of running workloads with SEV-ES
 	SEVESLabel string = "kubevirt.io/sev-es"
 
-	// KSMEnabledLabel marks the node as KSM enabled
+	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
 
 	// KSMHandlerManagedAnnotation is an annotation used to mark the nodes where the virt-handler has enabled the ksm
