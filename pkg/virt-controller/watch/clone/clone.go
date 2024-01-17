@@ -68,9 +68,6 @@ type syncInfoType struct {
 	isCloneFailing bool
 	failEvent      Event
 	failReason     string
-
-	// This flag is true when we need to reenqueue and return syncInfo from sync() for a reason not specified above.
-	needToReenqueue bool
 }
 
 // vmCloneInfo stores the current vmclone information
@@ -182,7 +179,7 @@ func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoTy
 		}
 
 		vmCloneInfo.snapshot, syncInfo = ctrl.verifySnapshotReady(vmClone, vmCloneInfo.snapshotName, vmCloneInfo.vmClone.Namespace, syncInfo)
-		if syncInfo.toReenqueue() || !syncInfo.snapshotReady {
+		if syncInfo.isFailingOrError() || !syncInfo.snapshotReady {
 			return syncInfo
 		}
 
@@ -192,7 +189,7 @@ func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoTy
 		// Here we have to know the snapshot name
 		if vmCloneInfo.snapshot == nil {
 			vmCloneInfo.snapshot, syncInfo = ctrl.getSnapshot(vmCloneInfo.snapshotName, vmCloneInfo.vmClone.Namespace, syncInfo)
-			if syncInfo.toReenqueue() {
+			if syncInfo.isFailingOrError() {
 				return syncInfo
 			}
 		}
@@ -208,7 +205,7 @@ func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoTy
 		}
 
 		syncInfo = ctrl.verifyRestoreReady(vmClone, vmCloneInfo.vmClone.Namespace, syncInfo)
-		if syncInfo.toReenqueue() {
+		if syncInfo.isFailingOrError() || !syncInfo.restoreReady {
 			return syncInfo
 		}
 
@@ -217,7 +214,7 @@ func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoTy
 	case clonev1alpha1.CreatingTargetVM:
 
 		syncInfo = ctrl.verifyVmReady(vmClone, syncInfo)
-		if syncInfo.toReenqueue() {
+		if syncInfo.isFailingOrError() {
 			return syncInfo
 		}
 
@@ -227,18 +224,18 @@ func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoTy
 
 		if vmClone.Status.RestoreName != nil {
 			syncInfo = ctrl.verifyPVCBound(vmClone, syncInfo)
-			if syncInfo.toReenqueue() {
+			if syncInfo.isFailingOrError() || !syncInfo.pvcBound {
 				return syncInfo
 			}
 
 			syncInfo = ctrl.cleanupRestore(vmClone, syncInfo)
-			if syncInfo.toReenqueue() {
+			if syncInfo.isFailingOrError() {
 				return syncInfo
 			}
 
 			if vmCloneInfo.sourceType == sourceTypeVM {
 				syncInfo = ctrl.cleanupSnapshot(vmClone, syncInfo)
-				if syncInfo.toReenqueue() {
+				if syncInfo.isFailingOrError() {
 					return syncInfo
 				}
 			}
@@ -426,7 +423,6 @@ func (ctrl *VMCloneController) verifyRestoreReady(vmClone *clonev1alpha1.Virtual
 
 	if virtsnapshot.VmRestoreProgressing(restore) {
 		log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("restore %s for clone %s is not ready to use yet", restore.Name, vmClone.Name)
-		syncInfo.needToReenqueue = true
 		return syncInfo
 	}
 
@@ -473,7 +469,6 @@ func (ctrl *VMCloneController) verifyPVCBound(vmClone *clonev1alpha1.VirtualMach
 		pvc := obj.(*corev1.PersistentVolumeClaim)
 		if pvc.Status.Phase != corev1.ClaimBound {
 			log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("pvc %s for clone %s is not bound yet", pvc.Name, vmClone.Name)
-			syncInfo.needToReenqueue = true
 			return syncInfo
 		}
 	}
@@ -567,6 +562,6 @@ func addErrorToSyncInfo(info syncInfoType, err error) syncInfoType {
 	return info
 }
 
-func (s *syncInfoType) toReenqueue() bool {
-	return s.err != nil || s.isCloneFailing || s.needToReenqueue
+func (s *syncInfoType) isFailingOrError() bool {
+	return s.err != nil || s.isCloneFailing
 }
