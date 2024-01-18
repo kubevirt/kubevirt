@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package compute
 
 import (
 	"context"
@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -41,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[sig-compute]VMIDefaults", decorators.SigCompute, func() {
+var _ = SIGDescribe("VMIDefaults", func() {
 	var virtClient kubecli.KubevirtClient
 
 	var vmi *v1.VirtualMachineInstance
