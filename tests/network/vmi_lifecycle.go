@@ -117,8 +117,9 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				v1.SetDefaults_NetworkInterface(bridgeVMI)
 				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 
-				By("starting a VMI with bridged network on a node")
-				bridgeVMI = tests.RunVMI(bridgeVMI, 40)
+				By("creating a VMI with bridged network on a node")
+				bridgeVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(bridgeVMI)).Create(context.Background(), bridgeVMI)
+				Expect(err).ToNot(HaveOccurred())
 
 				// Start a VirtualMachineInstance with bridged networking
 				By("Waiting the VirtualMachineInstance start")

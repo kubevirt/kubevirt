@@ -2943,11 +2943,11 @@ spec:
 				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
-				vmi := libvmi.NewCirros()
-				vmi = tests.RunVMI(vmi, 60)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewCirros())
+				Expect(err).ToNot(HaveOccurred())
 				fetchVMI := matcher.ThisVMI(vmi)
 				psaRelatedErrorDetected := false
-				err := wait.PollImmediate(time.Second, 30*time.Second, func() (done bool, err error) {
+				err = wait.PollImmediate(time.Second, 30*time.Second, func() (done bool, err error) {
 					vmi, err := fetchVMI()
 					if err != nil {
 						return done, err

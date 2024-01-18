@@ -350,12 +350,13 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				expectedSEVMeasurementInfo v1.SEVMeasurementInfo
 			)
 
-			vmi := newSEVFedora(false, libvmi.WithSEVAttestation())
-			vmi = tests.RunVMI(vmi, 30)
-			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
-
 			virtClient, err := kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
+
+			vmi := newSEVFedora(false, libvmi.WithSEVAttestation())
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
 
 			By("Querying virsh nodesevinfo")
 			nodeSevInfo := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
