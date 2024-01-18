@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -58,8 +59,21 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
+
+	enableFeatureGate := func(featureGate string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+	}
+	disableFeatureGates := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+	}
+
+	AfterEach(func() {
+		disableFeatureGates()
+	})
 
 	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
@@ -390,6 +404,17 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
+	makeFilesystems := func(indexes ...int) []v1.Filesystem {
+		res := make([]v1.Filesystem, 0)
+		for _, index := range indexes {
+			res = append(res, v1.Filesystem{
+				Name:     fmt.Sprintf("volume-name-%d", index),
+				Virtiofs: &v1.FilesystemVirtiofs{},
+			})
+		}
+		return res
+	}
+
 	makeStatus := func(statusCount, hotplugCount int) []v1.VolumeStatus {
 		res := make([]v1.VolumeStatus, 0)
 		for i := 0; i < statusCount; i++ {
@@ -439,19 +464,23 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(0, 1, 2, 3), makeStatus(4, 1), makeResult(0, 1, 2)),
 	)
 
-	DescribeTable("Should return proper admission response", func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
+	testHotplugResponse := func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, filesystems []v1.Filesystem, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
 		newVMI := api.NewMinimalVMI("testvmi")
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
+		newVMI.Spec.Domain.Devices.Filesystems = filesystems
 
 		result := admitHotplugStorage(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
-	},
+	}
+
+	DescribeTable("Should return proper admission response", testHotplugResponse,
 		Entry("Should accept if no volumes are there or added",
 			makeVolumes(),
 			makeVolumes(),
 			makeDisks(),
 			makeDisks(),
+			makeFilesystems(),
 			makeStatus(0, 0),
 			nil),
 		Entry("Should reject if #volumes != #disks",
@@ -459,13 +488,15 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(1, 2),
 			makeDisks(1),
 			makeDisks(1),
+			makeFilesystems(),
 			makeStatus(0, 0),
-			makeExpected("number of disks (1) does not equal the number of volumes (2)", "")),
+			makeExpected("number of disks and filesystems (1) does not equal the number of volumes (2)", "")),
 		Entry("Should reject if we remove a permanent volume",
 			makeVolumes(),
 			makeVolumes(0),
 			makeDisks(),
 			makeDisks(0),
+			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("Number of permanent volumes has changed", "")),
 		Entry("Should reject if we add a disk without a matching volume",
@@ -473,6 +504,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0),
 			makeDisksNoVolume(0, 1),
 			makeDisksNoVolume(0),
+			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("Disk volume-name-1 does not exist", "")),
 		Entry("Should reject if we modify existing volume to be invalid",
@@ -480,6 +512,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0, 1),
 			makeDisksNoVolume(0, 1),
 			makeDisks(0, 1),
+			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("permanent disk volume-name-0, changed", "")),
 		Entry("Should reject if a hotplug volume changed",
@@ -487,6 +520,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0, 1),
 			makeDisks(0, 1),
 			makeDisks(0, 1),
+			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("hotplug volume volume-name-1, changed", "")),
 		Entry("Should reject if we add volumes that are not PVC or DV",
@@ -494,6 +528,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0),
 			makeDisks(0, 1),
 			makeDisks(0),
+			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("volume volume-name-1 is not a PVC or DataVolume", "")),
 		Entry("Should accept if we add volumes and disk properly",
@@ -501,6 +536,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0, 1),
 			makeDisks(0, 1),
 			makeDisks(0, 1),
+			makeFilesystems(),
 			makeStatus(2, 1),
 			nil),
 		Entry("Should reject if we add disk with invalid bus",
@@ -508,6 +544,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0),
 			makeDisksInvalidBusLastDisk(0, 1),
 			makeDisks(0),
+			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("hotplugged Disk volume-name-1 does not use a scsi bus", "")),
 		Entry("Should reject if we add disk with invalid boot order",
@@ -515,6 +552,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0),
 			makeDisksInvalidBootOrder(0, 1),
 			makeDisks(0),
+			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("spec.domain.devices.disks[1] must have a boot order > 0, if supplied", "spec.domain.devices.disks[1].bootOrder")),
 		Entry("Should accept if memory dump volume exists without matching disk",
@@ -522,6 +560,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumes(0, 1),
 			makeDisks(0, 1),
 			makeDisks(0, 1),
+			makeFilesystems(),
 			makeStatus(3, 1),
 			nil),
 		Entry("Should reject if #volumes != #disks even when there is memory dump volume",
@@ -529,9 +568,35 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeVolumesWithMemoryDumpVol(3, 2),
 			makeDisks(1),
 			makeDisks(1),
+			makeFilesystems(),
 			makeStatus(0, 0),
-			makeExpected("number of disks (1) does not equal the number of volumes (2)", "")),
+			makeExpected("number of disks and filesystems (1) does not equal the number of volumes (2)", "")),
 	)
+
+	Context("with filesystem devices", func() {
+		BeforeEach(func() {
+			enableFeatureGate(virtconfig.VirtIOFSGate)
+		})
+
+		DescribeTable("Should return proper admission response", testHotplugResponse,
+			Entry("Should accept if volume without matching disk is used by filesystem",
+				makeVolumes(0, 1, 2),
+				makeVolumes(0, 1),
+				makeDisks(0, 2),
+				makeDisks(0),
+				makeFilesystems(1),
+				makeStatus(3, 1),
+				nil),
+			Entry("Should reject if #volumes != #disks even when there are volumes used by filesystems",
+				makeVolumes(0, 1, 2),
+				makeVolumes(0, 1, 2),
+				makeDisks(0),
+				makeDisks(0),
+				makeFilesystems(1),
+				makeStatus(2, 0),
+				makeExpected("number of disks and filesystems (2) does not equal the number of volumes (3)", "")),
+		)
+	})
 
 	DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {
 		vmi := api.NewMinimalVMI("testvmi")
