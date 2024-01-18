@@ -1579,13 +1579,12 @@ func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
-
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
-	vmi.ObjectMeta = vm.Spec.Template.ObjectMeta
+	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
 	vmi.ObjectMeta.GenerateName = ""
 	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
-	vmi.Spec = vm.Spec.Template.Spec
+	vmi.Spec = *vm.Spec.Template.Spec.DeepCopy()
 
 	if hasStartPausedRequest(vm) {
 		strategy := virtv1.StartStrategyPaused
