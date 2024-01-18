@@ -24,8 +24,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
@@ -56,31 +54,12 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 	Context("Disk defaults", func() {
 		BeforeEach(func() {
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
-			vmi.Spec = v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						Disks: []v1.Disk{
-							{Name: "testdisk"},
-						},
-					},
-					Resources: v1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
-							k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
-						},
-					},
-				},
-				Volumes: []v1.Volume{
-					{
-						Name: "testdisk",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "dummy",
-							},
-						},
-					},
-				},
-			}
+			vmi = libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("8192Ki"),
+				libvmi.WithContainerImage("dummy"),
+			)
 		})
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
@@ -121,7 +100,10 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 
 		BeforeEach(func() {
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
+			vmi = libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
 			kv := util.GetCurrentKv(virtClient)
 			kvConfiguration = kv.Spec.Configuration
