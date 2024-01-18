@@ -96,6 +96,22 @@ func (ctrl *VMCloneController) execute(key string) error {
 		return nil
 	}
 
+	if vmClone.Status.Phase == clonev1alpha1.Succeeded {
+		_, vmExists, err := ctrl.vmInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmClone.Namespace, *vmClone.Status.TargetName))
+		if err != nil {
+			return err
+		}
+
+		if !vmExists {
+			if vmClone.DeletionTimestamp == nil {
+				logger.V(3).Infof("Deleting vm clone for deleted vm %s/%s", vmClone.Namespace, *vmClone.Status.TargetName)
+				return ctrl.client.VirtualMachineClone(vmClone.Namespace).Delete(context.Background(), vmClone.Name, v1.DeleteOptions{})
+			}
+			// nothing to process for a vm clone that's being deleted
+			return nil
+		}
+	}
+
 	syncInfo, err := ctrl.sync(vmClone)
 	if err != nil {
 		return fmt.Errorf("sync error: %v", err)

@@ -182,6 +182,12 @@ var _ = Describe("Clone", func() {
 		Expect(clone.Status.Phase).To(Equal(phase))
 	}
 
+	expectCloneDeletion := func() {
+		_, err := client.CloneV1alpha1().VirtualMachineClones(testNamespace).Get(context.TODO(), vmClone.Name, metav1.GetOptions{})
+		Expect(err).To(HaveOccurred())
+		Expect(errors.IsNotFound(err)).To(BeTrue())
+	}
+
 	expectEvent := func(event Event) {
 		testutils.ExpectEvent(recorder, string(event))
 	}
@@ -450,6 +456,7 @@ var _ = Describe("Clone", func() {
 					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
 					vmClone.Status.RestoreName = pointer.P(restore.Name)
 					vmClone.Status.Phase = clonev1alpha1.Succeeded
+					vmClone.Status.TargetName = pointer.P(vmClone.Spec.Target.Name)
 
 					targetVM := sourceVM.DeepCopy()
 					targetVM.Name = vmClone.Spec.Target.Name
@@ -554,6 +561,20 @@ var _ = Describe("Clone", func() {
 					expectCloneBeInPhase(clonev1alpha1.RestoreInProgress)
 					expectEvent(SnapshotReady)
 					expectEvent(RestoreCreationFailed)
+				})
+			})
+
+			When("target VM is deleted", func() {
+				It("should delete the vm clone resource", func() {
+					vmClone.Status.TargetName = pointer.P("target-vm-name")
+					vmClone.Status.Phase = clonev1alpha1.Succeeded
+
+					addVM(sourceVM)
+					addClone(vmClone)
+					//no target vm added => target vm deleted
+
+					controller.Execute()
+					expectCloneDeletion()
 				})
 			})
 
