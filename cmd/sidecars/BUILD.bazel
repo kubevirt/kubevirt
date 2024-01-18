@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/sidecars",
     visibility = ["//visibility:private"],
     deps = [
+        "//cmd/sidecars/launcher:go_default_library",
         "//pkg/cloud-init:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hooks/info:go_default_library",
