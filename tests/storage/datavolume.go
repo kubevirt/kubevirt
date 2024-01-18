@@ -401,7 +401,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libvmi.WithDataVolume(dataVolume2.Name, dataVolume2.Name),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				)
-				vmSpec := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vmSpec := tests.NewRandomVirtualMachine(vmi, true)
 
 				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec)
 				Expect(err).ToNot(HaveOccurred())
