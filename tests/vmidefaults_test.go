@@ -25,10 +25,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
-
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -195,8 +194,7 @@ var _ = Describe("[sig-compute]VMIDefaults", decorators.SigCompute, func() {
 
 		It("[test_id:4559]Should not be present in domain ", func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
-			f := false
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &f
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -239,7 +237,7 @@ var _ = Describe("[sig-compute]VMIDefaults", decorators.SigCompute, func() {
 		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
 			vm := libvmi.NewVirtualMachine(libvmi.NewCirros())
-			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.Bool(true)
+			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
