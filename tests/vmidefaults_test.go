@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]VMIDefaults", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
 	var vmi *v1.VirtualMachineInstance
@@ -143,7 +143,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
 		})
 
-		DescribeTable("Should override period in domain if present in virt-config ", func(period uint32, expected api.MemBalloon) {
+		DescribeTable("[Serial]Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
 			By("Adding period to virt-config")
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
 			kvConfigurationCopy.MemBalloonStatsPeriod = &period
