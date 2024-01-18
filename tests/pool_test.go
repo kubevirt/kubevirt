@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libdv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -116,10 +117,23 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	newPersistentStorageVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool with persistent storage")
 
-		vm, foundSC := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), util.NamespaceTestDefault)
-		if !foundSC {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
+
+		dataVolume := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+		)
+
+		vm := libvmi.NewVirtualMachine(
+			libvmi.New(
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("100M"),
+			),
+			libvmi.WithDataVolumeTemplate(dataVolume),
+		)
 
 		newPool := newPoolFromVMI(&v1.VirtualMachineInstance{
 			ObjectMeta: vm.Spec.Template.ObjectMeta,
