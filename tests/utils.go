@@ -490,6 +490,9 @@ func GetContainerOfPod(pod *k8sv1.Pod, containerName string) *k8sv1.Container {
 	return computeContainer
 }
 
+// NewRandomVirtualMachineInstanceWithDisk
+//
+// Deprecated: Use libvmi directly
 func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	virtCli := kubevirt.Client()
 
@@ -510,6 +513,9 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	return NewRandomVMIWithDataVolume(dv.Name), dv
 }
 
+// NewRandomVirtualMachineInstanceWithFileDisk
+//
+// Deprecated: Use libvmi directly
 func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	if !libstorage.HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
@@ -525,6 +531,9 @@ func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, acc
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
 }
 
+// NewRandomVirtualMachineInstanceWithBlockDisk
+//
+// Deprecated: Use libvmi directly
 func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	if !libstorage.HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
@@ -540,6 +549,9 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
+// NewRandomVMI
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMI() *v1.VirtualMachineInstance {
 	// To avoid mac address issue in the tests change the pod interface binding to masquerade
 	// https://github.com/kubevirt/kubevirt/issues/1494
@@ -561,6 +573,9 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+// NewRandomVMIWithDataVolume
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
@@ -572,6 +587,9 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 	return vmi
 }
 
+// NewRandomVMWithEphemeralDisk
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	vm := libvmi.NewVirtualMachine(vmi)
@@ -579,6 +597,9 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	return vm
 }
 
+// NewRandomVMWithDataVolumeWithRegistryImport
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
@@ -596,6 +617,9 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
+// NewRandomVMWithDataVolume
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMachine, bool) {
 	sc, exists := libstorage.GetRWOFileSystemStorageClass()
 	if !exists {
@@ -614,6 +638,9 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 	return vm, true
 }
 
+// NewRandomVMWithDataVolumeAndUserData
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData string) *v1.VirtualMachine {
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	AddUserData(vmi, "cloud-init", userData)
@@ -623,6 +650,9 @@ func NewRandomVMWithDataVolumeAndUserData(dataVolume *cdiv1.DataVolume, userData
 	return vm
 }
 
+// NewRandomVMWithDataVolumeAndUserDataInStorageClass
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
@@ -632,6 +662,9 @@ func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, use
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
+// NewRandomVMIWithEphemeralDiskAndUserdataHighMemory
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 
@@ -639,6 +672,9 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 	return vmi
 }
 
+// NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage, userData)
 
@@ -662,6 +698,9 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 	}
 }
 
+// NewRandomVMIWithEphemeralDisk
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
@@ -672,6 +711,9 @@ func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInst
 	return vmi
 }
 
+// AddEphemeralDisk
+//
+// Deprecated: Use libvmi
 func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, image string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
@@ -693,6 +735,9 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	return vmi
 }
 
+// AddBootOrderToDisk
+//
+// Deprecated: Use libvmi
 func AddBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
 	for i, d := range vmi.Spec.Domain.Devices.Disks {
 		if d.Name == diskName {
@@ -703,6 +748,9 @@ func AddBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootord
 	return vmi
 }
 
+// AddPVCDisk
+//
+// Deprecated: Use libvmi
 func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
@@ -724,6 +772,9 @@ func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, cla
 	return vmi
 }
 
+// AddEphemeralCdrom
+//
+// Deprecated: Use libvmi
 func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, image string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
@@ -745,6 +796,9 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskB
 	return vmi
 }
 
+// NewRandomFedoraVMI
+//
+// Deprecated: Use libvmi directly
 func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
@@ -756,6 +810,9 @@ func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	)
 }
 
+// NewRandomFedoraVMIWithBlacklistGuestAgent
+//
+// Deprecated: Use libvmi directly
 func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
 	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
@@ -773,34 +830,52 @@ func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
 `, commands)
 }
 
+// NewRandomVMIWithEphemeralDiskAndUserdata
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddUserData(vmi, "disk1", userData)
 	return vmi
 }
 
+// NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddCloudInitConfigDriveData(vmi, "disk1", userData, "", false)
 	return vmi
 }
 
+// NewRandomVMIWithEphemeralDiskAndUserdataNetworkData
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddCloudInitNoCloudData(vmi, "disk1", userData, networkData, b64encode)
 	return vmi
 }
 
+// NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData
+//
+// Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddCloudInitConfigDriveData(vmi, "disk1", userData, networkData, b64encode)
 	return vmi
 }
 
+// AddUserData
+//
+// Deprecated: Use libvmi
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 	AddCloudInitNoCloudData(vmi, name, userData, "", true)
 }
 
+// AddCloudInitNoCloudData
+//
+// Deprecated: Use libvmi
 func AddCloudInitNoCloudData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
 	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
 	if b64encode {
@@ -817,6 +892,9 @@ func AddCloudInitNoCloudData(vmi *v1.VirtualMachineInstance, name, userData, net
 	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitNoCloud: &cloudInitNoCloudSource})
 }
 
+// AddCloudInitConfigDriveData
+//
+// Deprecated: Use libvmi
 func AddCloudInitConfigDriveData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
 	cloudInitConfigDriveSource := v1.CloudInitConfigDriveSource{}
 	if b64encode {
@@ -848,6 +926,9 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 	})
 }
 
+// NewRandomVMIWithPVC
+//
+// Deprecated: Use libvmi
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
@@ -855,6 +936,9 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
+// NewRandomVMIWithPVCAndUserData
+//
+// Deprecated: Use libvmi
 func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
@@ -877,6 +961,9 @@ func DeletePvAndPvc(name string) {
 	}
 }
 
+// AddHostDisk
+//
+// Deprecated: Use libvmi
 func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDiskType, name string) {
 	hostDisk := v1.HostDisk{
 		Path: path,
@@ -905,6 +992,9 @@ func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDi
 	vmi.Namespace = testsuite.NamespacePrivileged
 }
 
+// NewRandomVMIWithHostDisk
+//
+// Deprecated: Use libvmi
 func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 	AddHostDisk(vmi, diskPath, diskType, "host-disk")
@@ -930,6 +1020,9 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 	return vmi
 }
 
+// AddConfigMapDisk
+//
+// Deprecated: Use libvmi
 func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
@@ -947,10 +1040,16 @@ func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volu
 	})
 }
 
+// AddSecretDisk
+//
+// Deprecated: Use libvmi
 func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string, volumeName string) {
 	AddSecretDiskWithCustomLabel(vmi, secretName, volumeName, "")
 }
 
+// AddSecretDiskWithCustomLabel
+//
+// Deprecated: Use libvmi
 func AddSecretDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, secretName string, volumeName string, volumeLabel string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
@@ -966,6 +1065,9 @@ func AddSecretDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, secretName str
 	})
 }
 
+// AddLabelDownwardAPIVolume
+//
+// Deprecated: Use libvmi
 func AddLabelDownwardAPIVolume(vmi *v1.VirtualMachineInstance, volumeName string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
@@ -989,6 +1091,9 @@ func AddLabelDownwardAPIVolume(vmi *v1.VirtualMachineInstance, volumeName string
 	})
 }
 
+// AddServiceAccountDisk
+//
+// Deprecated: Use libvmi
 func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName string) {
 	volumeName := serviceAccountName + "-disk"
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1004,11 +1109,17 @@ func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName st
 	})
 }
 
+// AddExplicitPodNetworkInterface
+//
+// Deprecated: Use libvmi
 func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 }
 
+// AddWatchdog
+//
+// Deprecated: Use libvmi
 func AddWatchdog(vmi *v1.VirtualMachineInstance, action v1.WatchdogAction) {
 	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "watchdog",
@@ -1518,6 +1629,9 @@ func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance
 	return podName
 }
 
+// AppendEmptyDisk
+//
+// Deprecated: Use libvmi
 func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName string, busName v1.DiskBus, diskSize string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
