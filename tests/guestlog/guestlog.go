@@ -103,7 +103,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 						foundContainer = true
 					}
 				}
-				Expect(foundContainer).To(Equal(true))
+				Expect(foundContainer).To(BeTrue())
 
 				By("Triggering a shutdown from the guest OS")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
