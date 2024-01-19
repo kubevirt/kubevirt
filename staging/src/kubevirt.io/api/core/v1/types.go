@@ -558,6 +558,14 @@ const (
 	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
 	// Indicates that the VMI is hot(un)plugging memory
 	VirtualMachineInstanceMemoryChange = "HotMemoryChange"
+
+	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
+	VirtualMachineInstanceDataVolumesReady = "DataVolumesReady"
+
+	// Reason means that not all of the VMI's DVs are ready
+	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
+	// Reason means that all of the VMI's DVs are bound and not running
+	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
 )
 
 const (

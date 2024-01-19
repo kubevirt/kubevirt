@@ -594,7 +594,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := createRunningVM(virtClient, vmi)
 
 			By("Verifying that the VM status eventually gets set to FailedUnschedulable")
-			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusUnschedulable))
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusUnschedulable))
 		},
 			Entry("[test_id:6867]with unsatisfiable resource requirements", func(vmi *v1.VirtualMachineInstance) {
 				vmi.Spec.Domain.Resources.Requests = corev1.ResourceList{
@@ -621,14 +621,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
 			const times = 2
 			for i := 0; i < times; i++ {
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusErrImagePull))
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusImagePullBackOff))
+				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusErrImagePull))
+				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusImagePullBackOff))
 			}
 		})
 
 		DescribeTable("should report an error status when a VM with a missing PVC/DV is started", func(vmiFunc func() *v1.VirtualMachineInstance, status v1.VirtualMachinePrintableStatus) {
 			vm := createRunningVM(virtClient, vmiFunc())
-			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(havePrintableStatus(status))
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(status))
 		},
 			Entry(
 				"[test_id:7596]missing PVC",
@@ -671,7 +671,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying that the VM status eventually gets set to DataVolumeError")
-			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusDataVolumeError))
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusDataVolumeError))
 		})
 
 		Context("Using virtctl interface", func() {
@@ -1289,7 +1289,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be in Starting status")
-					Eventually(ThisVM(vm), 160*time.Second, 1*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusStarting))
+					Eventually(ThisVM(vm), 160*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusStarting))
 
 					By("Waiting for VMI to fail")
 					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 480*time.Second, 1*time.Second).Should(BeInPhase(v1.Failed))
@@ -2035,14 +2035,6 @@ func notBeInCrashLoop() gomegatypes.GomegaMatcher {
 	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"StartFailure": BeNil(),
-		}),
-	}))
-}
-
-func havePrintableStatus(status v1.VirtualMachinePrintableStatus) gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"PrintableStatus": Equal(status),
 		}),
 	}))
 }
