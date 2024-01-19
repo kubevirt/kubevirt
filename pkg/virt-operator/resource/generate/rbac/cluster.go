@@ -165,11 +165,6 @@ func newDefaultClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 				APIGroup: VersionName,
 				Name:     "system:authenticated",
 			},
-			{
-				Kind:     "Group",
-				APIGroup: VersionName,
-				Name:     "system:unauthenticated",
-			},
 		},
 	}
 }
