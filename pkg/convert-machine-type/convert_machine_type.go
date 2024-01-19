@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -17,27 +18,31 @@ import (
 
 func Run() {
 	// check env variables and set them accordingly
-	var err error
+	var (
+		restartRequired bool
+		targetNs        = metav1.NamespaceAll
+		labelSelector   = labels.Everything()
+		err             error
+	)
 
 	machineTypeEnv, exists := os.LookupEnv("MACHINE_TYPE")
 	if !exists {
 		fmt.Println("No machine type was specified.")
 		os.Exit(1)
 	}
-	MachineTypeGlob = machineTypeEnv
 
-	restartEnv, exists := os.LookupEnv("RESTART_NOW")
+	restartEnv, exists := os.LookupEnv("RESTART_REQUIRED")
 	if exists {
-		RestartNow, err = strconv.ParseBool(restartEnv)
+		restartRequired, err = strconv.ParseBool(restartEnv)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 	}
 
-	namespaceEnv, exists := os.LookupEnv("NAMESPACE")
+	namespaceEnv, exists := os.LookupEnv("TARGET_NS")
 	if exists && namespaceEnv != "" {
-		Namespace = namespaceEnv
+		targetNs = namespaceEnv
 	}
 
 	fmt.Println("Setting label selector")
@@ -48,7 +53,7 @@ func Run() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		LabelSelector, err = ls.AsValidatedSelector()
+		labelSelector, err = ls.AsValidatedSelector()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -64,24 +69,18 @@ func Run() {
 	var vmListWatcher *cache.ListWatch
 	var vmiListWatcher *cache.ListWatch
 
-	if LabelSelector != nil {
-		vmListWatcher = controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", Namespace, fields.Everything(), LabelSelector)
-		vmiListWatcher = controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstances", Namespace, fields.Everything(), LabelSelector)
-	} else {
-		vmListWatcher = cache.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", Namespace, fields.Everything())
-		vmiListWatcher = cache.NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstances", Namespace, fields.Everything())
-	}
-
+	vmListWatcher = controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachines", targetNs, fields.Everything(), labelSelector)
+	vmiListWatcher = controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstances", targetNs, fields.Everything(), labelSelector)
 	vmInformer := cache.NewSharedIndexInformer(vmListWatcher, &k6tv1.VirtualMachine{}, 1*time.Hour, cache.Indexers{})
 	vmiInformer := cache.NewSharedIndexInformer(vmiListWatcher, &k6tv1.VirtualMachineInstance{}, 1*time.Hour, cache.Indexers{})
 
-	jobController, err := NewJobController(vmInformer, vmiInformer, virtCli)
+	jobController, err := NewJobController(vmInformer, vmiInformer, virtCli, machineTypeEnv, restartRequired)
 	if err != nil {
 		os.Exit(1)
 	}
 
-	go jobController.run(jobController.ExitJob)
-	<-jobController.ExitJob
+	go jobController.run(jobController.exitJobChan)
+	<-jobController.exitJobChan
 	os.Exit(0)
 }
 

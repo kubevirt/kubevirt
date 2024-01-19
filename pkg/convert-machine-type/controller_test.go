@@ -150,14 +150,14 @@ var _ = Describe("JobController", func() {
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
 
-			go controller.VmInformer.Run(stop)
-			go controller.VmiInformer.Run(stop)
-			Expect(cache.WaitForCacheSync(stop, controller.VmInformer.HasSynced)).To(BeTrue())
+			go controller.vmInformer.Run(stop)
+			go controller.vmiInformer.Run(stop)
+			Expect(cache.WaitForCacheSync(stop, controller.vmInformer.HasSynced)).To(BeTrue())
 
 			virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 			virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
 
-			MachineTypeGlob = machineTypeGlob
+			controller.machineTypeGlob = machineTypeGlob
 			Testing = true
 		})
 

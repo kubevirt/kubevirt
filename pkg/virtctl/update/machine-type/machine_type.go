@@ -47,7 +47,7 @@ If --restart-now is set to true, the VM will be automatically restarted and Mach
 The Job will terminate once all VMs have their machine types updated, and no VMs remain with MachineTypeRestartRequired set to true.
 If no namespace is specified via --namespace, the mass machine type transition will be applied across all namespaces.
 The --label-selector flag can be used to further limit which VMs the machine type update will be applied to.
-Note that should the Job fail, it will be restarted. Additonally, once the Job is terminated, it will not be automatically deleted.
+Note that should the Job fail, it will be restarted. Additionally, once the Job is terminated, it will not be automatically deleted.
 The Job can be monitored and then deleted manually after it has been terminated using 'kubectl' commands.`,
 		Example: usage(),
 		Args:    templates.ExactArgs(machineTypeCmd, 1),
@@ -136,11 +136,11 @@ func generateMassMachineTypeTransitionJob(machineTypeGlob string) *batchv1.Job {
 									Value: machineTypeGlob,
 								},
 								{
-									Name:  "NAMESPACE",
+									Name:  "TARGET_NS",
 									Value: namespaceFlag,
 								},
 								{
-									Name:  "RESTART_NOW",
+									Name:  "RESTART_REQUIRED",
 									Value: strconv.FormatBool(restartNowFlag),
 								},
 								{
@@ -162,7 +162,7 @@ func generateMassMachineTypeTransitionJob(machineTypeGlob string) *batchv1.Job {
 					SecurityContext: &v1.PodSecurityContext{
 						RunAsNonRoot: pointer.Bool(true),
 					},
-					ServiceAccountName: "convert-machine-type",
+					ServiceAccountName: components.ConvertMachineTypeServiceAccountName,
 					RestartPolicy:      v1.RestartPolicyOnFailure,
 				},
 			},
@@ -187,5 +187,6 @@ func getImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, erro
 		return nil, err
 	}
 
+	fmt.Printf("version: %s, %s, %s\n", info.ImagePrefix, info.Registry, info.Tag)
 	return info, nil
 }

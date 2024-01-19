@@ -195,6 +195,7 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
         "$(container_prefix)/$(image_prefix)network-passt-binding:$(container_tag)": "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
+        "$(container_prefix)/$(image_prefix)mass-machine-type-transition:$(container_tag)": "//cmd/convert-machine-type:mmtt-image",
         # container-disk images
         "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",

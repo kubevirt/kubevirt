@@ -40,7 +40,7 @@ const (
 	testLabel              = "testing-label="
 )
 
-var _ = Describe("[sig-compute][virtctl] update machine-types command", decorators.SigCompute, func() {
+var _ = FDescribe("[sig-compute][virtctl] update machine-types command", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 

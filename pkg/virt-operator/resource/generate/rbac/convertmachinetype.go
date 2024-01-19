@@ -28,7 +28,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-const ConvertMachineTypeServiceAccountName = "convert-machine-type"
+const convertMachineTypeServiceAccountName = "convert-machine-type"
 
 func GetAllConvertMachineType(namespace string) []runtime.Object {
 	return []runtime.Object{
@@ -46,7 +46,7 @@ func newConvertMachineTypeServiceAccount(namespace string) *corev1.ServiceAccoun
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      ConvertMachineTypeServiceAccountName,
+			Name:      convertMachineTypeServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -61,7 +61,7 @@ func newConvertMachineTypeClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ConvertMachineTypeServiceAccountName,
+			Name: convertMachineTypeServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -134,7 +134,7 @@ func newConvertMachineTypeClusterRoleBinding(namespace string) *rbacv1.ClusterRo
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ConvertMachineTypeServiceAccountName,
+			Name: convertMachineTypeServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -142,13 +142,13 @@ func newConvertMachineTypeClusterRoleBinding(namespace string) *rbacv1.ClusterRo
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     ConvertMachineTypeServiceAccountName,
+			Name:     convertMachineTypeServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      ConvertMachineTypeServiceAccountName,
+				Name:      convertMachineTypeServiceAccountName,
 			},
 		},
 	}
