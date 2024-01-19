@@ -325,6 +325,8 @@ for i in ${namespaces[@]}; do
   kubectl get pods -n $i
 done
 
+kubectl patch -n kubevirt kv kubevirt --type='merge' --patch '{"spec": {"configuration": {"virtualMachineOptions": {"disableSerialConsoleLog": {}} } }}'
+
 kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
