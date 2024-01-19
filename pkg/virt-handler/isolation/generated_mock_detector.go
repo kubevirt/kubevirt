@@ -51,6 +51,16 @@ func (_mr *_MockPodIsolationDetectorRecorder) DetectForSocket(arg0, arg1 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetectForSocket", arg0, arg1)
 }
 
+func (_m *MockPodIsolationDetector) DetectPod(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "DetectPod", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockPodIsolationDetectorRecorder) DetectPod(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetectPod", arg0)
+}
+
 func (_m *MockPodIsolationDetector) Allowlist(controller []string) PodIsolationDetector {
 	ret := _m.ctrl.Call(_m, "Allowlist", controller)
 	ret0, _ := ret[0].(PodIsolationDetector)

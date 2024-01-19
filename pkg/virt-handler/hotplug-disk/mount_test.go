@@ -1013,6 +1013,10 @@ func (i *mockIsolationDetector) DetectForSocket(_ *v1.VirtualMachineInstance, _ 
 	return nil, fmt.Errorf("isolation error")
 }
 
+func (i *mockIsolationDetector) DetectPod(_ *v1.VirtualMachineInstance) error {
+	return nil
+}
+
 func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDetector {
 	return i
 }

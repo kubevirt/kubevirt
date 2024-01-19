@@ -50,6 +50,10 @@ type PodIsolationDetector interface {
 
 	DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error)
 
+	// DetectPod detects if there is a Pod on the host for given vm
+	// Returns error otherwise
+	DetectPod(vmi *v1.VirtualMachineInstance) error
+
 	// Allowlist allows specifying cgroup controller which should be considered to detect the cgroup slice
 	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
 	Allowlist(controller []string) PodIsolationDetector
@@ -100,6 +104,11 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 	}
 
 	return NewIsolationResult(pid, ppid), nil
+}
+
+func (s *socketBasedIsolationDetector) DetectPod(vmi *v1.VirtualMachineInstance) error {
+	_, err := cmdclient.FindPodDirOnHost(vmi)
+	return err
 }
 
 func (s *socketBasedIsolationDetector) Allowlist(controller []string) PodIsolationDetector {

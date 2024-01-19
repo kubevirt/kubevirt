@@ -206,6 +206,7 @@ func NewController(
 	downwardMetricsManager downwardMetricsManager,
 	capabilities *nodelabellerapi.Capabilities,
 	hostCpuModel string,
+	clientManager cmdclient.ClientManager,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-vm")
@@ -233,6 +234,7 @@ func NewController(
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
+		clientManager:               clientManager,
 	}
 
 	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -317,6 +319,7 @@ type VirtualMachineController struct {
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
+	clientManager            cmdclient.ClientManager
 
 	netConf netconf
 	netStat netstat
@@ -2199,10 +2202,10 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 			// use cached socket if we previously established a connection
 			socketFile = clientInfo.SocketFile
 		} else {
-			socketFile, err = cmdclient.FindSocketOnHost(vmi)
+			socketFile, err = d.clientManager.Socket(vmi)
 			if err != nil {
 				// socket does not exist, but let's see if the pod is still there
-				if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+				if err = d.podIsolationDetector.DetectPod(vmi); err != nil {
 					// no pod meanst that waiting for it to initialize makes no sense
 					return true, true, nil
 				}
@@ -2222,11 +2225,11 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 		}
 		d.launcherClients.Store(vmi.UID, clientInfo)
 		// attempt to find the socket if the established connection doesn't currently exist.
-		socketFile, err = cmdclient.FindSocketOnHost(vmi)
+		socketFile, err = d.clientManager.Socket(vmi)
 		// no socket file, no VMI, so it's unresponsive
 		if err != nil {
 			// socket does not exist, but let's see if the pod is still there
-			if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+			if err = d.podIsolationDetector.DetectPod(vmi); err != nil {
 				// no pod meanst that waiting for it to initialize makes no sense
 				return true, true, nil
 			}
@@ -2240,7 +2243,7 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 	// still use the watchdog method.
 	watchDogExists, _ := watchdog.WatchdogFileExists(d.virtShareDir, vmi)
 	if cmdclient.SocketMonitoringEnabled(socketFile) && !watchDogExists {
-		isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
+		isUnresponsive := d.clientManager.IsNotResponsive(socketFile)
 		return isUnresponsive, true, nil
 	}
 
@@ -2250,24 +2253,22 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
-	var err error
-
 	clientInfo, exists := d.launcherClients.Load(vmi.UID)
 	if exists && clientInfo.Client != nil {
 		return clientInfo.Client, nil
 	}
 
-	socketFile, err := cmdclient.FindSocketOnHost(vmi)
+	socketPath, err := d.clientManager.Socket(vmi)
 	if err != nil {
 		return nil, err
 	}
 
-	err = virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
+	err = virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, socketPath, vmi.UID)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := cmdclient.NewClient(socketFile)
+	client, err := d.clientManager.Create(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -2275,7 +2276,7 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	domainPipeStopChan := make(chan struct{})
 	// if this isn't a legacy socket, we need to
 	// pipe in the domain socket into the VMI's filesystem
-	if !cmdclient.IsLegacySocket(socketFile) {
+	if !cmdclient.IsLegacySocket(socketPath) {
 		err = d.startDomainNotifyPipe(domainPipeStopChan, vmi)
 		if err != nil {
 			client.Close()
@@ -2286,7 +2287,7 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 
 	d.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
 		Client:              client,
-		SocketFile:          socketFile,
+		SocketFile:          socketPath,
 		DomainPipeStopChan:  domainPipeStopChan,
 		NotInitializedSince: time.Now(),
 		Ready:               true,
