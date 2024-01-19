@@ -139,8 +139,10 @@ aliases:
   # SIG Buildsystem
   # Owns bazel, and ensures that kubevirt can be build.
   #
-  sig-buildsystem-approvers: []
-  sig-buildsystem-reviewers: []
+  sig-buildsystem-approvers:
+    - dhiller
+  sig-buildsystem-reviewers:
+    - brianmcarey
 
   #
   # SIG Architecture
