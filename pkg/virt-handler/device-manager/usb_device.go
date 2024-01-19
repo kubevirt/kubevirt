@@ -44,8 +44,8 @@ import (
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
-const (
-	PathToUSBDevices = "/sys/bus/usb/devices"
+var (
+	pathToUSBDevices = "/sys/bus/usb/devices"
 )
 
 var discoverLocalUSBDevicesFunc = discoverPluggedUSBDevices
@@ -558,7 +558,10 @@ func (l *LocalDevices) fetch(selectors []v1.USBSelector) ([]*USBDevice, bool) {
 
 func discoverPluggedUSBDevices() *LocalDevices {
 	usbDevices := make(map[int][]*USBDevice, 0)
-	err := filepath.Walk(PathToUSBDevices, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(pathToUSBDevices, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		// Ignore named usb controllers
 		if strings.HasPrefix(info.Name(), "usb") {
 			return nil
