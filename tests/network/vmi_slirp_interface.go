@@ -100,11 +100,11 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 			genericVmi = libvmi.NewCirros(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(
-					libvmi.InterfaceDeviceWithSlirpBinding(libvmi.DefaultInterfaceName, ports...)))
+					libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name, ports...)))
 			deadbeafVmi = libvmi.NewCirros(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(
-					libvmi.InterfaceDeviceWithSlirpBinding(libvmi.DefaultInterfaceName, ports...)))
+					libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name, ports...)))
 			deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 		})
 

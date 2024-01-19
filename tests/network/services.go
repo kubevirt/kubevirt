@@ -140,7 +140,7 @@ var _ = SIGDescribe("Services", func() {
 
 		createVMISpecWithBridgeInterface := func() *v1.VirtualMachineInstance {
 			return libvmi.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(libvmi.DefaultInterfaceName)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()))
 		}
 

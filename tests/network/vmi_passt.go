@@ -49,7 +49,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 
 		vmi := libvmi.NewAlpineWithTestTooling(
 			libvmi.WithInterface(v1.Interface{
-				Name:                   libvmi.DefaultInterfaceName,
+				Name:                   v1.DefaultPodNetwork().Name,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
 				Ports:                  []v1.Port{{Port: 1234, Protocol: "TCP"}},
 				MacAddress:             macAddress,
