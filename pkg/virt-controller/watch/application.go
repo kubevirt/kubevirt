@@ -35,10 +35,9 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/migration"
-	"kubevirt.io/kubevirt/pkg/monitoring/migrationstats"
-
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
+	"kubevirt.io/kubevirt/pkg/monitoring/migration"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
@@ -79,8 +78,6 @@ import (
 
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/monitoring/perfscale"
-	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
-	vmprom "kubevirt.io/kubevirt/pkg/monitoring/vmstats"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -269,8 +266,6 @@ func init() {
 	utilruntime.Must(exportv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(poolv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clonev1alpha1.AddToScheme(scheme.Scheme))
-
-	metrics.SetupMetrics()
 }
 
 func Execute() {
@@ -425,6 +420,19 @@ func Execute() {
 
 	app.onOpenshift = onOpenShift
 
+	if err := metrics.SetupMetrics(
+		app.vmInformer,
+		app.vmiInformer,
+		app.clusterInstancetypeInformer,
+		app.instancetypeInformer,
+		app.clusterPreferenceInformer,
+		app.preferenceInformer,
+		app.migrationInformer,
+		app.clusterConfig,
+	); err != nil {
+		golog.Fatal(err)
+	}
+
 	app.initCommon()
 	app.initReplicaSet()
 	app.initPool()
@@ -520,20 +528,13 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
-		vmiprom.SetupVMICollector(
-			vca.vmiInformer,
-			vca.clusterInstancetypeInformer, vca.instancetypeInformer,
-			vca.clusterPreferenceInformer, vca.preferenceInformer,
-			vca.clusterConfig,
-		)
-		vmprom.SetupVMCollector(vca.vmInformer)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 		if vca.migrationInformer == nil {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
+			metrics.UpdateVMIMigrationInformer(vca.migrationInformer)
 		}
 		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
 		migration.RegisterMigrationMetrics(vca.migrationInformer)
-		migrationstats.SetupMigrationsCollector(vca.migrationInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)

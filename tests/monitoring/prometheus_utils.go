@@ -67,11 +67,11 @@ func getAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 }
 
 func waitForMetricValue(client kubecli.KubevirtClient, metric string, expectedValue float64) {
-	waitForMetricValueWithLabels(client, metric, expectedValue, nil)
+	waitForMetricValueWithLabels(client, metric, expectedValue, nil, 2)
 }
 
-func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue float64, labels map[string]string) {
-	EventuallyWithOffset(1, func() float64 {
+func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue float64, labels map[string]string, offset int) {
+	EventuallyWithOffset(offset, func() float64 {
 		i, err := getMetricValueWithLabels(client, metric, labels)
 		if err != nil {
 			return -1

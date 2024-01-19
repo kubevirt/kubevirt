@@ -168,7 +168,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			labels := map[string]string{
 				"vmi": vmi.Name,
 			}
-			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
@@ -192,12 +192,10 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
 			migration = libmigration.RunMigration(virtClient, migration)
 
-			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 1)
-
 			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
 
 			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
-			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
@@ -293,9 +291,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("should fire VMCannotBeEvicted alert", func() {
 			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
-			vmi := tests.NewRandomVMI()
-			strategy := v1.EvictionStrategyLiveMigrate
-			vmi.Spec.EvictionStrategy = &strategy
+			vmi := libvmi.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
 			vmi = tests.RunVMI(vmi, 240)
 
 			By("waiting for VMCannotBeEvicted alert")

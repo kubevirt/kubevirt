@@ -33,6 +33,10 @@ func (c *SummaryVec) GetType() MetricType {
 	return SummaryVecType
 }
 
+func (c *SummaryVec) GetBaseType() MetricType {
+	return SummaryType
+}
+
 func (c *SummaryVec) getCollector() prometheus.Collector {
 	return c.SummaryVec
 }

@@ -17,16 +17,15 @@
  *
  */
 
-package vmistats
+package virt_controller
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-	io_prometheus_client "github.com/prometheus/client_model/go"
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/prometheus/client_golang/prometheus"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -43,26 +42,21 @@ var _ = Describe("VMI Stats Collector", func() {
 
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
-			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
-			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
-			collector := &VMICollector{
-				vmiInformer:   vmiInformer,
-				clusterConfig: clusterConfig,
-			}
+			vmiInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 
 			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
-			collector.updateVMIMetrics(vmis, ch)
 
-			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
+			evictionBlockerResults := getEvictionBlocker(vmis)
+			Expect(evictionBlockerResults).To(HaveLen(1), "Expected 1 metric")
 
-			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_non_evictable"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(expectedVal))
+			evictionBlockerResultMetric := evictionBlockerResults[0]
+			Expect(evictionBlockerResultMetric).ToNot(BeNil())
+			Expect(evictionBlockerResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_non_evictable"))
+			Expect(evictionBlockerResultMetric.Value).To(BeEquivalentTo(expectedVal))
 		},
 			Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", &liveMigrateEvictPolicy, k8sv1.ConditionFalse, 1.0),
 			Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known", &liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
@@ -103,18 +97,18 @@ func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableC
 }
 
 var _ = Describe("Utility functions", func() {
-	co := setupTestVMICollector()
+	setupTestVMICollector()
 
 	Context("VMI Count map reporting", func() {
 		It("should handle missing VMs", func() {
 			var countMap map[vmiCountMetric]uint64
 
-			countMap = co.makeVMICountMetricMap(nil)
+			countMap = makeVMICountMetricMap(nil)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(BeEmpty())
 
-			vmis := []*k6tv1.VirtualMachineInstance{}
-			countMap = co.makeVMICountMetricMap(vmis)
+			var vmis []*k6tv1.VirtualMachineInstance
+			countMap = makeVMICountMetricMap(vmis)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(BeEmpty())
 		})
@@ -190,7 +184,7 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := co.makeVMICountMetricMap(vmis)
+			countMap := makeVMICountMetricMap(vmis)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(HaveLen(3))
 
@@ -242,25 +236,15 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			ch := make(chan prometheus.Metric, 1)
-			defer close(ch)
-			co.updateVMIsPhase(vmis, ch)
+			phaseResults := getVmisPhase(vmis)
+			Expect(phaseResults).To(HaveLen(1), "Expected 1 metric")
 
-			Expect(ch).To(HaveLen(1), "Expected 1 metric")
-			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
-
-			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_phase_count"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(1))
-			Expect(dto.Label).To(HaveLen(7))
-			for _, pair := range dto.Label {
-				if pair.GetName() == "instance_type" {
-					Expect(pair.GetValue()).To(Equal(expected))
-					return
-				}
-			}
+			phaseResultMetric := phaseResults[0]
+			Expect(phaseResultMetric).ToNot(BeNil())
+			Expect(phaseResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_phase_count"))
+			Expect(phaseResultMetric.Value).To(BeEquivalentTo(1))
+			Expect(phaseResultMetric.Labels).To(HaveLen(7))
+			Expect(phaseResultMetric.Labels[5]).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
 			Entry("with managed instance type expect its name", k6tv1.InstancetypeAnnotation, "i-managed", "i-managed"),
@@ -285,25 +269,15 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			ch := make(chan prometheus.Metric, 1)
-			defer close(ch)
-			co.updateVMIsPhase(vmis, ch)
+			phaseResults := getVmisPhase(vmis)
+			Expect(phaseResults).To(HaveLen(1), "Expected 1 metric")
 
-			Expect(ch).To(HaveLen(1), "Expected 1 metric")
-			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
+			phaseResultMetric := phaseResults[0]
 
-			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_phase_count"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(1))
-			Expect(dto.Label).To(HaveLen(7))
-			for _, pair := range dto.Label {
-				if pair.GetName() == "preference" {
-					Expect(pair.GetValue()).To(Equal(expected))
-					return
-				}
-			}
+			Expect(phaseResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_phase_count"))
+			Expect(phaseResultMetric.Value).To(BeEquivalentTo(1))
+			Expect(phaseResultMetric.Labels).To(HaveLen(7))
+			Expect(phaseResultMetric.Labels[6]).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
 			Entry("with managed preference expect its name", k6tv1.PreferenceAnnotation, "p-managed", "p-managed"),
@@ -315,11 +289,11 @@ var _ = Describe("Utility functions", func() {
 	})
 })
 
-func setupTestVMICollector() *VMICollector {
-	instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
-	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
-	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+func setupTestVMICollector() {
+	instanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+	clusterInstanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+	preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+	clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
@@ -345,13 +319,6 @@ func setupTestVMICollector() *VMICollector {
 	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
 	})
-
-	return &VMICollector{
-		instanceTypeInformer:        instanceTypeInformer,
-		clusterInstanceTypeInformer: clusterInstanceTypeInformer,
-		preferenceInformer:          preferenceInformer,
-		clusterPreferenceInformer:   clusterPreferenceInformer,
-	}
 }
 
 func newObjectMetaForInstancetypes(name, vendor string) metav1.ObjectMeta {
