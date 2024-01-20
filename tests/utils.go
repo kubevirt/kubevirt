@@ -1230,18 +1230,6 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 	return strings.Contains(stdout, "paused"), nil
 }
 
-// Deprecated: DeprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
-// parallel execution.
-func DeprecatedBeforeAll(fn func()) {
-	first := true
-	BeforeEach(func() {
-		if first {
-			fn()
-			first = false
-		}
-	})
-}
-
 func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vm)
 	if err != nil {
