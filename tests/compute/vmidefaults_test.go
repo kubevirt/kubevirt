@@ -17,20 +17,16 @@
  *
  */
 
-package tests_test
+package compute
 
 import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -44,8 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompute, func() {
-	var err error
+var _ = SIGDescribe("VMIDefaults", func() {
 	var virtClient kubecli.KubevirtClient
 
 	var vmi *v1.VirtualMachineInstance
@@ -57,36 +52,17 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 	Context("Disk defaults", func() {
 		BeforeEach(func() {
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
-			vmi.Spec = v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						Disks: []v1.Disk{
-							{Name: "testdisk"},
-						},
-					},
-					Resources: v1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
-							k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
-						},
-					},
-				},
-				Volumes: []v1.Volume{
-					{
-						Name: "testdisk",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "dummy",
-							},
-						},
-					},
-				},
-			}
+			vmi = libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("8192Ki"),
+				libvmi.WithContainerImage("dummy"),
+			)
 		})
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create the VMI first
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -103,7 +79,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 			// Drop the disks to ensure they are added in by setDefaultVolumeDisk
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -122,7 +98,10 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 
 		BeforeEach(func() {
 			// create VMI with missing disk target
-			vmi = tests.NewRandomVMI()
+			vmi = libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
 			kv := util.GetCurrentKv(virtClient)
 			kvConfiguration = kv.Spec.Configuration
@@ -130,7 +109,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 
 		It("[test_id:4556]Should be present in domain", func() {
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -162,7 +141,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
 		})
 
-		DescribeTable("Should override period in domain if present in virt-config ", func(period uint32, expected api.MemBalloon) {
+		DescribeTable("[Serial]Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
 			By("Adding period to virt-config")
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
 			kvConfigurationCopy.MemBalloonStatsPeriod = &period
@@ -174,7 +153,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 			}
 
 			By("Creating a virtual machine")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -214,9 +193,8 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 
 		It("[test_id:4559]Should not be present in domain ", func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
-			f := false
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &f
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for successful start")
@@ -245,7 +223,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 				Name: "foo-1",
 			})
 
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmi.Spec.Domain.Devices.Inputs).ToNot(BeEmpty(), "There should be input devices")
@@ -258,8 +236,8 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
 			vm := libvmi.NewVirtualMachine(libvmi.NewCirros())
-			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.Bool(true)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting VirtualMachine")
