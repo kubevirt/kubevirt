@@ -224,6 +224,12 @@ var _ = Describe("VirtualMachine", func() {
 			shouldExpectDataVolumeCreationPriorityClass(uid, labels, annotations, "", idx)
 		}
 
+		shouldFailDataVolumeCreationNoResourceFound := func() {
+			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)")
+			})
+		}
+
 		shouldExpectDataVolumeDeletion := func(uid types.UID, idx *int) {
 			cdiClient.Fake.PrependReactor("delete", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				_, ok := action.(testing.DeleteAction)
@@ -308,6 +314,38 @@ var _ = Describe("VirtualMachine", func() {
 			mockQueue.Wait()
 		}
 
+		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+				Name: "test1",
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+			addVirtualMachine(vm)
+
+			shouldFailDataVolumeCreationNoResourceFound()
+
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
+				objVM := obj.(*virtv1.VirtualMachine)
+				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
+				Expect(cond).To(Not(BeNil()))
+				Expect(cond.Type).To(Equal(virtv1.VirtualMachineFailure))
+				Expect(cond.Reason).To(Equal("FailedCreate"))
+				Expect(cond.Message).To(ContainSubstring("Error encountered while creating DataVolumes: failed to create DataVolume"))
+				Expect(cond.Message).To(ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"))
+			}).Return(vm, nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, FailedDataVolumeCreateReason)
+		})
 		It("should create missing DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{

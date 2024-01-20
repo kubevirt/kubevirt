@@ -1005,7 +1005,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("with secret volume source", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "fake"}}),
 			Entry("with serviceAccount volume source", v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "fake"}}),
 		)
-		It("should reject DataVolume when feature gate is disabled", func() {
+		It("should allow create a vm using a DataVolume when cdi doesnt exist", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1015,8 +1015,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			testutils.RemoveDataVolumeAPI(crdInformer)
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake[0]"))
+			Expect(causes).To(BeEmpty())
 		})
 		It("should reject DataVolume when DataVolume name is not set", func() {
 			vmi := api.NewMinimalVMI("testvmi")
