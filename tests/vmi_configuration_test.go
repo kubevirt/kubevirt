@@ -30,6 +30,8 @@ import (
 	"time"
 	"unicode"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -47,7 +49,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -146,7 +147,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
 			)
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: v1.VirtIO, Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
-			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -578,7 +579,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						BIOS: &v1.BIOS{
-							UseSerial: tests.NewBool(true),
+							UseSerial: pointer.P(true),
 						},
 					},
 				}
@@ -1700,7 +1701,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				requestWithHeadroom := getComputeMemoryRequest(vmiWithHeadroom)
 
 				overheadWithoutHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil)
-				overheadWithHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.String(ratio))
+				overheadWithHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.P(ratio))
 
 				expectedDiffBetweenRequests := overheadWithHeadroom.DeepCopy()
 				expectedDiffBetweenRequests.Sub(overheadWithoutHeadroom)
@@ -2138,22 +2139,28 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			vmi := tests.NewRandomVMI()
+			tmpHostDiskDir := tests.RandTmpDir()
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerDisk("ephemeral-disk3", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n"),
+				libvmi.WithHostDisk("hostdisk", filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate),
+				// hostdisk needs a privileged namespace
+				libvmi.WithNamespace(testsuite.NamespacePrivileged),
+			)
 
-			By("adding disks to a VMI")
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			By("setting disk caches")
+			//ephemeral-disk1
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			//ephemeral-disk2
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
-
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk5", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			//ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-			tmpHostDiskDir := tests.RandTmpDir()
-			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -2185,7 +2192,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'none' has been set to cloud-init disk")
-			Expect(disks[4].Alias.GetName()).To(Equal("cloud-init"))
+			Expect(disks[4].Alias.GetName()).To(Equal("disk1"))
 			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
@@ -2346,7 +2353,15 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			nodeName = pod.Spec.NodeName
 			defer tests.RemoveHostDiskImage(tmpHostDiskDir, nodeName)
 
-			vmi := tests.NewRandomVMIWithHostDisk(tmpHostDiskPath, v1.HostDiskExistsOrCreate, nodeName)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithHostDisk("host-disk", tmpHostDiskPath, v1.HostDiskExists),
+				libvmi.WithNodeAffinityFor(nodeName),
+				// hostdisk needs a privileged namespace
+				libvmi.WithNamespace(testsuite.NamespacePrivileged),
+			)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
@@ -3352,7 +3367,7 @@ func withSerialBIOS() libvmi.Option {
 		if vmi.Spec.Domain.Firmware.Bootloader.BIOS == nil {
 			vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
 		}
-		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(true)
+		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
 	}
 }
 

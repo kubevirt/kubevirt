@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libdv"
 
@@ -555,7 +557,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		// set new replica count while still being paused
 		By("Updating the number of replicas")
-		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", pool.Spec.Replicas, tests.NewInt32(1))
+		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", pool.Spec.Replicas, pointer.P(1))
 		Expect(err).ToNot(HaveOccurred())
 		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())

@@ -231,10 +231,12 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		It("Should successfully start a VM with persistent reservation", func() {
 			By("Create VMI with the SCSI disk")
 			vmi := libvmi.NewFedora(
+				libvmi.WithNamespace(util.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
+				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi.Namespace = util.NamespaceTestDefault
-			vmi = tests.CreateVmiOnNode(vmi, node)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
 				libwait.WithTimeout(180),
@@ -258,20 +260,24 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		It("Should successfully start 2 VMs with persistent reservation on the same LUN", func() {
 			By("Create 2 VMs with the SCSI disk")
 			vmi := libvmi.NewFedora(
+				libvmi.WithNamespace(util.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
+				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi.Namespace = util.NamespaceTestDefault
-			vmi = tests.CreateVmiOnNode(vmi, node)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
 				libwait.WithTimeout(180),
 			)
 
 			vmi2 := libvmi.NewFedora(
+				libvmi.WithNamespace(util.NamespaceTestDefault),
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
+				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi2.Namespace = util.NamespaceTestDefault
-			vmi2 = tests.CreateVmiOnNode(vmi2, node)
+			vmi2, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi2)).Create(context.Background(), vmi2)
+			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi2,
 				libwait.WithFailOnWarnings(false),
 				libwait.WithTimeout(180),

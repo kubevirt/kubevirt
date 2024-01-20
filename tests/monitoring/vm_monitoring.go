@@ -180,7 +180,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			vmi := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithNodeAffinityFor(&nodes.Items[0]),
+				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			labels := map[string]string{

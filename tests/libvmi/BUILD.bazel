@@ -9,6 +9,7 @@ go_library(
         "factory.go",
         "memory.go",
         "network.go",
+        "selector.go",
         "status.go",
         "storage.go",
         "vm.go",

@@ -28,12 +28,15 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-// WithContainerImage specifies the name of the container image to be used.
-func WithContainerImage(name string) Option {
+const (
+	defaultDiskSize = "1Gi"
+)
+
+// WithContainerDisk specifies the disk name and the name of the container image to be used.
+func WithContainerDisk(diskName, imageName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		diskName := "disk0"
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
-		addVolume(vmi, newContainerVolume(diskName, name))
+		addVolume(vmi, newContainerVolume(diskName, imageName))
 	}
 }
 
@@ -97,6 +100,13 @@ func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Op
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newLun(diskName, reservation))
 		addVolume(vmi, newPersistentVolumeClaimVolume(diskName, pvcName))
+	}
+}
+
+func WithHostDisk(diskName, path string, diskType v1.HostDiskType) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
+		addVolume(vmi, newHostDisk(diskName, path, diskType))
 	}
 }
 
@@ -255,6 +265,23 @@ func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
 			EmptyDisk: &v1.EmptyDiskSource{
 				Capacity: capacity,
 			},
+		},
+	}
+}
+
+func newHostDisk(name, path string, diskType v1.HostDiskType) v1.Volume {
+	hostDisk := v1.HostDisk{
+		Path: path,
+		Type: diskType,
+	}
+	if diskType == v1.HostDiskExistsOrCreate {
+		hostDisk.Capacity = resource.MustParse(defaultDiskSize)
+	}
+
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			HostDisk: &hostDisk,
 		},
 	}
 }

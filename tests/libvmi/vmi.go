@@ -171,16 +171,6 @@ func WithDownwardMetricsChannel() Option {
 	}
 }
 
-// WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
-func WithNodeSelectorFor(node *k8sv1.Node) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.NodeSelector == nil {
-			vmi.Spec.NodeSelector = map[string]string{}
-		}
-		vmi.Spec.NodeSelector["kubernetes.io/hostname"] = node.Name
-	}
-}
-
 // WithUefi configures EFI bootloader and SecureBoot.
 func WithUefi(secureBoot bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
@@ -244,35 +234,6 @@ func WithCPUFeature(featureName, policy string) Option {
 			Name:   featureName,
 			Policy: policy,
 		})
-	}
-}
-
-func WithNodeAffinityFor(node *k8sv1.Node) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		nodeSelectorTerm := k8sv1.NodeSelectorTerm{
-			MatchExpressions: []k8sv1.NodeSelectorRequirement{
-				{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{node.Name}},
-			},
-		}
-
-		if vmi.Spec.Affinity == nil {
-			vmi.Spec.Affinity = &k8sv1.Affinity{}
-		}
-
-		if vmi.Spec.Affinity.NodeAffinity == nil {
-			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
-		}
-
-		if vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
-			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
-		}
-
-		if vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
-			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []k8sv1.NodeSelectorTerm{}
-		}
-
-		vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
-			append(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, nodeSelectorTerm)
 	}
 }
 

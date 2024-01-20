@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/testsuite"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -793,12 +795,17 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 
 	// manually configure IP/link on sriov interfaces because there is
 	// no DHCP server to serve the address to the guest
-	vmi := newSRIOVVmi([]string{networkName}, cloudInitNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr))
+	vmi := newSRIOVVmi(
+		[]string{networkName},
+		cloudInitNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr),
+	)
+	libvmi.WithNodeAffinityFor(nodeName)(vmi)
 	const secondaryInterfaceIndex = 1
 	vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIndex].MacAddress = mac.String()
 
-	vmi = tests.CreateVmiOnNode(vmi, nodeName)
-
+	virtCli := kubevirt.Client()
+	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi, nil
 }
 

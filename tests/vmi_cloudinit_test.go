@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
@@ -223,7 +225,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vm := &v1.VirtualMachine{
 					ObjectMeta: vmi.ObjectMeta,
 					Spec: v1.VirtualMachineSpec{
-						Running: tests.NewBool(false),
+						Running: pointer.P(false),
 						Template: &v1.VirtualMachineInstanceTemplateSpec{
 							Spec: vmi.Spec,
 						},

@@ -43,7 +43,7 @@ import (
 
 	v12 "k8s.io/api/apps/v1"
 
-	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -936,17 +936,6 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-// NewRandomVMIWithPVCAndUserData
-//
-// Deprecated: Use libvmi
-func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
-	AddUserData(vmi, "disk1", userData)
-	return vmi
-}
-
 func DeletePvAndPvc(name string) {
 	virtCli := kubevirt.Client()
 
@@ -959,65 +948,6 @@ func DeletePvAndPvc(name string) {
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
 	}
-}
-
-// AddHostDisk
-//
-// Deprecated: Use libvmi
-func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDiskType, name string) {
-	hostDisk := v1.HostDisk{
-		Path: path,
-		Type: diskType,
-	}
-	if diskType == v1.HostDiskExistsOrCreate {
-		hostDisk.Capacity = resource.MustParse(defaultDiskSize)
-	}
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			HostDisk: &hostDisk,
-		},
-	})
-
-	// hostdisk needs a privileged namespace
-	vmi.Namespace = testsuite.NamespacePrivileged
-}
-
-// NewRandomVMIWithHostDisk
-//
-// Deprecated: Use libvmi
-func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-	AddHostDisk(vmi, diskPath, diskType, "host-disk")
-	if nodeName != "" {
-		vmi.Spec.Affinity = &k8sv1.Affinity{
-			NodeAffinity: &k8sv1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{
-									Key:      util2.KubernetesIoHostName,
-									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{nodeName},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-	}
-	return vmi
 }
 
 // AddConfigMapDisk
@@ -1131,10 +1061,6 @@ func AddWatchdog(vmi *v1.VirtualMachineInstance, action v1.WatchdogAction) {
 	}
 }
 
-func NewInt32(x int32) *int32 {
-	return &x
-}
-
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -1154,10 +1080,6 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 		},
 	}
 	return rs
-}
-
-func NewBool(x bool) *bool {
-	return &x
 }
 
 // CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
@@ -1223,9 +1145,9 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 		Capabilities: &k8sv1.Capabilities{
 			Drop: []k8sv1.Capability{"ALL"},
 		},
-		Privileged:   NewBool(true),
+		Privileged:   pointer.P(true),
 		RunAsUser:    &rootUser,
-		RunAsNonRoot: NewBool(false),
+		RunAsNonRoot: pointer.P(false),
 	}
 
 	RunPodAndExpectCompletion(pod)
@@ -1408,35 +1330,6 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	return pod
 }
 
-// CreateVmiOnNodeLabeled creates a VMI a node that has a give label set to a given value
-func CreateVmiOnNodeLabeled(vmi *v1.VirtualMachineInstance, nodeLabel, labelValue string) *v1.VirtualMachineInstance {
-	virtClient := kubevirt.Client()
-
-	vmi.Spec.Affinity = &k8sv1.Affinity{
-		NodeAffinity: &k8sv1.NodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-					{
-						MatchExpressions: []k8sv1.NodeSelectorRequirement{
-							{Key: nodeLabel, Operator: k8sv1.NodeSelectorOpIn, Values: []string{labelValue}},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	var err error
-	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	return vmi
-}
-
-// CreateVmiOnNode creates a VMI on the specified node
-func CreateVmiOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
-	return CreateVmiOnNodeLabeled(vmi, util2.KubernetesIoHostName, nodeName)
-}
-
 func GetVmiPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -1498,7 +1391,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = k6tpointer.P(false)
+		updatedVM.Spec.Running = pointer.P(false)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
@@ -1533,7 +1426,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = k6tpointer.P(true)
+		updatedVM.Spec.Running = pointer.P(true)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
@@ -1627,28 +1520,6 @@ func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance
 	Expect(podName).ToNot(BeEmpty())
 
 	return podName
-}
-
-// AppendEmptyDisk
-//
-// Deprecated: Use libvmi
-func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName string, busName v1.DiskBus, diskSize string) {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: diskName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: busName,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: diskName,
-		VolumeSource: v1.VolumeSource{
-			EmptyDisk: &v1.EmptyDiskSource{
-				Capacity: resource.MustParse(diskSize),
-			},
-		},
-	})
 }
 
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {

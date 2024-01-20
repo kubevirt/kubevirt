@@ -75,21 +75,6 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 			To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 	})
 
-	newAlpineVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
-		return libvmi.NewAlpine(
-			libvmi.WithInterface(
-				*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-	}
-
-	newAlpineVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewAlpineWithTestTooling(
-			libvmi.WithInterface(
-				*libvmi.InterfaceWithMac(
-					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-	}
-
 	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
 		return libvmi.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -103,13 +88,21 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 	createAlpineVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
 		var vmi *v1.VirtualMachineInstance
 		if mac != nil {
-			vmi = newAlpineVMIWithExplicitMac(networkName, *mac)
+			vmi = libvmi.NewAlpineWithTestTooling(
+				libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), *mac)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
+				libvmi.WithNodeAffinityFor(nodeName),
+			)
 		} else {
-			vmi = newAlpineVMIWithMacvtapNetwork(networkName)
+			vmi = libvmi.NewAlpine(
+				libvmi.WithInterface(*v1.DefaultMacvtapNetworkInterface(networkName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
+				libvmi.WithNodeAffinityFor(nodeName),
+			)
 		}
-		vmi = libwait.WaitUntilVMIReady(
-			tests.CreateVmiOnNode(vmi, nodeName),
-			console.LoginToAlpine)
+		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		// configure the client VMI
 		Expect(configInterface(vmi, ifaceName, ipCIDR)).To(Succeed())
 		return vmi
@@ -117,7 +110,10 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 	createAlpineVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
 		runningVMI := tests.RunVMIAndExpectLaunch(
-			newAlpineVMIWithExplicitMac(networkName, mac),
+			libvmi.NewAlpineWithTestTooling(
+				libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), mac)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
+			),
 			180,
 		)
 		err := console.LoginToAlpine(runningVMI)
