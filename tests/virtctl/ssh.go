@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,8 +81,12 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 
 	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
-		vmi := libvmi.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub)))
+		vmi := libvmi.New(
+			libvmi.WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
+			libvmi.WithAlpineResourceMemory(),
+			libvmi.WithRng(),
+			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub)),
+		)
 		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 

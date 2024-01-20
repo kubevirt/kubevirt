@@ -63,10 +63,9 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 
 // NewAlpine instantiates a new Alpine based VMI configuration
 func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		WithResourceMemory(alpineMemory()),
+		WithAlpineResourceMemory(),
 		WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -76,11 +75,10 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
 	withNonEmptyUserData := WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
-	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		withNonEmptyUserData,
-		WithResourceMemory(alpineMemory()),
+		WithAlpineResourceMemory(),
 		WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -128,4 +126,8 @@ func NewWindows(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Firmware = &kvirtv1.Firmware{UUID: WindowsFirmware}
 	return vmi
+}
+
+func WithAlpineResourceMemory() Option {
+	return WithResourceMemory(cirrosMemory())
 }

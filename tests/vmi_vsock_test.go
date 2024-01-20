@@ -171,11 +171,10 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		}
 		privateKeyPath, publicKey, err := libssh.GenerateKeyPair(GinkgoT().TempDir())
 		Expect(err).ToNot(HaveOccurred())
-		userData := libssh.RenderUserDataWithKey(publicKey)
 		vmi := libvmi.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithCloudInitNoCloudUserData(userData),
+			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(publicKey)),
 		)
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
