@@ -13,8 +13,9 @@ set -ex
 ##################################################################
 
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../)"
-DEPLOY_DIR="${PROJECT_ROOT}/deploy/olm-catalog"
+ORIG_DEPLOY_DIR="${PROJECT_ROOT}/deploy/olm-catalog"
 OUT_DIR="${PROJECT_ROOT}/_out"
+DEPLOY_DIR="${OUT_DIR}/deploy/olm-catalog"
 PACKAGE_NAME="community-kubevirt-hyperconverged"
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-quay.io}
 REGISTRY_NAMESPACE=${REGISTRY_NAMESPACE:-kubevirt}
@@ -26,18 +27,13 @@ UNSTABLE=$2
 
 function create_index_image() {
   CURRENT_VERSION=$1
-  PREV_VERSION=$2
   INITIAL_VERSION=${CURRENT_VERSION}
-  if [[ "${UNSTABLE}" == "UNSTABLE" ]] || [[ "${UNSTABLE}" == "FBCUNSTABLE" ]]; then
+  if [[ "${UNSTABLE}" == "UNSTABLE" ]]; then
     mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${CURRENT_VERSION}-unstable
     CURRENT_VERSION=${CURRENT_VERSION}-unstable
-    PREV_VERSION=${PREV_VERSION}-unstable
   fi
   BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
   INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
-  if [[ "${UNSTABLE}" == "FBCUNSTABLE" ]]; then
-    INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${INITIAL_VERSION}-fbc-unstable"
-  fi
 
   podman build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
   podman push "${BUNDLE_IMAGE_NAME}"
@@ -46,69 +42,40 @@ function create_index_image() {
   # unalignment between cached index image and fetched bundle image.
   BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
 
-  if [[ "${UNSTABLE}" == "UNSTABLE" ]]; then
-    # Currently, ci-operator does not support index images with file-based catalogs.
-    # To maintain CI functionality, we'll keep using SQLite-based catalogs for the unstable tags
-    # until FBC handling will be implemented in openshift ci-operator.
-    # With FBCUNSTABLE the unstable index image will be built as FBC based and named
-    # -fbc-unstable to enable the transition to FBC only
-    # shellcheck disable=SC2086
-    ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u podman --mode semver
-  else
-    mkdir -p "${OUT_DIR}"
-    (cd "${OUT_DIR}" && create_file_based_catalog)
-  fi
+  create_file_based_catalog "${INITIAL_VERSION}" "${BUNDLE_IMAGE_NAME}" "${UNSTABLE}"
 
   podman push "${INDEX_IMAGE_NAME}"
-
-  if [[ "${CURRENT_VERSION}" != "${INITIAL_VERSION}" ]]; then
-    mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${INITIAL_VERSION}
-  fi
 }
 
 function create_file_based_catalog() {
+  INITIAL_VERSION=$1
+  BUNDLE_IMAGE_NAME=$2
+  UNSTABLE=$3
+
   # File-Based Catalog handling
-  rm -rf fbc-catalog*
-  ${OPM} migrate "${INDEX_IMAGE_NAME}" fbc-catalog || true
-  if [ ! -d fbc-catalog ]
-  then
-    # The index image is already in file-based format. Extracting its catalog file
-    # TODO: we should handle the case where we are releasing X.Y.0 and
-    # quay.io/kubevirt/hyperconverged-cluster-index:X.Y.0 never got pushed!
-    oc image extract "${INDEX_IMAGE_NAME}" --file /configs/catalog.json
-  else
-    # The migration took place
-    mv fbc-catalog/community-kubevirt-hyperconverged/catalog.json catalog.json
+  cd "${OUT_DIR}"
+  template_file=index-template-release.yaml
+  if [[ "${UNSTABLE}" == "UNSTABLE" ]]; then
+    template_file=index-template-unstable.yaml
   fi
 
-  ${OPM} render "${BUNDLE_IMAGE_NAME}" > bundle.json
-  CSV_NAME=$(jq -r .name bundle.json)
-  VERSION=${CSV_NAME##*.v}
-  SKIPRANGE="<"${VERSION}
-  CHANNEL=${CURRENT_VERSION%-*}
+  cp "deploy/olm-catalog/community-kubevirt-hyperconverged/${template_file}" ./index-template.yaml
 
-  # Remove the existing channel schema from the catalog
-  jq --arg CHANNEL "$CHANNEL" 'del(. | select(.schema=="olm.channel" and .name==$CHANNEL))' \
-   catalog.json > updated_fbc.json
+  if [[ "quay.io/kubevirt/hyperconverged-cluster-bundle:${INITIAL_VERSION}" != "${BUNDLE_IMAGE_NAME}" ]]; then
+    sed -i -E "s|quay.io/kubevirt/hyperconverged-cluster-bundle:${INITIAL_VERSION}|${BUNDLE_IMAGE_NAME}|g" index-template.yaml
+  fi
 
-  # Insert the new channel schema for the new bundle instead of the one we removed previously
-  jq --arg CSV_NAME "$CSV_NAME" --arg SKIPRANGE "$SKIPRANGE" --arg CHANNEL "$CHANNEL" '. |
-    select(.schema=="olm.channel" and .name==$CHANNEL) |
-    .entries[0].name=$CSV_NAME |
-    .entries[0].skipRange=$SKIPRANGE' \
-      catalog.json >> updated_fbc.json
+  while IFS= read -r line; do
+    image=$(echo "${line}" | sed -E 's|.*(quay.io/kubevirt/hyperconverged-cluster-bundle:.*)|\1|g')
+    digest=$("${PROJECT_ROOT}/tools/digester/digester" --image "${image}")
+    sed -i "s|${image}|${digest}|g" index-template.yaml
+  done < <(grep 'quay.io/kubevirt/hyperconverged-cluster-bundle:' index-template.yaml)
 
-  mv updated_fbc.json updated_fbc.json.tmp
-  # Remove the existing bundle schema from the catalog
-  jq --arg CHANNEL "$CHANNEL" 'del(. |
-    select(.schema=="olm.bundle" and (.name | contains($CHANNEL))))' \
-    updated_fbc.json.tmp > updated_fbc.json
-
-  mkdir -p fbc-catalog
-  cat bundle.json >> updated_fbc.json
-  sed -i '/null/d' updated_fbc.json
-  mv updated_fbc.json fbc-catalog/catalog.json
+  rm -rf fbc-catalog
+  mkdir fbc-catalog
+  ${OPM} alpha render-template semver index-template.yaml > fbc-catalog/catalog.json
   ${OPM} validate fbc-catalog
+  rm -f fbc-catalog.Dockerfile
   ${OPM} generate dockerfile fbc-catalog
   podman build -t "${INDEX_IMAGE_NAME}" -f fbc-catalog.Dockerfile
 }
@@ -116,7 +83,7 @@ function create_file_based_catalog() {
 function create_all_versions() {
   PREV_VERSION=
   for version in $(ls -d ${PACKAGE_NAME}/*/ | sort -V | cut -d '/' -f 2); do
-    create_index_image "${version}" "${PREV_VERSION}"
+    create_index_image "${version}"
     PREV_VERSION=${version}
   done
 }
@@ -128,20 +95,22 @@ function create_latest_version() {
     PREV_VERSION=${CURRENT_VERSION}
     CURRENT_VERSION=${version}
   done
-  create_index_image "${CURRENT_VERSION}" "${PREV_VERSION}"
+  create_index_image "${CURRENT_VERSION}"
 }
 
 function build_specific_version() {
   CURRENT_VERSION=
-  PREV_VERSION=
   for version in $(ls -d ${PACKAGE_NAME}/*/ | sort -V | cut -d '/' -f 2); do
-    PREV_VERSION=${CURRENT_VERSION}
-    CURRENT_VERSION=${version}
-    if [[ "$1" == "${CURRENT_VERSION}" ]]; then
+    if [[ "$1" == "${version}" ]]; then
+      CURRENT_VERSION="${version}"
       break
     fi
   done
-  create_index_image "${CURRENT_VERSION}" "${PREV_VERSION}"
+  if [[ -z ${CURRENT_VERSION} ]]; then
+    echo "can't find version $1"
+    exit 1
+  fi
+  create_index_image "${CURRENT_VERSION}"
 }
 
 function help() {
@@ -153,6 +122,9 @@ if [[ $# -gt 2 ]] || [[ $# -lt 1 ]]; then
   exit 1
 fi
 
+rm -rf "${DEPLOY_DIR}"
+mkdir -p "${DEPLOY_DIR}"
+cp -r ${ORIG_DEPLOY_DIR}/* "${DEPLOY_DIR}/"
 cd "${DEPLOY_DIR}"
 
 case "$1" in

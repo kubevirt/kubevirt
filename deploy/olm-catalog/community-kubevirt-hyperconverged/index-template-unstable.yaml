@@ -1,0 +1,12 @@
+Schema: olm.semver
+GenerateMajorChannels: true
+GenerateMinorChannels: true
+DefaultChannelTypePreference: minor
+Candidate:
+  Bundles:
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.6.0
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.7.0
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.8.0
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.9.0
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.10.1
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.11.0

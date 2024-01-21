@@ -20,7 +20,7 @@ jobs:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
       REGISTRY_NAMESPACE: kubevirt
-      OPM_VERSION: v1.26.2
+      OPM_VERSION: v1.35.0
     steps:
       - name: Checkout the latest code
         uses: actions/checkout@v4
@@ -41,7 +41,6 @@ jobs:
         run: |
           echo "IMAGE_TAG=${CSV_VERSION}-unstable" >> $GITHUB_ENV
           echo "UNSTABLE=UNSTABLE" >> $GITHUB_ENV
-          echo "FBCUNSTABLE=FBCUNSTABLE" >> $GITHUB_ENV
 
       - name: Build Applications Images
         env:
@@ -75,4 +74,3 @@ jobs:
         run: |
           export OPM=$(pwd)/linux-amd64-opm
           ./hack/build-index-image.sh ${{ env.IMAGE_TAG }} ${{ env.UNSTABLE }}
-          ./hack/build-index-image.sh ${{ env.IMAGE_TAG }} ${{ env.FBCUNSTABLE }}

@@ -13,7 +13,7 @@ jobs:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
       REGISTRY_NAMESPACE: kubevirt
-      OPM_VERSION: v1.26.2
+      OPM_VERSION: v1.35.0
     steps:
       - name: resolve the correct branch of the tag
         run: |
@@ -112,6 +112,8 @@ jobs:
           sed -i -E "s|(ARG INITIAL_VERSION=).*|\1${CSV_VERSION}|g;s|(ARG INITIAL_VERSION_SED=).*|\1\"${VERSION_4_SED}\"|g" deploy/index-image/Dockerfile.bundle.ci-index-image-upgrade
           sed -i -E "s|(ARG VERSION=).*|\1${CSV_VERSION}|g" deploy/olm-catalog/bundle.Dockerfile
           sed -i -E "s|(ARG INITIAL_VERSION=).*|\1${CSV_VERSION}|g;s|(ARG INITIAL_VERSION_SED=).*|\1\"${VERSION_4_SED}\"|g" deploy/olm-catalog/Dockerfile.bundle.ci-index-image-upgrade
+          sed -i -E "s|(quay.io/kubevirt/hyperconverged-cluster-bundle:).*|\1${CSV_VERSION}|g" deploy/olm-catalog/community-kubevirt-hyperconverged/index-template-release.yaml
+          echo "    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:${CSV_VERSION}" >> deploy/olm-catalog/community-kubevirt-hyperconverged/index-template-unstable.yaml
           git add ./deploy/
 
       - uses: peter-evans/create-pull-request@v3
