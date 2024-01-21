@@ -193,32 +193,6 @@ func CreateSecret(name, namespace string, data map[string]string) {
 	}
 }
 
-func ServiceMonitorEnabled() bool {
-	virtClient := kubevirt.Client()
-
-	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(virtClient)
-	if err != nil {
-		fmt.Printf("ERROR: Can't verify ServiceMonitor CRD %v\n", err)
-		panic(err)
-	}
-
-	return serviceMonitorEnabled
-}
-
-// PrometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
-// and false otherwise.
-func PrometheusRuleEnabled() bool {
-	virtClient := kubevirt.Client()
-
-	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(virtClient)
-	if err != nil {
-		fmt.Printf("ERROR: Can't verify PrometheusRule CRD %v\n", err)
-		panic(err)
-	}
-
-	return prometheusRuleEnabled
-}
-
 func DeleteConfigMap(name, namespace string) {
 	virtCli := kubevirt.Client()
 

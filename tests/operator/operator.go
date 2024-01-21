@@ -2406,7 +2406,7 @@ spec:
 	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
 
 		BeforeEach(func() {
-			if tests.ServiceMonitorEnabled() {
+			if serviceMonitorEnabled() {
 				Skip("Test applies on when ServiceMonitor is not defined")
 			}
 		})
@@ -2430,7 +2430,7 @@ spec:
 	Context("With PrometheusRule Enabled", func() {
 
 		BeforeEach(func() {
-			if !tests.PrometheusRuleEnabled() {
+			if !prometheusRuleEnabled() {
 				Skip("Test applies on when PrometheusRule is defined")
 			}
 		})
@@ -2449,7 +2449,7 @@ spec:
 	Context("With PrometheusRule Disabled", func() {
 
 		BeforeEach(func() {
-			if tests.PrometheusRuleEnabled() {
+			if prometheusRuleEnabled() {
 				Skip("Test applies on when PrometheusRule is not defined")
 			}
 		})
@@ -2464,7 +2464,7 @@ spec:
 	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
 
 		BeforeEach(func() {
-			if !tests.ServiceMonitorEnabled() {
+			if !serviceMonitorEnabled() {
 				Skip("Test requires ServiceMonitor to be valid")
 			}
 		})
@@ -3271,6 +3271,32 @@ func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResour
 	patch, err := jsonpatch.CreateMergePatch(origCRDByte, crdByte)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return patch
+}
+
+// prometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
+// and false otherwise.
+func prometheusRuleEnabled() bool {
+	virtClient := kubevirt.Client()
+
+	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can't verify PrometheusRule CRD %v\n", err)
+		panic(err)
+	}
+
+	return prometheusRuleEnabled
+}
+
+func serviceMonitorEnabled() bool {
+	virtClient := kubevirt.Client()
+
+	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can't verify ServiceMonitor CRD %v\n", err)
+		panic(err)
+	}
+
+	return serviceMonitorEnabled
 }
 
 // verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
