@@ -24,15 +24,15 @@ import (
 	"os"
 	"path/filepath"
 
-	srv "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/server"
-
 	"google.golang.org/grpc"
+
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
-	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 
-	"kubevirt.io/client-go/log"
+	srv "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/server"
 )
 
 const hookSocket = "passt.sock"
@@ -48,9 +48,10 @@ func main() {
 	defer os.Remove(socketPath)
 
 	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha2"})
-	hooksV1alpha2.RegisterCallbacksServer(server, srv.V1alpha2Server{})
+	hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha3"})
 
-	log.Log.Infof("Starting hook server exposing 'info' and '%s' services on socket %q", socketPath, "v1alpha2")
-	server.Serve(socket)
+	shutdownChan := make(chan struct{})
+	hooksV1alpha3.RegisterCallbacksServer(server, srv.V1alpha3Server{Done: shutdownChan})
+	log.Log.Infof("passt sidecar is now exposing its services on socket %s using %q API version", socketPath, "v1alpha3")
+	srv.Serve(server, socket, shutdownChan)
 }
