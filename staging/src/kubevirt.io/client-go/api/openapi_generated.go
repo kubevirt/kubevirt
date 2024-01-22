@@ -360,6 +360,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DownwardMetricsVolumeSource":                                        schema_kubevirtio_api_core_v1_DownwardMetricsVolumeSource(ref),
 		"kubevirt.io/api/core/v1.EFI":                                                                schema_kubevirtio_api_core_v1_EFI(ref),
 		"kubevirt.io/api/core/v1.EmptyDiskSource":                                                    schema_kubevirtio_api_core_v1_EmptyDiskSource(ref),
+		"kubevirt.io/api/core/v1.EnableSerialConsoleLog":                                             schema_kubevirtio_api_core_v1_EnableSerialConsoleLog(ref),
 		"kubevirt.io/api/core/v1.EphemeralVolumeSource":                                              schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref),
 		"kubevirt.io/api/core/v1.FeatureAPIC":                                                        schema_kubevirtio_api_core_v1_FeatureAPIC(ref),
 		"kubevirt.io/api/core/v1.FeatureHyperv":                                                      schema_kubevirtio_api_core_v1_FeatureHyperv(ref),
@@ -17128,7 +17129,8 @@ func schema_kubevirtio_api_core_v1_DisableSerialConsoleLog(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Deprecated: please use EnableSerialConsoleLog instead",
+				Type:        []string{"object"},
 			},
 		},
 	}
@@ -17553,6 +17555,16 @@ func schema_kubevirtio_api_core_v1_EmptyDiskSource(ref common.ReferenceCallback)
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_EnableSerialConsoleLog(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 
@@ -24730,15 +24742,21 @@ func schema_kubevirtio_api_core_v1_VirtualMachineOptions(ref common.ReferenceCal
 					},
 					"disableSerialConsoleLog": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DisableSerialConsoleLog disables logging the auto-attached default serial console. If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
+							Description: "DisableSerialConsoleLog disables logging the auto-attached default serial console. If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled. Deprecated: please use EnableSerialConsoleLog instead",
 							Ref:         ref("kubevirt.io/api/core/v1.DisableSerialConsoleLog"),
+						},
+					},
+					"enableSerialConsoleLog": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnableSerialConsoleLog enables logging the auto-attached default serial console. If set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
+							Ref:         ref("kubevirt.io/api/core/v1.EnableSerialConsoleLog"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DisableFreePageReporting", "kubevirt.io/api/core/v1.DisableSerialConsoleLog"},
+			"kubevirt.io/api/core/v1.DisableFreePageReporting", "kubevirt.io/api/core/v1.DisableSerialConsoleLog", "kubevirt.io/api/core/v1.EnableSerialConsoleLog"},
 	}
 }
 

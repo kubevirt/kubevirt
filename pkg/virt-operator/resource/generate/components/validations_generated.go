@@ -1475,9 +1475,17 @@ var CRDsValidation map[string]string = map[string]string{
                     in which free page reporting is always disabled.
                   type: object
                 disableSerialConsoleLog:
-                  description: DisableSerialConsoleLog disables logging the auto-attached
+                  description: 'DisableSerialConsoleLog disables logging the auto-attached
                     default serial console. If not set, serial console logs will be
-                    written to a file and then streamed from a container named 'guest-console-log'.
+                    written to a file and then streamed from a container named ''guest-console-log''.
+                    The value can be individually overridden for each VM, not relevant
+                    if AutoattachSerialConsole is disabled. Deprecated: please use
+                    EnableSerialConsoleLog instead'
+                  type: object
+                enableSerialConsoleLog:
+                  description: EnableSerialConsoleLog enables logging the auto-attached
+                    default serial console. If set, serial console logs will be written
+                    to a file and then streamed from a container named 'guest-console-log'.
                     The value can be individually overridden for each VM, not relevant
                     if AutoattachSerialConsole is disabled.
                   type: object

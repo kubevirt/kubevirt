@@ -2503,12 +2503,21 @@ type VirtualMachineOptions struct {
 	// DisableSerialConsoleLog disables logging the auto-attached default serial console.
 	// If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`.
 	// The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.
+	// Deprecated: please use EnableSerialConsoleLog instead
 	DisableSerialConsoleLog *DisableSerialConsoleLog `json:"disableSerialConsoleLog,omitempty"`
+
+	// EnableSerialConsoleLog enables logging the auto-attached default serial console.
+	// If set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`.
+	// The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.
+	EnableSerialConsoleLog *EnableSerialConsoleLog `json:"enableSerialConsoleLog,omitempty"`
 }
 
 type DisableFreePageReporting struct{}
 
+// Deprecated: please use EnableSerialConsoleLog instead
 type DisableSerialConsoleLog struct{}
+
+type EnableSerialConsoleLog struct{}
 
 // TLSConfiguration holds TLS options
 type TLSConfiguration struct {

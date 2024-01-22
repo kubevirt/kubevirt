@@ -435,7 +435,7 @@ func (c *ClusterConfig) IsFreePageReportingDisabled() bool {
 }
 
 func (c *ClusterConfig) IsSerialConsoleLogDisabled() bool {
-	return c.GetConfig().VirtualMachineOptions != nil && c.GetConfig().VirtualMachineOptions.DisableSerialConsoleLog != nil
+	return c.GetConfig().VirtualMachineOptions == nil || c.GetConfig().VirtualMachineOptions.EnableSerialConsoleLog != nil
 }
 
 func (c *ClusterConfig) GetKSMConfiguration() *v1.KSMConfiguration {

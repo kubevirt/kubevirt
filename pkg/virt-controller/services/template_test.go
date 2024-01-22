@@ -84,9 +84,6 @@ var _ = Describe("Template", func() {
 		Spec: v1.KubeVirtSpec{
 			Configuration: v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{},
-				VirtualMachineOptions: &v1.VirtualMachineOptions{
-					DisableSerialConsoleLog: &v1.DisableSerialConsoleLog{},
-				},
 			},
 		},
 		Status: v1.KubeVirtStatus{

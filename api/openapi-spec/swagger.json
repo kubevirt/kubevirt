@@ -16740,6 +16740,7 @@
     "type": "object"
    },
    "v1.DisableSerialConsoleLog": {
+    "description": "Deprecated: please use EnableSerialConsoleLog instead",
     "type": "object"
    },
    "v1.Disk": {
@@ -16961,6 +16962,9 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
+   },
+   "v1.EnableSerialConsoleLog": {
+    "type": "object"
    },
    "v1.EphemeralVolumeSource": {
     "type": "object",
@@ -20838,8 +20842,12 @@
       "$ref": "#/definitions/v1.DisableFreePageReporting"
      },
      "disableSerialConsoleLog": {
-      "description": "DisableSerialConsoleLog disables logging the auto-attached default serial console. If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
+      "description": "DisableSerialConsoleLog disables logging the auto-attached default serial console. If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled. Deprecated: please use EnableSerialConsoleLog instead",
       "$ref": "#/definitions/v1.DisableSerialConsoleLog"
+     },
+     "enableSerialConsoleLog": {
+      "description": "EnableSerialConsoleLog enables logging the auto-attached default serial console. If set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
+      "$ref": "#/definitions/v1.EnableSerialConsoleLog"
      }
     }
    },

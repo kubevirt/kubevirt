@@ -257,7 +257,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				}
 				return virtlauncherPod
 			}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
-			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
+			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(3))
 			foundContainer := false
 			virtiofsContainerName := fmt.Sprintf("virtiofs-%s", pvcName)
 			for _, container := range virtlauncherPod.Spec.Containers {
