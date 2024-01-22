@@ -291,7 +291,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					vmi = tests.RunVMI(vmi, 60)
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+					Expect(err).ToNot(HaveOccurred())
+
 					vmis = append(vmis, vmi)
 					dvs = append(dvs, dataVolume)
 				}

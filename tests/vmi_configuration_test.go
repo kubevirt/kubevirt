@@ -557,8 +557,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				guestMemory := resource.MustParse("4096M")
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-				runningVMI := tests.RunVMI(vmi, 30)
-				Expect(runningVMI.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
 			})
 		})
 

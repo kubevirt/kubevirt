@@ -576,7 +576,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
-			dhcpVMI = libwait.WaitUntilVMIReady(tests.RunVMI(dhcpVMI, 40), console.LoginToFedora)
+			dhcpVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dhcpVMI)).Create(context.Background(), dhcpVMI)
+			Expect(err).ToNot(HaveOccurred())
+			dhcpVMI = libwait.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -615,7 +617,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
 				Searches:    []string{"example.com"},
 			}
-			dnsVMI = libwait.WaitUntilVMIReady(tests.RunVMI(dnsVMI, 40), console.LoginToCirros)
+			dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI)
+			Expect(err).ToNot(HaveOccurred())
+			dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToCirros)
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},

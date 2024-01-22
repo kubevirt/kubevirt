@@ -34,7 +34,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -58,33 +57,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
-
-	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object) {
-		vmiObj, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		libwait.WaitForSuccessfulVMIStart(vmiObj)
-
-		// Verify Registry Disks are Online
-		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Checking the number of VirtualMachineInstance disks")
-		disksFound := 0
-		for _, pod := range pods.Items {
-			if pod.ObjectMeta.DeletionTimestamp != nil {
-				continue
-			}
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if strings.HasPrefix(containerStatus.Name, "volume") == false {
-					// only check readiness of disk containers
-					continue
-				}
-				disksFound++
-			}
-			break
-		}
-		Expect(disksFound).To(Equal(1))
-	}
 
 	DescribeTable("should", func(image string, policy k8sv1.PullPolicy, expectedPolicy k8sv1.PullPolicy) {
 		vmi := tests.NewRandomVMIWithEphemeralDisk(image)
@@ -174,22 +146,25 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting multiple VMIs", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1465]should success", func() {
-				num := 5
-				vmis := make([]*v1.VirtualMachineInstance, 0, num)
-				objs := make([]runtime.Object, 0, num)
-				for i := 0; i < num; i++ {
-					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-					// FIXME if we give too much ram, the vmis really boot and eat all our memory (cache?)
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-					obj := tests.RunVMI(vmi, 10)
+				const count = 5
+				var vmis []*v1.VirtualMachineInstance
+				for i := 0; i < count; i++ {
+					// Provide 1Mi of memory to prevent VMIs from actually booting.
+					// We only care about the volume containers inside the virt-launcher Pod.
+					vmi := libvmi.NewCirros(libvmi.WithResourceMemory("1Mi"))
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+					Expect(err).ToNot(HaveOccurred())
 					vmis = append(vmis, vmi)
-					objs = append(objs, obj)
 				}
 
-				for idx, vmi := range vmis {
-					verifyContainerDiskVMI(vmi, objs[idx])
+				By("Verifying the containerdisks are online")
+				for _, vmi := range vmis {
+					libwait.WaitForSuccessfulVMIStart(vmi)
+					pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(hasContainerDisk(pods.Items)).To(BeTrue())
 				}
-			}) // Timeout is long because this test involves multiple parallel VirtualMachineInstance launches.
+			})
 		})
 	})
 
@@ -295,4 +270,21 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 func getContainerDiskContainerOfPod(pod *k8sv1.Pod, volumeName string) *k8sv1.Container {
 	diskContainerName := fmt.Sprintf("volume%s", volumeName)
 	return tests.GetContainerOfPod(pod, diskContainerName)
+}
+
+func hasContainerDisk(pods []k8sv1.Pod) bool {
+	for _, pod := range pods {
+		if pod.ObjectMeta.DeletionTimestamp != nil {
+			continue
+		}
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			// only check readiness of containerdisk container
+			if strings.HasPrefix(containerStatus.Name, "volume") &&
+				containerStatus.Ready && containerStatus.State.Running != nil {
+				return true
+			}
+		}
+	}
+
+	return false
 }
