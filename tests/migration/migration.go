@@ -2052,7 +2052,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			It("Migration should generate empty isos of the right size on the target", func() {
 				By("Creating a VMI with cloud-init and config maps")
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				configMapName := "configmap-" + rand.String(5)
 				secretName := "secret-" + rand.String(5)
 				downwardAPIName := "downwardapi-" + rand.String(5)
@@ -2064,16 +2063,21 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					"user":     "admin",
 					"password": "community",
 				}
-				tests.CreateConfigMap(configMapName, vmi.Namespace, config_data)
-				tests.CreateSecret(secretName, vmi.Namespace, secret_data)
-				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
-				tests.AddSecretDisk(vmi, secretName, secretName)
-				tests.AddServiceAccountDisk(vmi, "default")
+
+				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
+				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithConfigMapDisk(configMapName, configMapName),
+					libvmi.WithSecretDisk(secretName, secretName),
+					libvmi.WithServiceAccountDisk("default"),
+					libvmi.WithDownwardAPIDisk(downwardAPIName),
+				)
 				// In case there are no existing labels add labels to add some data to the downwardAPI disk
 				if vmi.ObjectMeta.Labels == nil {
 					vmi.ObjectMeta.Labels = map[string]string{downwardTestLabelKey: downwardTestLabelVal}
 				}
-				tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
 
 				// this annotation causes virt launcher to immediately fail a migration
 				vmi.Annotations = map[string]string{v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation: ""}

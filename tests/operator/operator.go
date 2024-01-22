@@ -718,7 +718,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
 			vmis := []*v1.VirtualMachineInstance{}
 			for i := 0; i < num; i++ {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				configMapName := "configmap-" + rand.String(5)
 				secretName := "secret-" + rand.String(5)
 				downwardAPIName := "downwardapi-" + rand.String(5)
@@ -733,19 +732,21 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					"password": "community",
 				}
 
-				tests.CreateConfigMap(configMapName, vmi.Namespace, config_data)
-				tests.CreateSecret(secretName, vmi.Namespace, secret_data)
-
-				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
-				tests.AddSecretDisk(vmi, secretName, secretName)
-				tests.AddServiceAccountDisk(vmi, "default")
+				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
+				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
+				vmi := libvmi.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithConfigMapDisk(configMapName, configMapName),
+					libvmi.WithSecretDisk(secretName, secretName),
+					libvmi.WithServiceAccountDisk("default"),
+					libvmi.WithDownwardAPIDisk(downwardAPIName),
+					libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
+				)
 				// In case there are no existing labels add labels to add some data to the downwardAPI disk
 				if vmi.ObjectMeta.Labels == nil {
 					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
 				}
-				tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
-				tests.AddWatchdog(vmi, v1.WatchdogActionPoweroff)
 
 				vmis = append(vmis, vmi)
 			}
@@ -754,7 +755,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			vmi := vmis[lastVMIIndex]
 			const nadName = "secondarynet"
 
-			Expect(libnet.CreateNAD(vmi.GetNamespace(), nadName)).To(Succeed())
+			Expect(libnet.CreateNAD(testsuite.GetTestNamespace(vmi), nadName)).To(Succeed())
 
 			const networkName = "tenant-blue"
 			vmi.Spec.Domain.Devices.Interfaces = append(
@@ -802,7 +803,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
-				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
 			}
 		}
@@ -827,7 +828,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 			Eventually(func() error {
 				for _, vmi := range vmis {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
