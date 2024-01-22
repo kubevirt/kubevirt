@@ -30,6 +30,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -40,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkvconfig"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -60,6 +63,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 		err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -318,6 +322,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			vmi := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithAnnotation("kubevirt.io/libvirt-log-filters", "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"),
 			)
 			Expect(err).ToNot(HaveOccurred())
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
@@ -331,5 +336,93 @@ EOL`, inetSuffix, serverIP, serverPort)
 			By("Checking ping (IPv6) from VM to cluster nodes gateway")
 			Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
 		})
+
+		DescribeTable("Connectivity should be preserved after migration", func(ipFamily k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+
+			By("Starting a VMI")
+			migrateVMI := startPasstVMI(libvmi.NewFedora, console.LoginToFedora)
+			beforeMigNodeName := migrateVMI.Status.NodeName
+
+			By("Starting another VMI")
+			anotherVMI := startPasstVMI(libvmi.NewAlpine, console.LoginToAlpine)
+
+			By("Verify the VMIs can ping each other")
+			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
+			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
+			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
+			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiBeforeMigIP)).To(Succeed())
+
+			By("Perform migration")
+			migration := libmigration.New(migrateVMI.Name, migrateVMI.Namespace)
+			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+			migrateVMI = libmigration.ConfirmVMIPostMigration(kubevirt.Client(), migrateVMI, migrationUID)
+
+			By("Verify all the containers in the source pod were terminated")
+			labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(migrateVMI.GetUID()))
+			fieldSelector := fmt.Sprintf("spec.nodeName==%s", beforeMigNodeName)
+
+			assertSourcePodContainersTerminate(labelSelector, fieldSelector, migrateVMI)
+
+			By("Verify the VMI new IP is propogated to the status")
+			var migrateVmiAfterMigIP string
+			Eventually(func() string {
+				migrateVMI, err = kubevirt.Client().VirtualMachineInstance(migrateVMI.Namespace).Get(context.Background(), migrateVMI.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
+				return migrateVmiAfterMigIP
+			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
+
+			By("Verify the guest renewed the IP")
+			/// We renew the IP to avoid issues such as
+			// another pod in the cluster gets the IP of the old pod
+			// a user wants the internal and exteranl IP on the VM to be same
+			ipValidation := fmt.Sprintf("ip addr show eth0 | grep %s", migrateVmiAfterMigIP)
+			Eventually(func() error {
+				return console.RunCommand(migrateVMI, ipValidation, time.Second*5)
+			}, 30*time.Second).Should(Succeed())
+
+			By("Verify the VMIs can ping each other after migration")
+			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
+			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
+		},
+			Entry("[IPv4]", k8sv1.IPv4Protocol),
+			Entry("[IPv6]", k8sv1.IPv6Protocol),
+		)
 	})
 })
+
+func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
+	return Eventually(func() k8sv1.PodPhase {
+		pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(),
+			metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(pods.Items)).To(Equal(1))
+
+		return pods.Items[0].Status.Phase
+	}, 30*time.Second).Should(Equal(k8sv1.PodSucceeded))
+}
+
+func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
+	networkData, err := libnet.NewNetworkData(
+		libnet.WithEthernet("eth0",
+			libnet.WithDHCP4Enabled(),
+			libnet.WithDHCP6Enabled(),
+		),
+	)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	vmi := libvmi.NewFedora(
+		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData),
+	)
+	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	vmi = libwait.WaitUntilVMIReady(vmi,
+		console.LoginToFedora,
+		libwait.WithFailOnWarnings(false),
+		libwait.WithTimeout(180),
+	)
+	return vmi
+}
