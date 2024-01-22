@@ -9,4 +9,5 @@ Candidate:
     - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.8.0
     - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.9.0
     - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.10.1
-    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.11.0
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.11.0-unstable # todo set to 1.11.0 after this released
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.12.0
