@@ -2269,7 +2269,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
-			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("128Mi"),
+			)
 
 			By("setting the disk to use custom block sizes")
 			logicalSize := uint(16384)
@@ -2307,7 +2312,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
-			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("128Mi"),
+			)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{

@@ -265,11 +265,23 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance ", func() {
-		guestAgentMigrationTestFunc := func(pvName string, memoryRequestSize resource.Quantity, migrationPolicy *migrationsv1.MigrationPolicy) {
+		guestAgentMigrationTestFunc := func(pvName string, memoryRequestSize string, migrationPolicy *migrationsv1.MigrationPolicy) {
 			By("Creating the VMI")
-			vmi := tests.NewRandomVMIWithPVC(pvName)
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+			// add userdata for guest agent and service account mount
+			mountSvcAccCommands := fmt.Sprintf(`#!/bin/bash
+					mkdir /mnt/servacc
+					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
+				`, secretDiskSerial)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithPersistentVolumeClaim("disk0", pvName),
+				libvmi.WithResourceMemory(memoryRequestSize),
+				libvmi.WithRng(),
+				libvmi.WithCloudInitNoCloudEncodedUserData(mountSvcAccCommands),
+				libvmi.WithServiceAccountDisk("default"),
+			)
 
 			mode := v1.MigrationPreCopy
 			if migrationPolicy != nil && migrationPolicy.Spec.AllowPostCopy != nil && *migrationPolicy.Spec.AllowPostCopy {
@@ -281,14 +293,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Namespace = testsuite.NamespacePrivileged
 			}
 
-			// add userdata for guest agent and service account mount
-			mountSvcAccCommands := fmt.Sprintf(`#!/bin/bash
-					mkdir /mnt/servacc
-					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
-				`, secretDiskSerial)
-			tests.AddUserData(vmi, "cloud-init", mountSvcAccCommands)
-
-			tests.AddServiceAccountDisk(vmi, "default")
 			disks := vmi.Spec.Domain.Devices.Disks
 			disks[len(disks)-1].Serial = secretDiskSerial
 
@@ -1248,18 +1252,22 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
-				guestAgentMigrationTestFunc(dv.Name, resource.MustParse(fedoraVMSize), nil)
+				guestAgentMigrationTestFunc(dv.Name, fedoraVMSize, nil)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
 				By("Creating the DV")
 				createDV(testsuite.GetTestNamespace(nil))
 				By("Creating the VMI")
-				vmi = tests.NewRandomVMIWithPVC(dv.Name)
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+				vmi = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
+					libvmi.WithResourceMemory(fedoraVMSize),
+					libvmi.WithRng(),
+					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"),
+				)
 
-				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\n echo hello\n")
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking guest agent")
@@ -1378,7 +1386,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
-					return tests.NewRandomVMIWithPVC(dv.Name)
+					return libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
+						libvmi.WithResourceMemory("128Mi"),
+					)
 				}, console.LoginToAlpine),
 			)
 		})
@@ -1458,7 +1471,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Entry("with PVC", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
-					return tests.NewRandomVMIWithPVC(dv.Name)
+					return libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
+						libvmi.WithResourceMemory("128Mi"),
+					)
+
 				}, console.LoginToAlpine),
 			)
 		})
@@ -1692,7 +1711,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				})
 
 				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-					guestAgentMigrationTestFunc(dv.Name, resource.MustParse("1Gi"), migrationPolicy)
+					guestAgentMigrationTestFunc(dv.Name, "1Gi", migrationPolicy)
 				})
 
 			})

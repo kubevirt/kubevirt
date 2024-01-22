@@ -1331,13 +1331,19 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				libstorage.DeleteDataVolume(&dv)
 			})
 
-			DescribeTable("should accurately report DataVolume provisioning", func(vmif func(string) *v1.VirtualMachineInstance) {
+			DescribeTable("should accurately report DataVolume provisioning", func(storageOptFun func(string, string) libvmi.Option, memory string) {
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
 				)
 
-				vmi := vmif(dataVolume.Name)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory(memory),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					storageOptFun("disk0", dataVolume.Name),
+				)
 				vm = libvmi.NewVirtualMachine(vmi)
 
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
@@ -1360,8 +1366,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						vm.Status.VolumeSnapshotStatuses[0].Enabled
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			},
-				Entry("with DataVolume volume", tests.NewRandomVMIWithDataVolume),
-				Entry("with PVC volume", tests.NewRandomVMIWithPVC),
+				Entry("with DataVolume volume", libvmi.WithDataVolume, "1Gi"),
+				Entry("with PVC volume", libvmi.WithPersistentVolumeClaim, "128Mi"),
 			)
 
 			It("[test_id:9705]Should show included and excluded volumes in the snapshot", func() {

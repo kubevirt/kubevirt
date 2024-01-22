@@ -805,16 +805,6 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 	})
 }
 
-// NewRandomVMIWithPVC
-//
-// Deprecated: Use libvmi
-func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	libvmi.WithPersistentVolumeClaim("disk0", claimName)(vmi)
-	return vmi
-}
-
 func DeletePvAndPvc(name string) {
 	virtCli := kubevirt.Client()
 
