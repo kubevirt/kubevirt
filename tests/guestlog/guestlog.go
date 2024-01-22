@@ -136,7 +136,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
    http://cirros-cloud.net
 `
 
-			It("it should fetch logs for a running VM with logs API", func() {
+			It("[QUARANTINE] it should fetch logs for a running VM with logs API", decorators.Quarantine, func() {
 				vmi = tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")

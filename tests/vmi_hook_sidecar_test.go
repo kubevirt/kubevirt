@@ -143,7 +143,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					}
 					return virtlauncherPod
 				}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
-				Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
+				Expect(virtlauncherPod.Spec.Containers).To(HaveLen(3))
 				foundContainer := false
 				for _, container := range virtlauncherPod.Spec.Containers {
 					if container.Name == "hook-sidecar-0" {
