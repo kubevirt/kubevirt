@@ -330,6 +330,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	podIface := nmstate.Interface{
 		Index:       podStatusIface.Index,
 		Name:        podIfaceAlternativeName,
+		State:       nmstate.IfaceStateUp,
 		CopyMacFrom: bridgeIface.Name,
 		Controller:  bridgeIface.Name,
 		IPv4:        nmstate.IP{Enabled: pointer.P(false)},
