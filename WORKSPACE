@@ -281,16 +281,16 @@ container_deps()
 # Pull go_image_base
 container_pull(
     name = "go_image_base",
-    digest = "sha256:6c871aa3c9019984dfd7f520635bd658d740ad20c6268a82faa433f69dfc9a0b",
+    digest = "sha256:9d6c97c160bff0f78a443b583811dd0c8dde5c5086fe8fd2aaf2c23ee7e9590a",
     registry = "gcr.io",
-    repository = "distroless/base",
+    repository = "distroless/base-debian12",
 )
 
 container_pull(
     name = "go_image_base_aarch64",
-    digest = "sha256:4f81adb2fa054fd2ea49a918e2eb025325992b1235733da5ba51ab75bf9bd386",
+    digest = "sha256:b251ebd844116427f92523668ca5e9f8d803e479eef44705b62090176d5e8cc7",
     registry = "gcr.io",
-    repository = "distroless/base",
+    repository = "distroless/base-debian12",
 )
 
 # Pull nfs-server image
