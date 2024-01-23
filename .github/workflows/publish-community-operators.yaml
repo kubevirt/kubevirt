@@ -84,7 +84,7 @@ jobs:
       - name: get next version
         env:
           CSV_VERSION: ${{ env.CSV_VERSION }}
-        run:
+        run: |
           NEW_VERSION=./hack/get-next-version.sh "${CSV_VERSION}"
           NEW_IMAGE_TAG="${NEW_VERSION}-unstable"
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
@@ -104,7 +104,7 @@ jobs:
         env:
           PACKAGE_DIR: ${{ env.PACKAGE_DIR }}
           CSV_VERSION: ${{ env.NEW_VERSION }}
-        run:
+        run: |
           mkdir -p "${PACKAGE_DIR}/${CSV_VERSION}"
           ./hack/build-manifests.sh
           VERSION_4_SED=$(echo "${CSV_VERSION}" | sed -E "s|\.|\\\\\\\\\\\.|g")
