@@ -14,6 +14,11 @@ import (
 )
 
 func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig, virtLauncherLogVerbosity uint) *k8sv1.Container {
+
+	if !config.SerialConsoleLogEnabled() {
+		return nil
+	}
+
 	const serialPort = 0
 	if isSerialConsoleLogEnabled(vmi, config) {
 		logFile := fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)

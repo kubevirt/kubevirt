@@ -4944,6 +4944,9 @@ var _ = Describe("Template", func() {
 
 	Context("with serial console", func() {
 		DescribeTable("check for guest-console-log container", func(autoattachSerialConsole, logSerialConsole, expected bool) {
+			config, kvInformer, svc = configFactory(defaultArch)
+			enableFeatureGate(virtconfig.SerialConsoleLogGate)
+
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
 			vmi.Spec.Domain.Devices.LogSerialConsole = &logSerialConsole
