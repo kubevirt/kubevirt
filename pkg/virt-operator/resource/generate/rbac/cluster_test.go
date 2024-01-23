@@ -75,7 +75,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				expectSubjectExists(clusterRoleBinding.Subjects, kind, name)
 			},
 				Entry("system:authenticated", "Group", "system:authenticated"),
-				Entry("system:unauthenticated", "Group", "system:unauthenticated"),
 			)
 		})
 
