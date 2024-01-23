@@ -62,6 +62,12 @@ func WithNamespace(namespace string) dvOption {
 	}
 }
 
+func WithName(name string) dvOption {
+	return func(dv *v1beta1.DataVolume) {
+		dv.ObjectMeta.Name = name
+	}
+}
+
 type pvcOption func(*corev1.PersistentVolumeClaimSpec)
 
 // WithPVC is a dvOption to add a PVCOption spec to the DataVolume
