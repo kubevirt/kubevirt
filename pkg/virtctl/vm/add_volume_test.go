@@ -34,9 +34,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/libdv"
 )
 
 var _ = Describe("Add volume command", func() {
@@ -133,10 +133,16 @@ var _ = Describe("Add volume command", func() {
 		if commandName == "addvolume" {
 			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 			if useDv {
-				cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(context.Background(), createTestDataVolume(), k8smetav1.CreateOptions{})
+				cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
+					context.Background(),
+					libdv.NewDataVolume(libdv.WithName("testvolume")),
+					k8smetav1.CreateOptions{})
 			} else {
 				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-				coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
+				coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
+					context.Background(),
+					createTestPVC(),
+					k8smetav1.CreateOptions{})
 			}
 		}
 		expectFunc(vmiName, volumeName, useDv)
@@ -161,14 +167,6 @@ var _ = Describe("Add volume command", func() {
 		Entry("addvolume dv, with LUN-type disk should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--disk-type", "lun"),
 	)
 })
-
-func createTestDataVolume() *v1beta1.DataVolume {
-	return &v1beta1.DataVolume{
-		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: "testvolume",
-		},
-	}
-}
 
 func createTestPVC() *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
