@@ -190,6 +190,9 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		if !clusterWide {
 			sar.Spec.ResourceAttributes.Namespace = namespace
 		}
+		if role == "default" {
+			sar.Spec.Groups = []string{"system:authenticated"}
+		}
 
 		result, err := authClient.SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -339,17 +342,17 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				denyAllFor("edit"),
 				denyAllFor("view"),
 				denyModificationsFor("instancetype:view"),
-				denyAllFor("default")),
+				denyModificationsFor("default")),
 			Entry("[test_id:TODO]given a virtualmachineclusterpreference",
 				instancetypeapi.GroupName,
-				instancetypeapi.ClusterPluralResourceName,
+				instancetypeapi.ClusterPluralPreferenceResourceName,
 				// only ClusterRoles bound with a ClusterRoleBinding should have access
 				true,
 				denyAllFor("admin"),
 				denyAllFor("edit"),
 				denyAllFor("view"),
 				denyModificationsFor("instancetype:view"),
-				denyAllFor("default")),
+				denyModificationsFor("default")),
 		)
 
 		DescribeTable("should verify permissions on subresources are correct for view, edit, admin and default", func(resource string, subresource string, accessRights ...rights) {
