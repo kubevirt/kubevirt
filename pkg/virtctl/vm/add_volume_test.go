@@ -57,32 +57,6 @@ var _ = Describe("Add volume command", func() {
 		coreClient = fake.NewSimpleClientset()
 	})
 
-	createTestDataVolume := func() *v1beta1.DataVolume {
-		return &v1beta1.DataVolume{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name: "testvolume",
-			},
-		}
-	}
-
-	createTestPVC := func() *k8sv1.PersistentVolumeClaim {
-		return &k8sv1.PersistentVolumeClaim{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name: "testvolume",
-			},
-		}
-	}
-
-	verifyVolumeSource := func(volumeOptions interface{}, useDv bool) {
-		if useDv {
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.PersistentVolumeClaim).To(BeNil())
-		} else {
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.DataVolume).To(BeNil())
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
-		}
-	}
-
 	expectVMIEndpointAddVolume := func(vmiName, volumeName string, useDv bool) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
@@ -185,3 +159,29 @@ var _ = Describe("Add volume command", func() {
 		Entry("addvolume dv, with LUN-type disk should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--disk-type", "lun"),
 	)
 })
+
+func createTestDataVolume() *v1beta1.DataVolume {
+	return &v1beta1.DataVolume{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: "testvolume",
+		},
+	}
+}
+
+func createTestPVC() *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: "testvolume",
+		},
+	}
+}
+
+func verifyVolumeSource(volumeOptions interface{}, useDv bool) {
+	if useDv {
+		Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.DataVolume).ToNot(BeNil())
+		Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.PersistentVolumeClaim).To(BeNil())
+	} else {
+		Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.DataVolume).To(BeNil())
+		Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
+	}
+}
