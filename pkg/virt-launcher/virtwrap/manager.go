@@ -127,7 +127,7 @@ type DomainManager interface {
 	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
 	GetFilesystems() []v1.VirtualMachineInstanceFileSystem
-	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
+	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance, *cmdv1.VirtualMachineOptions) error
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
 	InterfacesStatus() []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
@@ -402,8 +402,8 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(
 }
 
 // FinalizeVirtualMachineMigration finalized the migration after the migration has completed and vmi is running on target pod.
-func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
-	return l.finalizeMigrationTarget(vmi)
+func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return l.finalizeMigrationTarget(vmi, options)
 }
 
 // UpdateVCPUs plugs or unplugs vCPUs on a running domain

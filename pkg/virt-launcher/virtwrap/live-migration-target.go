@@ -20,10 +20,12 @@
 package virtwrap
 
 import (
+	"encoding/xml"
 	"fmt"
 	"net"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -35,14 +37,94 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
-func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	interfacesToReconnect := interfacesToReconnect(options)
+	if len(interfacesToReconnect) != 0 {
+		if err := l.reconnectGuestNics(vmi, interfacesToReconnect); err != nil {
+			return err
+		}
+	}
+
 	if err := l.setGuestTime(vmi); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func interfacesToReconnect(options *cmdv1.VirtualMachineOptions) map[string]struct{} {
+	interfaceMigrationOptions := options.InterfaceMigration
+	ifacesToRefresh := map[string]struct{}{}
+	for ifaceName, migrationOption := range interfaceMigrationOptions {
+		if migrationOption != nil && migrationOption.Method == string(v1.LinkRefresh) {
+			ifacesToRefresh[ifaceName] = struct{}{}
+		}
+	}
+	return ifacesToRefresh
+}
+
+// reconnectGuestNics sets interfaces link down and up to renew DHCP leases
+func (l *LibvirtDomainManager) reconnectGuestNics(vmi *v1.VirtualMachineInstance, ifacesToRefresh map[string]struct{}) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to reconnect guest interfaces")
+		return err
+	}
+	defer dom.Free()
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return err
+	}
+
+	var domain api.DomainSpec
+	if err = xml.Unmarshal([]byte(xmlstr), &domain); err != nil {
+		return fmt.Errorf("parsing domain XML failed, err: %v", err)
+	}
+
+	// Look up all the interfaces and reconnect them
+	for _, iface := range domain.Devices.Interfaces {
+		if _, exist := ifacesToRefresh[iface.Alias.GetName()]; !exist {
+			continue
+		}
+
+		if err = reconnectIface(dom, iface); err != nil {
+			return fmt.Errorf("failed to update network %s, err: %v", iface.Alias.GetName(), err)
+		}
+	}
+
+	return nil
+}
+
+// reconnectIface sets link down and up for specified interface
+func reconnectIface(dom cli.VirDomain, iface api.Interface) error {
+	ifaceBytes, err := xml.Marshal(iface)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) interface, err: %v", err)
+	}
+	disconnectedIface := iface.DeepCopy()
+	disconnectedIface.LinkState = &api.LinkState{State: "down"}
+	disconnectedIfaceBytes, err := xml.Marshal(disconnectedIface)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) interface, err: %v", err)
+	}
+	if err = dom.UpdateDeviceFlags(string(disconnectedIfaceBytes), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
+		return fmt.Errorf("failed to set link down, err: %v", err)
+	}
+
+	// the sleep is needed since setting the interface immediately back to up may cause some guest OSs to ignore the both down and up requests
+	time.Sleep(100 * time.Millisecond)
+
+	if err = dom.UpdateDeviceFlags(string(ifaceBytes), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
+		return fmt.Errorf("failed to set link up, err: %v", err)
+	}
 	return nil
 }
 

@@ -370,7 +370,7 @@ func (l *Launcher) FinalizeVirtualMachineMigration(_ context.Context, request *c
 		return response, nil
 	}
 
-	if err := l.domainManager.FinalizeVirtualMachineMigration(vmi); err != nil {
+	if err := l.domainManager.FinalizeVirtualMachineMigration(vmi, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("failed to finalize migration")
 		response.Success = false
 		response.Message = getErrorMessage(err)
