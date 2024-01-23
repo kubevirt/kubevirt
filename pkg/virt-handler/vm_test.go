@@ -127,6 +127,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var certDir string
 
+	const migratableNetworkBindingPlugin = "mig_plug"
+
 	getCgroupManager = func(_ *v1.VirtualMachineInstance) (cgroup.Manager, error) {
 		return mockCgroupManager, nil
 	}
@@ -186,7 +188,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		mockWatchdog = &MockWatchdog{shareDir}
-		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		kv := &v1.KubeVirtConfiguration{}
+		kv.NetworkConfiguration = &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
+			migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
+		}}
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
 		f, err := os.OpenFile(filepath.Join(vmiShareDir, "dev", "kvm"), os.O_CREATE, 0755)
@@ -2687,7 +2693,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable))
 		})
 
-		It("should not be allowed to live-migrate if the VMI does not use masquerade to connect to the pod network", func() {
+		It("should not be allowed to live-migrate if the VMI has non-migratable interface", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 
 			strategy := v1.EvictionStrategyLiveMigrate
@@ -2699,28 +2705,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
 			controller.updateLiveMigrationConditions(vmi, conditionManager)
 
-			testutils.ExpectEvent(recorder, fmt.Sprintf("cannot migrate VMI which does not use masquerade to connect to the pod network or bridge with %s VM annotation", v1.AllowPodBridgeNetworkLiveMigrationAnnotation))
-		})
-		Context("with AllowLiveMigrationBridgePodNetwork annotation", func() {
-			It("should allow to live-migrate if the VMI use bridge to connect to the pod network", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
-
-				vmi.Annotations = map[string]string{v1.AllowPodBridgeNetworkLiveMigrationAnnotation: ""}
-
-				strategy := v1.EvictionStrategyLiveMigrate
-				vmi.Spec.EvictionStrategy = &strategy
-
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-				conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
-				controller.updateLiveMigrationConditions(vmi, conditionManager)
-				Expect(vmi.Status.Conditions).To(ContainElement(v1.VirtualMachineInstanceCondition{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionTrue,
-				}))
-				Expect(vmi.Status.MigrationMethod).To(Equal(v1.LiveMigration))
-			})
+			testutils.ExpectEvent(recorder, fmt.Sprintf("cannot migrate VMI which does not use masquerade, bridge with %s VM annotation or a migratable plugin to connect to the pod network", v1.AllowPodBridgeNetworkLiveMigrationAnnotation))
 		})
 
 		Context("check that migration is not supported when using Host Devices", func() {

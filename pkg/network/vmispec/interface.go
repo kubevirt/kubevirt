@@ -20,6 +20,8 @@
 package vmispec
 
 import (
+	"fmt"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -50,6 +52,36 @@ func FilterInterfacesSpec(ifaces []v1.Interface, predicate func(i v1.Interface) 
 		}
 	}
 	return filteredIfaces
+}
+
+func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[string]v1.InterfaceBindingPlugin) error {
+	ifaces := vmi.Spec.Domain.Devices.Interfaces
+	if len(ifaces) == 0 {
+		return nil
+	}
+
+	_, allowPodBridgeNetworkLiveMigration := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]
+	if allowPodBridgeNetworkLiveMigration && IsPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
+		return nil
+	}
+	if IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) || IsPodNetworkWithMigratableBindingPlugin(vmi.Spec.Networks, ifaces, bindingPlugins) {
+		return nil
+	}
+
+	return fmt.Errorf("cannot migrate VMI which does not use masquerade, bridge with %s VM annotation or a migratable plugin to connect to the pod network", v1.AllowPodBridgeNetworkLiveMigrationAnnotation)
+
+}
+
+func IsPodNetworkWithMigratableBindingPlugin(networks []v1.Network, ifaces []v1.Interface, bindingPlugins map[string]v1.InterfaceBindingPlugin) bool {
+	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
+		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
+			if podInterface.Binding != nil {
+				binding, exist := bindingPlugins[podInterface.Binding.Name]
+				return exist && binding.Migration != nil
+			}
+		}
+	}
+	return false
 }
 
 func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
