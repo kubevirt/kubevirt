@@ -75,14 +75,6 @@ container_image(
     files = [
         ":conformance-config.json",
     ],
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:testimage_aarch64",
-        ],
-        "//conditions:default": [
-            "//rpm:testimage_x86_64",
-        ],
-    }),
     visibility = ["//visibility:public"],
 )
 
