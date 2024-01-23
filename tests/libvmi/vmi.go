@@ -38,7 +38,7 @@ type Option func(vmi *v1.VirtualMachineInstance)
 func New(opts ...Option) *v1.VirtualMachineInstance {
 	vmi := baseVmi(randName())
 
-	WithTerminationGracePeriod(0)(vmi)
+	WithTerminationGracePeriod(1)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}
