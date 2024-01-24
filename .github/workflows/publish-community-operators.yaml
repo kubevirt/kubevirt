@@ -85,7 +85,7 @@ jobs:
         env:
           CSV_VERSION: ${{ env.CSV_VERSION }}
         run: |
-          NEW_VERSION=./hack/get-next-version.sh "${CSV_VERSION}"
+          NEW_VERSION=$(./hack/get-next-version.sh "${CSV_VERSION}")
           NEW_IMAGE_TAG="${NEW_VERSION}-unstable"
           echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
           echo "NEW_IMAGE_TAG=${NEW_IMAGE_TAG}" >> $GITHUB_ENV
@@ -113,7 +113,7 @@ jobs:
           sed -i -E "s|(ARG VERSION=).*|\1${CSV_VERSION}|g" deploy/olm-catalog/bundle.Dockerfile
           sed -i -E "s|(ARG INITIAL_VERSION=).*|\1${CSV_VERSION}|g;s|(ARG INITIAL_VERSION_SED=).*|\1\"${VERSION_4_SED}\"|g" deploy/olm-catalog/Dockerfile.bundle.ci-index-image-upgrade
           sed -i -E "s|(quay.io/kubevirt/hyperconverged-cluster-bundle:).*|\1${CSV_VERSION}|g" deploy/olm-catalog/community-kubevirt-hyperconverged/index-template-release.yaml
-          echo "    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:${CSV_VERSION}" >> deploy/olm-catalog/community-kubevirt-hyperconverged/index-template-unstable.yaml
+          sed -i -E "s|(quay.io/kubevirt/hyperconverged-cluster-bundle:).*|\1${CSV_VERSION}|g" deploy/olm-catalog/community-kubevirt-hyperconverged/index-template-unstable.yaml
           git add ./deploy/
 
       - uses: peter-evans/create-pull-request@v3

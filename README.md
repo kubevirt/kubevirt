@@ -81,7 +81,7 @@ spec:
     source: hco-unstable-catalog-source
     sourceNamespace: openshift-marketplace
     name: community-kubevirt-hyperconverged
-    channel: "1.12.0"
+    channel: "candidate-v1.12"
 EOF
 ```
 Then, create the HyperConverged custom resource to complete the installation.  

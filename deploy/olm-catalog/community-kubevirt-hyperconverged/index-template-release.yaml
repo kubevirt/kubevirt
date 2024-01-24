@@ -1,5 +1,5 @@
 Schema: olm.semver
-GenerateMajorChannels: true
+GenerateMajorChannels: false
 GenerateMinorChannels: true
 DefaultChannelTypePreference: minor
 Stable:
