@@ -216,6 +216,16 @@ var _ = Describe("USB Device", func() {
 			},
 		),
 	)
+	It("Should return empty when encountering an error", func() {
+		originalPath := pathToUSBDevices
+		defer func() {
+			pathToUSBDevices = originalPath
+		}()
+		pathToUSBDevices = "/this/path/does/not/exist"
+
+		devices := discoverPluggedUSBDevices()
+		Expect(devices.devices).To(BeEmpty())
+	})
 })
 
 func expectMatch(a, b *USBDevice) {
