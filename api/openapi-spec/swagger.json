@@ -19720,6 +19720,13 @@
      "totalBytes"
     ],
     "properties": {
+     "disk": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemDisk"
+      }
+     },
      "diskName": {
       "type": "string",
       "default": ""
@@ -19741,6 +19748,24 @@
       "type": "integer",
       "format": "int32",
       "default": 0
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceFileSystemDisk": {
+    "description": "VirtualMachineInstanceFileSystemDisk represents the guest os FS disks",
+    "type": "object",
+    "required": [
+     "serial",
+     "bus-type"
+    ],
+    "properties": {
+     "bus-type": {
+      "type": "string",
+      "default": ""
+     },
+     "serial": {
+      "type": "string",
+      "default": ""
      }
     }
    },

@@ -163,6 +163,7 @@ type Filesystem struct {
 	Type       string
 	UsedBytes  int
 	TotalBytes int
+	Disk       []v1.VirtualMachineInstanceFileSystemDisk
 }
 
 type User struct {

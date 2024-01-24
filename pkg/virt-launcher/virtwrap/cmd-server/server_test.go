@@ -249,6 +249,12 @@ var _ = Describe("Virt remote commands", func() {
 					FileSystemType: "EXT4",
 					UsedBytes:      3333,
 					TotalBytes:     9999,
+					Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+						{
+							BusType: "scsi",
+							Serial:  "testserial-1234",
+						},
+					},
 				},
 			}
 

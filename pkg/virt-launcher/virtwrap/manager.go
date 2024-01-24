@@ -2029,6 +2029,7 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 			FileSystemType: fs.Type,
 			UsedBytes:      fs.UsedBytes,
 			TotalBytes:     fs.TotalBytes,
+			Disk:           fs.Disk,
 		})
 	}
 
@@ -2073,6 +2074,7 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 			FileSystemType: fs.Type,
 			UsedBytes:      fs.UsedBytes,
 			TotalBytes:     fs.TotalBytes,
+			Disk:           fs.Disk,
 		})
 	}
 

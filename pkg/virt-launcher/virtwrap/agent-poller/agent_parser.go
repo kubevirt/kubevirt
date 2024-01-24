@@ -81,11 +81,12 @@ type User struct {
 
 // Filesystem of the host
 type Filesystem struct {
-	Name       string `json:"name"`
-	Mountpoint string `json:"mountpoint"`
-	Type       string `json:"type"`
-	UsedBytes  int    `json:"used-bytes,omitempty"`
-	TotalBytes int    `json:"total-bytes,omitempty"`
+	Name       string                                    `json:"name"`
+	Mountpoint string                                    `json:"mountpoint"`
+	Type       string                                    `json:"type"`
+	UsedBytes  int                                       `json:"used-bytes,omitempty"`
+	TotalBytes int                                       `json:"total-bytes,omitempty"`
+	Disk       []v1.VirtualMachineInstanceFileSystemDisk `json:"disk,omitempty"`
 }
 
 // AgentInfo from the guest VM serves the purpose
@@ -196,6 +197,7 @@ func parseFilesystem(agentReply string) ([]api.Filesystem, error) {
 			Type:       fs.Type,
 			TotalBytes: fs.TotalBytes,
 			UsedBytes:  fs.UsedBytes,
+			Disk:       fs.Disk,
 		})
 	}
 

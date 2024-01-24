@@ -644,6 +644,12 @@ func (VirtualMachineInstanceFileSystemList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceFileSystemDisk) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceFileSystemDisk represents the guest os FS disks",
+	}
+}
+
 func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachineInstanceFileSystem represents guest os disk",

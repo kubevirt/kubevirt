@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -268,7 +270,13 @@ var _ = Describe("Qemu agent poller", func() {
                         "mountpoint":"/",
                         "type":"ext",
                         "total-bytes":99999,
-                        "used-bytes":33333
+                        "used-bytes":33333,
+                        "disk":[
+                            {
+                                "serial":"testserial-1234",
+                                "bus-type":"scsi"
+                            }
+                        ]
                     }
                 ]
             }`
@@ -280,6 +288,12 @@ var _ = Describe("Qemu agent poller", func() {
 					Type:       "ext",
 					TotalBytes: 99999,
 					UsedBytes:  33333,
+					Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+						{
+							Serial:  "testserial-1234",
+							BusType: "scsi",
+						},
+					},
 				},
 			}
 			Expect(parseFilesystem(jsonInput)).To(Equal(expectedFilesystem))

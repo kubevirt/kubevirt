@@ -2227,13 +2227,20 @@ type VirtualMachineInstanceFileSystemList struct {
 	Items           []VirtualMachineInstanceFileSystem `json:"items"`
 }
 
+// VirtualMachineInstanceFileSystemDisk represents the guest os FS disks
+type VirtualMachineInstanceFileSystemDisk struct {
+	Serial  string `json:"serial"`
+	BusType string `json:"bus-type"`
+}
+
 // VirtualMachineInstanceFileSystem represents guest os disk
 type VirtualMachineInstanceFileSystem struct {
-	DiskName       string `json:"diskName"`
-	MountPoint     string `json:"mountPoint"`
-	FileSystemType string `json:"fileSystemType"`
-	UsedBytes      int    `json:"usedBytes"`
-	TotalBytes     int    `json:"totalBytes"`
+	DiskName       string                                 `json:"diskName"`
+	MountPoint     string                                 `json:"mountPoint"`
+	FileSystemType string                                 `json:"fileSystemType"`
+	UsedBytes      int                                    `json:"usedBytes"`
+	TotalBytes     int                                    `json:"totalBytes"`
+	Disk           []VirtualMachineInstanceFileSystemDisk `json:"disk,omitempty"`
 }
 
 // FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
