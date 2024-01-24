@@ -848,6 +848,10 @@ typedef int virNetworkEventID;
 typedef int virNetworkEventLifecycleType;
 #endif
 
+#if !LIBVIR_CHECK_VERSION(9, 7, 0)
+typedef int virNetworkMetadataType;
+#endif
+
 #if !LIBVIR_CHECK_VERSION(5, 5, 0)
 typedef int virNetworkPortCreateFlags;
 #endif

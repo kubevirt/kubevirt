@@ -385,6 +385,28 @@ virNetworkGetDHCPLeasesWrapper(virNetworkPtr network,
     return ret;
 }
 
+char *
+virNetworkGetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err)
+{
+    char * ret = NULL;
+#if !LIBVIR_CHECK_VERSION(9, 7, 0)
+    setVirError(err, "Function virNetworkGetMetadata not available prior to libvirt version 9.7.0");
+#else
+    ret = virNetworkGetMetadata(network,
+                                type,
+                                uri,
+                                flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
 const char *
 virNetworkGetNameWrapper(virNetworkPtr network,
                          virErrorPtr err)
@@ -808,6 +830,32 @@ virNetworkSetAutostartWrapper(virNetworkPtr network,
 #else
     ret = virNetworkSetAutostart(network,
                                  autostart);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+#endif
+    return ret;
+}
+
+int
+virNetworkSetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * metadata,
+                             const char * key,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err)
+{
+    int ret = -1;
+#if !LIBVIR_CHECK_VERSION(9, 7, 0)
+    setVirError(err, "Function virNetworkSetMetadata not available prior to libvirt version 9.7.0");
+#else
+    ret = virNetworkSetMetadata(network,
+                                type,
+                                metadata,
+                                key,
+                                uri,
+                                flags);
     if (ret < 0) {
         virCopyLastError(err);
     }

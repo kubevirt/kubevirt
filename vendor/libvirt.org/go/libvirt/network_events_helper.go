@@ -42,6 +42,17 @@ void networkEventLifecycleCallbackHelper(virConnectPtr conn, virNetworkPtr net,
 }
 
 
+extern void networkEventMetadataChangeCallback(virConnectPtr, virNetworkPtr, int, const char *, int);
+void networkEventMetadataChangeCallbackHelper(virConnectPtr conn,
+                        virNetworkPtr net,
+                        int type,
+                        const char *nsuri,
+                        void *opaque)
+{
+    networkEventMetadataChangeCallback(conn, net, type, nsuri, (int)(intptr_t)opaque);
+}
+
+
 int
 virConnectNetworkEventRegisterAnyHelper(virConnectPtr conn,
                                         virNetworkPtr net,

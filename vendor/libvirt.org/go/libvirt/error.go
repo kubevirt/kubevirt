@@ -392,6 +392,9 @@ const (
 
 	// more than one matching domain found
 	ERR_MULTIPLE_DOMAINS = ErrorNumber(C.VIR_ERR_MULTIPLE_DOMAINS)
+
+	// The metadata is not present
+	ERR_NO_NETWORK_METADATA = ErrorNumber(C.VIR_ERR_NO_NETWORK_METADATA)
 )
 
 type ErrorDomain int
