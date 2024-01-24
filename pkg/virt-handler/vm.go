@@ -1580,10 +1580,6 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(tscRequirement.Reason, v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable), isBlockMigration
 	}
 
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		return newNonMigratableCondition("VMI uses dedicated CPUs and emulator thread isolation", v1.VirtualMachineInstanceReasonDedicatedCPU), isBlockMigration
-	}
-
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,
