@@ -267,11 +267,7 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 		}}
 	}
 
-	if instancetypeSpec == nil && preferenceSpec == nil {
-		return nil, nil, nil
-	}
-
-	if topology := instancetype.GetPreferredTopology(preferenceSpec); topology == instancetypev1beta1.PreferSpread {
+	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec != nil && topology == instancetypev1beta1.PreferSpread {
 		ratio := preferenceSpec.PreferSpreadSocketToCoreRatio
 		if ratio == 0 {
 			ratio = instancetype.DefaultSpreadRatio
