@@ -226,6 +226,16 @@ func main() {
 			os.Exit(1)
 		}
 		// Exit cleanly on clean termination errors
+		// TODO: fix me: Delay program termination
+		// We suspect a race condition in CRI-O handling pod deletion events
+		// and under some still unclear circumstances the event gets lost
+		// with the pod hanging in termination status for minutes (altought all
+		// the pod containers are clearly terminated).
+		// (maybe introduced with https://github.com/cri-o/cri-o/pull/7168 ? )
+		// Slightly delaying a clean termination of virt-tail seems enough
+		// to prevent hitting the critical path.
+		log.Log.V(3).Infof("Delay virt-tail termination")
+		time.Sleep(2 * time.Second)
 	}
 }
 
