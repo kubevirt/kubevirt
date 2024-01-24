@@ -64,7 +64,9 @@ var _ = Describe("Add volume command", func() {
 			Return(vmiInterface).
 			Times(1)
 		vmiInterface.EXPECT().AddVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, arg0, arg1 interface{}) interface{} {
-			volumeOptions := arg1.(*v1.AddVolumeOptions)
+			volumeOptions, ok := arg1.(*v1.AddVolumeOptions)
+			Expect(ok).To(BeTrue())
+			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
 			verifyVolumeSource(volumeOptions, useDv)
 			return nil
@@ -78,7 +80,9 @@ var _ = Describe("Add volume command", func() {
 			Return(vmInterface).
 			Times(1)
 		vmInterface.EXPECT().AddVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, arg0, arg1 interface{}) interface{} {
-			volumeOptions := arg1.(*v1.AddVolumeOptions)
+			volumeOptions, ok := arg1.(*v1.AddVolumeOptions)
+			Expect(ok).To(BeTrue())
+			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
 			verifyVolumeSource(volumeOptions, useDv)
 			return nil
@@ -177,6 +181,7 @@ func createTestPVC() *k8sv1.PersistentVolumeClaim {
 }
 
 func verifyVolumeSource(volumeOptions *v1.AddVolumeOptions, useDv bool) {
+	Expect(volumeOptions.VolumeSource).ToNot(BeNil())
 	if useDv {
 		ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
 		ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
