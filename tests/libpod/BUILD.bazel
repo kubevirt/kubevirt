@@ -6,6 +6,7 @@ go_library(
         "blackhole.go",
         "query.go",
         "render.go",
+        "sort.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libpod",
     visibility = ["//visibility:public"],

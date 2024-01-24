@@ -22,6 +22,7 @@ package libpod
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -50,20 +51,13 @@ func GetRunningPodByLabel(
 		return nil, err
 	}
 
-	if len(pods.Items) == 0 {
+	switch len(pods.Items) {
+	case 0:
 		return nil, fmt.Errorf("failed to find pod with the label %s", label)
+	default:
+		// There can be more than one running pod in case of migration
+		// therefore 	return the latest running pod
+		sort.Sort(sort.Reverse(PodsByCreationTimestamp(pods.Items)))
+		return &pods.Items[0], nil
 	}
-
-	var readyPod *k8sv1.Pod
-	for _, pod := range pods.Items {
-		// TODO: This needs to be reworked.
-		// During migration there can be more than one pod
-		readyPod = &pod
-		break
-	}
-	if readyPod == nil {
-		return nil, fmt.Errorf("no ready pods with the label %s", label)
-	}
-
-	return readyPod, nil
 }
