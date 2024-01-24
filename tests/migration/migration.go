@@ -3023,7 +3023,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 
 		getLibvirtDomainCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
-			pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+			pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
 			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient,
@@ -3062,7 +3062,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 
 		getVirtLauncherCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
-			pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+			pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
 			return getPodCPUSet(pod)
@@ -3493,7 +3493,7 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 }
 
 func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+	pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 	Expect(err).ToNot(HaveOccurred())
 
 	return getPodsCgroupVersion(pod, virtClient)

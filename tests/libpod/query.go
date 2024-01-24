@@ -23,14 +23,18 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/client-go/kubecli"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
-func GetRunningPodByLabel(label string, labelType string, namespace string, node string) (*k8sv1.Pod, error) {
-	virtCli := kubevirt.Client()
+func GetRunningPodByLabel(
+	virtCli kubecli.KubevirtClient,
+	label string,
+	labelType string,
+	namespace string,
+	node string) (*k8sv1.Pod, error) {
 
 	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
 	var fieldSelector string
