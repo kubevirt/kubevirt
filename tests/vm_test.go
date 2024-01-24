@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libpod"
+
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -751,7 +753,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				zeroGracePeriod := int64(0)
 				// Checks if the old VMI Pod still exists after force-restart command
 				Eventually(func() string {
-					pod, err := tests.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
+					pod, err := libpod.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
 					if err != nil {
 						return err.Error()
 					}
