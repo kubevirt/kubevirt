@@ -2112,16 +2112,6 @@ var _ = SIGDescribe("Export", func() {
 			vmeName = fmt.Sprintf(defaultVMEName, rand.String(12))
 		})
 
-		AfterEach(func() {
-			By("Deleting VirtualMachineExport")
-			vmexport, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmeName, metav1.GetOptions{})
-			if !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-				err = virtClient.VirtualMachineExport(testsuite.GetTestNamespace(vmexport)).Delete(context.Background(), vmexport.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
-		})
-
 		It("Create succeeds using PVC source", func() {
 			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
 			// Run vmexport
@@ -2269,6 +2259,7 @@ var _ = SIGDescribe("Export", func() {
 					"--volume", pvc.Name,
 					"--insecure",
 					"--namespace", testsuite.GetTestNamespace(pvc),
+					"--keep-vme",
 				}
 
 				if !checks.IsOpenShift() {
@@ -2323,6 +2314,7 @@ var _ = SIGDescribe("Export", func() {
 					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
 					"--insecure",
 					"--namespace", testsuite.GetTestNamespace(export),
+					"--keep-vme",
 				}
 
 				if !checks.IsOpenShift() {
@@ -2368,6 +2360,7 @@ var _ = SIGDescribe("Export", func() {
 					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
 					"--insecure",
 					"--namespace", testsuite.GetTestNamespace(vm),
+					"--keep-vme",
 				}
 
 				if !checks.IsOpenShift() {
@@ -2392,12 +2385,13 @@ var _ = SIGDescribe("Export", func() {
 					"--output", outputFile,
 					"--insecure",
 					"--namespace", testsuite.GetTestNamespace(vmExport),
+					"--keep-vme",
 				}
 				export, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if export.Status.Links.External == nil {
 					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort, "--keep-vme")
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort)
 				} else {
 					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
 				}
@@ -2431,11 +2425,12 @@ var _ = SIGDescribe("Export", func() {
 					"--output", outputFile,
 					"--insecure",
 					"--namespace", testsuite.GetTestNamespace(export),
+					"--keep-vme",
 				}
 				if export.Status.Links.External == nil {
 					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
 					cmdArgs = append(cmdArgs, "--port-forward", "--local-port", localPort,
-						"--insecure", "--keep-vme")
+						"--insecure")
 				}
 				By("Running vmexport command")
 				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
@@ -2477,6 +2472,43 @@ var _ = SIGDescribe("Export", func() {
 				checkForReadyExport(vmeName)
 				_, err = os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Download deletes the vmexport resource if no keep-vme is specified", func() {
+				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
+				vmeName = vmExport.Name
+				vme, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
+				// Run vmexport
+				cmdArgs := []string{
+					commandName,
+					"download",
+					vmeName,
+					"--output", outputFile,
+					"--insecure",
+					"--namespace", testsuite.GetTestNamespace(vmExport),
+				}
+				Expect(err).ToNot(HaveOccurred())
+				if vme.Status.Links.External == nil {
+					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort)
+				} else {
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
+				}
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
+				Eventually(func() error {
+					return virtctlCmd()
+				}, 30*time.Second, time.Second).Should(BeNil())
+
+				// Check VMExport has been deleted
+				Eventually(func() bool {
+					_, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
+					if err != nil {
+						Expect(errors.IsNotFound(err)).To(BeTrue())
+						return true
+					}
+					return false
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			})
 		})
 
