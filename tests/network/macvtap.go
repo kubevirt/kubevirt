@@ -54,9 +54,12 @@ const (
 )
 
 var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
+	const (
+		macvtapLowerDevice = "eth0"
+		macvtapNetworkName = "net1"
+	)
+
 	var virtClient kubecli.KubevirtClient
-	var macvtapLowerDevice string
-	var macvtapNetworkName string
 
 	createMacvtapNetworkAttachmentDefinition := func(namespace, networkName, macvtapLowerDevice string) error {
 		macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, networkName, namespace, macvtapLowerDevice, networkName)
@@ -65,9 +68,6 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		macvtapLowerDevice = "eth0"
-		macvtapNetworkName = "net1"
 	})
 
 	BeforeEach(func() {
