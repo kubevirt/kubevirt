@@ -255,7 +255,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			assertConnectivityToService("Asserting connectivity through service before migration")
 
 			By("Executing a migration")
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
@@ -311,7 +311,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration for iteration")
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			By("Checking VMI, confirm migration state")
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
@@ -351,7 +351,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(vmi).To(HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
 				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
@@ -373,7 +373,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 					By("starting the migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 					// check VMI, confirm migration state
@@ -420,7 +420,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -439,7 +439,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -469,7 +469,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -491,7 +491,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -511,7 +511,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -535,7 +535,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
@@ -593,7 +593,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(timerFrequency).ToNot(BeEmpty())
 
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
@@ -626,7 +626,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -660,7 +660,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -683,7 +683,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				for i := 0; i < num; i++ {
 					// execute a migration, wait for finalized state
 					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 					// check VMI, confirm migration state
@@ -746,7 +746,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By(fmt.Sprintf("Starting the Migration"))
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -766,7 +766,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By(fmt.Sprintf("Starting the Migration"))
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -800,7 +800,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(isPausedb).To(BeTrue(), "The VMI should be paused before migration, but it is not.")
 
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -842,7 +842,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "130"}
 
 				var err error
@@ -897,7 +897,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration.Annotations = map[string]string{v1.MigrationPendingPodTimeoutSecondsAnnotation: "130"}
 
 				// Add a fake continer image to the target pod to force a image pull failure which
@@ -969,7 +969,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -999,7 +999,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -1062,7 +1062,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(vmi).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
 				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
@@ -1079,7 +1079,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Starting a Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -1103,7 +1103,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				runStressTest(vmi, stressDefaultVMSize, 60)
 
 				By("Starting a first migration")
-				migration1 := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration1 := libmigration.New(vmi.Name, vmi.Namespace)
 				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(migration1, &metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1115,7 +1115,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					go func(n int) {
 						defer GinkgoRecover()
 						defer wg.Done()
-						migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+						migration := libmigration.New(vmi.Name, vmi.Namespace)
 						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 						Expect(err).To(HaveOccurred(), fmt.Sprintf("Extra migration %d should have failed to create", n))
 						Expect(err.Error()).To(ContainSubstring(`admission webhook "migration-create-validator.kubevirt.io" denied the request: in-flight migration detected.`))
@@ -1141,7 +1141,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Starting a Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -1156,7 +1156,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 180)
 
 				// check VMI, confirm migration state
@@ -1179,7 +1179,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
@@ -1240,7 +1240,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Starting the Migration for iteration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				By("Agent stays connected")
@@ -1318,7 +1318,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				tests.DisableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
 				By("Verifying Second Migration Succeeeds")
@@ -1398,7 +1398,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				tests.EnableFeatureGate(virtconfig.Root)
 
 				By("Starting new migration and waiting for it to succeed")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
 				By("Verifying Second Migration Succeeeds")
@@ -1454,7 +1454,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 					By("starting the migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 					// check VMI, confirm migration state
@@ -1482,7 +1482,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 
 					By("Waiting for the proxy connection details to appear")
@@ -1561,7 +1561,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -1718,7 +1718,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 150)
 
 					// check VMI, confirm migration state
@@ -1783,7 +1783,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
 					// check VMI, confirm migration state
@@ -1830,7 +1830,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
 				// check VMI, confirm migration state
@@ -1870,7 +1870,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}, 120*time.Second, 1*time.Second).Should(Succeed(), "Virt handler should come online")
 
 				By("Starting new migration and waiting for it to succeed")
-				migration = libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration = libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 340)
 
 				By("Verifying Second Migration Succeeeds")
@@ -1890,7 +1890,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				for i := 0; i < 10; i++ {
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration.Name = fmt.Sprintf("%s-iter-%d", vmi.Name, i)
 					migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
@@ -1929,7 +1929,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
 				// check VMI, confirm migration state
@@ -1962,7 +1962,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -2038,7 +2038,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -2107,7 +2107,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(vmi).Should(HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 
 				// execute a migration, wait for finalized state
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
 				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
@@ -2162,7 +2162,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				migration = libmigration.RunAndCancelMigration(migration, vmi, with_virtctl, 180)
 
@@ -2190,7 +2190,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				migration = libmigration.RunAndImmediatelyCancelMigration(migration, vmi, with_virtctl, 60)
 
@@ -2248,7 +2248,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
 				const timeout = 180
@@ -2314,7 +2314,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigration(virtClient, migration)
 					expectMigrationSchedulingPhase := func() v1.VirtualMachineInstanceMigrationPhase {
 						migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
@@ -2455,7 +2455,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				requiredFeatures := getNodeHostRequiredFeatures(originalNode)
 
 				By("Starting the migration and expecting it to end successfully")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				By("Ensuring that target pod has correct nodeSelector label")
@@ -2518,7 +2518,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					}, 10*time.Second, 1*time.Second).Should(BeTrue(), "Node should have fake host model")
 
 					By("Starting the migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					_ = libmigration.RunMigration(virtClient, migration)
 
 					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)
@@ -2581,7 +2581,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					}
 
 					By("Starting the migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					_ = libmigration.RunMigration(virtClient, migration)
 
 					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)
@@ -2619,7 +2619,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Starting the Migration")
-					migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					_ = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 180)
 				},
 					Entry("a VMI annotation", setMigrationParallelismWithAnnotation),
@@ -2663,7 +2663,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 180)
 
 				// check VMI, confirm migration state
@@ -2709,7 +2709,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
 
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
@@ -2736,7 +2736,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			// check VMI, confirm migration state
@@ -2763,7 +2763,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndCollectMigrationMetrics(vmi, migration)
 		})
 	})
@@ -2814,7 +2814,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
 
 			By("starting the migration")
-			migration := libmigration.NewRandomMigration(hugepagesVmi.Name, hugepagesVmi.Namespace)
+			migration := libmigration.New(hugepagesVmi.Name, hugepagesVmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			// check VMI, confirm migration state
@@ -2845,7 +2845,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libwait.WaitForSuccessfulVMIStart(cpuVMI)
 
 			By("Performing a migration")
-			migration := libmigration.NewRandomMigration(cpuVMI.Name, cpuVMI.Namespace)
+			migration := libmigration.New(cpuVMI.Name, cpuVMI.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 		})
 		Context("and NUMA passthrough", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
@@ -2870,7 +2870,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libwait.WaitForSuccessfulVMIStart(cpuVMI)
 
 				By("Performing a migration")
-				migration := libmigration.NewRandomMigration(cpuVMI.Name, cpuVMI.Namespace)
+				migration := libmigration.New(cpuVMI.Name, cpuVMI.Namespace)
 				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			})
 		})
@@ -2925,7 +2925,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration to target node(with the amazing feature")
-			migration := libmigration.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			migration := libmigration.New(vmiToMigrate.Name, vmiToMigrate.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			vmiToMigrate, err = virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Get(context.Background(), vmiToMigrate.GetName(), &metav1.GetOptions{})
@@ -2986,7 +2986,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration to target node(with the amazing feature")
-			migration := libmigration.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
+			migration := libmigration.New(vmiToMigrate.Name, vmiToMigrate.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			vmiToMigrate, err = virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Get(context.Background(), vmiToMigrate.GetName(), &metav1.GetOptions{})
@@ -3173,7 +3173,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			By("migrating the VMI from first node to second node")
 			libnode.AddLabelToNode(nodes[1].Name, testLabel1, "true")
 			cpuSetSource := getVirtLauncherCPUSet(vmi)
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
@@ -3223,7 +3223,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Starting the migration")
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			By("Checking if the migration happened, and over the right network")
@@ -3238,7 +3238,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 		By("Starting a Migration")
-		migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
 		migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 180)
 		libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
@@ -3260,7 +3260,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			By("Checking that there always is at most one migration running")
 			Consistently(func() int {
-				vmim := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				vmim := libmigration.New(vmi.Name, vmi.Namespace)
 				// not checking err as the migration creation will be blocked immediately by virt-api's validating webhook
 				// if another one is currently running
 				vmim, err = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(vmim, &metav1.CreateOptions{})
@@ -3347,12 +3347,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Waiting for the migration to fail")
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			setEvacuationAnnotation(migration)
 			_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
 
 			By("Try again")
-			migration = libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration = libmigration.New(vmi.Name, vmi.Namespace)
 			setEvacuationAnnotation(migration)
 			_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
 
@@ -3364,7 +3364,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Waiting for the migration to fail")
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			setEvacuationAnnotation(migration)
 			_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
 
@@ -3374,7 +3374,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Try again with backoff")
-			migration = libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration = libmigration.New(vmi.Name, vmi.Namespace)
 			setEvacuationAnnotation(migration)
 			_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
@@ -3382,7 +3382,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			events.DeleteEvents(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
 
 			By("There should be no backoff now")
-			migration = libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration = libmigration.New(vmi.Name, vmi.Namespace)
 			setEvacuationAnnotation(migration)
 			_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
@@ -3420,7 +3420,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			_ = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Trying to migrate the VirtualMachineInstance")
-			migration := libmigration.NewRandomMigration(vmi.Name, testsuite.GetTestNamespace(vmi))
+			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
 			migration = libmigration.RunMigration(virtClient, migration)
 			Eventually(func() *v1.VirtualMachineInstanceMigration {
 				migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})

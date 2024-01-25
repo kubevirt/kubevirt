@@ -215,7 +215,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("starting the migration")
-			migration := libmigration.NewRandomMigration(vm.Name, vm.Namespace)
+			migration := libmigration.New(vm.Name, vm.Namespace)
 			migration, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Create(migration, &metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

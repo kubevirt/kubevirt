@@ -88,7 +88,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
 				By("Migrating the VM")
-				migration := libmigration.NewRandomMigration(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
+				migration := libmigration.New(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
 				migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				By("Checking VMI, confirm migration state")

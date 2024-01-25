@@ -76,7 +76,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, decorators.Requires
 
 			By("Migrating the VMI")
 			checks.SkipIfMigrationIsNotPossible()
-			migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the TPM is still functional and its state carried over")

@@ -243,7 +243,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(migration, &metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 

@@ -161,7 +161,7 @@ func newVMWithOneInterface() *v1.VirtualMachine {
 
 func migrate(vmi *v1.VirtualMachineInstance) {
 	By("migrating the VMI")
-	migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+	migration := libmigration.New(vmi.Name, vmi.Namespace)
 	migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 	libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 }

@@ -359,7 +359,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 
 			It("should be successful with a running VMI on the target", func() {
 				By("starting the migration")
-				migration := libmigration.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 

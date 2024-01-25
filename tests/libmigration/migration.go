@@ -37,7 +37,7 @@ import (
 
 const MigrationWaitTime = 240
 
-func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
+func New(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	return &v1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
