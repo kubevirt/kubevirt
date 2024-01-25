@@ -1102,6 +1102,13 @@ rules:
   - list
   - watch
 - apiGroups:
+  - kubevirt.io
+  resources:
+  - kubevirts
+  verbs:
+  - get
+  - list
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachines/expand-spec
