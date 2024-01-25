@@ -43,7 +43,6 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
@@ -1747,6 +1746,15 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("default PreferSpreadSocketToCoreRatio", 3, 0),
 			Entry("odd PreferSpreadSocketToCoreRatio", 8, 3),
 		)
+
+		It("should admit VM with preference using preferSpread and without instancetype", func() {
+			vm.Spec.Instancetype = nil
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
+				return &instancetypev1beta1.VirtualMachinePreferenceSpec{CPU: &instancetypev1beta1.CPUPreferences{PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread)}}, nil
+			}
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeTrue())
+		})
 	})
 
 	Context("Live update features", func() {
