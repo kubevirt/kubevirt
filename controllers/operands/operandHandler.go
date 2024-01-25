@@ -56,6 +56,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 		(*genericOperand)(newCdiHandler(client, scheme)),
 		(*genericOperand)(newCnaHandler(client, scheme)),
 		newMtqHandler(client, scheme),
+		newAAQHandler(client, scheme),
 	}
 
 	if ci.IsOpenshift() {
@@ -196,6 +197,7 @@ func (h *OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewSSPWithNameOnly(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
 		NewMTQWithNameOnly(req.Instance),
+		NewAAQWithNameOnly(req.Instance),
 	}
 
 	resources = append(resources, h.objects...)

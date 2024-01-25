@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
-
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2" //nolint dot-imports
 	. "github.com/onsi/gomega"    //nolint dot-imports
@@ -30,14 +28,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	aaqv1alpha1 "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/api"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 )
 
 // Name and Namespace of our primary resource
@@ -163,6 +164,7 @@ func GetScheme() *runtime.Scheme {
 		openshiftconfigv1.Install,
 		mtqv1alpha1.AddToScheme,
 		csvv1alpha1.AddToScheme,
+		aaqv1alpha1.AddToScheme,
 	} {
 		Expect(f(testScheme)).ToNot(HaveOccurred())
 	}

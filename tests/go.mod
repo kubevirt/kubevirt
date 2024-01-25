@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/common v0.44.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.28.3
+	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
@@ -40,7 +40,8 @@ require (
 	github.com/kubevirt/hyperconverged-cluster-operator v0.0.0-00010101000000-000000000000
 	github.com/openshift/custom-resource-status v1.1.2
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apiserver v0.28.3
+	k8s.io/apiserver v0.28.4
+	kubevirt.io/applications-aware-quota v1.1.2
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 	kubevirt.io/managed-tenant-quota v1.2.0
 	kubevirt.io/ssp-operator/api v0.19.0

@@ -1,12 +1,12 @@
 package v1beta1
 
 import (
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
 	v1 "kubevirt.io/api/core/v1"
+	aaqv1alpha1 "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 )
@@ -227,6 +227,9 @@ type HyperConvergedSpec struct {
 	// Those bindings can be used when defining virtual machine interfaces.
 	// +optional
 	NetworkBinding map[string]v1.InterfaceBindingPlugin `json:"networkBinding,omitempty"`
+
+	// ApplicationAwareConfig set the AAQ configurations
+	ApplicationAwareConfig *ApplicationAwareConfigurations `json:"applicationAwareConfig,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -716,6 +719,23 @@ type DataImportCronTemplateStatus struct {
 	DataImportCronTemplate `json:",inline"`
 
 	Status DataImportCronStatus `json:"status,omitempty"`
+}
+
+// ApplicationAwareConfigurations holds the AAQ configurations
+// +k8s:openapi-gen=true
+type ApplicationAwareConfigurations struct {
+	// VmiCalcConfigName determine how resource allocation will be done with ApplicationsResourceQuota.
+	// allowed values are: VmiPodUsage, VirtualResources, DedicatedVirtualResources or IgnoreVmiCalculator
+	// +kubebuilder:validation:Enum=VmiPodUsage;VirtualResources;DedicatedVirtualResources;IgnoreVmiCalculator
+	// +kubebuilder:default=DedicatedVirtualResources
+	VmiCalcConfigName *aaqv1alpha1.VmiCalcConfigName `json:"vmiCalcConfigName,omitempty"`
+
+	// NamespaceSelector determines in which namespaces scheduling gate will be added to pods..
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+
+	// EnableClusterAppsResourceQuota if set to true, allows creation and management of ClusterAppsResourceQuota
+	// +kubebuilder:default=false
+	EnableClusterAppsResourceQuota bool `json:"enableClusterAppsResourceQuota,omitempty"`
 }
 
 const (

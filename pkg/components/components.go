@@ -28,6 +28,13 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
 
+	cnaoapi "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	kvapi "kubevirt.io/api/core"
+	aaqapi "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core"
+	cdiapi "kubevirt.io/containerized-data-importer-api/pkg/apis/core"
+	mtqapi "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core"
+	sspapi "kubevirt.io/ssp-operator/api/v1beta2"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -74,6 +81,7 @@ type DeploymentOperatorParams struct {
 	SspVersion          string
 	HppoVersion         string
 	MtqVersion          string
+	AaqVersion          string
 	Env                 []corev1.EnvVar
 }
 
@@ -137,7 +145,7 @@ func GetServiceWebhook() v1.Service {
 					Name:       strconv.Itoa(util.WebhookPort),
 					Port:       util.WebhookPort,
 					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.FromInt(util.WebhookPort),
+					TargetPort: intstr.FromInt32(util.WebhookPort),
 				},
 			},
 			Type: corev1.ServiceTypeClusterIP,
@@ -245,6 +253,10 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 							{
 								Name:  util.MtqVersionEnvV,
 								Value: params.MtqVersion,
+							},
+							{
+								Name:  util.AaqVersionEnvV,
+								Value: params.AaqVersion,
 							},
 							{
 								Name:  util.KVUIPluginImageEnvV,
@@ -457,11 +469,12 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			Resources: stringListToSlice("hyperconvergeds/finalizers", "hyperconvergeds/status"),
 			Verbs:     stringListToSlice("get", "list", "create", "update", "watch"),
 		},
-		roleWithAllPermissions("kubevirt.io", stringListToSlice("kubevirts", "kubevirts/finalizers")),
-		roleWithAllPermissions("cdi.kubevirt.io", stringListToSlice("cdis", "cdis/finalizers")),
-		roleWithAllPermissions("ssp.kubevirt.io", stringListToSlice("ssps", "ssps/finalizers")),
-		roleWithAllPermissions("networkaddonsoperator.network.kubevirt.io", stringListToSlice("networkaddonsconfigs", "networkaddonsconfigs/finalizers")),
-		roleWithAllPermissions("mtq.kubevirt.io", stringListToSlice("mtqs", "mtqs/finalizers")),
+		roleWithAllPermissions(kvapi.GroupName, stringListToSlice("kubevirts", "kubevirts/finalizers")),
+		roleWithAllPermissions(cdiapi.GroupName, stringListToSlice("cdis", "cdis/finalizers")),
+		roleWithAllPermissions(sspapi.GroupVersion.Group, stringListToSlice("ssps", "ssps/finalizers")),
+		roleWithAllPermissions(cnaoapi.GroupVersion.Group, stringListToSlice("networkaddonsconfigs", "networkaddonsconfigs/finalizers")),
+		roleWithAllPermissions(mtqapi.GroupName, stringListToSlice("mtqs", "mtqs/finalizers")),
+		roleWithAllPermissions(aaqapi.GroupName, stringListToSlice("aaqs", "aaqs/finalizers")),
 		roleWithAllPermissions("", stringListToSlice("configmaps")),
 		{
 			APIGroups: emptyAPIGroup,

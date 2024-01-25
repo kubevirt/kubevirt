@@ -23,7 +23,7 @@ import (
 
 type Operand interface {
 	ensure(req *common.HcoRequest) *EnsureResult
-	reset()
+	reseter
 }
 
 // Handles a specific resource (a CR, a configMap and so on), to be run during reconciliation
@@ -268,7 +268,7 @@ func setConditionsByOperandConditions(req *common.HcoRequest, component string, 
 	}
 
 	if !foundAvailableCond {
-		componentNotAvailable(req, component, `missing "Available" condition`)
+		componentNotAvailable(req, component, `missing "Available" shouldDeploy`)
 	}
 
 	return isReady && foundAvailableCond && foundProgressingCond && foundDegradedCond

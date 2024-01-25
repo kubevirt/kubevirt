@@ -14,6 +14,7 @@ const (
 	SspVersionEnvV                   = "SSP_VERSION"
 	HppoVersionEnvV                  = "HPPO_VERSION"
 	MtqVersionEnvV                   = "MTQ_VERSION"
+	AaqVersionEnvV                   = "AAQ_VERSION"
 	KVUIPluginImageEnvV              = "KV_CONSOLE_PLUGIN_IMAGE"
 	KVUIProxyImageEnvV               = "KV_CONSOLE_PROXY_IMAGE"
 	HcoValidatingWebhook             = "validate-hco.kubevirt.io"
@@ -87,4 +88,5 @@ const (
 	AppComponentUIPlugin    AppComponent = "kubevirt-console-plugin"
 	AppComponentUIProxy     AppComponent = "kubevirt-apiserver-proxy"
 	AppComponentMultiTenant AppComponent = "multi-tenant"
+	AppComponentQuotaMngt   AppComponent = "quota-management"
 )

@@ -6,6 +6,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [ApplicationAwareConfigurations](#applicationawareconfigurations)
 * [CertRotateConfigCA](#certrotateconfigca)
 * [CertRotateConfigServer](#certrotateconfigserver)
 * [DataImportCronStatus](#dataimportcronstatus)
@@ -31,6 +32,18 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [StorageImportConfig](#storageimportconfig)
 * [Version](#version)
 * [VirtualMachineOptions](#virtualmachineoptions)
+
+## ApplicationAwareConfigurations
+
+ApplicationAwareConfigurations holds the AAQ configurations
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| vmiCalcConfigName | VmiCalcConfigName determine how resource allocation will be done with ApplicationsResourceQuota. allowed values are: VmiPodUsage, VirtualResources, DedicatedVirtualResources or IgnoreVmiCalculator | *aaqv1alpha1.VmiCalcConfigName | DedicatedVirtualResources | false |
+| namespaceSelector | NamespaceSelector determines in which namespaces scheduling gate will be added to pods.. | *[metav1.LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#labelselector-v1-meta) |  | false |
+| enableClusterAppsResourceQuota | EnableClusterAppsResourceQuota if set to true, allows creation and management of ClusterAppsResourceQuota | bool | false | false |
+
+[Back to TOC](#table-of-contents)
 
 ## CertRotateConfigCA
 
@@ -201,6 +214,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | commonBootImageNamespace | CommonBootImageNamespace override the default namespace of the common boot images, in order to hide them.\n\nIf not set, HCO won't set any namespace, letting SSP to use the default. If set, use the namespace to create the DataImportCronTemplates and the common image streams, with this namespace. This field is not set by default. | *string |  | false |
 | ksmConfiguration | KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available). | *v1.KSMConfiguration |  | false |
 | networkBinding | NetworkBinding defines the network binding plugins. Those bindings can be used when defining virtual machine interfaces. | map[string]v1.InterfaceBindingPlugin |  | false |
+| applicationAwareConfig | ApplicationAwareConfig set the AAQ configurations | *[ApplicationAwareConfigurations](#applicationawareconfigurations) |  | false |
 
 [Back to TOC](#table-of-contents)
 

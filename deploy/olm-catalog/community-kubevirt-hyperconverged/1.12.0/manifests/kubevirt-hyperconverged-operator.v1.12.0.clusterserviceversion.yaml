@@ -3,13 +3,13 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta2","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"featureGates":{"deployTektonTaskResources":true,"deployVmConsoleProxy":true},"tektonPipelines":{"namespace":"kubevirt"},"tektonTasks":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}},{"apiVersion":"mtq.kubevirt.io/v1alpha1","kind":"MTQ","metadata":{"name":"mtq","namespace":"mtq"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta2","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"featureGates":{"deployTektonTaskResources":true,"deployVmConsoleProxy":true},"tektonPipelines":{"namespace":"kubevirt"},"tektonTasks":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}},{"apiVersion":"mtq.kubevirt.io/v1alpha1","kind":"MTQ","metadata":{"name":"mtq","namespace":"mtq"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"aaq.kubevirt.io/v1alpha1","kind":"AAQ","metadata":{"name":"aaq","namespace":"aaq"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Deep Insights
     categories: OpenShift Optional
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.12.0-unstable
-    createdAt: "2024-01-23 05:13:05"
+    createdAt: "2024-01-23 11:53:47"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -26,7 +26,7 @@ metadata:
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
     operators.openshift.io/infrastructure-features: '["disconnected","proxy-aware"]'
     operators.openshift.io/must-gather-image: quay.io/kubevirt/must-gather
-    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","mtqs.mtq.kubevirt.io"]'
+    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","mtqs.mtq.kubevirt.io","aaqs.aaq.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
   labels:
@@ -119,6 +119,11 @@ spec:
       displayName: MTQ deployment
       kind: MTQ
       name: mtqs.mtq.kubevirt.io
+      version: v1alpha1
+    - description: Represents a AAQ deployment
+      displayName: AAQ deployment
+      kind: AAQ
+      name: aaqs.aaq.kubevirt.io
       version: v1alpha1
   description: |-
     **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
@@ -266,6 +271,18 @@ spec:
           resources:
           - mtqs
           - mtqs/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - aaqs
+          - aaqs/finalizers
           verbs:
           - get
           - list
@@ -2937,6 +2954,241 @@ spec:
           - list
           - watch
         serviceAccountName: mtq-operator
+      - rules:
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          - clusterroles
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - delete
+          - update
+        - apiGroups:
+          - security.openshift.io
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - create
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          - customresourcedefinitions/status
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - delete
+          - update
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - aaqs
+          - aaqs/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - aaqs/status
+          verbs:
+          - get
+          - update
+          - patch
+        - apiGroups:
+          - admissionregistration.k8s.io
+          resources:
+          - mutatingwebhookconfigurations
+          - validatingwebhookconfigurations
+          verbs:
+          - update
+          - list
+          - watch
+          - create
+          - get
+          - delete
+        - apiGroups:
+          - scheduling.k8s.io
+          resources:
+          - priorityclasses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - update
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - resourcequotas
+          verbs:
+          - list
+          - watch
+          - update
+          - create
+          - delete
+        - apiGroups:
+          - quota.openshift.io
+          resources:
+          - clusterresourcequotas
+          verbs:
+          - list
+          - watch
+          - create
+          - delete
+          - update
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - aaqjobqueueconfigs
+          verbs:
+          - get
+          - watch
+          - list
+          - create
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - aaqjobqueueconfigs/status
+          verbs:
+          - update
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - applicationsresourcequotas
+          verbs:
+          - get
+          - update
+          - watch
+          - list
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - clusterappsresourcequotas
+          verbs:
+          - get
+          - watch
+          - list
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - clusterappsresourcequotas/finalizers
+          verbs:
+          - create
+          - update
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - applicationsresourcequotas/finalizers
+          verbs:
+          - create
+          - update
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - applicationsresourcequotas/status
+          verbs:
+          - update
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - clusterappsresourcequotas/status
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstances
+          - virtualmachineinstancemigrations
+          verbs:
+          - watch
+          - list
+          - get
+        - apiGroups:
+          - admissionregistration.k8s.io
+          resources:
+          - validatingwebhookconfigurations
+          verbs:
+          - create
+          - get
+          - delete
+        - apiGroups:
+          - aaq.kubevirt.io
+          resources:
+          - aaqs
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - resourcequotas
+          verbs:
+          - create
+        - apiGroups:
+          - quota.openshift.io
+          resources:
+          - clusterresourcequotas
+          verbs:
+          - create
+        serviceAccountName: aaq-operator
       deployments:
       - label:
           app.kubernetes.io/component: deployment
@@ -3002,6 +3254,8 @@ spec:
                   value: v0.18.0
                 - name: MTQ_VERSION
                   value: v1.2.0
+                - name: AAQ_VERSION
+                  value: v1.1.2
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:4ed1f37116cbaf883edd8783201d091fbbe121fcb84e7184ee531d3b1abd77ab
                 - name: KV_CONSOLE_PROXY_IMAGE
@@ -3731,6 +3985,77 @@ spec:
               tolerations:
               - key: CriticalAddonsOnly
                 operator: Exists
+      - label:
+          app.kubernetes.io/component: quota-management
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.12.0
+        name: aaq-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: aaq-operator
+              operator.aaq.kubevirt.io: ""
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/component: quota-management
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.12.0
+                name: aaq-operator
+                operator.aaq.kubevirt.io: ""
+                prometheus.aaq.kubevirt.io: "true"
+            spec:
+              containers:
+              - args:
+                - -v=1
+                env:
+                - name: DEPLOY_CLUSTER_RESOURCES
+                  value: "true"
+                - name: OPERATOR_VERSION
+                  value: v1.1.2
+                - name: CONTROLLER_IMAGE
+                  value: quay.io/kubevirt/aaq-controller@sha256:99dc6d1f6dc1fa03fc6caf32a10dd6e295446c1c2672de61cc4d3f78e86a3c29
+                - name: AAQ_SERVER_IMAGE
+                  value: quay.io/kubevirt/aaq-server@sha256:4428871e2133b33de0f2c9a6c904b6de45bccbd64f53505268bf76e64a60ab74
+                - name: VERBOSITY
+                  value: "1"
+                - name: PULL_POLICY
+                  value: IfNotPresent
+                - name: MONITORING_NAMESPACE
+                image: quay.io/kubevirt/aaq-operator@sha256:697b5292877f92c5af0e3cb576c31d80446610939bf550bde323e08ca0994e42
+                imagePullPolicy: IfNotPresent
+                name: aaq-operator
+                ports:
+                - containerPort: 8080
+                  name: metrics
+                  protocol: TCP
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 150Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  runAsNonRoot: true
+                  seccompProfile:
+                    type: RuntimeDefault
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+              nodeSelector:
+                kubernetes.io/os: linux
+              priorityClassName: kubevirt-cluster-critical
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: aaq-operator
+              tolerations:
+              - key: CriticalAddonsOnly
+                operator: Exists
       permissions:
       - rules:
         - apiGroups:
@@ -4313,6 +4638,84 @@ spec:
           - delete
           - update
         serviceAccountName: mtq-operator
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          - configmaps
+          - events
+          - secrets
+          - services
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - delete
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - endpoints
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - deployments/finalizers
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - delete
+          - update
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          - prometheusrules
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          - roles
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - delete
+          - update
+        serviceAccountName: aaq-operator
     strategy: deployment
   installModes:
   - supported: false
@@ -4342,6 +4745,12 @@ spec:
   provider:
     name: KubeVirt project
   relatedImages:
+  - image: quay.io/kubevirt/aaq-controller@sha256:99dc6d1f6dc1fa03fc6caf32a10dd6e295446c1c2672de61cc4d3f78e86a3c29
+    name: aaq-controller
+  - image: quay.io/kubevirt/aaq-operator@sha256:697b5292877f92c5af0e3cb576c31d80446610939bf550bde323e08ca0994e42
+    name: aaq-operator
+  - image: quay.io/kubevirt/aaq-server@sha256:4428871e2133b33de0f2c9a6c904b6de45bccbd64f53505268bf76e64a60ab74
+    name: aaq-server
   - image: quay.io/kubevirt/bridge-marker@sha256:bba066e3b5ff3fb8c5e20861fe8abe51e3c9b50ad6ce3b2616af9cb5479a06d0
     name: bridge-marker
   - image: quay.io/kubevirt/cdi-apiserver@sha256:83dc33cdc7bf4b05e674c7f115dea5de74c057e420b62e37fe5a9228a5769006

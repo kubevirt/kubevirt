@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright 2024 Red Hat, Inc.
  *
  */
 
@@ -33,6 +33,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.ApplicationAwareConfigurations":       schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_ApplicationAwareConfigurations(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.CertRotateConfigCA":                   schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfigCA(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.CertRotateConfigServer":               schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_CertRotateConfigServer(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConverged":                       schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConverged(ref),
@@ -51,6 +52,41 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PciHostDevice":                        schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PciHostDevice(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PermittedHostDevices":                 schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_PermittedHostDevices(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.StorageImportConfig":                  schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_StorageImportConfig(ref),
+	}
+}
+
+func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_ApplicationAwareConfigurations(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ApplicationAwareConfigurations holds the AAQ configurations",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmiCalcConfigName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VmiCalcConfigName determine how resource allocation will be done with ApplicationsResourceQuota. allowed values are: VmiPodUsage, VirtualResources, DedicatedVirtualResources or IgnoreVmiCalculator",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespaceSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NamespaceSelector determines in which namespaces scheduling gate will be added to pods..",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"enableClusterAppsResourceQuota": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnableClusterAppsResourceQuota if set to true, allows creation and management of ClusterAppsResourceQuota",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
@@ -572,11 +608,17 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 							},
 						},
 					},
+					"applicationAwareConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ApplicationAwareConfig set the AAQ configurations",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.ApplicationAwareConfigurations"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.DataImportCronTemplate", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedCertConfig", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedFeatureGates", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedObsoleteCPUs", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedWorkloadUpdateStrategy", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LiveMigrationConfigurations", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LogVerbosityConfiguration", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedDevicesConfiguration", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.OperandResourceRequirements", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PermittedHostDevices", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.StorageImportConfig", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.VirtualMachineOptions", "github.com/openshift/api/config/v1.TLSSecurityProfile", "kubevirt.io/api/core/v1.InterfaceBindingPlugin", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.ApplicationAwareConfigurations", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.DataImportCronTemplate", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedCertConfig", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedFeatureGates", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedObsoleteCPUs", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.HyperConvergedWorkloadUpdateStrategy", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LiveMigrationConfigurations", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.LogVerbosityConfiguration", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.MediatedDevicesConfiguration", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.OperandResourceRequirements", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.PermittedHostDevices", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.StorageImportConfig", "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.VirtualMachineOptions", "github.com/openshift/api/config/v1.TLSSecurityProfile", "kubevirt.io/api/core/v1.InterfaceBindingPlugin", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead"},
 	}
 }
 

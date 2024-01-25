@@ -265,6 +265,8 @@ var _ = Describe("HyperconvergedController", func() {
 					EnableManagedTenantQuota:  ptr.To(true),
 				}
 
+				hco.Spec.ApplicationAwareConfig = &hcov1beta1.ApplicationAwareConfigurations{}
+
 				ci := hcoutil.GetClusterInfo()
 				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco, ci.GetCSV()})
 				monitoringReconciler := alerts.NewMonitoringReconciler(ci, cl, commontestutils.NewEventEmitterMock(), commontestutils.GetScheme())
@@ -332,11 +334,21 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 				// Check conditions
-				Expect(foundResource.Status.RelatedObjects).To(HaveLen(23))
+
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(24))
+
 				expectedRef := corev1.ObjectReference{
 					Kind:            "MTQ",
 					Name:            "mtq-kubevirt-hyperconverged",
 					APIVersion:      "mtq.kubevirt.io/v1alpha1",
+					ResourceVersion: "1",
+				}
+				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
+
+				expectedRef = corev1.ObjectReference{
+					Kind:            "AAQ",
+					Name:            "aaq-kubevirt-hyperconverged",
+					APIVersion:      "aaq.kubevirt.io/v1alpha1",
 					ResourceVersion: "1",
 				}
 				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
@@ -1360,8 +1372,10 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = os.Setenv(hcoutil.SspVersionEnvV, newComponentVersion)
 				expected.ssp.Status.ObservedVersion = newComponentVersion
 
-				expected.hco.Status.Conditions = origConditions
 				_ = os.Setenv(hcoutil.MtqVersionEnvV, newComponentVersion)
+				_ = os.Setenv(hcoutil.AaqVersionEnvV, newComponentVersion)
+
+				expected.hco.Status.Conditions = origConditions
 			})
 
 			It("Should update OperatorCondition Upgradeable to False", func() {

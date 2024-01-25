@@ -1117,6 +1117,45 @@ With the `Custom` profile, the cipher list should be expressed according to Open
 
 On plain k8s, where APIServer CR is not available, the default value will be `Intermediate`.
 
+## Configure Applications Aware Quota (AAQ)
+To enable the AAQ feature, add the `applicationAwareConfig` field to the HyperConverged spec, with an empty object 
+or with custom settings (see below).
+
+For example:
+```yaml
+spec:
+  applicationAwareConfig: {}
+```
+
+To configure AAQ, set the fields of the `applicationAwareConfig` object in the HyperConverged resource's spec. The 
+`applicationAwareConfig` object contains several fields:
+* `vmiCalcConfigName` - determine how resource allocation will be done with ApplicationsResourceQuota.
+  Supported values are:
+  * `VmiPodUsage` - calculates pod usage for VM-associated pods while concealing migration-specific resources. 
+  * `VirtualResources` - allocates resources for VM-associated pods, using the VM's RAM size for memory and CPU threads 
+     for processing.
+  * `DedicatedVirtualResources` (default) - allocates resources for VM-associated pods, appending a /vm suffix to 
+     `requests/limits.cpu` and `requests/limits.memory`, derived from the VM's RAM size and CPU threads. Notably, it 
+     does not allocate resources for the standard `requests/limits.cpu` and `requests/limits.memory`.
+  * `IgnoreVmiCalculator` - avoids allocating VM-associated pods differently from normal pods, maintaining uniform
+     resource allocation.
+* `namespaceSelector` - determines in which namespaces scheduling gate will be added to pods. This field is a standard 
+                        kubernetes selector.
+* `enableClusterAppsResourceQuota` (default = false) - set to true, to allows creation and management of ClusterAppsResourceQuota
+  
+  **note**: this setting cause some performance cost. Only set to true if there is a good reason.
+
+### Example
+```yaml
+spec:
+  applicationAwareConfig:
+    vmiCalcConfigName: "VmiPodUsage"
+    namespaceSelector:
+      matchLabels:
+        some-label: "some value"
+    enableClusterAppsResourceQuota: true
+```
+
 ## Configurations via Annotations
 
 In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR

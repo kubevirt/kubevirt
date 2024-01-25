@@ -96,6 +96,22 @@ subjects:
   namespace: kubevirt-hyperconverged
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    name: aaq-operator
+  name: aaq-operator
+  namespace: kubevirt-hyperconverged
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aaq-operator
+subjects:
+- kind: ServiceAccount
+  name: aaq-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
@@ -198,4 +214,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: mtq-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    name: aaq-operator
+  name: aaq-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aaq-operator
+subjects:
+- kind: ServiceAccount
+  name: aaq-operator
   namespace: kubevirt-hyperconverged

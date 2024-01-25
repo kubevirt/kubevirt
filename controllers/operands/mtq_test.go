@@ -263,7 +263,7 @@ var _ = Describe("MTQ tests", func() {
 		It("should create new cache if it empty", func() {
 			hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
 			handler := newMtqHandler(cl, commontestutils.GetScheme())
-			op, ok := handler.(*mtqOperand)
+			op, ok := handler.(*conditionalHandler)
 			Expect(ok).Should(BeTrue())
 
 			hooks, ok := op.operand.hooks.(*mtqHooks)

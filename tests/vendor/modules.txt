@@ -231,6 +231,7 @@ github.com/openshift/api/console/v1
 github.com/openshift/api/image/docker10
 github.com/openshift/api/image/dockerpre012
 github.com/openshift/api/image/v1
+github.com/openshift/api/quota/v1
 github.com/openshift/api/route/v1
 github.com/openshift/api/security/v1
 # github.com/openshift/client-go v0.0.1 => github.com/openshift/client-go v0.0.0-20230807132528-be5346fb33cb
@@ -473,7 +474,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1 => gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.28.3 => k8s.io/api v0.26.3
+# k8s.io/api v0.28.4 => k8s.io/api v0.26.3
 ## explicit; go 1.19
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1alpha1
@@ -586,7 +587,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.28.3 => k8s.io/apiserver v0.26.3
+# k8s.io/apiserver v0.28.4 => k8s.io/apiserver v0.26.3
 ## explicit; go 1.19
 k8s.io/apiserver/pkg/admission/plugin/webhook/errors
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.26.3
@@ -958,6 +959,10 @@ kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
+# kubevirt.io/applications-aware-quota v1.1.2
+## explicit; go 1.20
+kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core
+kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1
 # kubevirt.io/client-go v1.1.1
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned

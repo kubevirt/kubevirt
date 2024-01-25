@@ -4,12 +4,9 @@ import (
 	"errors"
 	"reflect"
 
-	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/reference"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -20,68 +17,20 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
-type mtqOperand struct {
-	operand *genericOperand
-}
-
-func (mtq mtqOperand) ensure(req *common.HcoRequest) *EnsureResult {
-	if hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() && // MTQ is not supported at a single node cluster
-		req.Instance.Spec.FeatureGates.EnableManagedTenantQuota != nil && *req.Instance.Spec.FeatureGates.EnableManagedTenantQuota {
-		// if the FG is set, make sure the MTQ CR is in place and up-to-date
-		return mtq.operand.ensure(req)
-	}
-
-	return mtq.ensureDeleted(req)
-}
-
-func (mtq mtqOperand) ensureDeleted(req *common.HcoRequest) *EnsureResult {
-	// if the FG is not set, make sure the MTQ CR does not exist
-	cr := NewMTQWithNameOnly(req.Instance)
-	res := NewEnsureResult(cr)
-	res.SetName(cr.GetName())
-
-	// hcoutil.EnsureDeleted does check that the MTQ CR exists before removing it. But it also writes a log message each
-	// time it happens, i.e. for every reconcile loop. Assuming the client cache is up-to-date, we can safely get it here
-	// with no meaningful performance cost.
-	err := mtq.operand.Client.Get(req.Ctx, client.ObjectKeyFromObject(cr), cr)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return res.Error(err)
-		}
-	} else {
-		deleted, err := hcoutil.EnsureDeleted(req.Ctx, mtq.operand.Client, cr, req.Instance.Name, req.Logger, false, false, true)
-		if err != nil {
-			return res.Error(err)
-		}
-
-		if deleted {
-			res.SetDeleted()
-			objectRef, err := reference.GetReference(mtq.operand.Scheme, cr)
-			if err != nil {
-				return res.Error(err)
-			}
-
-			if err = objectreferencesv1.RemoveObjectReference(&req.Instance.Status.RelatedObjects, *objectRef); err != nil {
-				return res.Error(err)
-			}
-			req.StatusDirty = true
-		}
-	}
-
-	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
-}
-
-func (mtq mtqOperand) reset() {
-	mtq.operand.reset()
-}
-
 func newMtqHandler(Client client.Client, Scheme *runtime.Scheme) Operand {
-	return &mtqOperand{
+	return &conditionalHandler{
 		operand: &genericOperand{
 			Client: Client,
 			Scheme: Scheme,
 			crType: "MTQ",
 			hooks:  &mtqHooks{},
+		},
+		shouldDeploy: func(hc *hcov1beta1.HyperConverged) bool {
+			return hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() && // MTQ is not supported at a single node cluster
+				hc.Spec.FeatureGates.EnableManagedTenantQuota != nil && *hc.Spec.FeatureGates.EnableManagedTenantQuota
+		},
+		getCRWithName: func(hc *hcov1beta1.HyperConverged) client.Object {
+			return NewMTQWithNameOnly(hc)
 		},
 	}
 }
@@ -141,7 +90,7 @@ func (*mtqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 
 func (*mtqHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-func NewMTQ(hc *hcov1beta1.HyperConverged, opts ...string) *mtqv1alpha1.MTQ {
+func NewMTQ(hc *hcov1beta1.HyperConverged) *mtqv1alpha1.MTQ {
 	spec := mtqv1alpha1.MTQSpec{
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		CertConfig: &mtqv1alpha1.MTQCertConfig{
@@ -165,18 +114,17 @@ func NewMTQ(hc *hcov1beta1.HyperConverged, opts ...string) *mtqv1alpha1.MTQ {
 		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
 	}
 
-	mtq := NewMTQWithNameOnly(hc, opts...)
+	mtq := NewMTQWithNameOnly(hc)
 	mtq.Spec = spec
 
 	return mtq
 }
 
-func NewMTQWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *mtqv1alpha1.MTQ {
+func NewMTQWithNameOnly(hc *hcov1beta1.HyperConverged) *mtqv1alpha1.MTQ {
 	return &mtqv1alpha1.MTQ{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "mtq-" + hc.Name,
-			Labels:    getLabels(hc, hcoutil.AppComponentMultiTenant),
-			Namespace: getNamespace(hcoutil.UndefinedNamespace, opts),
+			Name:   "mtq-" + hc.Name,
+			Labels: getLabels(hc, hcoutil.AppComponentMultiTenant),
 		},
 	}
 }

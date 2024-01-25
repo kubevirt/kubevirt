@@ -63,6 +63,9 @@ spec:
         - name: HPPO_VERSION
           value: v0.18.0
         - name: MTQ_VERSION
+          value: v1.2.0
+        - name: AAQ_VERSION
+          value: v1.1.2
         - name: KV_CONSOLE_PLUGIN_IMAGE
         - name: KV_CONSOLE_PROXY_IMAGE
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.12.0-unstable
@@ -832,6 +835,80 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: mtq-operator
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: quota-management
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.12.0
+    name: aaq-operator
+  name: aaq-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: aaq-operator
+      operator.aaq.kubevirt.io: ""
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: quota-management
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.12.0
+        name: aaq-operator
+        operator.aaq.kubevirt.io: ""
+        prometheus.aaq.kubevirt.io: "true"
+    spec:
+      containers:
+      - args:
+        - -v=1
+        env:
+        - name: DEPLOY_CLUSTER_RESOURCES
+          value: "true"
+        - name: OPERATOR_VERSION
+          value: v1.1.2
+        - name: CONTROLLER_IMAGE
+          value: quay.io/kubevirt/aaq-controller@sha256:99dc6d1f6dc1fa03fc6caf32a10dd6e295446c1c2672de61cc4d3f78e86a3c29
+        - name: AAQ_SERVER_IMAGE
+          value: quay.io/kubevirt/aaq-server@sha256:4428871e2133b33de0f2c9a6c904b6de45bccbd64f53505268bf76e64a60ab74
+        - name: VERBOSITY
+          value: "1"
+        - name: PULL_POLICY
+          value: IfNotPresent
+        - name: MONITORING_NAMESPACE
+        image: quay.io/kubevirt/aaq-operator@sha256:697b5292877f92c5af0e3cb576c31d80446610939bf550bde323e08ca0994e42
+        imagePullPolicy: IfNotPresent
+        name: aaq-operator
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 150Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: kubevirt-cluster-critical
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: aaq-operator
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

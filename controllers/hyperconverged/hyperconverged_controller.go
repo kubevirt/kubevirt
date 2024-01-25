@@ -48,6 +48,7 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	aaqv1alpha1 "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
@@ -180,6 +181,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&cdiv1beta1.CDI{},
 		&networkaddonsv1.NetworkAddonsConfig{},
 		&mtqv1alpha1.MTQ{},
+		&aaqv1alpha1.AAQ{},
 		&schedulingv1.PriorityClass{},
 		&corev1.ConfigMap{},
 		&corev1.Service{},
