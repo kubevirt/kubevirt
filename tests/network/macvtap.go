@@ -49,10 +49,6 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const (
-	macvtapNetworkConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
-)
-
 var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 	const (
 		macvtapLowerDevice = "eth0"
@@ -61,18 +57,14 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 	var virtClient kubecli.KubevirtClient
 
-	createMacvtapNetworkAttachmentDefinition := func(namespace, networkName, macvtapLowerDevice string) error {
-		macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, networkName, namespace, macvtapLowerDevice, networkName)
-		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, macvtapNad)
-	}
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
 	BeforeEach(func() {
-		Expect(createMacvtapNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), macvtapNetworkName, macvtapLowerDevice)).
-			To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
+		ns := testsuite.GetTestNamespace(nil)
+		Expect(libnet.CreateMacvtapNetworkAttachmentDefinition(ns, macvtapNetworkName, macvtapLowerDevice)).To(Succeed(),
+			"A macvtap network named %s should be provisioned", macvtapNetworkName)
 	})
 
 	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
