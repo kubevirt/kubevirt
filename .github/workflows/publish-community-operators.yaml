@@ -68,11 +68,12 @@ jobs:
           sed -i "/^ \+replaces:/d" ${PACKAGE_DIR}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.clusterserviceversion.yaml
       - name: Get opm client
         run: |
-          wget https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm
-          chmod +x linux-amd64-opm
+          mkdir -p _out
+          wget "https://github.com/operator-framework/operator-registry/releases/download/${OPM_VERSION}/linux-amd64-opm" -O _out/opm
+          chmod +x _out/opm
       - name: Build and Push the Index Image
         run: |
-          export OPM=$(pwd)/linux-amd64-opm
+          export OPM=_out/opm
           ./hack/build-index-image.sh ${{ env.CSV_VERSION }}
       - name: Run Publisher script
         run: |
@@ -115,6 +116,7 @@ jobs:
           sed -i -E "s|(quay.io/kubevirt/hyperconverged-cluster-bundle:).*|\1${CSV_VERSION}|g" deploy/olm-catalog/community-kubevirt-hyperconverged/index-template-release.yaml
           sed -i -E "s|(quay.io/kubevirt/hyperconverged-cluster-bundle:).*|\1${CSV_VERSION}|g" deploy/olm-catalog/community-kubevirt-hyperconverged/index-template-unstable.yaml
           git add ./deploy/
+          echo "CHANGED=true" >> $GITHUB_ENV
 
       - uses: peter-evans/create-pull-request@v5
         if: ${{ env.CHANGED }}
@@ -131,7 +133,6 @@ jobs:
             ```release-note
             Prepare version ${{ env.NEW_VERSION }}
             ```
-          assignees: tiraboschi,orenc1,nunnatsa
-          reviewers: tiraboschi,orenc1,nunnatsa
-          team-reviewers: owners, maintainers
+          assignees: tiraboschi,orenc1,nunnatsa,machadovilaca,dharmit
+          reviewers: tiraboschi,orenc1,nunnatsa,machadovilaca,dharmit
           branch: prepare_version_${{ env.NEW_VERSION }}
