@@ -720,26 +720,9 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source not locked"))
 			}
 
-			online, err := source.Online()
+			indications, err := updateVMSnapshotIndications(source)
 			if err != nil {
 				return err
-			}
-
-			indications := []snapshotv1.Indication{}
-			if online {
-				indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
-
-				ga, err := source.GuestAgent()
-				if err != nil {
-					return err
-				}
-
-				if ga {
-					indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
-
-				} else {
-					indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
-				}
 			}
 			vmSnapshotCpy.Status.Indications = indications
 		} else {
@@ -769,6 +752,31 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	return nil
+}
+
+func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication, error) {
+	indications := []snapshotv1.Indication{}
+	online, err := source.Online()
+	if err != nil {
+		return indications, err
+	}
+
+	if online {
+		indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
+
+		ga, err := source.GuestAgent()
+		if err != nil {
+			return indications, err
+		}
+
+		if ga {
+			indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
+
+		} else {
+			indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+		}
+	}
+	return indications, nil
 }
 
 func updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) {
