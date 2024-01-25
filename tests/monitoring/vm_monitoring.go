@@ -172,7 +172,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappear(vmi)
 		})
 
 		It("Should correctly update metrics on failing VMIM", func() {
@@ -199,7 +199,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappear(vmi)
 		})
 	})
 

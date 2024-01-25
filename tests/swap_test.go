@@ -217,7 +217,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappear(vmi)
 
 			kv = util.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.MigrationConfiguration = oldMigrationConfiguration
@@ -289,8 +289,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMIs to disappear")
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToMigrate, 240)
+			libwait.WaitForVirtualMachineToDisappear(vmiToFillTargetNodeMem)
+			libwait.WaitForVirtualMachineToDisappear(vmiToMigrate)
 		})
 
 	})

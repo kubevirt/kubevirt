@@ -261,7 +261,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					libwait.WaitForVirtualMachineToDisappear(vmi)
 				}
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
@@ -340,7 +340,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappear(vmi)
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
 

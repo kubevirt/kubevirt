@@ -94,7 +94,7 @@ var _ = Describe("[Serial][sig-compute]HostDevices", Serial, decorators.SigCompu
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+			libwait.WaitForVirtualMachineToDisappear(vmi)
 		},
 			Entry("Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),
 			Entry("Should successfully passthrough 2 emulated PCI devices", []string{"8086:2668", "8086:2415"}),

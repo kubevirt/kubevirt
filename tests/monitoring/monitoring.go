@@ -110,7 +110,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			libwait.WaitForVirtualMachineToDisappear(vmi)
 		})
 	})
 

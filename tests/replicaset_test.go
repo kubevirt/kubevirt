@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -402,7 +403,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				return true
 			}
 			return false
-		}, 120*time.Second, time.Second).Should(BeTrue())
+		}, libwait.DefaultVMIRemovalTimeoutSeconds*time.Second, time.Second).Should(BeTrue())
 
 		By("Checking number of RS VM's to see that we got a replacement")
 		vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})

@@ -190,7 +190,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			libwait.WaitForVirtualMachineToDisappear(vmi)
 
 			By("Restarting the VM")
 			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})

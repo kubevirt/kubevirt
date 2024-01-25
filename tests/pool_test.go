@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libwait"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -217,7 +218,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
-		}, 120*time.Second, 1*time.Second).Should(BeZero())
+		}, libwait.DefaultVMIRemovalTimeoutSeconds*time.Second, 1*time.Second).Should(BeZero())
 	})
 
 	It("should handle pool with dataVolumeTemplates", func() {
@@ -502,7 +503,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 				return fmt.Errorf("Expected vmi to pick up the new updated label")
 			}
 			return nil
-		}, 60*time.Second, 1*time.Second).Should(BeNil())
+		}, libwait.DefaultVMIRemovalTimeoutSeconds*time.Second, 1*time.Second).Should(BeNil())
 	})
 
 	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {

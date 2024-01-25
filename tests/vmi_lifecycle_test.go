@@ -1267,7 +1267,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 				watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, v1.Deleted)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				libwait.WaitForVirtualMachineToDisappear(vmi)
 
 				// Check if the stop event was logged
 				By("Checking that virt-handler logs VirtualMachineInstance deletion")
@@ -1283,7 +1283,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
 					return string(data)
-				}, 30, 0.5).Should(SatisfyAny(
+				}, libwait.DefaultVirtLauncherPodRemovalTimeoutSeconds, 0.5).Should(SatisfyAny(
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is marked for deletion","name":"%s"`, vmi.GetObjectMeta().GetName()),               // Domain was deleted by virt-handler
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
 				), "Logs should confirm pod deletion")

@@ -34,7 +34,6 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -88,10 +87,7 @@ var _ = SIGDescribe("Services", func() {
 		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for the VMI to be gone")
-		Eventually(func() error {
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.GetName(), &k8smetav1.GetOptions{})
-			return err
-		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
+		libwait.WaitForVirtualMachineToDisappear(vmi)
 	}
 
 	cleanupService := func(namespace string, serviceName string) error {

@@ -92,7 +92,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
 					Expect(err).ToNot(HaveOccurred())
 					By("Waiting until the VirtualMachineInstance is gone")
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					libwait.WaitForVirtualMachineToDisappear(vmi)
 				}
 			})
 		})

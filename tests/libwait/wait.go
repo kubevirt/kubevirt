@@ -40,7 +40,13 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-const defaultTimeout = 360
+const (
+	defaultTimeout = 360
+	// DefaultVMIRemovalTimeoutSeconds could be reduced to 120 once https://issues.redhat.com/browse/OCPBUGS-27949 is addressed
+	// TODO
+	DefaultVMIRemovalTimeoutSeconds             = 240
+	DefaultVirtLauncherPodRemovalTimeoutSeconds = 240
+)
 
 // Option represents an action that enables an option.
 type Option func(waiting *Waiting)
@@ -205,6 +211,11 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		return err
 	}, seconds, 1*time.Second).Should(gomega.SatisfyAll(gomega.HaveOccurred(), gomega.WithTransform(errors.IsNotFound, gomega.BeTrue())), "The VMI should be gone within the given timeout")
+}
+
+// WaitForVirtualMachineToDisappear blocks for a default amount of time until VirtualMachineInstance disappears
+func WaitForVirtualMachineToDisappear(vmi *v1.VirtualMachineInstance) {
+	WaitForVirtualMachineToDisappearWithTimeout(vmi, DefaultVMIRemovalTimeoutSeconds)
 }
 
 // WaitForMigrationToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstanceMigration disappears
