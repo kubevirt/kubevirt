@@ -109,6 +109,11 @@ var _ = Describe("Clone", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
+	addSnapshotContent := func(snapshotContent *snapshotv1alpha1.VirtualMachineSnapshotContent) {
+		err := snapshotContentInformer.GetStore().Add(snapshotContent)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
+
 	addRestore := func(restore *snapshotv1alpha1.VirtualMachineRestore) {
 		err := restoreInformer.GetStore().Add(restore)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -367,6 +372,7 @@ var _ = Describe("Clone", func() {
 
 			It("when snapshot is ready - should update status and create restore", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
+				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 				snapshot.Status.ReadyToUse = pointer.Bool(true)
 
 				vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
@@ -375,6 +381,7 @@ var _ = Describe("Clone", func() {
 				addVM(sourceVM)
 				addClone(vmClone)
 				addSnapshot(snapshot)
+				addSnapshotContent(snapshotContent)
 
 				expectCloneUpdate(clonev1alpha1.RestoreInProgress)
 				expectRestoreCreate(snapshot.Name, vmClone)
@@ -532,6 +539,7 @@ var _ = Describe("Clone", func() {
 				When("target VM already exists", func() {
 					It("should fire an event", func() {
 						snapshot := createVirtualMachineSnapshot(sourceVM)
+						snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 						snapshot.Status.ReadyToUse = pointer.Bool(true)
 
 						restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
@@ -543,6 +551,7 @@ var _ = Describe("Clone", func() {
 						addVM(sourceVM)
 						addClone(vmClone)
 						addSnapshot(snapshot)
+						addSnapshotContent(snapshotContent)
 						addRestore(restore)
 						expectRestoreCreationFailure(snapshot.Name, vmClone, restore.Name)
 						expectCloneUpdate(clonev1alpha1.RestoreInProgress)
@@ -610,6 +619,8 @@ var _ = Describe("Clone", func() {
 
 			addVM(sourceVM)
 			addSnapshot(snapshot)
+			content := createVirtualMachineSnapshotContent(sourceVM)
+			addSnapshotContent(content)
 
 			// update to restore name is expected, although phase remains the same
 			expectCloneUpdate(clonev1alpha1.RestoreInProgress)
@@ -779,6 +790,7 @@ var _ = Describe("Clone", func() {
 			It("should delete smbios serial if serial is not provided", func() {
 				addClone(vmClone)
 				expectSMbiosSerial(emptySerial)
+				expectSnapshotContentGet(sourceVM)
 
 				controller.Execute()
 			})
@@ -879,6 +891,29 @@ var _ = Describe("Clone", func() {
 				controller.Execute()
 			})
 
+			It("should generate patches from the vmsnapshotcontent, instead of the current VM", func() {
+				if sourceVM.Annotations == nil {
+					sourceVM.Annotations = make(map[string]string)
+				}
+				// add annotation to create dis-alignment between vm and vmsnapshotcontent
+				sourceVM.Annotations["new_annotation_matching_filter"] = "ok"
+				vmClone.Spec.AnnotationFilters = []string{"somekey/*"}
+				addVM(sourceVM)
+				addClone(vmClone)
+
+				client.Fake.PrependReactor("create", restoreResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					create, ok := action.(testing.CreateAction)
+					Expect(ok).To(BeTrue())
+
+					restore := create.GetObject().(*snapshotv1alpha1.VirtualMachineRestore)
+					Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(snapshotName))
+					Expect(restore.Spec.Patches).ToNot(ContainElement(`{"op": "remove", "path": "/metadata/annotations/new_annotation_matching_filter"}`))
+
+					return true, create.GetObject(), nil
+				})
+
+				controller.Execute()
+			})
 		})
 
 		Context("Firmware UUID", func() {
@@ -940,6 +975,25 @@ func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine) *snapshotv1alpha1.V
 			},
 		},
 		Status: &snapshotv1alpha1.VirtualMachineSnapshotStatus{},
+	}
+}
+
+func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1alpha1.VirtualMachineSnapshotContent {
+	return &snapshotv1alpha1.VirtualMachineSnapshotContent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vmsnapshot-content-snapshot-UID",
+			Namespace: vm.Namespace,
+			UID:       "vmsnapshot-UID",
+		},
+		Spec: snapshotv1alpha1.VirtualMachineSnapshotContentSpec{
+			Source: snapshotv1alpha1.SourceSpec{
+				VirtualMachine: &snapshotv1alpha1.VirtualMachine{
+					ObjectMeta: vm.ObjectMeta,
+					Spec:       vm.Spec,
+					Status:     vm.Status,
+				},
+			},
+		},
 	}
 }
 
