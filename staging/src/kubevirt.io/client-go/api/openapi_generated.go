@@ -391,6 +391,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.InstancetypeMatcher":                                                schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                          schema_kubevirtio_api_core_v1_Interface(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMethod":                                             schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref),
+		"kubevirt.io/api/core/v1.InterfaceBindingMigration":                                          schema_kubevirtio_api_core_v1_InterfaceBindingMigration(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingPlugin":                                             schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref),
 		"kubevirt.io/api/core/v1.InterfaceBridge":                                                    schema_kubevirtio_api_core_v1_InterfaceBridge(ref),
 		"kubevirt.io/api/core/v1.InterfaceMacvtap":                                                   schema_kubevirtio_api_core_v1_InterfaceMacvtap(ref),
@@ -18688,6 +18689,25 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_core_v1_InterfaceBindingMigration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"method": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Method defines a pre-defined migration methodology version: 1alphav1",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18715,9 +18735,17 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"migration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Migration means the VM using the plugin can be safely migrated version: 1alphav1",
+							Ref:         ref("kubevirt.io/api/core/v1.InterfaceBindingMigration"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.InterfaceBindingMigration"},
 	}
 }
 

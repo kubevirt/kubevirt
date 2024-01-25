@@ -2748,6 +2748,9 @@ type InterfaceBindingPlugin struct {
 	// The standard domain attachment can be used instead or in addition to the sidecarImage.
 	// version: 1alphav1
 	DomainAttachmentType DomainAttachmentType `json:"domainAttachmentType,omitempty"`
+	// Migration means the VM using the plugin can be safely migrated
+	// version: 1alphav1
+	Migration *InterfaceBindingMigration `json:"migration,omitempty"`
 }
 
 type DomainAttachmentType string
@@ -2756,6 +2759,19 @@ const (
 	// Tap domain attachment type is a generic way to bind ethernet connection into guests using tap device
 	// https://libvirt.org/formatdomain.html#generic-ethernet-connection.
 	Tap DomainAttachmentType = "tap"
+)
+
+type InterfaceBindingMigration struct {
+	// Method defines a pre-defined migration methodology
+	// version: 1alphav1
+	Method MigrationMethod `json:"method,omitempty"`
+}
+
+type MigrationMethod string
+
+const (
+	// LinkRefresh method will invoke link down -> link up interface to give a chance to the guest to request new IP address and routes from DHCP
+	LinkRefresh MigrationMethod = "link-refresh"
 )
 
 // GuestAgentPing configures the guest-agent based ping probe
