@@ -92,8 +92,7 @@ func vmSnapshotSucceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 }
 
 func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
-	return vmSnapshotError(vmSnapshot) == nil && !VmSnapshotReady(vmSnapshot) &&
-		!vmSnapshotFailed(vmSnapshot) && !vmSnapshotSucceeded(vmSnapshot)
+	return !VmSnapshotReady(vmSnapshot) && !vmSnapshotFailed(vmSnapshot) && !vmSnapshotSucceeded(vmSnapshot)
 }
 
 func deleteContentPolicy(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -131,7 +130,7 @@ func vmSnapshotDeadlineExceeded(vmSnapshot *snapshotv1.VirtualMachineSnapshot) b
 	if vmSnapshotFailed(vmSnapshot) {
 		return true
 	}
-	if vmSnapshot.Status == nil || vmSnapshot.Status.Phase != snapshotv1.InProgress {
+	if !vmSnapshotProgressing(vmSnapshot) {
 		return false
 	}
 	return timeUntilDeadline(vmSnapshot) < 0
@@ -292,7 +291,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 	}
 
-	currentlyCreated := vmSnapshotContentCreated(content)
+	contentCreated := vmSnapshotContentCreated(content)
 	currentlyError := (content.Status != nil && content.Status.Error != nil) || vmSnapshotError(vmSnapshot) != nil
 
 	for _, volumeBackup := range content.Spec.VolumeBackups {
@@ -308,8 +307,8 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		}
 
 		if volumeSnapshot == nil {
-			// check if snapshot was deleted
-			if currentlyCreated {
+			// check if content was created and snapshot was deleted
+			if contentCreated {
 				log.Log.Warningf("VolumeSnapshot %s no longer exists", vsName)
 				ctrl.Recorder.Eventf(
 					content,
@@ -406,9 +405,12 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 			if vss.CreationTime == nil {
 				created = false
 			}
-
 			if vss.ReadyToUse == nil || !*vss.ReadyToUse {
 				ready = false
+			}
+			if vss.Error != nil && vss.Error.Message != nil {
+				errorMessage = fmt.Sprintf("VolumeSnapshot %s error: %s", vss.VolumeSnapshotName, *vss.Error.Message)
+				break
 			}
 		}
 	}
@@ -422,7 +424,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		}
 	}
 
-	if errorMessage != "" {
+	if errorMessage != "" && !ready {
 		contentCpy.Status.Error = &snapshotv1.Error{
 			Time:    currentTime(),
 			Message: &errorMessage,
@@ -706,6 +708,9 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.Phase = snapshotv1.Failed
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError))
 		updateSnapshotCondition(vmSnapshotCpy, newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError))
+	} else if vmSnapshotError(vmSnapshotCpy) != nil {
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
 	} else if vmSnapshotProgressing(vmSnapshotCpy) {
 		vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
 		if source != nil {
@@ -746,9 +751,6 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "VM snapshot is deleting"))
 			updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "VM snapshot is deleting"))
 		}
-	} else if vmSnapshotError(vmSnapshotCpy) != nil {
-		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
-		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
 	} else if VmSnapshotReady(vmSnapshotCpy) {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
