@@ -67,60 +67,6 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 			"A macvtap network named %s should be provisioned", macvtapNetworkName)
 	})
 
-	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewFedora(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(
-				*libvmi.InterfaceWithMac(
-					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-	}
-
-	createAlpineVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
-		var vmi *v1.VirtualMachineInstance
-		if mac != nil {
-			vmi = libvmi.NewAlpineWithTestTooling(
-				libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), *mac)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
-				libvmi.WithNodeAffinityFor(nodeName),
-			)
-		} else {
-			vmi = libvmi.NewAlpine(
-				libvmi.WithInterface(*v1.DefaultMacvtapNetworkInterface(networkName)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
-				libvmi.WithNodeAffinityFor(nodeName),
-			)
-		}
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-		// configure the client VMI
-		Expect(configInterface(vmi, ifaceName, ipCIDR)).To(Succeed())
-		return vmi
-	}
-
-	createAlpineVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-		runningVMI := tests.RunVMIAndExpectLaunch(
-			libvmi.NewAlpineWithTestTooling(
-				libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), mac)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
-			),
-			180,
-		)
-		err := console.LoginToAlpine(runningVMI)
-		return runningVMI, err
-	}
-
-	createFedoraVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-		runningVMI := tests.RunVMIAndExpectLaunch(
-			newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
-			180,
-		)
-		err := console.LoginToFedora(runningVMI)
-		return runningVMI, err
-	}
-
 	Context("a virtual machine with one macvtap interface, with a custom MAC address", func() {
 		var serverVMI *v1.VirtualMachineInstance
 		var chosenMAC string
@@ -262,3 +208,57 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 		})
 	})
 })
+
+func createAlpineVMIStaticIPOnNode(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
+	var vmi *v1.VirtualMachineInstance
+	if mac != nil {
+		vmi = libvmi.NewAlpineWithTestTooling(
+			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), *mac)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
+			libvmi.WithNodeAffinityFor(nodeName),
+		)
+	} else {
+		vmi = libvmi.NewAlpine(
+			libvmi.WithInterface(*v1.DefaultMacvtapNetworkInterface(networkName)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
+			libvmi.WithNodeAffinityFor(nodeName),
+		)
+	}
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+	// configure the client VMI
+	Expect(configInterface(vmi, ifaceName, ipCIDR)).To(Succeed())
+	return vmi
+}
+
+func createAlpineVMIRandomNode(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
+	runningVMI := tests.RunVMIAndExpectLaunch(
+		libvmi.NewAlpineWithTestTooling(
+			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), mac)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
+		),
+		180,
+	)
+	err := console.LoginToAlpine(runningVMI)
+	return runningVMI, err
+}
+
+func createFedoraVMIRandomNode(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
+	runningVMI := tests.RunVMIAndExpectLaunch(
+		newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
+		180,
+	)
+	err := console.LoginToFedora(runningVMI)
+	return runningVMI, err
+}
+
+func newFedoraVMIWithExplicitMacAndGuestAgent(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
+	return libvmi.NewFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(
+			*libvmi.InterfaceWithMac(
+				v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
+}
