@@ -7,4 +7,4 @@ spec:
   sourceNamespace: openshift-marketplace
   name: community-kubevirt-hyperconverged
   #startingCSV: kubevirt-hyperconverged-operator.v1.12.0
-  channel: "1.12.0"
+  channel: "candidate-v1.12"
