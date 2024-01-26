@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	storagemig "kubevirt.io/kubevirt/pkg/storage/migration"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -165,6 +166,7 @@ func NewVMIController(templateService services.TemplateService,
 		clusterConfig:      clusterConfig,
 		topologyHinter:     topologyHinter,
 		cidsMap:            newCIDsMap(),
+		volMigUpdater:      storagemig.NewVolumeMigrationUpdater(clientset),
 	}
 
 	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -265,6 +267,7 @@ type VMIController struct {
 	cdiConfigInformer  cache.SharedIndexInformer
 	clusterConfig      *virtconfig.ClusterConfig
 	cidsMap            *cidsMap
+	volMigUpdater      storagemig.VolumeMigrationUpdater
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -394,6 +397,10 @@ func (c *VMIController) execute(key string) error {
 
 	if syncErr != nil && syncErr.RequiresRequeue() {
 		return syncErr
+	}
+
+	if _, err := c.volMigUpdater.UpdateVMIWithMigrationVolumes(vmi); err != nil {
+		return err
 	}
 
 	return nil

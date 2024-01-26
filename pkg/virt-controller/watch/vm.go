@@ -64,6 +64,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	storagemig "kubevirt.io/kubevirt/pkg/storage/migration"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -152,6 +153,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		},
 		statusUpdater: status.NewVMStatusUpdater(clientset),
 		clusterConfig: clusterConfig,
+		volMigUpdater: storagemig.NewVolumeMigrationUpdater(clientset),
 	}
 
 	_, err := c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -237,6 +239,7 @@ type VMController struct {
 	cloneAuthFunc          CloneAuthFunc
 	statusUpdater          *status.VMStatusUpdater
 	clusterConfig          *virtconfig.ClusterConfig
+	volMigUpdater          storagemig.VolumeMigrationUpdater
 }
 
 func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -385,6 +388,10 @@ func (c *VMController) execute(key string) error {
 	err = c.updateStatus(vm, vmi, syncErr, logger)
 	if err != nil {
 		logger.Reason(err).Error("Updating the VirtualMachine status failed.")
+		return err
+	}
+
+	if _, err := c.volMigUpdater.UpdateVMWithMigrationVolumes(vm, vmi); err != nil {
 		return err
 	}
 
