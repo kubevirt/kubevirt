@@ -3279,10 +3279,7 @@ func prometheusRuleEnabled() bool {
 	virtClient := kubevirt.Client()
 
 	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(virtClient)
-	if err != nil {
-		fmt.Printf("ERROR: Can't verify PrometheusRule CRD %v\n", err)
-		panic(err)
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to verify PrometheusRule CRD")
 
 	return prometheusRuleEnabled
 }
@@ -3291,10 +3288,7 @@ func serviceMonitorEnabled() bool {
 	virtClient := kubevirt.Client()
 
 	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(virtClient)
-	if err != nil {
-		fmt.Printf("ERROR: Can't verify ServiceMonitor CRD %v\n", err)
-		panic(err)
-	}
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to verify ServiceMonitor CRD")
 
 	return serviceMonitorEnabled
 }
@@ -3365,9 +3359,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 			continue
 		}
 		v, err := semver.NewVersion(*release.TagName)
-		if err != nil {
-			panic(err)
-		}
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to parse latest release tag")
 		vs = append(vs, v)
 	}
 
