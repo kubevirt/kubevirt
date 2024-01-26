@@ -34,9 +34,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/libdv"
 )
 
 var _ = Describe("Add volume command", func() {
@@ -57,32 +57,6 @@ var _ = Describe("Add volume command", func() {
 		coreClient = fake.NewSimpleClientset()
 	})
 
-	createTestDataVolume := func() *v1beta1.DataVolume {
-		return &v1beta1.DataVolume{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name: "testvolume",
-			},
-		}
-	}
-
-	createTestPVC := func() *k8sv1.PersistentVolumeClaim {
-		return &k8sv1.PersistentVolumeClaim{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name: "testvolume",
-			},
-		}
-	}
-
-	verifyVolumeSource := func(volumeOptions interface{}, useDv bool) {
-		if useDv {
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.PersistentVolumeClaim).To(BeNil())
-		} else {
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.DataVolume).To(BeNil())
-			Expect(volumeOptions.(*v1.AddVolumeOptions).VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
-		}
-	}
-
 	expectVMIEndpointAddVolume := func(vmiName, volumeName string, useDv bool) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
@@ -90,8 +64,11 @@ var _ = Describe("Add volume command", func() {
 			Return(vmiInterface).
 			Times(1)
 		vmiInterface.EXPECT().AddVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, arg0, arg1 interface{}) interface{} {
-			Expect(arg1.(*v1.AddVolumeOptions).Name).To(Equal(volumeName))
-			verifyVolumeSource(arg1, useDv)
+			volumeOptions, ok := arg1.(*v1.AddVolumeOptions)
+			Expect(ok).To(BeTrue())
+			Expect(volumeOptions).ToNot(BeNil())
+			Expect(volumeOptions.Name).To(Equal(volumeName))
+			verifyVolumeSource(volumeOptions, useDv)
 			return nil
 		})
 	}
@@ -103,8 +80,11 @@ var _ = Describe("Add volume command", func() {
 			Return(vmInterface).
 			Times(1)
 		vmInterface.EXPECT().AddVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, arg0, arg1 interface{}) interface{} {
-			Expect(arg1.(*v1.AddVolumeOptions).Name).To(Equal(volumeName))
-			verifyVolumeSource(arg1, useDv)
+			volumeOptions, ok := arg1.(*v1.AddVolumeOptions)
+			Expect(ok).To(BeTrue())
+			Expect(volumeOptions).ToNot(BeNil())
+			Expect(volumeOptions.Name).To(Equal(volumeName))
+			verifyVolumeSource(volumeOptions, useDv)
 			return nil
 		})
 	}
@@ -157,10 +137,16 @@ var _ = Describe("Add volume command", func() {
 		if commandName == "addvolume" {
 			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 			if useDv {
-				cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(context.Background(), createTestDataVolume(), k8smetav1.CreateOptions{})
+				cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
+					context.Background(),
+					libdv.NewDataVolume(libdv.WithName("testvolume")),
+					k8smetav1.CreateOptions{})
 			} else {
 				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-				coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
+				coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
+					context.Background(),
+					createTestPVC(),
+					k8smetav1.CreateOptions{})
 			}
 		}
 		expectFunc(vmiName, volumeName, useDv)
@@ -185,3 +171,22 @@ var _ = Describe("Add volume command", func() {
 		Entry("addvolume dv, with LUN-type disk should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--disk-type", "lun"),
 	)
 })
+
+func createTestPVC() *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: "testvolume",
+		},
+	}
+}
+
+func verifyVolumeSource(volumeOptions *v1.AddVolumeOptions, useDv bool) {
+	Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+	if useDv {
+		ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
+		ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
+	} else {
+		ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).To(BeNil())
+		ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
+	}
+}
