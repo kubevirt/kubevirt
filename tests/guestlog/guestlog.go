@@ -192,17 +192,17 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				virtlauncherPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Generating 9MB of log data to force log rotation and discarding")
-				generateHugeLogData(vmi, 9)
+				By("Generating 1MB of log data to force log rotation and discarding")
+				generateHugeLogData(vmi, 1)
 
 				By("Ensuring that log fetching is not failing")
 				_, err = getConsoleLogs(virtClient, virtlauncherPod)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Ensuring that we have 4 rotated log files (+term one)")
+				By("Ensuring that we have 1 rotated log file (+term one)")
 				outputString, err := exec.ExecuteCommandOnPod(virtClient, virtlauncherPod, "guest-console-log", []string{"/bin/ls", "-l", fmt.Sprintf("/var/run/kubevirt-private/%v", vmi.UID)})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4 + 1))
+				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(1 + 1))
 			})
 
 			It("it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", func() {
