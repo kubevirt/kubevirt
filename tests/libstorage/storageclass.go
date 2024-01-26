@@ -179,6 +179,55 @@ func GetSnapshotClass(scName string, client kubecli.KubevirtClient) (string, err
 	return "", nil
 }
 
+func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) {
+	crd, err := client.
+		ExtensionsClient().
+		ApiextensionsV1().
+		CustomResourceDefinitions().
+		Get(context.Background(), "volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	hasV1 := false
+	for _, v := range crd.Spec.Versions {
+		if v.Name == "v1" && v.Served {
+			hasV1 = true
+		}
+	}
+
+	if !hasV1 {
+		return "", nil
+	}
+
+	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	if len(volumeSnapshotClasses.Items) == 0 {
+		return "", nil
+	}
+	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+	for _, storageClass := range storageClasses.Items {
+		if *storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+			for _, volumeSnapshot := range volumeSnapshotClasses.Items {
+				if storageClass.Provisioner == volumeSnapshot.Driver {
+					return storageClass.Name, nil
+				}
+			}
+		}
+	}
+
+	return "", nil
+}
+
 func GetRWXFileSystemStorageClass() (string, bool) {
 	storageRWXFileSystem := Config.StorageRWXFileSystem
 	return storageRWXFileSystem, storageRWXFileSystem != ""
