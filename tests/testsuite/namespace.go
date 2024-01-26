@@ -292,6 +292,13 @@ func CleanNamespaces() {
 			util.PanicOnError(virtCli.VirtualMachineExport(namespace).Delete(context.Background(), export.Name, metav1.DeleteOptions{}))
 		}
 
+		// Remove volume migrations
+		volMigList, err := virtCli.VolumeMigration(namespace).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		for _, volMig := range volMigList.Items {
+			util.PanicOnError(virtCli.VolumeMigration(namespace).Delete(context.Background(), volMig.Name, metav1.DeleteOptions{}))
+		}
+
 	}
 }
 
