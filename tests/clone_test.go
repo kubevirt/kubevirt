@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -526,6 +528,10 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
+				if !running && libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
+					return vm
+				}
+
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
 				}
@@ -742,6 +748,65 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					expectEqualAnnotations(targetVMCloneFromClone, sourceVM)
 					expectEqualTemplateLabels(targetVMCloneFromClone, sourceVM, "name")
 					expectEqualTemplateAnnotations(targetVMCloneFromClone, sourceVM)
+				})
+
+				Context("with WaitForFirstConsumer binding mode", func() {
+					BeforeEach(func() {
+						snapshotStorageClass, err = libstorage.GetWFFCStorageSnapshotClass(virtClient)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(snapshotStorageClass).ToNot(BeEmpty(), "no storage class with snapshot support and wffc binding mode")
+					})
+
+					It("should not delete the vmsnapshot and vmrestore until all the pvc(s) are bound", func() {
+						addCloneAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+							filters := []string{"somekey/*"}
+							vmClone.Spec.LabelFilters = filters
+							vmClone.Spec.AnnotationFilters = filters
+							vmClone.Spec.Template.LabelFilters = filters
+							vmClone.Spec.Template.AnnotationFilters = filters
+						}
+						generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+							vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+							addCloneAnnotationAndLabelFilters(vmclone)
+							return vmclone
+						}
+
+						sourceVM = createVMWithStorageClass(snapshotStorageClass, true)
+						vmClone = generateCloneWithFilters(sourceVM, targetVMName)
+						StopVirtualMachine(sourceVM)
+
+						createCloneAndWaitForFinish(vmClone)
+
+						By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+						targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+
+						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+						Expect(vmClone.Status.SnapshotName).ShouldNot(BeNil())
+						vmSnapshotName := vmClone.Status.SnapshotName
+						Expect(vmClone.Status.RestoreName).ShouldNot(BeNil())
+						vmRestoreName := vmClone.Status.RestoreName
+						Consistently(func(g Gomega) {
+							vmSnapshot, err := virtClient.VirtualMachineSnapshot(vmClone.Namespace).Get(context.Background(), *vmSnapshotName, v1.GetOptions{})
+							g.Expect(err).ShouldNot(HaveOccurred())
+							g.Expect(vmSnapshot).ShouldNot(BeNil())
+							vmRestore, err := virtClient.VirtualMachineRestore(vmClone.Namespace).Get(context.Background(), *vmRestoreName, v1.GetOptions{})
+							g.Expect(err).ShouldNot(HaveOccurred())
+							g.Expect(vmRestore).ShouldNot(BeNil())
+						}, 30*time.Second).Should(Succeed(), "vmsnapshot and vmrestore should not be deleted until the pvc is bound")
+
+						By(fmt.Sprintf("Starting the target VM %s", targetVMName))
+						err = virtClient.VirtualMachine(testsuite.GetTestNamespace(targetVM)).Start(context.Background(), targetVMName, &virtv1.StartOptions{Paused: false})
+						Expect(err).ToNot(HaveOccurred())
+						Eventually(func(g Gomega) {
+							_, err := virtClient.VirtualMachineSnapshot(vmClone.Namespace).Get(context.Background(), *vmSnapshotName, v1.GetOptions{})
+							g.Expect(errors.IsNotFound(err)).Should(BeTrue())
+							_, err = virtClient.VirtualMachineRestore(vmClone.Namespace).Get(context.Background(), *vmRestoreName, v1.GetOptions{})
+							g.Expect(errors.IsNotFound(err)).Should(BeTrue())
+						}, 1*time.Minute).Should(Succeed(), "vmsnapshot and vmrestore should be deleted once the pvc is bound")
+					})
+
 				})
 
 			})

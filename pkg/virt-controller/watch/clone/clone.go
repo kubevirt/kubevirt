@@ -63,6 +63,7 @@ type syncInfoType struct {
 	restoreReady    bool
 	targetVMName    string
 	targetVMCreated bool
+	pvcBound        bool
 
 	isCloneFailing bool
 	failEvent      Event
@@ -210,14 +211,25 @@ func (ctrl *VMCloneController) syncSourceVMTargetVM(source *k6tv1.VirtualMachine
 			return syncInfo
 		}
 
-		syncInfo = ctrl.cleanupSnapshot(vmClone, syncInfo)
-		if syncInfo.toReenqueue() {
-			return syncInfo
-		}
+		fallthrough
 
-		syncInfo = ctrl.cleanupRestore(vmClone, syncInfo)
-		if syncInfo.toReenqueue() {
-			return syncInfo
+	case clonev1alpha1.Succeeded:
+
+		if vmClone.Status.RestoreName != nil {
+			syncInfo = ctrl.verifyPVCBound(vmClone, syncInfo)
+			if syncInfo.toReenqueue() {
+				return syncInfo
+			}
+
+			syncInfo = ctrl.cleanupRestore(vmClone, syncInfo)
+			if syncInfo.toReenqueue() {
+				return syncInfo
+			}
+
+			syncInfo = ctrl.cleanupSnapshot(vmClone, syncInfo)
+			if syncInfo.toReenqueue() {
+				return syncInfo
+			}
 		}
 
 	default:
@@ -329,8 +341,6 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 		}
 
 		if syncInfo.targetVMCreated {
-			vmClone.Status.SnapshotName = nil
-			vmClone.Status.RestoreName = nil
 			assignPhase(clonev1alpha1.Succeeded)
 
 		}
@@ -340,6 +350,11 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 			newProgressingCondition(corev1.ConditionFalse, "Ready"),
 			newReadyCondition(corev1.ConditionTrue, "Ready"),
 		)
+	}
+
+	if syncInfo.pvcBound {
+		vmClone.Status.SnapshotName = nil
+		vmClone.Status.RestoreName = nil
 	}
 
 	if !equality.Semantic.DeepEqual(vmClone.Status, origClone.Status) {
@@ -441,9 +456,9 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.Virtua
 func (ctrl *VMCloneController) verifyRestoreReady(vmClone *clonev1alpha1.VirtualMachineClone, sourceNamespace string, syncInfo syncInfoType) syncInfoType {
 	obj, exists, err := ctrl.restoreInformer.GetStore().GetByKey(getKey(*vmClone.Status.RestoreName, sourceNamespace))
 	if !exists {
-		return addErrorToSyncInfo(syncInfo, fmt.Errorf("restore %s is not created yet for clone %s", *vmClone.Status.SnapshotName, vmClone.Name))
+		return addErrorToSyncInfo(syncInfo, fmt.Errorf("restore %s is not created yet for clone %s", *vmClone.Status.RestoreName, vmClone.Name))
 	} else if err != nil {
-		return addErrorToSyncInfo(syncInfo, fmt.Errorf("error getting snapshot %s from cache for clone %s: %v", *vmClone.Status.SnapshotName, vmClone.Name, err))
+		return addErrorToSyncInfo(syncInfo, fmt.Errorf("error getting restore %s from cache for clone %s: %v", *vmClone.Status.RestoreName, vmClone.Name, err))
 	}
 
 	restore := obj.(*snapshotv1alpha1.VirtualMachineRestore)
@@ -469,13 +484,45 @@ func (ctrl *VMCloneController) verifyVmReady(vmClone *clonev1alpha1.VirtualMachi
 	if !exists {
 		return addErrorToSyncInfo(syncInfo, fmt.Errorf("target VM %s is not created yet for clone %s", targetVMInfo.Name, vmClone.Name))
 	} else if err != nil {
-		return addErrorToSyncInfo(syncInfo, fmt.Errorf("error getting VM %s from cache for clone %s: %v", *vmClone.Status.SnapshotName, targetVMInfo.Name, err))
+		return addErrorToSyncInfo(syncInfo, fmt.Errorf("error getting VM %s from cache for clone %s: %v", targetVMInfo.Name, vmClone.Name, err))
 	}
 
 	ctrl.logAndRecord(vmClone, TargetVMCreated, fmt.Sprintf("created target VM %s for clone %s", targetVMInfo.Name, vmClone.Name))
 	syncInfo.targetVMCreated = true
 
 	return syncInfo
+}
+
+func (ctrl *VMCloneController) verifyPVCBound(vmClone *clonev1alpha1.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
+	obj, exists, err := ctrl.restoreInformer.GetStore().GetByKey(getKey(*vmClone.Status.RestoreName, vmClone.Namespace))
+	if !exists {
+		return addErrorToSyncInfo(syncInfo, fmt.Errorf("restore %s is not created yet for clone %s", *vmClone.Status.RestoreName, vmClone.Name))
+	} else if err != nil {
+		return addErrorToSyncInfo(syncInfo, fmt.Errorf("error getting restore %s from cache for clone %s: %v", *vmClone.Status.SnapshotName, vmClone.Name, err))
+	}
+
+	restore := obj.(*snapshotv1alpha1.VirtualMachineRestore)
+	for _, volumeRestore := range restore.Status.Restores {
+		obj, exists, err = ctrl.pvcInformer.GetStore().GetByKey(getKey(volumeRestore.PersistentVolumeClaimName, vmClone.Namespace))
+		if !exists {
+			return addErrorToSyncInfo(syncInfo, fmt.Errorf("PVC %s is not created yet for clone %s", volumeRestore.PersistentVolumeClaimName, vmClone.Name))
+		} else if err != nil {
+			return addErrorToSyncInfo(syncInfo, fmt.Errorf("error getting PVC %s from cache for clone %s: %v", volumeRestore.PersistentVolumeClaimName, vmClone.Name, err))
+		}
+
+		pvc := obj.(*corev1.PersistentVolumeClaim)
+		if pvc.Status.Phase != corev1.ClaimBound {
+			syncInfo.logger.V(defaultVerbosityLevel).Infof("pvc %s for clone %s is not bound yet", pvc.Name, vmClone.Name)
+			syncInfo.needToReenqueue = true
+			return syncInfo
+		}
+	}
+
+	ctrl.logAndRecord(vmClone, PVCBound, fmt.Sprintf("all PVC for clone %s are bound", vmClone.Name))
+	syncInfo.pvcBound = true
+
+	return syncInfo
+
 }
 
 func (ctrl *VMCloneController) cleanupSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
