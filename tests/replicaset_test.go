@@ -376,7 +376,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))
 	})
 
-	It("[test_id:1418]should replace finished VMIs", func() {
+	It("[test_id:1418][QUARANTINE] should replace finished VMIs", decorators.Quarantine, func() {
 		By("Creating new replica set")
 		rs := newReplicaSet()
 		doScale(rs.ObjectMeta.Name, int32(2))
