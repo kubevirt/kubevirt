@@ -1005,14 +1005,6 @@ func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName st
 	})
 }
 
-// AddExplicitPodNetworkInterface
-//
-// Deprecated: Use libvmi
-func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-}
-
 // AddWatchdog
 //
 // Deprecated: Use libvmi

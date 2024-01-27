@@ -218,7 +218,15 @@ func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 	return fmt.Sprintf(answerFileTemplate, productKey)
 }
 
-var getWindowsSysprepVMISpec = func() v1.VirtualMachineInstanceSpec {
+// addExplicitPodNetworkInterface
+//
+// Deprecated: Use libvmi
+func addExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+}
+
+func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(libvmi.WindowsFirmware)
@@ -310,7 +318,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
 		tests.CreateConfigMap("sysprepautounattend", windowsVMI.Namespace, map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
-		tests.AddExplicitPodNetworkInterface(windowsVMI)
+		addExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
