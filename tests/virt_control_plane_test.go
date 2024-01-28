@@ -25,7 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	v1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -33,19 +34,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
 	k6sv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -245,17 +244,10 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				return getVirtHandler().Status.NumberReady
 			}
 
-			blackHolePodFunc := func(addOrDel string) {
+			getHandlerPods := func() *k8sv1.PodList {
 				pods, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("kubevirt.io=%s", componentName)})
 				Expect(err).NotTo(HaveOccurred())
-
-				serviceIp, err := getKubernetesApiServiceIp(virtCli)
-				Expect(err).NotTo(HaveOccurred())
-
-				for _, pod := range pods.Items {
-					_, err = exec.ExecuteCommandOnPod(virtCli, &pod, componentName, []string{"ip", "route", addOrDel, "blackhole", serviceIp})
-					Expect(err).NotTo(HaveOccurred())
-				}
+				return pods
 			}
 
 			It("should fail health checks when connectivity is lost, and recover when connectivity is regained", func() {
@@ -265,13 +257,13 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically(">", 0))
 
 				By("blocking connection to API on pods")
-				blackHolePodFunc("add")
+				libpod.AddKubernetesApiBlackhole(getHandlerPods(), componentName)
 
 				By("ensuring we no longer have a ready pod")
 				Eventually(readyFunc, 120*time.Second, time.Second).Should(BeNumerically("==", 0))
 
 				By("removing blockage to API")
-				blackHolePodFunc("del")
+				libpod.DeleteKubernetesApiBlackhole(getHandlerPods(), componentName)
 
 				By("ensuring we now have a ready virt-handler daemonset")
 				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically("==", desiredDeamonsSetCount))
@@ -290,14 +282,3 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 	})
 
 })
-
-func getKubernetesApiServiceIp(virtClient kubecli.KubevirtClient) (string, error) {
-	kubernetesServiceName := "kubernetes"
-	kubernetesServiceNamespace := "default"
-
-	kubernetesService, err := virtClient.CoreV1().Services(kubernetesServiceNamespace).Get(context.Background(), kubernetesServiceName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return kubernetesService.Spec.ClusterIP, nil
-}
