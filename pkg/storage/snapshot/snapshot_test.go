@@ -1209,6 +1209,42 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
+			It("shouldn't timeout if VirtualMachineSnapshot succeeded", func() {
+				vmSnapshot := createVMSnapshotSuccess()
+				negativeDeadline, _ := time.ParseDuration("-1m")
+				vmSnapshot.Spec.FailureDeadline = &metav1.Duration{Duration: negativeDeadline}
+				vm := createVM()
+
+				vmSource.Add(vm)
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should timeout if VirtualMachineSnapshot passed failure deadline", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				negativeDeadline, _ := time.ParseDuration("-1m")
+				vmSnapshot.Spec.FailureDeadline = &metav1.Duration{Duration: negativeDeadline}
+				vm := createLockedVM()
+				vmSnapshotContent := createVMSnapshotContent()
+
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				vmSource.Add(vm)
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.Phase = snapshotv1.Failed
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError),
+					newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError),
+				}
+
+				expectVMSnapshotContentDelete(vmSnapshotClient, vmSnapshotContent.Name)
+				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+			})
+
 			It("should create VolumeSnapshot", func() {
 				vm := createLockedVM()
 				storageClass := createStorageClass()
