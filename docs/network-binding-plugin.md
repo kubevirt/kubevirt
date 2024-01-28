@@ -357,3 +357,112 @@ The expected artifacts include:
 > **Note**: In order to consume a sidecar, the image needs to be available in
 > an accessible registry.
 > Cluster admins may need to make the sidecar image available on their registry.
+
+## The Binding CNI Plugin
+
+We have covered so far network binding plugins that utilize core domain attachment
+types and/or custom sidecars. While many network bindings can find these
+integration points sufficient, there is a missing piece.
+
+Network bindings that require pod network changes, should use a CNI plugin.
+
+### Using a custom CNI plugin
+
+A CNI plugin is a program that is called by the runtime when the pod is created.
+The program is expected to interpret a standard [CNI](https://www.cni.dev/)
+format input and perform changes in the pod network namespace.
+
+> **Note**: The CNI plugin discussed in this section is used for implementing
+> a network binding plugin, connecting the pod network to the guest.
+> It is not to be confused with the CNI plugin that connects the pod to
+> a network on the node.
+
+#### Custom CNI plugin requirements
+
+In order to call multiple times CNI plugins, the cluster requires
+Multus to be deployed.
+
+In addition, the CNI plugin itself needs to be deployed on the cluster nodes.
+
+> **Note**: It is out of this document scope to elaborate on how a binary can
+> be deployed on cluster nodes and kept up-to-date.
+
+A network binding CNI plugin belongs to a binding, and it is
+accompanied by a Network Attachment Definition (NAD) that references the
+binary.
+
+#### Creating a network binding CNI plugin
+
+At the time of this writing, there is no known document or tutorial on how
+to compose a CNI plugin. However, there are many CNI plugins around to use
+as references.
+
+We will take the same approach here and reference the `passt` binding CNI.
+It is very simple to follow, performing minimal changes on the pod netns.
+
+Ref: https://github.com/kubevirt/kubevirt/tree/release-1.1/cmd/cniplugins/passt-binding
+
+> **Note**: A CNI plugin outputs its results to `stdout`, therefore avoid
+> outputting logging to `stdout` (e.g. use of `fmt.Printf()`) as it will
+> corrupt the results.
+
+### Network Binding CNI Operation Flow
+
+Understanding the details of how the binding CNI plugin integrates into a VM
+creation may assist in its proper usage.
+
+The following steps occur when an interface is defined with a network binding
+plugin that uses a custom binding CNI:
+
+- The `virt-controller` inspects the VMI spec and iterates over the network
+  interfaces.
+- For each interface, if a network binding plugin is used with
+  a network-attachment-definition defined, the `virt-controller` will add to
+  the `virt-launcher` pod network (multus) annotation a plugin entry that
+  references the binding network-attachment-definition.
+- The binding entry includes:
+  - The network-attachment-definition name and namespace.
+  - The `cni-args`, which allows passing arbitrary data to the CNI plugin.
+    At the time of this writing, it is used to pass the logical network name.
+    Identified by the field key: `logicNetworkName`.
+- The `virt-controller` creates the `virt-launcher` pod and eventually the runtime
+  calls the CNI interface with the combined data from the
+  network-attachment-definition and pod network annotation.
+- Multus acts as a CNI delegator, calling all CNI plugins, including Kubevirt
+  network binding CNI plugins.
+  - First, it calls the "regular" network CNI plugin which connects the pod to the
+    relevant network on the pod.
+  - Secondly, it calls the network binding CNI plugin, if it exists, to configure
+    the pod networking per the binding needs.
+  > **Note**: The network binding CNI entry in the pod network annotation is
+  > injected **after** the "regular" connectivity entry.
+
+### Network Binding CNI Logic
+
+The CNI plugin used for the network binding is focused on performing
+the needed changes in the pod network namespace.
+It is important to avoid using it to perform changes on the host side.
+
+In order to identify on which network interface context the plugin is called,
+the `logicNetworkName` can be used.
+From it, the possible pod interface name can be calculated:
+
+```go
+import "kubevirt.io/kubevirt/pkg/network/namescheme"
+
+podIfaceName := namescheme.GenerateHashedInterfaceName(networkName)
+```
+
+It is possible to perform both interface specific and interface agnostic
+changes in the pod netns. It is important to consider that there may be other
+CNI plugins called in the chain which may collide with such changes.
+Therefore, it is important to take into consideration these factors and try
+to limit the changes to specific kernel interfaces as much as possible.
+
+### Network Binding CNI and sidecars
+
+The need to share data from the CNI stage to the `virt-launcher` stage may arise.
+There may be several options to implement this, one relatively simple
+method could be to preserve the data on a `dummy` interface.
+Aa a network binding plugin author, both the CNI plugin and the sidecar codebase
+is available, therefore both can be in sync to share such information.
