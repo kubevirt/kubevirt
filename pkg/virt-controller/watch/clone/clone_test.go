@@ -57,6 +57,10 @@ const (
 	snapshotContentResource = "virtualmachinesnapshotcontents"
 	vmAPIGroup              = "kubevirt.io"
 	snapshotAPIGroup        = "snapshot.kubevirt.io"
+	testCloneUID            = "clone-uid"
+	testSnapshotName        = "tmp-snapshot-clone-uid"
+	testSnapshotContentName = "vmsnapshot-content-snapshot-UID"
+	testRestoreName         = "tmp-restore-clone-uid"
 )
 
 var _ = Describe("Clone", func() {
@@ -129,7 +133,7 @@ var _ = Describe("Clone", func() {
 			Expect(ok).To(BeTrue())
 
 			snapshot := create.GetObject().(*snapshotv1alpha1.VirtualMachineSnapshot)
-			Expect(snapshot.Name).To(Equal("tmp-snapshot-clone-uid"))
+			Expect(snapshot.Name).To(Equal(testSnapshotName))
 			Expect(snapshot.Spec.Source.Kind).To(Equal("VirtualMachine"))
 			Expect(snapshot.Spec.Source.Name).To(Equal(sourceVMName))
 			Expect(snapshot.OwnerReferences).To(HaveLen(1))
@@ -1023,7 +1027,7 @@ var _ = Describe("Clone", func() {
 func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine) *snapshotv1alpha1.VirtualMachineSnapshot {
 	return &snapshotv1alpha1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tmp-snapshot-clone-uid",
+			Name:      testSnapshotName,
 			Namespace: vm.Namespace,
 			UID:       "snapshot-UID",
 		},
@@ -1041,9 +1045,9 @@ func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine) *snapshotv1alpha1.V
 func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1alpha1.VirtualMachineSnapshotContent {
 	return &snapshotv1alpha1.VirtualMachineSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "vmsnapshot-content-snapshot-UID",
+			Name:      testSnapshotContentName,
 			Namespace: vm.Namespace,
-			UID:       "vmsnapshot-UID",
+			UID:       "snapshotcontent-UID",
 		},
 		Spec: snapshotv1alpha1.VirtualMachineSnapshotContentSpec{
 			Source: snapshotv1alpha1.SourceSpec{
@@ -1060,7 +1064,7 @@ func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1a
 func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string) *snapshotv1alpha1.VirtualMachineRestore {
 	return &snapshotv1alpha1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tmp-restore-clone-uid",
+			Name:      testRestoreName,
 			Namespace: vm.Namespace,
 			UID:       "restore-UID",
 		},
