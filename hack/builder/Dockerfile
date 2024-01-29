@@ -141,6 +141,9 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
+#Bazel support for s390x is not available in upstream
+#Copy the pre-built bazel-s390x binary to builder image
+
 RUN  mkdir -p /usr/s390x-bazel
 
 COPY ./bazel /usr/s390x-bazel/

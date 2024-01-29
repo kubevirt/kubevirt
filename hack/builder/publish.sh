@@ -29,6 +29,9 @@ for ARCH in ${ARCHITECTURES}; do
 done
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
+# The below commands are not working with podman container runtime.
+# Using docker container runtime to create and push the manifest.
+
 export KUBEVIRT_CRI=docker
 ${KUBEVIRT_CRI} manifest create --amend ${DOCKER_PREFIX}/${DOCKER_IMAGE}:${VERSION} ${TMP_IMAGES}
 ${KUBEVIRT_CRI} manifest push ${DOCKER_PREFIX}/${DOCKER_IMAGE}:${VERSION}
