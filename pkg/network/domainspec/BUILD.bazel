@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/network/domainspec",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/link:go_default_library",
@@ -29,6 +30,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

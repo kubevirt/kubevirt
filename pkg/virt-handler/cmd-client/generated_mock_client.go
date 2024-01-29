@@ -153,14 +153,14 @@ func (_mr *_MockLauncherClientRecorder) CancelVirtualMachineMigration(arg0 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVirtualMachineMigration", arg0)
 }
 
-func (_m *MockLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", vmi)
+func (_m *MockLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", vmi, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) FinalizeVirtualMachineMigration(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0)
+func (_mr *_MockLauncherClientRecorder) FinalizeVirtualMachineMigration(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0, arg1)
 }
 
 func (_m *MockLauncherClient) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {

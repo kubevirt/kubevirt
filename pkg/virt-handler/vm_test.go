@@ -2082,7 +2082,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated := vmi.DeepCopy()
 			vmiUpdated.Status.MigrationState.TargetNodeDomainDetected = true
 			client.EXPECT().Ping().AnyTimes()
-			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any())
+			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, vmiObj *v1.VirtualMachineInstance) {
 
 				Expect(vmiObj.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
@@ -2142,7 +2142,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.MigrationState.TargetNodeDomainDetected = true
 
 			client.EXPECT().Ping().AnyTimes()
-			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any())
+			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 			client.EXPECT().SyncVirtualMachineCPUs(gomock.Any(), gomock.Any())
 			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, vmiObj *v1.VirtualMachineInstance) {
 
@@ -2285,7 +2285,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiUpdated.Status.MigrationState.TargetNodeDomainDetected = true
 
 		client.EXPECT().Ping().AnyTimes()
-		client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any())
+		client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 		client.EXPECT().SyncVirtualMachineCPUs(gomock.Any(), gomock.Any()).Return(fmt.Errorf("some error"))
 		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, vmiObj *v1.VirtualMachineInstance) {
 

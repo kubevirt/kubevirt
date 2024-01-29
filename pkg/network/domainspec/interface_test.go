@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 )
 
@@ -44,52 +45,58 @@ var _ = Describe("VMI interfaces", func() {
 	)
 
 	var networkBindings map[string]v1.InterfaceBindingPlugin
+	var vmiSpecIfaces []v1.Interface
 
 	BeforeEach(func() {
 		networkBindings = map[string]v1.InterfaceBindingPlugin{
 			binding1: {
 				DomainAttachmentType: v1.Tap,
+				Migration:            &v1.InterfaceBindingMigration{},
 			},
 			binding2: {
 				DomainAttachmentType: otherDoaminAttachemnt,
 			},
-			binding3: {},
+			binding3: {
+				Migration: &v1.InterfaceBindingMigration{
+					Method: v1.LinkRefresh,
+				},
+			},
 		}
 	})
 
+	vmiSpecIfaces = []v1.Interface{
+		{
+			Name:                   iface1,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		},
+		{
+			Name:                   iface2,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		},
+		{
+			Name:                   iface3,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+		},
+		{
+			Name:                   iface4,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}},
+		},
+		{
+			Name:    iface5,
+			Binding: &v1.PluginBinding{Name: binding1},
+		},
+		{
+			Name:    iface6,
+			Binding: &v1.PluginBinding{Name: binding2},
+		},
+		{
+			Name:    iface7,
+			Binding: &v1.PluginBinding{Name: binding3},
+		},
+	}
+
 	Context("DomainAttachmentByInterfaceName", func() {
 		It("should return the correct mapping", func() {
-			vmiSpecIfaces := []v1.Interface{
-				{
-					Name:                   iface1,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				},
-				{
-					Name:                   iface2,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				},
-				{
-					Name:                   iface3,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
-				},
-				{
-					Name:                   iface4,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}},
-				},
-				{
-					Name:    iface5,
-					Binding: &v1.PluginBinding{Name: binding1},
-				},
-				{
-					Name:    iface6,
-					Binding: &v1.PluginBinding{Name: binding2},
-				},
-				{
-					Name:    iface7,
-					Binding: &v1.PluginBinding{Name: binding3},
-				},
-			}
-
 			expectedMap := map[string]string{
 				iface1: string(v1.Tap),
 				iface2: string(v1.Tap),
@@ -98,6 +105,18 @@ var _ = Describe("VMI interfaces", func() {
 				iface6: otherDoaminAttachemnt,
 			}
 			Expect(domainspec.DomainAttachmentByInterfaceName(vmiSpecIfaces, networkBindings)).To(Equal(expectedMap))
+		})
+	})
+
+	Context("BindingMigrationByInterfaceName", func() {
+		It("should return the correct mapping", func() {
+			expectedMap := map[string]*cmdv1.InterfaceBindingMigration{
+				iface5: {},
+				iface7: {
+					Method: string(v1.LinkRefresh),
+				},
+			}
+			Expect(domainspec.BindingMigrationByInterfaceName(vmiSpecIfaces, networkBindings)).To(Equal(expectedMap))
 		})
 	})
 })
