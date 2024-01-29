@@ -1383,10 +1383,10 @@ var _ = SIGDescribe("Storage", func() {
 
 func waitForPodToDisappearWithTimeout(podName string, seconds int) {
 	virtClient := kubevirt.Client()
-	EventuallyWithOffset(1, func() bool {
+	EventuallyWithOffset(1, func() error {
 		_, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Get(context.Background(), podName, metav1.GetOptions{})
-		return errors.IsNotFound(err)
-	}, seconds, 1*time.Second).Should(BeTrue())
+		return err
+	}, seconds, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 }
 
 func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {

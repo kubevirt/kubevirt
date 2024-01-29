@@ -1310,13 +1310,10 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
-	Eventually(func() bool {
+	Eventually(func() error {
 		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return true
-		}
-		return false
-	}, timeout, 1*time.Second).Should(BeTrue(), "The vmi did not disappear")
+		return err
+	}, timeout, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The vmi did not disappear")
 	By("VM has not the running condition")
 	Eventually(func() bool {
 		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})

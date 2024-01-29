@@ -305,13 +305,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 		// Wait until the replica set is deleted
 		By("Waiting until the replica set got deleted")
-		Eventually(func() bool {
+		Eventually(func() error {
 			_, err := virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
-			if errors.IsNotFound(err) {
-				return true
-			}
-			return false
-		}, 60*time.Second, 1*time.Second).Should(BeTrue())
+			return err
+		}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By("Checking if two VMIs are orphaned and still exist")
 		vmis, err = virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
@@ -396,13 +393,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that the VM disappeared")
-		Eventually(func() bool {
+		Eventually(func() error {
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(context.Background(), vmi.Name, &v12.GetOptions{})
-			if errors.IsNotFound(err) {
-				return true
-			}
-			return false
-		}, 120*time.Second, time.Second).Should(BeTrue())
+			return err
+		}, 120*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By("Checking number of RS VM's to see that we got a replacement")
 		vmis, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), &v12.ListOptions{})

@@ -1036,10 +1036,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				targetVM := getTargetVM(restoreToNewVM)
 
 				if libstorage.IsDataVolumeGC(virtClient) {
-					Eventually(func() bool {
+					Eventually(func() error {
 						_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), *dvName, metav1.GetOptions{})
-						return errors.IsNotFound(err)
-					}, 30*time.Second, time.Second).Should(BeTrue())
+						return err
+					}, 30*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 					verifyOwnerRef(pvc, targetVM.APIVersion, targetVM.Kind, targetVM.Name, targetVM.UID)
 					return
 				}

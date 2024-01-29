@@ -114,14 +114,9 @@ var _ = SIGDescribe("Memory dump", func() {
 	}
 
 	waitDeleted := func(deleteFunc func() error) {
-		Eventually(func() bool {
-			err := deleteFunc()
-			if errors.IsNotFound(err) {
-				return true
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return false
-		}, 180*time.Second, time.Second).Should(BeTrue())
+		Eventually(func() error {
+			return deleteFunc()
+		}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 	}
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) {

@@ -221,10 +221,10 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking that the PDB disappeared")
-				Eventually(func() bool {
+				Eventually(func() error {
 					_, err := virtClient.PolicyV1().PodDisruptionBudgets(createdVMI.Namespace).Get(context.Background(), pdb.Name, metav1.GetOptions{})
-					return errors.IsNotFound(err)
-				}, 60*time.Second, 1*time.Second).Should(BeTrue())
+					return err
+				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 
 			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {

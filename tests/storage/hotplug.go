@@ -650,12 +650,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			By("Deleting virt-handler pod")
 			virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
+			Eventually(func() error {
 				err := virtClient.CoreV1().
 					Pods(virtHandlerPod.GetObjectMeta().GetNamespace()).
 					Delete(context.Background(), virtHandlerPod.GetObjectMeta().GetName(), metav1.DeleteOptions{})
-				return errors.IsNotFound(err)
-			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "virt-handler pod is expected to be deleted")
+				return err
+			}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "virt-handler pod is expected to be deleted")
 
 			By("Waiting for virt-handler pod to restart")
 			Eventually(func() bool {
@@ -1257,10 +1257,10 @@ var _ = SIGDescribe("Hotplug", func() {
 					verifyWriteReadData(vmi, targets[0])
 
 					By("Verifying the source attachment pods are deleted")
-					Eventually(func() bool {
+					Eventually(func() error {
 						_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourceAttachmentPods[0], metav1.GetOptions{})
-						return errors.IsNotFound(err)
-					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+						return err
+					}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 				}
 
 				By("Verifying the volume can be detached and reattached after migration")
@@ -1411,10 +1411,10 @@ var _ = SIGDescribe("Hotplug", func() {
 				PropagationPolicy:  &foreGround,
 			})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+				return err
+			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		}
 
 		It("should remain active", func() {

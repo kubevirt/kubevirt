@@ -1917,13 +1917,10 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VM to be removed")
-				Eventually(func() bool {
+				Eventually(func() error {
 					_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
-					if err != nil && errors.IsNotFound(err) {
-						return true
-					}
-					return false
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+					return err
+				}, 90*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			}
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
@@ -1975,10 +1972,10 @@ spec:
 			}
 			err = virtClient.CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestOperator, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.NamespaceTestOperator, metav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+				return err
+			}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			By("Creating KubeVirt Object")
 			createKv(copyOriginalKv())
@@ -2747,10 +2744,10 @@ spec:
 			}, 120*time.Second, 4*time.Second).Should(BeTrue())
 
 			By("waiting for the kv CR to be gone")
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, 120*time.Second, 4*time.Second).Should(BeTrue())
+				return err
+			}, 120*time.Second, 4*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			By("creating a new single-replica kv CR")
 			if kv.Spec.Infra == nil {
@@ -2850,10 +2847,10 @@ spec:
 			testsuite.WaitExportProxyReady()
 			tests.DisableFeatureGate(virtconfig.VMExportGate)
 
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, time.Minute*5, time.Second*2).Should(BeTrue())
+				return err
+			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 	})
 

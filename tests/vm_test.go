@@ -926,10 +926,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(migrateCommand()).To(Succeed())
 
 					By("Check that no migration was actually created")
-					Consistently(func() bool {
+					Consistently(func() error {
 						_, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-						return errors.IsNotFound(err)
-					}, 60*time.Second, 5*time.Second).Should(BeTrue(), "migration should not be created in a dry run mode")
+						return err
+					}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "migration should not be created in a dry run mode")
 				})
 			})
 
@@ -1004,10 +1004,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 10)).To(Succeed())
 
 					By("Waiting for the VMI to disappear")
-					Eventually(func() bool {
+					Eventually(func() error {
 						_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
-						return errors.IsNotFound(err)
-					}, time.Minute, time.Second).Should(BeTrue())
+						return err
+					}, time.Minute, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 				})
 
 				It("should restart a failed VMI", func() {
@@ -1863,10 +1863,10 @@ status:
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensure the vm has disappeared")
-			Eventually(func() bool {
+			Eventually(func() error {
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, 2*time.Minute, 1*time.Second).Should(BeTrue(), fmt.Sprintf("vm %s is not deleted", vm.Name))
+				return err
+			}, 2*time.Minute, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("vm %s is not deleted", vm.Name))
 		})
 
 		It("should be added when the vm is created and removed when the vm is being deleted", func() {

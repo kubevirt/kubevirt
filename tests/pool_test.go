@@ -523,13 +523,10 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Delete(context.Background(), newPool.ObjectMeta.Name, v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 		// Wait until the pool is deleted
 		By("Waiting until the pool got deleted")
-		Eventually(func() bool {
+		Eventually(func() error {
 			_, err := virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, v12.GetOptions{})
-			if errors.IsNotFound(err) {
-				return true
-			}
-			return false
-		}, 60*time.Second, 1*time.Second).Should(BeTrue())
+			return err
+		}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By("Checking if two VMs are orphaned and still exist")
 		vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
