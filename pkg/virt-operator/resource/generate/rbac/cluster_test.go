@@ -246,12 +246,29 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		Context("instance type view cluster role", func() {
 
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
-				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "instancetype.kubevirt.io:view").(*rbacv1.ClusterRole)
+				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), instancetypeViewClusterRoleName).(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
 				expectExactRuleExists(clusterRole.Rules, apiGroup, resource, verbs...)
 			},
 				Entry(fmt.Sprintf("get, list, watch %s/%s", instancetype.GroupName, instancetype.ClusterPluralResourceName), instancetype.GroupName, instancetype.ClusterPluralResourceName, "get", "list", "watch"),
 				Entry(fmt.Sprintf("get, list, watch %s/%s", instancetype.GroupName, instancetype.ClusterPluralPreferenceResourceName), instancetype.GroupName, instancetype.ClusterPluralPreferenceResourceName, "get", "list", "watch"),
+			)
+		})
+
+		Context("instance type view cluster role binding", func() {
+
+			It("should contain RoleRef to instancetype view cluster role", func() {
+				clusterRoleBinding := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRoleBinding{}), instancetypeViewClusterRoleName).(*rbacv1.ClusterRoleBinding)
+				Expect(clusterRoleBinding).ToNot(BeNil())
+				expectRoleRefToBe(clusterRoleBinding.RoleRef, "ClusterRole", instancetypeViewClusterRoleName)
+			})
+
+			DescribeTable("should contain subject to refer", func(kind, name string, verbs ...string) {
+				clusterRoleBinding := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRoleBinding{}), instancetypeViewClusterRoleName).(*rbacv1.ClusterRoleBinding)
+				Expect(clusterRoleBinding).ToNot(BeNil())
+				expectSubjectExists(clusterRoleBinding.Subjects, kind, name)
+			},
+				Entry("system:authenticated", "Group", "system:authenticated"),
 			)
 		})
 	})

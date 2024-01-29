@@ -36,7 +36,8 @@ import (
 )
 
 const (
-	NameDefault = "kubevirt.io:default"
+	NameDefault                     = "kubevirt.io:default"
+	instancetypeViewClusterRoleName = "instancetype.kubevirt.io:view"
 
 	ApiVersion            = "version"
 	ApiGuestFs            = "guestfs"
@@ -89,6 +90,7 @@ func GetAllCluster() []runtime.Object {
 		newEditClusterRole(),
 		newViewClusterRole(),
 		newInstancetypeViewClusterRole(),
+		newInstancetypeViewClusterRoleBinding(),
 	}
 }
 
@@ -675,7 +677,10 @@ func newInstancetypeViewClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "instancetype.kubevirt.io:view",
+			Name: instancetypeViewClusterRoleName,
+			Labels: map[string]string{
+				virtv1.AppLabel: "",
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -689,6 +694,36 @@ func newInstancetypeViewClusterRole() *rbacv1.ClusterRole {
 				Verbs: []string{
 					"get", "list", "watch",
 				},
+			},
+		},
+	}
+}
+
+func newInstancetypeViewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: VersionNamev1,
+			Kind:       "ClusterRoleBinding",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: instancetypeViewClusterRoleName,
+			Labels: map[string]string{
+				virtv1.AppLabel: "",
+			},
+			Annotations: map[string]string{
+				"rbac.authorization.kubernetes.io/autoupdate": "true",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: VersionName,
+			Kind:     "ClusterRole",
+			Name:     instancetypeViewClusterRoleName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:     "Group",
+				APIGroup: VersionName,
+				Name:     "system:authenticated",
 			},
 		},
 	}
