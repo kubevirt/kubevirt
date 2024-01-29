@@ -29,5 +29,6 @@ for ARCH in ${ARCHITECTURES}; do
 done
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
+export KUBEVIRT_CRI=docker
 ${KUBEVIRT_CRI} manifest create --amend ${DOCKER_PREFIX}/${DOCKER_IMAGE}:${VERSION} ${TMP_IMAGES}
 ${KUBEVIRT_CRI} manifest push ${DOCKER_PREFIX}/${DOCKER_IMAGE}:${VERSION}

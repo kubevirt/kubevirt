@@ -141,8 +141,16 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
-RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
-    chmod u+x /usr/bin/bazel
+RUN  mkdir -p /usr/s390x-bazel
+
+COPY ./bazel /usr/s390x-bazel/
+
+RUN if [ "$ARCH" = "s390x" ]; then \
+      cp /usr/s390x-bazel/bazel /usr/local/bin/bazel; \
+    else \
+      curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && chmod u+x /usr/bin/bazel; \
+    fi
+
 
 # Add /root/go/src/kubevirt.io/kubevirt and mark it as a safe directory for git
 RUN mkdir -p /root/go/src/kubevirt.io/kubevirt && git config --global --add safe.directory /root/go/src/kubevirt.io/kubevirt
