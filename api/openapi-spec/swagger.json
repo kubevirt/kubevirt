@@ -19733,7 +19733,6 @@
     "description": "VirtualMachineInstanceFileSystemDisk represents the guest os FS disks",
     "type": "object",
     "required": [
-     "serial",
      "bus-type"
     ],
     "properties": {
@@ -19742,8 +19741,7 @@
       "default": ""
      },
      "serial": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      }
     }
    },

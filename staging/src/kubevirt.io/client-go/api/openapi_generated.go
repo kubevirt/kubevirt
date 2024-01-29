@@ -22868,9 +22868,8 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref comm
 				Properties: map[string]spec.Schema{
 					"serial": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"bus-type": {
@@ -22881,7 +22880,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref comm
 						},
 					},
 				},
-				Required: []string{"serial", "bus-type"},
+				Required: []string{"bus-type"},
 			},
 		},
 	}
