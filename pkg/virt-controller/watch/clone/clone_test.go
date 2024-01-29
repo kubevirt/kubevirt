@@ -265,10 +265,9 @@ var _ = Describe("Clone", func() {
 		source.Name = snapshotName
 	}
 
-	BeforeEach(func() {
+	setupInformers := func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
 		testNamespace = util.NamespaceTestDefault
 
@@ -282,7 +281,40 @@ var _ = Describe("Clone", func() {
 
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
+	}
 
+	setupResources := func() {
+		sourceVMI := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+		)
+		sourceVMI.Namespace = testNamespace
+		sourceVM = libvmi.NewVirtualMachine(sourceVMI)
+		sourceVM.Spec.Running = nil
+		runStrategy := virtv1.RunStrategyHalted
+		sourceVM.Spec.RunStrategy = &runStrategy
+
+		vmClone = kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
+			APIGroup: pointer.String(vmAPIGroup),
+			Kind:     "VirtualMachine",
+			Name:     sourceVM.Name,
+		}
+		cloneTargetRef := cloneSourceRef.DeepCopy()
+		cloneTargetRef.Name = "test-target-vm"
+
+		vmClone.Spec.Source = cloneSourceRef
+		vmClone.Spec.Target = cloneTargetRef
+		vmClone.UID = testCloneUID
+		updateCloneConditions(vmClone,
+			newProgressingCondition(k8sv1.ConditionTrue, "Still processing"),
+			newReadyCondition(k8sv1.ConditionFalse, "Still processing"),
+		)
+	}
+
+	BeforeEach(func() {
+		setupInformers()
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		controller, _ = NewVmCloneController(
 			virtClient,
 			cloneInformer,
@@ -294,6 +326,8 @@ var _ = Describe("Clone", func() {
 			recorder)
 		mockQueue = testutils.NewMockWorkQueue(controller.vmCloneQueue)
 		controller.vmCloneQueue = mockQueue
+
+		setupResources()
 
 		client = kubevirtfake.NewSimpleClientset()
 
@@ -316,35 +350,6 @@ var _ = Describe("Clone", func() {
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
 		syncCaches(stop)
-	})
-
-	BeforeEach(func() {
-		sourceVMI := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-		)
-		sourceVMI.Namespace = testNamespace
-		sourceVM = libvmi.NewVirtualMachine(sourceVMI)
-		sourceVM.Spec.Running = nil
-		runStrategy := virtv1.RunStrategyHalted
-		sourceVM.Spec.RunStrategy = &runStrategy
-
-		vmClone = kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
-		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(vmAPIGroup),
-			Kind:     "VirtualMachine",
-			Name:     sourceVM.Name,
-		}
-		cloneTargetRef := cloneSourceRef.DeepCopy()
-		cloneTargetRef.Name = "test-target-vm"
-
-		vmClone.Spec.Source = cloneSourceRef
-		vmClone.Spec.Target = cloneTargetRef
-		vmClone.UID = "clone-uid"
-		updateCloneConditions(vmClone,
-			newProgressingCondition(k8sv1.ConditionTrue, "Still processing"),
-			newReadyCondition(k8sv1.ConditionFalse, "Still processing"),
-		)
 	})
 
 	Context("basic controller operations", func() {
