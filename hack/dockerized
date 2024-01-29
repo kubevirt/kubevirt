@@ -22,7 +22,7 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
-CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY}"
+CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL}"
 
 # Be less verbose with bazel
 # For ppc64le the bazel server seems to be running out of memory in the Travis CI, so forcing no concurrent jobs to be run
