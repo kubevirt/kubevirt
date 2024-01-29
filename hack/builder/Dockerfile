@@ -1,5 +1,6 @@
 FROM quay.io/centos/centos:stream9
 
+ARG ARCH
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
@@ -132,8 +133,10 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
-RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
-    chmod u+x /usr/bin/bazel
+RUN if test "${ARCH}" != "s390x"; then \
+       curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
+       chmod u+x /usr/bin/bazel; \
+    fi
 
 # Add /root/go/src/kubevirt.io/kubevirt and mark it as a safe directory for git
 RUN mkdir -p /root/go/src/kubevirt.io/kubevirt && git config --global --add safe.directory /root/go/src/kubevirt.io/kubevirt
