@@ -54,7 +54,6 @@ import (
 const (
 	snapshotResource        = "virtualmachinesnapshots"
 	restoreResource         = "virtualmachinerestores"
-	snapshotContentResource = "virtualmachinesnapshotcontents"
 	vmAPIGroup              = "kubevirt.io"
 	snapshotAPIGroup        = "snapshot.kubevirt.io"
 	testCloneUID            = "clone-uid"
@@ -235,27 +234,6 @@ var _ = Describe("Clone", func() {
 
 	expectEvent := func(event Event) {
 		testutils.ExpectEvent(recorder, string(event))
-	}
-
-	expectSnapshotContentGet := func(vm *virtv1.VirtualMachine) {
-		client.Fake.PrependReactor("get", snapshotContentResource, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-			_, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-
-			content := snapshotv1alpha1.VirtualMachineSnapshotContent{
-				Spec: snapshotv1alpha1.VirtualMachineSnapshotContentSpec{
-					Source: snapshotv1alpha1.SourceSpec{
-						VirtualMachine: &snapshotv1alpha1.VirtualMachine{
-							ObjectMeta: vm.ObjectMeta,
-							Spec:       vm.Spec,
-							Status:     vm.Status,
-						},
-					},
-				},
-			}
-
-			return true, &content, nil
-		})
 	}
 
 	setSnapshotSource := func(vmClone *clonev1alpha1.VirtualMachineClone, snapshotName string) {
@@ -859,7 +837,6 @@ var _ = Describe("Clone", func() {
 			It("should delete smbios serial if serial is not provided", func() {
 				addClone(vmClone)
 				expectSMbiosSerial(emptySerial)
-				expectSnapshotContentGet(sourceVM)
 
 				controller.Execute()
 			})
@@ -1020,7 +997,6 @@ var _ = Describe("Clone", func() {
 			addClone(vmClone)
 			addSnapshot(snapshot)
 
-			expectSnapshotContentGet(sourceVM)
 			expectRestoreCreate(snapshot.Name, vmClone)
 
 			_, err := controller.sync(vmClone)
