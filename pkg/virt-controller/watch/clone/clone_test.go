@@ -60,30 +60,28 @@ const (
 )
 
 var _ = Describe("Clone", func() {
-	var ctrl *gomock.Controller
+	var (
+		ctrl                    *gomock.Controller
+		vmInterface             *kubecli.MockVirtualMachineInterface
+		vmInformer              cache.SharedIndexInformer
+		snapshotInformer        cache.SharedIndexInformer
+		restoreInformer         cache.SharedIndexInformer
+		snapshotContentInformer cache.SharedIndexInformer
+		pvcInformer             cache.SharedIndexInformer
+		cloneInformer           cache.SharedIndexInformer
+		cloneSource             *framework.FakeControllerSource
+		stop                    chan struct{}
 
-	var vmInterface *kubecli.MockVirtualMachineInterface
+		controller *VMCloneController
+		recorder   *record.FakeRecorder
+		mockQueue  *testutils.MockWorkQueue
 
-	var vmInformer cache.SharedIndexInformer
-	var snapshotInformer cache.SharedIndexInformer
-	var restoreInformer cache.SharedIndexInformer
-	var snapshotContentInformer cache.SharedIndexInformer
-	var pvcInformer cache.SharedIndexInformer
-
-	var cloneInformer cache.SharedIndexInformer
-	var cloneSource *framework.FakeControllerSource
-
-	var stop chan struct{}
-	var controller *VMCloneController
-	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
-	var client *kubevirtfake.Clientset
-	var k8sClient *k8sfake.Clientset
-
-	var testNamespace string
-
-	var sourceVM *virtv1.VirtualMachine
-	var vmClone *clonev1alpha1.VirtualMachineClone
+		client        *kubevirtfake.Clientset
+		k8sClient     *k8sfake.Clientset
+		testNamespace string
+		sourceVM      *virtv1.VirtualMachine
+		vmClone       *clonev1alpha1.VirtualMachineClone
+	)
 
 	syncCaches := func(stop chan struct{}) {
 		go vmInformer.Run(stop)
