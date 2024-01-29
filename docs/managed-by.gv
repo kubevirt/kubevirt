@@ -18,6 +18,9 @@ digraph "managed-by" {
 	"NetworkAddonsConfig/cluster" [label="NetworkAddonsConfig/cluster"]
 	"deployment/hco-operator" [label="deployment/hco-operator"]
 	"deployment/hco-operator" -> "NetworkAddonsConfig/cluster"
+	"deployment/aaq-operator" [label="deployment/aaq-operator"]
+	olm [label=olm]
+	olm -> "deployment/aaq-operator"
 	"deployment/cdi-apiserver" [label="deployment/cdi-apiserver"]
 	"deployment/cdi-operator" [label="deployment/cdi-operator"]
 	"deployment/cdi-operator" -> "deployment/cdi-apiserver"

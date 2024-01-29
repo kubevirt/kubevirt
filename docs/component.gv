@@ -37,6 +37,10 @@ digraph component {
 		"deployment/kubemacpool-cert-manager" [label="deployment/kubemacpool-cert-manager"]
 		"deployment/kubemacpool-mac-controller-manager" [label="deployment/kubemacpool-mac-controller-manager"]
 	}
+	subgraph "cluster_quota-management" {
+		fontname="Courier-Bold" fontsize=42 group="quota-management" label="quota-management" rank=same style=dashed
+		"deployment/aaq-operator" [label="deployment/aaq-operator"]
+	}
 	subgraph cluster_schedule {
 		fontname="Courier-Bold" fontsize=42 group=schedule label=schedule rank=same style=dashed
 		"SSP/ssp-kubevirt-hyperconverged" [label="SSP/ssp-kubevirt-hyperconverged"]
@@ -66,7 +70,8 @@ digraph component {
 	"deployment/kubevirt-apiserver-proxy" -> "deployment/kubevirt-console-plugin"
 	"deployment/kubevirt-console-plugin" -> "deployment/mtq-operator"
 	"deployment/mtq-operator" -> "NetworkAddonsConfig/cluster"
-	"NetworkAddonsConfig/cluster" -> "SSP/ssp-kubevirt-hyperconverged"
+	"NetworkAddonsConfig/cluster" -> "deployment/aaq-operator"
+	"deployment/aaq-operator" -> "SSP/ssp-kubevirt-hyperconverged"
 	"SSP/ssp-kubevirt-hyperconverged" -> "CDI/cdi-kubevirt-hyperconverged"
 	"CDI/cdi-kubevirt-hyperconverged" -> "deployment/virt-template-validator"
 	"deployment/virt-template-validator" -> "HyperConverged/kubevirt-hyperconverged"
