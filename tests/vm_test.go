@@ -1914,6 +1914,17 @@ status:
 
 	Context("[Serial] when node becomes unhealthy", Serial, func() {
 		const componentName = "virt-handler"
+		var nodeName string
+
+		AfterEach(func() {
+			libpod.DeleteKubernetesApiBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			Eventually(func(g Gomega) {
+				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
+			}, 120*time.Second, time.Second).Should(Succeed())
+
+			tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", util.GetCurrentKv(virtClient).ResourceVersion,
+				tests.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
+		})
 
 		It("[Serial] the VMs running in that node should be respawned", func() {
 			By("Starting VM")
@@ -1921,17 +1932,14 @@ status:
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			nodeName := vmi.Status.NodeName
+			nodeName = vmi.Status.NodeName
 			oldUID := vmi.UID
 
 			By("Blocking virt-handler from reconciling the VMI")
 			libpod.AddKubernetesApiBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
-			Eventually(getHandlerNodePod(virtClient, nodeName).Items[0], 120*time.Second, time.Second, HaveConditionFalse(k8sv1.PodReady))
-
-			DeferCleanup(func() {
-				libpod.DeleteKubernetesApiBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
-				Eventually(getHandlerNodePod(virtClient, nodeName).Items[0], 120*time.Second, time.Second, HaveConditionTrue(k8sv1.PodReady))
-			})
+			Eventually(func(g Gomega) {
+				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
+			}, 120*time.Second, time.Second).Should(Succeed())
 
 			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
