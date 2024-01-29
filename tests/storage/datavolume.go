@@ -962,7 +962,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvt.Name, metav1.GetOptions{})
 				if libstorage.IsDataVolumeGC(virtClient) {
-					Expect(errors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 					return
 				}
 				Expect(err).ToNot(HaveOccurred())

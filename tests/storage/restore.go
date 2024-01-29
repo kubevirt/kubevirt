@@ -1018,7 +1018,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), originalDVName, metav1.GetOptions{})
-					Expect(errors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 				}
 
 				restores := restore.Status.Restores
@@ -1341,7 +1341,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
 					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
-					Expect(errors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 				}
 			},
 				Entry("[test_id:5263] to the same VM", false),

@@ -562,7 +562,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 
 			cr, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), oldVMRevisionName, k8smetav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			cr, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1587,7 +1587,7 @@ status:
 
 				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+				Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 
 			DescribeTable("in stop command", func(flags ...string) {
