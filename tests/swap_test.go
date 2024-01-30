@@ -74,10 +74,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	getSwapFreeSizeInKib := func(node v1.Node) (size int) {
-		return getMemInfoByString(node, "SwapFree")
-	}
-
 	getSwapSizeInKib := func(node v1.Node) (size int) {
 		return getMemInfoByString(node, "SwapTotal")
 	}
@@ -290,4 +286,8 @@ func getAvailableMemSizeInKib(node v1.Node) (size int) {
 
 func getTotalMemSizeInKib(node v1.Node) (size int) {
 	return getMemInfoByString(node, "MemTotal")
+}
+
+func getSwapFreeSizeInKib(node v1.Node) (size int) {
+	return getMemInfoByString(node, "SwapFree")
 }
