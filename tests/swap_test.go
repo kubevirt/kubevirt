@@ -74,10 +74,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	runVMIAndExpectLaunch := func(vmi *virtv1.VirtualMachineInstance, timeout int) *virtv1.VirtualMachineInstance {
-		return tests.RunVMIAndExpectLaunch(vmi, timeout)
-	}
-
 	fillMemWithStressFedoraVMI := func(vmi *virtv1.VirtualMachineInstance, memToUseInTheVmKib int) error {
 		_, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("stress-ng --vm-bytes %db --vm-keep -m 1 &\n", memToUseInTheVmKib*bytesInKib)},
@@ -162,7 +158,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = runVMIAndExpectLaunch(vmi, 240)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 			By("Consume more memory than the node's memory")
 			err = fillMemWithStressFedoraVMI(vmi, memToUseInTheVmKib)
@@ -221,7 +217,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 
 			By("Starting the VirtualMachineInstance")
-			vmiToFillTargetNodeMem = runVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
+			vmiToFillTargetNodeMem = tests.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
 			Expect(console.LoginToFedora(vmiToFillTargetNodeMem)).To(Succeed())
 
 			By("reaching memory overcommitment in the target node")
@@ -238,7 +234,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
-			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
 			// execute a migration, wait for finalized state
