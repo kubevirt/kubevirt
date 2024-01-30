@@ -1,7 +1,7 @@
 cachetools==5.3.2
 certifi==2023.11.17
 chardet==5.2.0
-google-auth==2.26.2
+google-auth==2.27.0
 graphviz==0.20.1
 idna==3.6
 kubernetes==29.0.0
