@@ -73,13 +73,6 @@ const (
 var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
-	getAffinityForTargetNode := func(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
-		nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
-		return &v1.Affinity{
-			NodeAffinity: nodeAffinityRuleForVmiToFill,
-		}, err
-	}
-
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
 
@@ -287,4 +280,11 @@ func skipIfSwapOff(message string) {
 			Skip(message)
 		}
 	}
+}
+
+func getAffinityForTargetNode(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
+	nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
+	return &v1.Affinity{
+		NodeAffinity: nodeAffinityRuleForVmiToFill,
+	}, err
 }
