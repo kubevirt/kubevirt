@@ -71,17 +71,7 @@ const (
 )
 
 var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
-
-	confirmMigrationMode := func(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
-		By("Retrieving the VMI post migration")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
-
-		By("Verifying the VMI's migration mode")
-		Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
-	}
 
 	skipIfSwapOff := func(message string) {
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
@@ -287,4 +277,14 @@ func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTh
 		&expect.BExp{R: console.PromptExpression},
 	}, 15)
 	return err
+}
+
+func confirmMigrationMode(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
+	var err error
+	By("Retrieving the VMI post migration")
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
+
+	By("Verifying the VMI's migration mode")
+	Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
 }
