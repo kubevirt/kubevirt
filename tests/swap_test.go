@@ -22,6 +22,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -72,13 +73,6 @@ const (
 var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
-
-	min := func(a, b int) int {
-		if a < b {
-			return a
-		}
-		return b
-	}
 
 	getMemInfoByString := func(node v1.Node, field string) (size int) {
 		stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, node.Name, []string{"grep", field, "/proc/meminfo"})
@@ -162,9 +156,9 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			availableMemSizeKib := getAvailableMemSizeInKib(*sourceNode)
 			availableSwapSizeKib := getSwapFreeSizeInKib(*sourceNode)
 			swapSizeKib := getSwapSizeInKib(*sourceNode)
-			swapSizeToUseKib := min(maxSwapSizeToUseKib, int(swapPartToUse*float64(availableSwapSizeKib)))
-
 			Expect(availableSwapSizeKib).Should(BeNumerically(">", maxSwapSizeToUseKib), "not enough available swap space")
+
+			swapSizeToUseKib := int(math.Min(maxSwapSizeToUseKib, swapPartToUse*float64(availableSwapSizeKib)))
 			//use more memory than what node can handle without swap memory
 			memToUseInTheVmKib := availableMemSizeKib + swapSizeToUseKib
 
@@ -231,7 +225,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmMemoryRequestkib := 512000
 			availableMemSizeKib := getAvailableMemSizeInKib(*targetNode)
 			availableSwapSizeKib := getSwapFreeSizeInKib(*targetNode)
-			swapSizeToUsekib := min(maxSwapSizeToUseKib, int(swapPartToUse*float64(availableSwapSizeKib)))
+			swapSizeToUsekib := int(math.Min(maxSwapSizeToUseKib, swapPartToUse*float64(availableSwapSizeKib)))
 
 			//make sure that the vm migrate data to swap space (leave enough space for the vm that we will migrate)
 			memToUseInTargetNodeVmKib := availableMemSizeKib + swapSizeToUsekib - vmMemoryRequestkib
