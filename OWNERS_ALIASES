@@ -85,8 +85,11 @@ aliases:
   # SIG Storage
   # Owns anything related to storage.
   #
-  sig-storage-approvers: []
-  sig-storage-reviewers: []
+  sig-storage-approvers:
+    - mhenriks
+  sig-storage-reviewers:
+    - awels
+    - akalenyu
 
   #
   # SIG API
