@@ -85,8 +85,7 @@ const (
 	DefaultVirtWebhookClientQPS           = 200
 	DefaultVirtWebhookClientBurst         = 400
 
-	DefaultMaxHotplugRatio             = 4
-	DefaultVMRolloutStrategyLiveUpdate = false
+	DefaultMaxHotplugRatio = 4
 )
 
 func IsAMD64(arch string) bool {
