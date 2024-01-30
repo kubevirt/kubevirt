@@ -1851,19 +1851,10 @@ spec:
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
 				By("Waiting for VMI to stop")
-				Eventually(func() bool {
+				Eventually(func() error {
 					_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
-					if err != nil && errors.IsNotFound(err) {
-						return true
-					} else if err != nil {
-						Expect(err).ToNot(HaveOccurred())
-					}
-					return false
-					// #3610 - this timeout needs to be reduced back to 60 seconds.
-					// there's an issue occurring after update where sometimes virt-launcher
-					// can't dial the event notify socket. This impacts the timing for when
-					// the vmi is shutdown. Once that is resolved, reduce the timeout
-				}, 160*time.Second, 1*time.Second).Should(BeTrue())
+					return err
+				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 				By("Ensuring we can Modify the VM Spec")
 				Eventually(func() error {
