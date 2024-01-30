@@ -217,7 +217,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 	Context("VirtualMachineOptions defaults", func() {
 		defaultVirtualMachineOptions := &v1beta1.VirtualMachineOptions{
 			DisableFreePageReporting: ptr.To(false),
-			DisableSerialConsoleLog:  ptr.To(false),
+			DisableSerialConsoleLog:  ptr.To(true),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {

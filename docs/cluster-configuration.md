@@ -1044,7 +1044,7 @@ OR which are requesting any high performance components. A vmi is considered as 
 > However, if you type by mistake a password for a command or if you have to pass it as a clear text parameter it will be written in the logs along with all other visible text.
 > If you are inputting any data or commands that contain sensisitive information please consider using SSH unless the serial console is absolutely necessary for troubleshooting.
 
-  `disableSerialConsoleLog` is a boolean, logging of serial console is enabled by default (disableSerialConsoleLog=false).
+  `disableSerialConsoleLog` is a boolean, logging of serial console is disabled by default (disableSerialConsoleLog=true).
 
 Example
 ```yaml

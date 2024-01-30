@@ -34,7 +34,7 @@ spec:
   uninstallStrategy: BlockUninstallIfWorkloadsExist
   virtualMachineOptions:
     disableFreePageReporting: false
-    disableSerialConsoleLog: false
+    disableSerialConsoleLog: true
   workloadUpdateStrategy:
     batchEvictionInterval: 1m0s
     batchEvictionSize: 10

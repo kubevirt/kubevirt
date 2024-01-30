@@ -74,7 +74,7 @@ spec:
               uninstallStrategy: BlockUninstallIfWorkloadsExist
               virtualMachineOptions:
                 disableFreePageReporting: false
-                disableSerialConsoleLog: false
+                disableSerialConsoleLog: true
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
               applicationAwareConfig:
@@ -2828,7 +2828,7 @@ spec:
               virtualMachineOptions:
                 default:
                   disableFreePageReporting: false
-                  disableSerialConsoleLog: false
+                  disableSerialConsoleLog: true
                 description: VirtualMachineOptions holds the cluster level information
                   regarding the virtual machine.
                 properties:
@@ -2841,7 +2841,7 @@ spec:
                       in which free page reporting is always disabled.
                     type: boolean
                   disableSerialConsoleLog:
-                    default: false
+                    default: true
                     description: DisableSerialConsoleLog disables logging the auto-attached
                       default serial console. If not set, serial console logs will
                       be written to a file and then streamed from a container named

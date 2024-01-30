@@ -2921,11 +2921,12 @@ Version: 1.2.3`)
 		})
 
 		Context("Virtual machine options", func() {
-			It("should not set VirtualMachineOptions by default", func() {
+			It("should set VirtualMachineOptions by default", func() {
 				kv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Spec.Configuration).To(Not(BeNil()))
-				Expect(kv.Spec.Configuration.VirtualMachineOptions).To(BeNil())
+				Expect(kv.Spec.Configuration.VirtualMachineOptions).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.VirtualMachineOptions.DisableSerialConsoleLog).ToNot(BeNil())
 			})
 
 			DescribeTable("Should set VirtualMachineOptions according to HCO CR options", func(hcoVMOptions *hcov1beta1.VirtualMachineOptions, kvVMOptions *kubevirtcorev1.VirtualMachineOptions) {
@@ -3006,9 +3007,9 @@ Version: 1.2.3`)
 				}
 
 			},
-				Entry("with virtualMachineOptions containing disableFreePageReporting false", &hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(false)}, false, false),
+				Entry("with virtualMachineOptions containing disableFreePageReporting false", &hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(false)}, true, false),
 				Entry("with virtualMachineOptions containing disableFreePageReporting true", &hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: ptr.To(true)}, true, true),
-				Entry("with empty virtualMachineOptions", &hcov1beta1.VirtualMachineOptions{}, false, false),
+				Entry("with empty virtualMachineOptions", &hcov1beta1.VirtualMachineOptions{}, true, false),
 			)
 
 			DescribeTable("should modify disableSerialConsoleLog according to HCO CR", func(virtualMachineOptions *hcov1beta1.VirtualMachineOptions, updated, expectDisableSerialConsoleLog bool) {
@@ -3043,9 +3044,9 @@ Version: 1.2.3`)
 					Expect(foundResource.Spec.Configuration.VirtualMachineOptions).To(BeNil())
 				}
 			},
-				Entry("with virtualMachineOptions containing disableSerialConsoleLog false", &hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(false)}, false, false),
-				Entry("with virtualMachineOptions containing disableSerialConsoleLog true", &hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(true)}, true, true),
-				Entry("with empty virtualMachineOptions", &hcov1beta1.VirtualMachineOptions{}, false, false),
+				Entry("with virtualMachineOptions containing disableSerialConsoleLog false", &hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(false)}, true, false),
+				Entry("with virtualMachineOptions containing disableSerialConsoleLog true", &hcov1beta1.VirtualMachineOptions{DisableSerialConsoleLog: ptr.To(true)}, false, true),
+				Entry("with empty virtualMachineOptions", &hcov1beta1.VirtualMachineOptions{}, true, false),
 			)
 
 		})
