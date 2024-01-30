@@ -74,14 +74,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	fillMemWithStressFedoraVMI := func(vmi *virtv1.VirtualMachineInstance, memToUseInTheVmKib int) error {
-		_, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-			&expect.BSnd{S: fmt.Sprintf("stress-ng --vm-bytes %db --vm-keep -m 1 &\n", memToUseInTheVmKib*bytesInKib)},
-			&expect.BExp{R: console.PromptExpression},
-		}, 15)
-		return err
-	}
-
 	confirmMigrationMode := func(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
 		By("Retrieving the VMI post migration")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -287,4 +279,12 @@ func getSwapFreeSizeInKib(node v1.Node) (size int) {
 
 func getSwapSizeInKib(node v1.Node) (size int) {
 	return getMemInfoByString(node, "SwapTotal")
+}
+
+func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTheVmKib int) error {
+	_, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: fmt.Sprintf("stress-ng --vm-bytes %db --vm-keep -m 1 &\n", memToUseInTheVmKib*bytesInKib)},
+		&expect.BExp{R: console.PromptExpression},
+	}, 15)
+	return err
 }
