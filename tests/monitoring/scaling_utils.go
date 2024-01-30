@@ -72,9 +72,10 @@ func (s *Scaling) RestoreAllScales() {
 }
 
 func (s *Scaling) RestoreScale(operatorName string) {
-	By("Restoring scale for " + operatorName)
 	revert := s.scales[operatorName].DeepCopy()
 	revert.ResourceVersion = ""
+
+	By(fmt.Sprintf("Restoring scale for %s to %d", operatorName, revert.Spec.Replicas))
 	Eventually(func() error {
 		_, err := s.virtClient.
 			AppsV1().
@@ -82,4 +83,11 @@ func (s *Scaling) RestoreScale(operatorName string) {
 			UpdateScale(context.TODO(), operatorName, revert, metav1.UpdateOptions{})
 		return err
 	}, 30*time.Second, 1*time.Second).Should(BeNil(), "failed to restore scale for %s", operatorName)
+
+	// wait for pods to be ready
+	Eventually(func() int32 {
+		deployment, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), operatorName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return deployment.Status.ReadyReplicas
+	}, 30*time.Second, 1*time.Second).Should(Equal(revert.Spec.Replicas), "failed to verify restored replicas for %s", operatorName)
 }
