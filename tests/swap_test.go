@@ -74,14 +74,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	getMemInfoByString := func(node v1.Node, field string) (size int) {
-		stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, node.Name, []string{"grep", field, "/proc/meminfo"})
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
-		fields := strings.Fields(stdout)
-		size, err = strconv.Atoi(fields[1])
-		Expect(err).ToNot(HaveOccurred())
-		return size
-	}
 	getAvailableMemSizeInKib := func(node v1.Node) (size int) {
 		return getMemInfoByString(node, "MemAvailable")
 	}
@@ -289,3 +281,12 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 	})
 })
+
+func getMemInfoByString(node v1.Node, field string) (size int) {
+	stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(kubevirt.Client(), node.Name, []string{"grep", field, "/proc/meminfo"})
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
+	fields := strings.Fields(stdout)
+	size, err = strconv.Atoi(fields[1])
+	Expect(err).ToNot(HaveOccurred())
+	return size
+}
