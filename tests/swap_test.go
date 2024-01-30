@@ -73,16 +73,6 @@ const (
 var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
-	skipIfSwapOff := func(message string) {
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
-		for _, node := range nodes.Items {
-			swapSizeKib := getSwapSizeInKib(node)
-			if swapSizeKib < maxSwapSizeToUseKib {
-				Skip(message)
-			}
-		}
-	}
-
 	getAffinityForTargetNode := func(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
 		nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
 		return &v1.Affinity{
@@ -287,4 +277,14 @@ func confirmMigrationMode(vmi *virtv1.VirtualMachineInstance, expectedMode virtv
 
 	By("Verifying the VMI's migration mode")
 	Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
+}
+
+func skipIfSwapOff(message string) {
+	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+	for _, node := range nodes.Items {
+		swapSizeKib := getSwapSizeInKib(node)
+		if swapSizeKib < maxSwapSizeToUseKib {
+			Skip(message)
+		}
+	}
 }
