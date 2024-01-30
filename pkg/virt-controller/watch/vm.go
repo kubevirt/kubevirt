@@ -2412,7 +2412,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 
 	syncStartFailureStatus(vm, vmi)
-	c.syncConditions(vm, vmi, syncErr)
+	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 
 	// only update if necessary
@@ -2608,7 +2608,7 @@ func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualM
 	return false
 }
 
-func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
 		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
@@ -2646,12 +2646,12 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	}
 }
 
-func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
 	cm := controller.NewVirtualMachineConditionManager()
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
-	c.syncReadyConditionFromVMI(vm, vmi)
-	c.processFailureCondition(vm, vmi, syncErr)
+	syncReadyConditionFromVMI(vm, vmi)
+	processFailureCondition(vm, vmi, syncErr)
 
 	// nothing to do if vmi hasn't been created yet.
 	if vmi == nil {
@@ -2698,7 +2698,7 @@ func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 	}
 }
 
-func (c *VMController) processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+func processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
 
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if syncErr == nil {

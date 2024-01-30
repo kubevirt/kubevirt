@@ -5683,6 +5683,61 @@ var _ = Describe("VirtualMachine", func() {
 			)
 		})
 	})
+	Context("syncConditions", func() {
+		var vm *virtv1.VirtualMachine
+		var vmi *virtv1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vm, vmi = DefaultVirtualMachineWithNames(false, "test", "test")
+		})
+
+		It("should set ready to false when VMI is nil", func() {
+			syncConditions(vm, nil, nil)
+			Expect(vm.Status.Conditions).To(HaveLen(1))
+			Expect(vm.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineReady))
+			Expect(vm.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+		})
+
+		It("should set ready to false when VMI doesn't have a ready condition", func() {
+			syncConditions(vm, vmi, nil)
+			Expect(vm.Status.Conditions).To(HaveLen(1))
+			Expect(vm.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineReady))
+			Expect(vm.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+		})
+
+		It("should set ready to false when VMI has a false ready condition", func() {
+			vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{{
+				Type:   virtv1.VirtualMachineInstanceReady,
+				Status: k8sv1.ConditionFalse,
+			}}
+			syncConditions(vm, vmi, nil)
+			Expect(vm.Status.Conditions).To(HaveLen(1))
+			Expect(vm.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineReady))
+			Expect(vm.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+		})
+
+		It("should sync appropriate conditions and ignore others", func() {
+			fromCondList := []virtv1.VirtualMachineConditionType{
+				virtv1.VirtualMachineReady, virtv1.VirtualMachineFailure, virtv1.VirtualMachinePaused,
+				virtv1.VirtualMachineInitialized, virtv1.VirtualMachineRestartRequired,
+			}
+			toCondList := []virtv1.VirtualMachineConditionType{
+				virtv1.VirtualMachineReady, virtv1.VirtualMachinePaused,
+			}
+			vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{}
+			for _, cond := range fromCondList {
+				vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceConditionType(cond),
+					Status: k8sv1.ConditionTrue,
+				})
+			}
+			syncConditions(vm, vmi, nil)
+			Expect(vm.Status.Conditions).To(HaveLen(len(toCondList)))
+			for _, cond := range vm.Status.Conditions {
+				Expect(toCondList).To(ContainElements(cond.Type))
+			}
+		})
+	})
 })
 
 func VirtualMachineFromVMI(name string, vmi *virtv1.VirtualMachineInstance, started bool) *virtv1.VirtualMachine {
