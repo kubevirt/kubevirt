@@ -106,16 +106,6 @@ const (
 	defaultDiskSize        = "1Gi"
 )
 
-func TestCleanup() {
-	GinkgoWriter.Println("Global test cleanup started.")
-	testsuite.CleanNamespaces()
-	libnode.CleanNodes()
-	resetToDefaultConfig()
-	testsuite.EnsureKubevirtReady()
-	SetupAlpineHostPath()
-	GinkgoWriter.Println("Global test cleanup ended.")
-}
-
 func SetupAlpineHostPath() {
 	const osAlpineHostPath = "alpine-host-path"
 	libstorage.CreateHostPathPv(osAlpineHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
@@ -613,22 +603,6 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImag
 	return vmi
 }
 
-func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
-	return &v1.VirtualMachineInstanceMigration{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachineInstanceMigration",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-migration-",
-			Namespace:    namespace,
-		},
-		Spec: v1.VirtualMachineInstanceMigrationSpec{
-			VMIName: vmiName,
-		},
-	}
-}
-
 // NewRandomVMIWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly
@@ -650,67 +624,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
-				Bus: bus,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			ContainerDisk: &v1.ContainerDiskSource{
-				Image: image,
-			},
-		},
-	})
-
-	return vmi
-}
-
-// AddBootOrderToDisk
-//
-// Deprecated: Use libvmi
-func AddBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
-	for i, d := range vmi.Spec.Domain.Devices.Disks {
-		if d.Name == diskName {
-			vmi.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
-			return vmi
-		}
-	}
-	return vmi
-}
-
-// AddPVCDisk
-//
-// Deprecated: Use libvmi
-func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, claimName string) *v1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			}},
-		},
-	})
-
-	return vmi
-}
-
-// AddEphemeralCdrom
-//
-// Deprecated: Use libvmi
-func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBus, image string) *v1.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			CDRom: &v1.CDRomTarget{
 				Bus: bus,
 			},
 		},
@@ -857,16 +770,6 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 	})
 }
 
-// NewRandomVMIWithPVC
-//
-// Deprecated: Use libvmi
-func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	vmi = AddPVCDisk(vmi, "disk0", v1.DiskBusVirtio, claimName)
-	return vmi
-}
-
 func DeletePvAndPvc(name string) {
 	virtCli := kubevirt.Client()
 
@@ -878,109 +781,6 @@ func DeletePvAndPvc(name string) {
 	err = virtCli.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util2.PanicOnError(err)
-	}
-}
-
-// AddConfigMapDisk
-//
-// Deprecated: Use libvmi
-func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string) {
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapVolumeSource{
-				LocalObjectReference: k8sv1.LocalObjectReference{
-					Name: configMapName,
-				},
-				VolumeLabel: "",
-			},
-		},
-	})
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: volumeName,
-	})
-}
-
-// AddSecretDisk
-//
-// Deprecated: Use libvmi
-func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string, volumeName string) {
-	AddSecretDiskWithCustomLabel(vmi, secretName, volumeName, "")
-}
-
-// AddSecretDiskWithCustomLabel
-//
-// Deprecated: Use libvmi
-func AddSecretDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, secretName string, volumeName string, volumeLabel string) {
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
-				SecretName:  secretName,
-				VolumeLabel: volumeLabel,
-			},
-		},
-	})
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: volumeName,
-	})
-}
-
-// AddLabelDownwardAPIVolume
-//
-// Deprecated: Use libvmi
-func AddLabelDownwardAPIVolume(vmi *v1.VirtualMachineInstance, volumeName string) {
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			DownwardAPI: &v1.DownwardAPIVolumeSource{
-				Fields: []k8sv1.DownwardAPIVolumeFile{
-					{
-						Path: "labels",
-						FieldRef: &k8sv1.ObjectFieldSelector{
-							FieldPath: "metadata.labels",
-						},
-					},
-				},
-				VolumeLabel: "",
-			},
-		},
-	})
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: volumeName,
-	})
-}
-
-// AddServiceAccountDisk
-//
-// Deprecated: Use libvmi
-func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName string) {
-	volumeName := serviceAccountName + "-disk"
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			ServiceAccount: &v1.ServiceAccountVolumeSource{
-				ServiceAccountName: serviceAccountName,
-			},
-		},
-	})
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: serviceAccountName + "-disk",
-	})
-}
-
-// AddWatchdog
-//
-// Deprecated: Use libvmi
-func AddWatchdog(vmi *v1.VirtualMachineInstance, action v1.WatchdogAction) {
-	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
-		Name: "watchdog",
-		WatchdogDevice: v1.WatchdogDevice{
-			I6300ESB: &v1.I6300ESBWatchdog{
-				Action: action,
-			},
-		},
 	}
 }
 
@@ -1551,19 +1351,6 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
 
 	return kv
-}
-
-// resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
-// be propagated to all components before it returns. It will only update the configuration and wait for it to be
-// propagated if the current config in use does not match the original one.
-func resetToDefaultConfig() {
-	if !CurrentSpecReport().IsSerial {
-		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
-		// we can just skip the restore step.
-		return
-	}
-
-	UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 }
 
 type compare func(string, string) bool

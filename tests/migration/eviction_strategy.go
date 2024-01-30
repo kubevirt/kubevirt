@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -242,7 +243,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(migration, &metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 

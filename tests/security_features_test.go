@@ -338,7 +338,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			Expect(stdout).To(ContainSubstring(seContext))
 
 			By("Migrating the VMI")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the VMI SELinux context status didn't change")

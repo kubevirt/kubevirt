@@ -182,7 +182,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("creating the migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				var migrationCreated *v1.VirtualMachineInstanceMigration
 				By("starting migration")

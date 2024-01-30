@@ -2203,21 +2203,18 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			vmi := tests.NewRandomVMI()
-
-			By("adding disks to a VMI")
-			// disk[0]:  File, sparsed, no user-input, cache=none
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				// disk[1]:  Block, no user-input, cache=none
+				libvmi.WithPersistentVolumeClaim("block-pvc", dataVolume.Name),
+				// disk[2]: File, not-sparsed, no user-input, cache=none
+				libvmi.WithPersistentVolumeClaim("hostpath-pvc", tests.DiskAlpineHostPath),
+				// disk[3]:  File, sparsed, user-input=threads, cache=none
+				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+			)
+			// disk[0]cache=none
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-
-			// disk[1]:  Block, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "block-pvc", v1.DiskBusVirtio, dataVolume.Name)
-
-			// disk[2]: File, not-sparsed, no user-input, cache=none
-			tests.AddPVCDisk(vmi, "hostpath-pvc", v1.DiskBusVirtio, tests.DiskAlpineHostPath)
-
-			// disk[3]:  File, sparsed, user-input=threads, cache=none
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
@@ -2272,7 +2269,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
-			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("128Mi"),
+			)
 
 			By("setting the disk to use custom block sizes")
 			logicalSize := uint(16384)
@@ -2310,7 +2312,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
 
-			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("128Mi"),
+			)
 
 			By("setting the disk to match the volume block sizes")
 			vmi.Spec.Domain.Devices.Disks[0].BlockSize = &v1.BlockSize{
@@ -3054,15 +3061,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("With ephemeral CD-ROM", func() {
-		var vmi *v1.VirtualMachineInstance
 		var DiskBusIDE v1.DiskBus = "ide"
 
-		BeforeEach(func() {
-			vmi = libvmi.NewFedora()
-		})
-
 		DescribeTable("For various bus types", func(bus v1.DiskBus, errMsg string) {
-			tests.AddEphemeralCdrom(vmi, "cdrom-0", bus, cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := libvmi.NewFedora(
+				libvmi.WithEphemeralCDRom("cdrom-0", bus, cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+			)
 
 			By(fmt.Sprintf("Starting a VMI with a %s CD-ROM", bus))
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)

@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -233,7 +234,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			vmim = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			vmim = libmigration.New(vmi.Name, vmi.Namespace)
 		})
 
 		It("[test_id:7635]create a migration", func() {

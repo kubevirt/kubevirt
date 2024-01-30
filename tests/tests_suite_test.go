@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -105,7 +106,7 @@ var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 var _ = AfterEach(func() {
-	tests.TestCleanup()
+	testCleanup()
 })
 
 func getMaxFailsFromEnv() int {
@@ -140,3 +141,25 @@ var _ = ReportAfterSuite("TestTests", func(report Report) {
 var _ = JustAfterEach(func() {
 	k8sReporter.ReportSpec(CurrentSpecReport())
 })
+
+func testCleanup() {
+	GinkgoWriter.Println("Global test cleanup started.")
+	testsuite.CleanNamespaces()
+	libnode.CleanNodes()
+	resetToDefaultConfig()
+	testsuite.EnsureKubevirtReady()
+	tests.SetupAlpineHostPath()
+	GinkgoWriter.Println("Global test cleanup ended.")
+}
+
+// resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
+// be propagated to all components before it returns. It will only update the configuration and wait for it to be
+// propagated if the current config in use does not match the original one.
+func resetToDefaultConfig() {
+	if !CurrentSpecReport().IsSerial {
+		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
+		// we can just skip the restore step.
+		return
+	}
+	tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
+}

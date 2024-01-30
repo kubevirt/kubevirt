@@ -23,20 +23,20 @@ import (
 	"context"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests/events"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -71,7 +71,13 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 	})
 	It("[test_id:6225]Should catch the IO error event", func() {
 		By("Creating VMI with faulty disk")
-		vmi := tests.NewRandomVMIWithPVC(pvc.Name)
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
+			libvmi.WithResourceMemory("128Mi"),
+		)
+
 		Eventually(func() error {
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)

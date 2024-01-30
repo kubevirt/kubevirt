@@ -262,7 +262,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				sourcePodName := sourcePod.GetObjectMeta().GetName()
 				sourcePodUID := sourcePod.GetObjectMeta().GetUID()
 
-				migration := tests.NewRandomMigration(vmi.Name, testsuite.GetTestNamespace(vmi))
+				migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
 				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				targetPod, exists, err := getVMIPod(vmi)

@@ -39,7 +39,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -162,7 +161,7 @@ func newVMWithOneInterface() *v1.VirtualMachine {
 
 func migrate(vmi *v1.VirtualMachineInstance) {
 	By("migrating the VMI")
-	migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+	migration := libmigration.New(vmi.Name, vmi.Namespace)
 	migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 	libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 }
