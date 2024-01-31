@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -47,9 +49,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := &v1.VMRolloutStrategy{
-			LiveUpdate: &v1.RolloutStrategyLiveUpdate{},
-		}
+		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
 		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
 
 		currentKv := util2.GetCurrentKv(virtClient)

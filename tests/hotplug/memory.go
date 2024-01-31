@@ -40,9 +40,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
-		rolloutStrategy := &v1.VMRolloutStrategy{
-			LiveUpdate: &v1.RolloutStrategyLiveUpdate{},
-		}
+		rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
 		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
 
 		currentKv := util2.GetCurrentKv(virtClient)

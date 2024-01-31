@@ -52,8 +52,10 @@ import (
 )
 
 var (
-	vmUID types.UID = "vm-uid"
-	t               = true
+	vmUID      types.UID = "vm-uid"
+	t                    = true
+	stage                = virtv1.VMRolloutStrategyStage
+	liveUpdate           = virtv1.VMRolloutStrategyLiveUpdate
 )
 
 var _ = Describe("VirtualMachine", func() {
@@ -5022,9 +5024,7 @@ var _ = Describe("VirtualMachine", func() {
 								LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{
 									MaxCpuSockets: kvpointer.P(maxSocketsFromConfig),
 								},
-								VMRolloutStrategy: &v1.VMRolloutStrategy{
-									LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-								},
+								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 								},
@@ -5044,9 +5044,7 @@ var _ = Describe("VirtualMachine", func() {
 								LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{
 									MaxCpuSockets: kvpointer.P(maxSocketsFromConfig),
 								},
-								VMRolloutStrategy: &v1.VMRolloutStrategy{
-									LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-								},
+								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 								},
@@ -5068,9 +5066,7 @@ var _ = Describe("VirtualMachine", func() {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &v1.VMRolloutStrategy{
-									LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-								},
+								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 								},
@@ -5089,9 +5085,7 @@ var _ = Describe("VirtualMachine", func() {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &v1.VMRolloutStrategy{
-									LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-								},
+								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 								},
@@ -5130,9 +5124,7 @@ var _ = Describe("VirtualMachine", func() {
 								LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{
 									MaxGuest: &maxGuestFromConfig,
 								},
-								VMRolloutStrategy: &v1.VMRolloutStrategy{
-									LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-								},
+								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 								},
@@ -5154,9 +5146,7 @@ var _ = Describe("VirtualMachine", func() {
 								LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{
 									MaxGuest: &maxGuestFromConfig,
 								},
-								VMRolloutStrategy: &v1.VMRolloutStrategy{
-									LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-								},
+								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 								},
@@ -5184,9 +5174,7 @@ var _ = Describe("VirtualMachine", func() {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &v1.VMRolloutStrategy{
-									LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-								},
+								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 								},
@@ -5488,9 +5476,7 @@ var _ = Describe("VirtualMachine", func() {
 					Spec: v1.KubeVirtSpec{
 						Configuration: v1.KubeVirtConfiguration{
 							LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{},
-							VMRolloutStrategy: &v1.VMRolloutStrategy{
-								LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{},
-							},
+							VMRolloutStrategy:       &liveUpdate,
 							DeveloperConfiguration: &v1.DeveloperConfiguration{
 								FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 							},
@@ -5653,21 +5639,13 @@ var _ = Describe("VirtualMachine", func() {
 				Eventually(restartRequired[vm.UID]).Should(Equal(expectCond))
 			},
 				Entry("should appear if the feature gate is not set",
-					[]string{},
-					&virtv1.VMRolloutStrategy{LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{}},
-					true),
+					[]string{}, &liveUpdate, true),
 				Entry("should appear if the VM rollout strategy is not set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate},
-					nil,
-					true),
+					[]string{virtconfig.VMLiveUpdateFeaturesGate}, nil, true),
 				Entry("should appear if the VM rollout strategy is set to Stage",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate},
-					&virtv1.VMRolloutStrategy{Stage: &virtv1.RolloutStrategyStage{}},
-					true),
+					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &stage, true),
 				Entry("should not appear if both the VM rollout strategy and feature gate are set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate},
-					&virtv1.VMRolloutStrategy{LiveUpdate: &virtv1.RolloutStrategyLiveUpdate{}},
-					false),
+					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &liveUpdate, false),
 			)
 		})
 	})
