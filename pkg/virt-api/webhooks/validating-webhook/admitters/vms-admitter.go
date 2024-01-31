@@ -24,6 +24,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	corev1 "k8s.io/api/core/v1"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -192,20 +196,6 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	if ar.Request.Operation == admissionv1.Update {
-		oldVM := v1.VirtualMachine{}
-		if err := json.Unmarshal(ar.Request.OldObject.Raw, &oldVM); err != nil {
-			return webhookutils.ToAdmissionResponseError(err)
-		}
-
-		if !equality.Semantic.DeepEqual(&oldVM.Spec, &vm.Spec) {
-			causes = admitter.validateVMUpdate(&oldVM, &vm)
-			if len(causes) > 0 {
-				return webhookutils.ToAdmissionResponse(causes)
-			}
-		}
-	}
-
 	isDryRun := ar.Request.DryRun != nil && *ar.Request.DryRun
 	if !isDryRun && ar.Request.Operation == admissionv1.Create {
 		metrics.NewVMCreated(&vm)
@@ -360,6 +350,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 
 	causes = append(causes, validateDataVolumeTemplate(field, spec)...)
 	causes = append(causes, validateRunStrategy(field, spec)...)
+	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
 
 	return causes
 }
@@ -433,6 +424,145 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (cau
 			})
 		}
 	}
+	return causes
+}
+
+func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if !config.IsVMRolloutStrategyLiveUpdate() {
+		return causes
+	}
+
+	if spec.Instancetype != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("Cannot configure instance type when the vmRolloutStrategy is LiveUpdate"),
+			Field:   field.Child("instancetype").String(),
+		})
+	}
+
+	causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
+
+	if hasCPURequestsOrLimits(&spec.Template.Spec.Domain.Resources) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"),
+			Field:   field.Child("template", "spec", "domain", "resources").String(),
+		})
+	}
+
+	if spec.Template.Spec.Domain.Memory != nil && spec.Template.Spec.Domain.Memory.MaxGuest != nil {
+		causes = append(causes, validateLiveUpdateMemory(field, &spec.Template.Spec.Domain, spec.Template.Spec.Architecture)...)
+	}
+
+	return causes
+}
+
+func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes []metav1.StatusCause) {
+	if domain.CPU.Sockets != 0 && domain.CPU.MaxSockets != 0 && domain.CPU.Sockets > domain.CPU.MaxSockets {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Number of sockets in CPU topology is greater than the maximum sockets allowed"),
+			Field:   field.Child("template", "spec", "domain", "cpu", "sockets").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateLiveUpdateMemory(field *k8sfield.Path, domain *v1.DomainSpec, architecture string) (causes []metav1.StatusCause) {
+	if hasMemoryLimits(&domain.Resources) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Configuration of Memory limits is not allowed when Memory live update is enabled"),
+			Field:   field.Child("template", "spec", "domain", "resources").String(),
+		})
+	}
+
+	if domain.CPU != nil &&
+		domain.CPU.Realtime != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Memory hotplug is not compatible with realtime VMs"),
+			Field:   field.Child("template", "spec", "domain", "cpu", "realtime").String(),
+		})
+	}
+
+	if domain.CPU != nil &&
+		domain.CPU.NUMA != nil &&
+		domain.CPU.NUMA.GuestMappingPassthrough != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Memory hotplug is not compatible with guest mapping passthrough"),
+			Field:   field.Child("template", "spec", "domain", "cpu", "numa", "guestMappingPassthrough").String(),
+		})
+	}
+
+	if domain.LaunchSecurity != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Memory hotplug is not compatible with encrypted VMs"),
+			Field:   field.Child("template", "spec", "domain", "launchSecurity").String(),
+		})
+	}
+
+	if domain.CPU != nil &&
+		domain.CPU.DedicatedCPUPlacement {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Memory hotplug is not compatible with dedicated CPUs"),
+			Field:   field.Child("template", "spec", "domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+
+	if domain.Memory != nil &&
+		domain.Memory.Hugepages != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Memory hotplug is not compatible with hugepages"),
+			Field:   field.Child("template", "spec", "domain", "memory", "hugepages").String(),
+		})
+	}
+
+	if domain.Memory == nil ||
+		domain.Memory.Guest == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Guest memory must be configured when memory hotplug is enabled"),
+			Field:   field.Child("template", "spec", "domain", "memory", "guest").String(),
+		})
+	} else if domain.Memory.Guest.Cmp(*domain.Memory.MaxGuest) > 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Guest memory is greater than the configured maxGuest memory"),
+			Field:   field.Child("template", "spec", "domain", "memory", "guest").String(),
+		})
+	} else if domain.Memory.Guest.Value()%converter.MemoryHotplugBlockAlignmentBytes != 0 {
+		alignment := resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Guest memory must be %s aligned", alignment),
+			Field:   field.Child("template", "spec", "domain", "memory", "guest").String(),
+		})
+	}
+
+	if domain.Memory.MaxGuest.Value()%converter.MemoryHotplugBlockAlignmentBytes != 0 {
+		alignment := resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("MaxGuest must be %s aligned", alignment),
+			Field:   field.Child("template", "spec", "domain", "memory", "maxGuest").String(),
+		})
+	}
+
+	if architecture != "amd64" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Memory hotplug is only available for x86_64 VMs"),
+			Field:   field.Child("template", "spec", "architecture").String(),
+		})
+		return causes
+	}
+
 	return causes
 }
 
