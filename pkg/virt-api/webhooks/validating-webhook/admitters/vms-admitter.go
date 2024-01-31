@@ -668,35 +668,6 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 
 func (admitter *VMsAdmitter) validateVMUpdate(oldVM, newVM *v1.VirtualMachine) []metav1.StatusCause {
 	if newVM.Status.Ready {
-		// CPU hotplug
-		oldTopology := oldVM.Spec.Template.Spec.Domain.CPU
-		newTopology := newVM.Spec.Template.Spec.Domain.CPU
-		if oldTopology != nil && newTopology != nil {
-			if oldTopology.Cores != newTopology.Cores {
-				return []metav1.StatusCause{{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: fmt.Sprintf("Cannot update CPU cores while live update features configured"),
-					Field:   k8sfield.NewPath("spec.template.spec.domain.cpu.cores").String(),
-				}}
-			}
-			if oldTopology.Threads != newTopology.Threads {
-				return []metav1.StatusCause{{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: fmt.Sprintf("Cannot update CPU threads while live update features configured"),
-					Field:   k8sfield.NewPath("spec.template.spec.domain.cpu.threads").String(),
-				}}
-			}
-			if oldTopology.Sockets != newTopology.Sockets {
-				if causeErr := admitter.shouldAllowCPUHotPlug(oldVM); causeErr != nil {
-					return []metav1.StatusCause{{
-						Type:    metav1.CauseTypeFieldValueNotSupported,
-						Message: causeErr.Error(),
-						Field:   k8sfield.NewPath("spec.template.spec.domain.cpu.sockets").String(),
-					}}
-				}
-			}
-		}
-
 		// Memory Hotplug
 		if oldVM.Spec.Template.Spec.Domain.Memory != nil && newVM.Spec.Template.Spec.Domain.Memory != nil {
 			oldGuestMemory := oldVM.Spec.Template.Spec.Domain.Memory.Guest
@@ -717,25 +688,6 @@ func (admitter *VMsAdmitter) validateVMUpdate(oldVM, newVM *v1.VirtualMachine) [
 	return nil
 }
 
-func (admitter *VMsAdmitter) shouldAllowCPUHotPlug(vm *v1.VirtualMachine) error {
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == v1.VirtualMachineInstanceVCPUChange &&
-			c.Status == corev1.ConditionTrue {
-			return fmt.Errorf("cannot update CPU sockets while another CPU change is in progress")
-		}
-	}
-
-	if err := admitter.isMigrationInProgress(vmi); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (admitter *VMsAdmitter) shouldAllowMemoryHotPlug(vm *v1.VirtualMachine) error {
 	vmi, err := admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 	if err != nil {
@@ -744,17 +696,6 @@ func (admitter *VMsAdmitter) shouldAllowMemoryHotPlug(vm *v1.VirtualMachine) err
 
 	if vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Status.Memory.GuestAtBoot) < 0 {
 		return fmt.Errorf("cannot set less memory than what the guest booted with")
-	}
-
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == v1.VirtualMachineInstanceMemoryChange &&
-			c.Status == corev1.ConditionTrue {
-			return fmt.Errorf("cannot update memory while another memory change is in progress")
-		}
-	}
-
-	if err := admitter.isMigrationInProgress(vmi); err != nil {
-		return err
 	}
 	return nil
 }
