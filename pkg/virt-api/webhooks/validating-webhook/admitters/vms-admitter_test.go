@@ -1465,7 +1465,8 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: arNamespace,
 			}
 
-			vmsAdmitter.DataSourceInformer.GetIndexer().Add(ds)
+			err := vmsAdmitter.DataSourceInformer.GetIndexer().Add(ds)
+			Expect(err).NotTo(HaveOccurred())
 
 			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(k8sClient, expectedSourceNamespace,
 				"whocares",
