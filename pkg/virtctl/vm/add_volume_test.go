@@ -135,45 +135,46 @@ var _ = Describe("Add volume command", func() {
 		Entry("with dry-run arg", true),
 	)
 
-	DescribeTable("should call correct endpoint", func(commandName, vmiName, volumeName string, useDv bool, expectFunc func(vmiName, volumeName string, verifyFunc VerifyFunc), args ...string) {
+	DescribeTable("should call correct endpoint", func(useDv bool, expectFunc func(vmiName, volumeName string, verifyFunc VerifyFunc), args ...string) {
+		vmiName := "testvmi"
+		volumeName := "testvolume"
+
 		var verifyFunc VerifyFunc
-		if commandName == "addvolume" {
-			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-			if useDv {
-				cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
-					context.Background(),
-					libdv.NewDataVolume(libdv.WithName("testvolume")),
-					k8smetav1.CreateOptions{})
-				verifyFunc = verifyDVVolumeSource
-			} else {
-				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-				coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
-					context.Background(),
-					createTestPVC(),
-					k8smetav1.CreateOptions{})
-				verifyFunc = verifyPVCVolumeSource
-			}
+		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+		if useDv {
+			cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
+				context.Background(),
+				libdv.NewDataVolume(libdv.WithName(volumeName)),
+				k8smetav1.CreateOptions{})
+			verifyFunc = verifyDVVolumeSource
+		} else {
+			kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+			coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
+				context.Background(),
+				createTestPVC(),
+				k8smetav1.CreateOptions{})
+			verifyFunc = verifyPVCVolumeSource
 		}
 		expectFunc(vmiName, volumeName, verifyFunc)
-		commandAndArgs := append([]string{commandName, vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
+		commandAndArgs := append([]string{"addvolume", vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 
 		Expect(cmd.Execute()).To(Succeed())
 	},
-		Entry("addvolume dv, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume),
-		Entry("addvolume pvc, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume),
-		Entry("addvolume dv, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist"),
-		Entry("addvolume pvc, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist"),
+		Entry("addvolume dv, no persist should call VMI endpoint", true, expectVMIEndpointAddVolume),
+		Entry("addvolume pvc, no persist should call VMI endpoint", false, expectVMIEndpointAddVolume),
+		Entry("addvolume dv, with persist should call VM endpoint", true, expectVMEndpointAddVolume, "--persist"),
+		Entry("addvolume pvc, with persist should call VM endpoint", false, expectVMEndpointAddVolume, "--persist"),
 
-		Entry("addvolume dv, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--dry-run"),
-		Entry("addvolume pvc, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume, "--dry-run"),
-		Entry("addvolume dv, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist", "--dry-run"),
-		Entry("addvolume pvc, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist", "--dry-run"),
+		Entry("addvolume dv, no persist with dry-run should call VMI endpoint", true, expectVMIEndpointAddVolume, "--dry-run"),
+		Entry("addvolume pvc, no persist with dry-run should call VMI endpoint", false, expectVMIEndpointAddVolume, "--dry-run"),
+		Entry("addvolume dv, with persist with dry-run should call VM endpoint", true, expectVMEndpointAddVolume, "--persist", "--dry-run"),
+		Entry("addvolume pvc, with persist with dry-run should call VM endpoint", false, expectVMEndpointAddVolume, "--persist", "--dry-run"),
 
-		Entry("addvolume pvc, with persist and LUN-type disk should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
-		Entry("addvolume dv, with persist and LUN-type disk should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
-		Entry("addvolume pvc, with LUN-type disk should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume, "--disk-type", "lun"),
-		Entry("addvolume dv, with LUN-type disk should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--disk-type", "lun"),
+		Entry("addvolume pvc, with persist and LUN-type disk should call VM endpoint", false, expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
+		Entry("addvolume dv, with persist and LUN-type disk should call VM endpoint", true, expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
+		Entry("addvolume pvc, with LUN-type disk should call VMI endpoint", false, expectVMIEndpointAddVolume, "--disk-type", "lun"),
+		Entry("addvolume dv, with LUN-type disk should call VMI endpoint", true, expectVMIEndpointAddVolume, "--disk-type", "lun"),
 	)
 })
 
