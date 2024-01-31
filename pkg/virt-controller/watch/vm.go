@@ -1617,21 +1617,13 @@ func (c *VMController) getVMSpecForKey(key string) (*virtv1.VirtualMachineSpec, 
 		return nil, fmt.Errorf("unexpected resource %+v", obj)
 	}
 
-	raw := map[string]interface{}{}
-	err = json.Unmarshal(cr.Data.Raw, &raw)
+	revisionData := VirtualMachineRevisionData{}
+	err = json.Unmarshal(cr.Data.Raw, &revisionData)
 	if err != nil {
 		return nil, err
 	}
-	patch, err := json.Marshal(raw["spec"])
-	if err != nil {
-		return nil, err
-	}
-	vmSpec := virtv1.VirtualMachineSpec{}
-	err = json.Unmarshal(patch, &vmSpec)
-	if err != nil {
-		return nil, err
-	}
-	return &vmSpec, nil
+
+	return &revisionData.Spec, nil
 }
 
 func genFromKey(key string) (int64, error) {
