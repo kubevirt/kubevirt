@@ -460,8 +460,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ResourceRequirements":                                               schema_kubevirtio_api_core_v1_ResourceRequirements(ref),
 		"kubevirt.io/api/core/v1.RestartOptions":                                                     schema_kubevirtio_api_core_v1_RestartOptions(ref),
 		"kubevirt.io/api/core/v1.Rng":                                                                schema_kubevirtio_api_core_v1_Rng(ref),
-		"kubevirt.io/api/core/v1.RolloutStrategyLiveUpdate":                                          schema_kubevirtio_api_core_v1_RolloutStrategyLiveUpdate(ref),
-		"kubevirt.io/api/core/v1.RolloutStrategyStage":                                               schema_kubevirtio_api_core_v1_RolloutStrategyStage(ref),
 		"kubevirt.io/api/core/v1.SEV":                                                                schema_kubevirtio_api_core_v1_SEV(ref),
 		"kubevirt.io/api/core/v1.SEVAttestation":                                                     schema_kubevirtio_api_core_v1_SEVAttestation(ref),
 		"kubevirt.io/api/core/v1.SEVMeasurementInfo":                                                 schema_kubevirtio_api_core_v1_SEVMeasurementInfo(ref),
@@ -497,7 +495,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VGPUDisplayOptions":                                                 schema_kubevirtio_api_core_v1_VGPUDisplayOptions(ref),
 		"kubevirt.io/api/core/v1.VGPUOptions":                                                        schema_kubevirtio_api_core_v1_VGPUOptions(ref),
 		"kubevirt.io/api/core/v1.VMISelector":                                                        schema_kubevirtio_api_core_v1_VMISelector(ref),
-		"kubevirt.io/api/core/v1.VMRolloutStrategy":                                                  schema_kubevirtio_api_core_v1_VMRolloutStrategy(ref),
 		"kubevirt.io/api/core/v1.VSOCKOptions":                                                       schema_kubevirtio_api_core_v1_VSOCKOptions(ref),
 		"kubevirt.io/api/core/v1.VirtualMachine":                                                     schema_kubevirtio_api_core_v1_VirtualMachine(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineCondition":                                            schema_kubevirtio_api_core_v1_VirtualMachineCondition(ref),
@@ -19323,14 +19320,15 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					"vmRolloutStrategy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VMRolloutStrategy defines how changes to a VM object propagate to its VMI",
-							Ref:         ref("kubevirt.io/api/core/v1.VMRolloutStrategy"),
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VMRolloutStrategy", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 
@@ -21453,26 +21451,6 @@ func schema_kubevirtio_api_core_v1_Rng(ref common.ReferenceCallback) common.Open
 	}
 }
 
-func schema_kubevirtio_api_core_v1_RolloutStrategyLiveUpdate(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_RolloutStrategyStage(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
 func schema_kubevirtio_api_core_v1_SEV(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22553,32 +22531,6 @@ func schema_kubevirtio_api_core_v1_VMISelector(ref common.ReferenceCallback) com
 				Required: []string{"name"},
 			},
 		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_VMRolloutStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"liveUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LiveUpdate means changes to VM objects will be propagated to their VMI when possible",
-							Ref:         ref("kubevirt.io/api/core/v1.RolloutStrategyLiveUpdate"),
-						},
-					},
-					"stage": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Stage means changes to VM objects will be staged until the next VM reboot",
-							Ref:         ref("kubevirt.io/api/core/v1.RolloutStrategyStage"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"kubevirt.io/api/core/v1.RolloutStrategyLiveUpdate", "kubevirt.io/api/core/v1.RolloutStrategyStage"},
 	}
 }
 

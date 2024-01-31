@@ -2425,21 +2425,19 @@ type KubeVirtConfiguration struct {
 	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
 
 	// VMRolloutStrategy defines how changes to a VM object propagate to its VMI
+	// +nullable
+	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
 }
 
-type VMRolloutStrategy struct {
-	// LiveUpdate means changes to VM objects will be propagated to their VMI when possible
-	LiveUpdate *RolloutStrategyLiveUpdate `json:"liveUpdate,omitempty"`
-	// Stage means changes to VM objects will be staged until the next VM reboot
-	Stage *RolloutStrategyStage `json:"stage,omitempty"`
-}
+type VMRolloutStrategy string
 
-type RolloutStrategyLiveUpdate struct {
-}
-
-type RolloutStrategyStage struct {
-}
+const (
+	// VMRolloutStrategyStage is the default strategy. It means changes to VM objects will be staged until the next VM reboot
+	VMRolloutStrategyStage VMRolloutStrategy = "Stage"
+	// VMRolloutStrategyLiveUpdate means changes to VM objects will be propagated to their VMI when possible
+	VMRolloutStrategyLiveUpdate VMRolloutStrategy = "LiveUpdate"
+)
 
 type ArchConfiguration struct {
 	Amd64               *ArchSpecificConfiguration `json:"amd64,omitempty"`
