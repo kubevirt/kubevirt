@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -140,6 +141,35 @@ type GrpcPodConfig struct {
 	// +kubebuilder:validation:Enum=legacy;restricted
 	// +kubebuilder:default:=legacy
 	SecurityContextConfig SecurityConfig `json:"securityContextConfig,omitempty"`
+
+	// MemoryTarget configures the $GOMEMLIMIT value for the gRPC catalog Pod. This is a soft memory limit for the server,
+	// which the runtime will attempt to meet but makes no guarantees that it will do so. If this value is set, the Pod
+	// will have the following modifications made to the container running the server:
+	// - the $GOMEMLIMIT environment variable will be set to this value in bytes
+	// - the memory request will be set to this value
+	//
+	// This field should be set if it's desired to reduce the footprint of a catalog server as much as possible, or if
+	// a catalog being served is very large and needs more than the default allocation. If your index image has a file-
+	// system cache, determine a good approximation for this value by doubling the size of the package cache at
+	// /tmp/cache/cache/packages.json in the index image.
+	//
+	// This field is best-effort; if unset, no default will be used and no Pod memory limit or $GOMEMLIMIT value will be set.
+	// +optional
+	MemoryTarget *resource.Quantity `json:"memoryTarget,omitempty"`
+
+	// ExtractContent configures the gRPC catalog Pod to extract catalog metadata from the provided index image and
+	// use a well-known version of the `opm` server to expose it. The catalog index image that this CatalogSource is
+	// configured to use *must* be using the file-based catalogs in order to utilize this feature.
+	// +optional
+	ExtractContent *ExtractContentConfig `json:"extractContent,omitempty"`
+}
+
+// ExtractContentConfig configures context extraction from a file-based catalog index image.
+type ExtractContentConfig struct {
+	// CacheDir is the directory storing the pre-calculated API cache.
+	CacheDir string `json:"cacheDir"`
+	// CatalogDir is the directory storing the file-based catalog contents.
+	CatalogDir string `json:"catalogDir"`
 }
 
 // UpdateStrategy holds all the different types of catalog source update strategies

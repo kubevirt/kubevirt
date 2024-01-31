@@ -63,6 +63,8 @@ func BuildMetricsDocsWithCustomTemplate(
 		allDocs = append(allDocs, buildMetricsDocs(recordingRules)...)
 	}
 
+	sortMetricsDocs(allDocs)
+
 	buf := bytes.NewBufferString("")
 	err = tpl.Execute(buf, allDocs)
 	if err != nil {
@@ -89,7 +91,6 @@ func buildMetricsDocs[T docOptions](items []T) []metricDocs {
 			ExtraFields: metricOpts.ExtraFields,
 		}
 	}
-	sortMetricsDocs(metricsDocs)
 
 	return metricsDocs
 }

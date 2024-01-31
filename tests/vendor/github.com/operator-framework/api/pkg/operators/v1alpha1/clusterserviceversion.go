@@ -120,12 +120,19 @@ func (c *ClusterServiceVersion) IsObsolete() bool {
 
 // IsCopied returns true if the CSV has been copied and false otherwise.
 func (c *ClusterServiceVersion) IsCopied() bool {
-	operatorNamespace, ok := c.GetAnnotations()[OperatorGroupNamespaceAnnotationKey]
-	if c.Status.Reason == CSVReasonCopied || ok && c.GetNamespace() != operatorNamespace {
-		return true
+	return c.Status.Reason == CSVReasonCopied || IsCopied(c)
+}
+
+func IsCopied(o metav1.Object) bool {
+	annotations := o.GetAnnotations()
+	if annotations != nil {
+		operatorNamespace, ok := annotations[OperatorGroupNamespaceAnnotationKey]
+		if ok && o.GetNamespace() != operatorNamespace {
+			return true
+		}
 	}
 
-	if labels := c.GetLabels(); labels != nil {
+	if labels := o.GetLabels(); labels != nil {
 		if _, ok := labels[CopiedLabelKey]; ok {
 			return true
 		}

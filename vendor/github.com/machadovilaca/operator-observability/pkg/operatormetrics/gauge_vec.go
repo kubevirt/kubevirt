@@ -13,6 +13,8 @@ var _ Metric = &GaugeVec{}
 // NewGaugeVec creates a new GaugeVec. The GaugeVec must be registered
 // with the Prometheus registry through RegisterMetrics.
 func NewGaugeVec(metricOpts MetricOpts, labels []string) *GaugeVec {
+	metricOpts.labels = labels
+
 	return &GaugeVec{
 		GaugeVec:   *prometheus.NewGaugeVec(prometheus.GaugeOpts(convertOpts(metricOpts)), labels),
 		metricOpts: metricOpts,

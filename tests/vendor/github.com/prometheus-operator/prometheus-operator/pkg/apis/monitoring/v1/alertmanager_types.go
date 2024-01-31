@@ -60,7 +60,15 @@ func (l *Alertmanager) DeepCopyObject() runtime.Object {
 // https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 // +k8s:openapi-gen=true
 type AlertmanagerSpec struct {
-	// PodMetadata configures Labels and Annotations which are propagated to the alertmanager pods.
+	// PodMetadata configures labels and annotations which are propagated to the Alertmanager pods.
+	//
+	// The following items are reserved and cannot be overridden:
+	// * "alertmanager" label, set to the name of the Alertmanager instance.
+	// * "app.kubernetes.io/instance" label, set to the name of the Alertmanager instance.
+	// * "app.kubernetes.io/managed-by" label, set to "prometheus-operator".
+	// * "app.kubernetes.io/name" label, set to "alertmanager".
+	// * "app.kubernetes.io/version" label, set to the Alertmanager version.
+	// * "kubectl.kubernetes.io/default-container" annotation, set to "alertmanager".
 	PodMetadata *EmbeddedObjectMetadata `json:"podMetadata,omitempty"`
 	// Image if specified has precedence over baseImage, tag and sha
 	// combinations. Specifying the version is still necessary to ensure the
@@ -75,17 +83,15 @@ type AlertmanagerSpec struct {
 	Version string `json:"version,omitempty"`
 	// Tag of Alertmanager container image to be deployed. Defaults to the value of `version`.
 	// Version is ignored if Tag is set.
-	// Deprecated: use 'image' instead.  The image tag can be specified
-	// as part of the image URL.
+	// Deprecated: use 'image' instead. The image tag can be specified as part of the image URL.
 	Tag string `json:"tag,omitempty"`
 	// SHA of Alertmanager container image to be deployed. Defaults to the value of `version`.
 	// Similar to a tag, but the SHA explicitly deploys an immutable container image.
 	// Version and Tag are ignored if SHA is set.
-	// Deprecated: use 'image' instead.  The image digest can be specified
-	// as part of the image URL.
+	// Deprecated: use 'image' instead. The image digest can be specified as part of the image URL.
 	SHA string `json:"sha,omitempty"`
 	// Base image that is used to deploy pods, without tag.
-	// Deprecated: use 'image' instead
+	// Deprecated: use 'image' instead.
 	BaseImage string `json:"baseImage,omitempty"`
 	// An optional list of references to secrets in the same namespace
 	// to use for pulling prometheus and alertmanager images from registries
@@ -115,10 +121,10 @@ type AlertmanagerSpec struct {
 	// receiver (effectively dropping alert notifications).
 	ConfigSecret string `json:"configSecret,omitempty"`
 	// Log level for Alertmanager to be configured with.
-	//+kubebuilder:validation:Enum="";debug;info;warn;error
+	// +kubebuilder:validation:Enum="";debug;info;warn;error
 	LogLevel string `json:"logLevel,omitempty"`
 	// Log format for Alertmanager to be configured with.
-	//+kubebuilder:validation:Enum="";logfmt;json
+	// +kubebuilder:validation:Enum="";logfmt;json
 	LogFormat string `json:"logFormat,omitempty"`
 	// Size is the expected size of the alertmanager cluster. The controller will
 	// eventually make the size of the running cluster equal to the expected
@@ -200,6 +206,9 @@ type AlertmanagerSpec struct {
 	ClusterAdvertiseAddress string `json:"clusterAdvertiseAddress,omitempty"`
 	// Interval between gossip attempts.
 	ClusterGossipInterval GoDuration `json:"clusterGossipInterval,omitempty"`
+	// Defines the identifier that uniquely identifies the Alertmanager cluster.
+	// You should only set it when the Alertmanager cluster includes Alertmanager instances which are external to this Alertmanager resource. In practice, the addresses of the external instances are provided via the `.spec.additionalPeers` field.
+	ClusterLabel *string `json:"clusterLabel,omitempty"`
 	// Interval between pushpull attempts.
 	ClusterPushpullInterval GoDuration `json:"clusterPushpullInterval,omitempty"`
 	// Timeout for cluster peering.

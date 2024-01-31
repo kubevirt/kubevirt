@@ -14,6 +14,7 @@ type operatorRegisterer struct {
 func newRegistry() operatorRegisterer {
 	return operatorRegisterer{
 		registeredRecordingRules: []RecordingRule{},
+		registeredAlerts:         []promv1.Rule{},
 	}
 }
 
@@ -43,4 +44,9 @@ func ListRecordingRules() []RecordingRule {
 // ListAlerts returns the registered alerts.
 func ListAlerts() []promv1.Rule {
 	return operatorRegistry.registeredAlerts
+}
+
+// CleanRegistry removes all registered rules and alerts.
+func CleanRegistry() {
+	operatorRegistry = newRegistry()
 }

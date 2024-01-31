@@ -34,13 +34,13 @@ func CreateMetricFamily(m Metric) *dto.MetricFamily {
 	metricType := dto.MetricType_UNTYPED
 
 	switch m.Type {
-	case "Counter":
+	case "Counter", "CounterVec":
 		metricType = dto.MetricType_COUNTER
-	case "Gauge":
+	case "Gauge", "GaugeVec":
 		metricType = dto.MetricType_GAUGE
-	case "Histogram":
+	case "Histogram", "HistogramVec":
 		metricType = dto.MetricType_HISTOGRAM
-	case "Summary":
+	case "Summary", "SummaryVec":
 		metricType = dto.MetricType_SUMMARY
 	}
 

@@ -59,3 +59,18 @@ func ListMetrics() []Metric {
 
 	return result
 }
+
+// CleanRegistry removes all registered metrics.
+func CleanRegistry() {
+	for _, metric := range operatorRegistry.registeredMetrics {
+		if succeeded := Unregister(metric.getCollector()); succeeded {
+			delete(operatorRegistry.registeredMetrics, metric.GetOpts().Name)
+		}
+	}
+
+	for _, metric := range operatorRegistry.registeredCollectorMetrics {
+		if succeeded := Unregister(metric.getCollector()); succeeded {
+			delete(operatorRegistry.registeredCollectorMetrics, metric.GetOpts().Name)
+		}
+	}
+}

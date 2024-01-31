@@ -47,42 +47,33 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func collectValue(ch chan<- prometheus.Metric, metric Metric, cr CollectorResult) error {
+	var mType prometheus.ValueType
+
 	switch metric.GetType() {
 	case CounterType:
-		m := metric.getCollector().(prometheus.Counter)
-		m.Add(cr.Value)
-		m.Collect(ch)
+		mType = prometheus.CounterValue
 	case GaugeType:
-		m := metric.getCollector().(prometheus.Gauge)
-		m.Set(cr.Value)
-		m.Collect(ch)
-	case HistogramType:
-		m := metric.getCollector().(prometheus.Histogram)
-		m.Observe(cr.Value)
-		m.Collect(ch)
-	case SummaryType:
-		m := metric.getCollector().(prometheus.Summary)
-		m.Observe(cr.Value)
-		m.Collect(ch)
+		mType = prometheus.GaugeValue
 	case CounterVecType:
-		m := metric.getCollector().(prometheus.CounterVec)
-		m.WithLabelValues(cr.Labels...).Add(cr.Value)
-		m.Collect(ch)
+		mType = prometheus.CounterValue
 	case GaugeVecType:
-		m := metric.getCollector().(prometheus.GaugeVec)
-		m.WithLabelValues(cr.Labels...).Set(cr.Value)
-		m.Collect(ch)
-	case HistogramVecType:
-		m := metric.getCollector().(prometheus.HistogramVec)
-		m.WithLabelValues(cr.Labels...).Observe(cr.Value)
-		m.Collect(ch)
-	case SummaryVecType:
-		m := metric.getCollector().(prometheus.SummaryVec)
-		m.WithLabelValues(cr.Labels...).Observe(cr.Value)
-		m.Collect(ch)
+		mType = prometheus.GaugeValue
 	default:
-		return fmt.Errorf("encountered unknown type %v", metric.GetType())
+		return fmt.Errorf("encountered unsupported type for collector %v", metric.GetType())
 	}
+
+	desc := prometheus.NewDesc(
+		metric.GetOpts().Name,
+		metric.GetOpts().Help,
+		metric.GetOpts().labels,
+		metric.GetOpts().ConstLabels,
+	)
+
+	cm, err := prometheus.NewConstMetric(desc, mType, cr.Value, cr.Labels...)
+	if err != nil {
+		return err
+	}
+	ch <- cm
 
 	return nil
 }
