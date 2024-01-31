@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -119,6 +120,12 @@ func (dpi *GenericDevicePlugin) Start(stop <-chan struct{}) (err error) {
 		devnode, err := os.Open(dpi.devicePath)
 		if err == nil {
 			devnode.Close()
+		} else {
+			cmd := exec.Command("modprobe", dpi.deviceName)
+			err := cmd.Run()
+			if err != nil {
+				return fmt.Errorf("error loading kernel module %s: %v", dpi.deviceName, err)
+			}
 		}
 	}
 
