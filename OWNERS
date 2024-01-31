@@ -8,3 +8,9 @@ filters:
       - approvers
     emeritus_approvers:
       - emeritus_approvers
+
+  "BUILD.bazel|WORKSPACE":
+    reviewers:
+      - sig-buildsystem-reviewers
+    approvers:
+      - sig-buildsystem-approvers
