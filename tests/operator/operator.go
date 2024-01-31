@@ -126,8 +126,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		copyOriginalKv                         func() *v1.KubeVirt
 		createKv                               func(*v1.KubeVirt)
 		createCdi                              func()
-		sanityCheckDeploymentsExistWithNS      func(string)
-		sanityCheckDeploymentsExist            func()
 		sanityCheckDeploymentsDeleted          func()
 		allPodsAreReady                        func(*v1.KubeVirt)
 		allPodsAreTerminated                   func(*v1.KubeVirt)
@@ -220,22 +218,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				}
 				return true
 			}, 240*time.Second, 1*time.Second).Should(BeTrue())
-		}
-
-		sanityCheckDeploymentsExistWithNS = func(namespace string) {
-			Eventually(func() error {
-				for _, deployment := range []string{"virt-api", "virt-controller"} {
-					_, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), deployment, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-				}
-				return nil
-			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		sanityCheckDeploymentsExist = func() {
-			sanityCheckDeploymentsExistWithNS(flags.KubeVirtInstallNamespace)
 		}
 
 		sanityCheckDeploymentsDeleted = func() {
@@ -3440,6 +3422,20 @@ func nodeSelectorExistInDeployment(virtClient kubecli.KubevirtClient, deployment
 		return false
 	}
 	return true
+}
+
+func sanityCheckDeploymentsExist() {
+	Eventually(func() error {
+		for _, deployment := range []string{"virt-api", "virt-controller"} {
+			virtClient := kubevirt.Client()
+			namespace := flags.KubeVirtInstallNamespace
+			_, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), deployment, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
 // Deprecated: deprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
