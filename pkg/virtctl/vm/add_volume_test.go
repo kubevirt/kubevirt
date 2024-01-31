@@ -39,6 +39,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 )
 
+type VerifyFunc func(*v1.AddVolumeOptions)
+
 var _ = Describe("Add volume command", func() {
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
@@ -57,7 +59,7 @@ var _ = Describe("Add volume command", func() {
 		coreClient = fake.NewSimpleClientset()
 	})
 
-	expectVMIEndpointAddVolume := func(vmiName, volumeName string, useDv bool) {
+	expectVMIEndpointAddVolume := func(vmiName, volumeName string, verifyFunc VerifyFunc) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachineInstance(k8smetav1.NamespaceDefault).
@@ -68,12 +70,12 @@ var _ = Describe("Add volume command", func() {
 			Expect(ok).To(BeTrue())
 			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
-			verifyVolumeSource(volumeOptions, useDv)
+			verifyFunc(volumeOptions)
 			return nil
 		})
 	}
 
-	expectVMEndpointAddVolume := func(vmiName, volumeName string, useDv bool) {
+	expectVMEndpointAddVolume := func(vmiName, volumeName string, verifyFunc VerifyFunc) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachine(k8smetav1.NamespaceDefault).
@@ -84,7 +86,7 @@ var _ = Describe("Add volume command", func() {
 			Expect(ok).To(BeTrue())
 			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
-			verifyVolumeSource(volumeOptions, useDv)
+			verifyFunc(volumeOptions)
 			return nil
 		})
 	}
@@ -133,7 +135,8 @@ var _ = Describe("Add volume command", func() {
 		Entry("with dry-run arg", true),
 	)
 
-	DescribeTable("should call correct endpoint", func(commandName, vmiName, volumeName string, useDv bool, expectFunc func(vmiName, volumeName string, useDv bool), args ...string) {
+	DescribeTable("should call correct endpoint", func(commandName, vmiName, volumeName string, useDv bool, expectFunc func(vmiName, volumeName string, verifyFunc VerifyFunc), args ...string) {
+		var verifyFunc VerifyFunc
 		if commandName == "addvolume" {
 			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 			if useDv {
@@ -141,15 +144,17 @@ var _ = Describe("Add volume command", func() {
 					context.Background(),
 					libdv.NewDataVolume(libdv.WithName("testvolume")),
 					k8smetav1.CreateOptions{})
+				verifyFunc = verifyDVVolumeSource
 			} else {
 				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 				coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
 					context.Background(),
 					createTestPVC(),
 					k8smetav1.CreateOptions{})
+				verifyFunc = verifyPVCVolumeSource
 			}
 		}
-		expectFunc(vmiName, volumeName, useDv)
+		expectFunc(vmiName, volumeName, verifyFunc)
 		commandAndArgs := append([]string{commandName, vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 
@@ -180,13 +185,14 @@ func createTestPVC() *k8sv1.PersistentVolumeClaim {
 	}
 }
 
-func verifyVolumeSource(volumeOptions *v1.AddVolumeOptions, useDv bool) {
+func verifyDVVolumeSource(volumeOptions *v1.AddVolumeOptions) {
 	Expect(volumeOptions.VolumeSource).ToNot(BeNil())
-	if useDv {
-		ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
-		ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
-	} else {
-		ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).To(BeNil())
-		ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
-	}
+	ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
+	ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
+}
+
+func verifyPVCVolumeSource(volumeOptions *v1.AddVolumeOptions) {
+	Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+	ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).To(BeNil())
+	ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
 }
