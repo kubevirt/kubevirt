@@ -120,8 +120,10 @@ aliases:
   # Owns everything which is taking place on a node, for example
   # (but not limited to) groups, SELinux, node labels, …
   #
-  sig-node-approvers: []
-  sig-node-reviewers: []
+  sig-node-approvers:
+    - jean-edouard
+  sig-node-reviewers:
+    - victortoso
 
   #
   # SIG Observability
