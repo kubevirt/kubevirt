@@ -93,7 +93,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	}
 	enableLiveUpdate := func() {
 		kv := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
-		kv.Spec.Configuration.VMRolloutStrategy = &v1.VMRolloutStrategy{LiveUpdate: &v1.RolloutStrategyLiveUpdate{}}
+		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 	}
 	disableLiveUpdate := func() {

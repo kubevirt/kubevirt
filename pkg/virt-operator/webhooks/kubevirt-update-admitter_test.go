@@ -68,32 +68,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		}, []string{vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(), vmProfileField.Child("customProfile", "localhostProfile").String()}),
 	)
 
-	DescribeTable("validateRolloutStrategy", func(rolloutStrategy *v1.VMRolloutStrategy, expectedTypes []metav1.CauseType) {
-		causes := validateRolloutStrategy(rolloutStrategy)
-		Expect(causes).To(HaveLen(len(expectedTypes)))
-		for _, cause := range causes {
-			Expect(cause.Type).To(BeElementOf(expectedTypes))
-		}
-
-	},
-		Entry("should fail when both strategies are specified", &v1.VMRolloutStrategy{
-			LiveUpdate: &v1.RolloutStrategyLiveUpdate{},
-			Stage:      &v1.RolloutStrategyStage{},
-		}, []metav1.CauseType{metav1.CauseTypeFieldValueInvalid}),
-		Entry("should fail when all strategies are nil", &v1.VMRolloutStrategy{
-			LiveUpdate: nil,
-			Stage:      nil,
-		}, []metav1.CauseType{metav1.CauseTypeFieldValueInvalid}),
-		Entry("should succeed when only LiveUpdate is specified", &v1.VMRolloutStrategy{
-			LiveUpdate: &v1.RolloutStrategyLiveUpdate{},
-			Stage:      nil,
-		}, []metav1.CauseType{}),
-		Entry("should succeed when only Stage is specified", &v1.VMRolloutStrategy{
-			LiveUpdate: nil,
-			Stage:      &v1.RolloutStrategyStage{},
-		}, []metav1.CauseType{}),
-	)
-
 	DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
 		causes := validateCustomizeComponents(cc)
 		Expect(causes).To(HaveLen(expectedCauses))
