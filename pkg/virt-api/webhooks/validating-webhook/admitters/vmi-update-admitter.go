@@ -78,7 +78,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	}
 }
 
-func getExpectedDisks(newVolumes []v1.Volume) int {
+func getExpectedDisksAndFilesystems(newVolumes []v1.Volume) int {
 	numMemoryDumpVolumes := 0
 	for _, volume := range newVolumes {
 		if volume.MemoryDump != nil {
@@ -90,12 +90,13 @@ func getExpectedDisks(newVolumes []v1.Volume) int {
 
 // admitHotplugStorage compares the old and new volumes and disks, and ensures that they match and are valid.
 func admitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
-	expectedDisks := getExpectedDisks(newVolumes)
-	if expectedDisks != len(newDisks) {
+	expectedDisksAndFilesystems := getExpectedDisksAndFilesystems(newVolumes)
+	observedDisksAndFilesystems := len(newDisks) + len(newVMI.Spec.Domain.Devices.Filesystems)
+	if expectedDisksAndFilesystems != observedDisksAndFilesystems {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("number of disks (%d) does not equal the number of volumes (%d)", len(newDisks), expectedDisks),
+				Message: fmt.Sprintf("number of disks and filesystems (%d) does not equal the number of volumes (%d)", observedDisksAndFilesystems, expectedDisksAndFilesystems),
 			},
 		})
 	}
