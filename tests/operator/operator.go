@@ -1851,19 +1851,10 @@ spec:
 				}, 30*time.Second, 1*time.Second).Should(BeNil())
 
 				By("Waiting for VMI to stop")
-				Eventually(func() bool {
+				Eventually(func() error {
 					_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
-					if err != nil && errors.IsNotFound(err) {
-						return true
-					} else if err != nil {
-						Expect(err).ToNot(HaveOccurred())
-					}
-					return false
-					// #3610 - this timeout needs to be reduced back to 60 seconds.
-					// there's an issue occurring after update where sometimes virt-launcher
-					// can't dial the event notify socket. This impacts the timing for when
-					// the vmi is shutdown. Once that is resolved, reduce the timeout
-				}, 160*time.Second, 1*time.Second).Should(BeTrue())
+					return err
+				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 				By("Ensuring we can Modify the VM Spec")
 				Eventually(func() error {
@@ -1917,13 +1908,10 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VM to be removed")
-				Eventually(func() bool {
+				Eventually(func() error {
 					_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
-					if err != nil && errors.IsNotFound(err) {
-						return true
-					}
-					return false
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+					return err
+				}, 90*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			}
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
@@ -1975,10 +1963,10 @@ spec:
 			}
 			err = virtClient.CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestOperator, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.NamespaceTestOperator, metav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+				return err
+			}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			By("Creating KubeVirt Object")
 			createKv(copyOriginalKv())
@@ -2417,13 +2405,11 @@ spec:
 			By("Checking that Role for ServiceMonitor doesn't exist")
 			roleName := "kubevirt-service-monitor"
 			_, err := rbacClient.Roles(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue(), "Role 'kubevirt-service-monitor' should not have been created")
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Role 'kubevirt-service-monitor' should not have been created")
 
 			By("Checking that RoleBinding for ServiceMonitor doesn't exist")
 			_, err = rbacClient.RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue(), "RoleBinding 'kubevirt-service-monitor' should not have been created")
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "RoleBinding 'kubevirt-service-monitor' should not have been created")
 		})
 	})
 
@@ -2749,10 +2735,10 @@ spec:
 			}, 120*time.Second, 4*time.Second).Should(BeTrue())
 
 			By("waiting for the kv CR to be gone")
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, 120*time.Second, 4*time.Second).Should(BeTrue())
+				return err
+			}, 120*time.Second, 4*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			By("creating a new single-replica kv CR")
 			if kv.Spec.Infra == nil {
@@ -2852,10 +2838,10 @@ spec:
 			testsuite.WaitExportProxyReady()
 			tests.DisableFeatureGate(virtconfig.VMExportGate)
 
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
-				return errors.IsNotFound(err)
-			}, time.Minute*5, time.Second*2).Should(BeTrue())
+				return err
+			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 	})
 

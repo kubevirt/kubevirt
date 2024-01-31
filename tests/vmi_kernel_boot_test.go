@@ -85,24 +85,16 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			By("Ensuring VMI is deleted")
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() (isVmiDeleted bool) {
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return false
-			}, 60*time.Second, 3*time.Second).Should(BeTrue(), "VMI Should be successfully deleted")
+			Eventually(func() error {
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
+				return err
+			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
 
 			By("Ensuring virt-launcher is deleted")
-			Eventually(func() (isVmiDeleted bool) {
+			Eventually(func() error {
 				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return false
-			}, 60*time.Second, 3*time.Second).Should(BeTrue(), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
+				return err
+			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
 		})
 	})
 
@@ -168,24 +160,16 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			By("Ensuring VMI is deleted")
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() (isVmiDeleted bool) {
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return false
-			}, 60*time.Second, 3*time.Second).Should(BeTrue(), "VMI Should be successfully deleted")
+			Eventually(func() error {
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
+				return err
+			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
 
 			By("Ensuring virt-launcher is deleted")
-			Eventually(func() (isVmiDeleted bool) {
+			Eventually(func() error {
 				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Get(context.Background(), virtLauncherPod.Name, v1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return false
-			}, 60*time.Second, 3*time.Second).Should(BeTrue(), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
+				return err
+			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("virt-launcher pod (%s) Should be successfully deleted", virtLauncherPod.Name))
 		})
 	})
 })

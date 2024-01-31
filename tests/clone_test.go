@@ -801,9 +801,9 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						Expect(err).ToNot(HaveOccurred())
 						Eventually(func(g Gomega) {
 							_, err := virtClient.VirtualMachineSnapshot(vmClone.Namespace).Get(context.Background(), *vmSnapshotName, v1.GetOptions{})
-							g.Expect(errors.IsNotFound(err)).Should(BeTrue())
+							g.Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 							_, err = virtClient.VirtualMachineRestore(vmClone.Namespace).Get(context.Background(), *vmRestoreName, v1.GetOptions{})
-							g.Expect(errors.IsNotFound(err)).Should(BeTrue())
+							g.Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 						}, 1*time.Minute).Should(Succeed(), "vmsnapshot and vmrestore should be deleted once the pvc is bound")
 					})
 

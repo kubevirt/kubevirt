@@ -39,8 +39,8 @@ require (
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/nunnatsa/ginkgolinter v0.14.0
 	github.com/nxadm/tail v1.4.8
-	github.com/onsi/ginkgo/v2 v2.11.0
-	github.com/onsi/gomega v1.27.10
+	github.com/onsi/ginkgo/v2 v2.13.0
+	github.com/onsi/gomega v1.29.0
 	github.com/opencontainers/runc v1.1.9
 	github.com/opencontainers/selinux v1.10.2
 	github.com/openshift/api v0.0.0
@@ -113,7 +113,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/google/renameio v0.1.0 // indirect

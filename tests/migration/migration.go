@@ -1782,12 +1782,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				for _, podName := range createdPods {
 					Eventually(func() error {
 						err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
-
-						if err != nil && errors.IsNotFound(err) {
-							return nil
-						}
 						return err
-					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete helper pod")
+					}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
 				}
 			})
 			BeforeEach(func() {
@@ -1885,12 +1881,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				for _, podName := range createdPods {
 					Eventually(func() error {
 						err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
-
-						if err != nil && errors.IsNotFound(err) {
-							return nil
-						}
 						return err
-					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete helper pod")
+					}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
 
 					Eventually(func() error {
 						_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
@@ -2398,10 +2390,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					Expect(err).ShouldNot(HaveOccurred())
 
 					By("Expecting migration to be deleted")
-					Eventually(func() bool {
-						migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-						return errors.IsNotFound(err)
-					}, 60*time.Second, 5*time.Second).Should(BeTrue(), `expecting to get "is not found" error`)
+					Eventually(func() error {
+						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+						return err
+					}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 					By("Making sure source pod is still running")
 					sourcePod, err = virtClient.CoreV1().Pods(sourcePod.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})

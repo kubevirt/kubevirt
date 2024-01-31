@@ -577,14 +577,8 @@ func getPreset(virtClient kubecli.KubevirtClient, prefix string) (*v1.VirtualMac
 }
 
 func waitForPresetDeletion(virtClient kubecli.KubevirtClient, presetName string) {
-	Eventually(func() bool {
+	Eventually(func() error {
 		_, err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(testsuite.GetTestNamespace(nil)).Name(presetName).Do(context.Background()).Get()
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			return true
-		}
-		return false
-	}, time.Duration(60)*time.Second).Should(BeTrue(), "timed out waiting for preset to be deleted")
+		return err
+	}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "timed out waiting for VMI preset to be deleted")
 }

@@ -78,7 +78,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no Virtual Machine was actually created")
 			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7628]delete a VirtualMachineInstance", func() {
@@ -163,7 +163,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no Virtual Machine was actually created")
 			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7632]delete a VirtualMachine", func() {
@@ -244,7 +244,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no migration was actually created")
 			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7636]delete a migration", func() {
@@ -326,7 +326,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no VMI preset was actually created")
 			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7640]delete a VMI preset", func() {
@@ -405,7 +405,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no VMI replicaset was actually created")
 			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7644]delete a VMI replicaset", func() {
@@ -549,7 +549,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no VM Snapshot was actually created")
 			_, err = virtClient.VirtualMachineSnapshot(snap.Namespace).Get(context.Background(), snap.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7652]delete a VM Snapshot", func() {
@@ -645,7 +645,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Check that no VM Restore was actually created")
 			_, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7656]delete a VM Restore", func() {

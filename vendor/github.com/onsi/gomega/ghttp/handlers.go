@@ -112,6 +112,21 @@ func (g GHTTPWithGomega) VerifyHeaderKV(key string, values ...string) http.Handl
 	return g.VerifyHeader(http.Header{key: values})
 }
 
+// VerifyHost returns a handler that verifies the host of a request matches the expected host
+// Host is a special header in net/http, which is not set on the request.Header but rather on the Request itself
+//
+// Host may be a string or a matcher
+func (g GHTTPWithGomega) VerifyHost(host interface{}) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		switch p := host.(type) {
+		case types.GomegaMatcher:
+			g.gomega.Expect(req.Host).Should(p, "Host mismatch")
+		default:
+			g.gomega.Expect(req.Host).Should(Equal(host), "Host mismatch")
+		}
+	}
+}
+
 //VerifyBody returns a handler that verifies that the body of the request matches the passed in byte array.
 //It does this using Equal().
 func (g GHTTPWithGomega) VerifyBody(expectedBody []byte) http.HandlerFunc {
@@ -356,6 +371,10 @@ func VerifyHeader(header http.Header) http.HandlerFunc {
 
 func VerifyHeaderKV(key string, values ...string) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).VerifyHeaderKV(key, values...)
+}
+
+func VerifyHost(host interface{}) http.HandlerFunc {
+	return NewGHTTPWithGomega(gomega.Default).VerifyHost(host)
 }
 
 func VerifyBody(expectedBody []byte) http.HandlerFunc {

@@ -285,14 +285,10 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(command()).To(Succeed())
 
 				By("Checking deletion of VMI")
-				Eventually(func() bool {
+				Eventually(func() error {
 					_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &v12.GetOptions{})
-					if errors.IsNotFound(err) {
-						return true
-					}
-					Expect(err).ToNot(HaveOccurred())
-					return false
-				}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The VMI did not disappear")
+					return err
+				}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The VMI did not disappear")
 
 				By("Checking status of VM")
 				Eventually(func() bool {

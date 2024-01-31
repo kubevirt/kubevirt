@@ -145,10 +145,10 @@ func DeleteDataVolume(dv **v1beta1.DataVolume) {
 		return
 	}
 	if err != nil {
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 	}
 	if err = virtCli.CoreV1().PersistentVolumeClaims((*dv).Namespace).Delete(context.Background(), (*dv).Name, v12.DeleteOptions{}); err != nil {
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 	}
 	*dv = nil
 }

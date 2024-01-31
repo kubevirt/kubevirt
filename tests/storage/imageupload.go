@@ -98,7 +98,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	validatePVC := func(targetName string, storageClass string) {
 		By("Validate no DataVolume")
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By(getPVC)
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
@@ -167,7 +167,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	validatePVCForceBind := func(targetName string) {
 		By("Validate no DataVolume")
 		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By(getPVC)
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
@@ -320,7 +320,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			} else {
 				By("Validate no DataVolume")
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+				Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			}
 
 			By(getPVC)

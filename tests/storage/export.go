@@ -2214,13 +2214,10 @@ var _ = SIGDescribe("Export", func() {
 			err = virtctlCmd()
 			Expect(err).ToNot(HaveOccurred())
 			By("Verifying the vmexport was deleted")
-			Eventually(func() bool {
+			Eventually(func() error {
 				_, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(vmExport)).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
-				if err == nil {
-					return false
-				}
-				return errors.IsNotFound(err)
-			}, 180*time.Second, time.Second).Should(BeTrue())
+				return err
+			}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("Delete succeeds when vmexport doesn't exist", func() {
