@@ -89,24 +89,15 @@ const (
 )
 
 func IsAMD64(arch string) bool {
-	if arch == "amd64" {
-		return true
-	}
-	return false
+	return arch == "amd64"
 }
 
 func IsARM64(arch string) bool {
-	if arch == "arm64" {
-		return true
-	}
-	return false
+	return arch == "arm64"
 }
 
 func IsPPC64(arch string) bool {
-	if arch == "ppc64le" {
-		return true
-	}
-	return false
+	return arch == "ppc64le"
 }
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
