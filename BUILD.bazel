@@ -118,11 +118,10 @@ cc_library(
         "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:libvirt-libs_aarch64/usr/include/libvirt"],
         "//conditions:default": ["//rpm:libvirt-libs_x86_64/usr/include/libvirt"],
     }),
-    include_prefix = "libvirt",
     linkstatic = 1,
     strip_include_prefix = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/",
-        "//conditions:default": "/rpm/libvirt-libs_x86_64/",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/usr/include/",
+        "//conditions:default": "/rpm/libvirt-libs_x86_64/usr/include/",
     }),
     visibility = ["//visibility:public"],
 )
