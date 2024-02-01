@@ -3,13 +3,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "convert_machine_type.go",
         "create_instancetype.go",
         "create_preference.go",
         "create_vm.go",
         "credentials.go",
         "scp.go",
         "ssh.go",
+        "update_machine_type.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/virtctl",
     visibility = ["//visibility:public"],

@@ -5,7 +5,7 @@ go_library(
     srcs = ["main.go"],
     importpath = "kubevirt.io/kubevirt/cmd/convert-machine-type",
     visibility = ["//visibility:private"],
-    deps = ["//pkg/virtctl/update/machine-type/convert-machine-type:go_default_library"],
+    deps = ["//pkg/convert-machine-type:go_default_library"],
 )
 
 load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")

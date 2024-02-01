@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2024 The Kubevirt Authors
+ *
+ */
+
 package convertmachinetype_test
 
 import (
@@ -19,8 +38,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	. "kubevirt.io/kubevirt/pkg/convert-machine-type"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	. "kubevirt.io/kubevirt/pkg/virtctl/update/machine-type/convert-machine-type"
 )
 
 const (
@@ -144,25 +163,20 @@ var _ = Describe("JobController", func() {
 			vmInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
 			vmiInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 
-			controller, err = NewJobController(vmInformer, vmiInformer, virtClient)
+			controller, err = NewJobController(vmInformer, vmiInformer, virtClient, machineTypeGlob, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
 
-			go controller.vmInformer.Run(stop)
-			go controller.vmiInformer.Run(stop)
-			Expect(cache.WaitForCacheSync(stop, controller.vmInformer.HasSynced)).To(BeTrue())
+			go controller.VmInformer.Run(stop)
+			go controller.VmiInformer.Run(stop)
+			Expect(cache.WaitForCacheSync(stop, controller.VmInformer.HasSynced)).To(BeTrue())
 
 			virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 			virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
 
-			controller.machineTypeGlob = machineTypeGlob
 			Testing = true
-		})
-
-		AfterEach(func() {
-			Testing = false
 		})
 
 		Describe("with VM keys in queue", func() {
@@ -196,7 +210,7 @@ var _ = Describe("JobController", func() {
 
 			Context("when restart-now env is set", func() {
 				It("Should immediately restart any running VMs that have been updated", func() {
-					RestartNow = true
+					controller.RestartRequired = true
 					vm = newVM(machineTypeNeedsUpdate, v1.NamespaceDefault, true, false)
 					vmi = newVMIWithMachineType(machineTypeNeedsUpdate, vm.Name)
 					addVm(vm)
@@ -207,7 +221,6 @@ var _ = Describe("JobController", func() {
 					vmInterface.EXPECT().Restart(context.Background(), vm.Name, &virtv1.RestartOptions{}).Times(1)
 
 					controller.Execute()
-					RestartNow = false
 				})
 			})
 		})

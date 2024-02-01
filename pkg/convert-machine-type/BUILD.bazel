@@ -5,9 +5,8 @@ go_library(
     srcs = [
         "controller.go",
         "convert_machine_type.go",
-        "update_machine_type.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/virtctl/update/machine-type/convert-machine-type",
+    importpath = "kubevirt.io/kubevirt/pkg/convert-machine-type",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",

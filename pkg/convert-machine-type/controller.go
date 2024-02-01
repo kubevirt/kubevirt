@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2024 The Kubevirt Authors
+ *
+ */
+
 package convertmachinetype
 
 import (
@@ -24,14 +43,14 @@ var (
 )
 
 type JobController struct {
-	vmInformer      cache.SharedIndexInformer
-	vmiInformer     cache.SharedIndexInformer
+	VmInformer      cache.SharedIndexInformer
+	VmiInformer     cache.SharedIndexInformer
 	virtClient      kubecli.KubevirtClient
 	Queue           workqueue.RateLimitingInterface
 	statusUpdater   *status.VMStatusUpdater
 	exitJobChan     chan struct{}
 	machineTypeGlob string
-	restartRequired bool
+	RestartRequired bool
 }
 
 func NewJobController(
@@ -41,14 +60,14 @@ func NewJobController(
 	restartRequired bool,
 ) (*JobController, error) {
 	c := &JobController{
-		vmInformer:      vmInformer,
-		vmiInformer:     vmiInformer,
+		VmInformer:      vmInformer,
+		VmiInformer:     vmiInformer,
 		virtClient:      virtClient,
 		Queue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		statusUpdater:   status.NewVMStatusUpdater(virtClient),
 		exitJobChan:     make(chan struct{}),
 		machineTypeGlob: machineTypeGlob,
-		restartRequired: restartRequired,
+		RestartRequired: restartRequired,
 	}
 
 	_, err := vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -63,7 +82,7 @@ func NewJobController(
 }
 
 func (c *JobController) exitJob() {
-	vms := c.vmInformer.GetStore().List()
+	vms := c.VmInformer.GetStore().List()
 
 	for _, obj := range vms {
 		vm := obj.(*v1.VirtualMachine)
@@ -102,15 +121,15 @@ func (c *JobController) run(stopCh <-chan struct{}) {
 	informerStopCh := make(chan struct{})
 
 	fmt.Println("Starting job controller")
-	go c.vmInformer.Run(informerStopCh)
-	go c.vmiInformer.Run(informerStopCh)
+	go c.VmInformer.Run(informerStopCh)
+	go c.VmiInformer.Run(informerStopCh)
 
-	if !cache.WaitForCacheSync(informerStopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced) {
+	if !cache.WaitForCacheSync(informerStopCh, c.VmInformer.HasSynced, c.VmiInformer.HasSynced) {
 		fmt.Println("Timed out waiting for caches to sync")
 		return
 	}
 
-	vmKeys := c.vmInformer.GetStore().ListKeys()
+	vmKeys := c.VmInformer.GetStore().ListKeys()
 	for _, k := range vmKeys {
 		c.Queue.Add(k)
 	}
@@ -150,7 +169,7 @@ func (c *JobController) vmHandler(obj interface{}) {
 }
 
 func (c *JobController) execute(key string) error {
-	obj, exists, err := c.vmInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.VmInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -189,7 +208,7 @@ func (c *JobController) execute(key string) error {
 
 		// if force restart flag is set, restart running VMs immediately
 		// don't apply warning label to VMs being restarted
-		if c.restartRequired {
+		if c.RestartRequired {
 			return c.virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 		}
 
@@ -247,7 +266,7 @@ func (c *JobController) isVMIUpdated(vm *v1.VirtualMachine) (bool, error) {
 		return false, err
 	}
 
-	obj, exists, err := c.vmiInformer.GetStore().GetByKey(vmKey)
+	obj, exists, err := c.VmiInformer.GetStore().GetByKey(vmKey)
 	if err != nil {
 		return false, err
 	}
