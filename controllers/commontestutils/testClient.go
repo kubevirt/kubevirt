@@ -128,7 +128,7 @@ func (c *HcoTestClient) InitiateCreateErrors(f FakeWriteErrorGenerator) {
 }
 
 func (c *HcoTestClient) Scheme() *runtime.Scheme {
-	return &runtime.Scheme{}
+	return c.client.Scheme()
 }
 
 func (c *HcoTestClient) RESTMapper() meta.RESTMapper {

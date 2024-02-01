@@ -2,7 +2,6 @@ package util
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -23,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/reference"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 // ForceRunModeEnv indicates if the operator should be forced to run in either local
@@ -79,13 +79,26 @@ var GetOperatorNamespace = func(logger logr.Logger) (string, error) {
 
 // ToUnstructured converts an arbitrary object (which MUST obey the
 // k8s object conventions) to an Unstructured
-func ToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
+func ToUnstructured(obj runtime.Object, c client.Client) (*unstructured.Unstructured, error) {
+	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+	if apiVersion == "" || kind == "" {
+		gvk, err := apiutil.GVKForObject(obj, c.Scheme())
+		if err != nil {
+			return nil, err
+		}
+		ta, err := meta.TypeAccessor(obj)
+		if err != nil {
+			return nil, err
+		}
+		ta.SetKind(gvk.Kind)
+		ta.SetAPIVersion(gvk.GroupVersion().String())
 	}
+
 	u := &unstructured.Unstructured{}
-	if err := json.Unmarshal(b, u); err != nil {
+	var err error
+	u.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+
+	if err != nil {
 		return nil, err
 	}
 	return u, nil
@@ -99,14 +112,15 @@ func GetRuntimeObject(ctx context.Context, c client.Client, obj client.Object) e
 
 // ComponentResourceRemoval removes the resource `obj` if it exists and belongs to the HCO
 // with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
-func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool, wait bool, protectNonHCOObjects bool) (bool, error) {
-	resource, err := ToUnstructured(obj)
+func ComponentResourceRemoval(ctx context.Context, c client.Client, obj client.Object, hcoName string, logger logr.Logger, dryRun bool, wait bool, protectNonHCOObjects bool) (bool, error) {
+
+	logger.Info("Removing resource", "name", obj.GetName(), "namespace", obj.GetNamespace(), "GVK", obj.GetObjectKind().GroupVersionKind(), "dryRun", dryRun)
+
+	resource, err := ToUnstructured(obj, c)
 	if err != nil {
 		logger.Error(err, "Failed to convert object to Unstructured")
 		return false, err
 	}
-
-	logger.Info("Removing resource", "name", resource.GetName(), "namespace", resource.GetNamespace(), "GVK", resource.GetObjectKind().GroupVersionKind(), "dryRun", dryRun)
 
 	ok, err := getResourceForDeletion(ctx, c, resource, logger)
 	if !ok {

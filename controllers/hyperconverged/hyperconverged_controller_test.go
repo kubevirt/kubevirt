@@ -726,7 +726,7 @@ var _ = Describe("HyperconvergedController", func() {
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
 				Expect(err).ToNot(HaveOccurred())
-				existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.Kind // necessary for metrics
+				existingResource.APIVersion, existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.ToAPIVersionAndKind() // necessary for metrics
 
 				// now, modify KV's node placement
 				existingResource.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
