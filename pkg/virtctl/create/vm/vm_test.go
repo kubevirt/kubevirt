@@ -172,8 +172,8 @@ var _ = Describe("create vm", func() {
 		},
 			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
 			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc", &ignoreInferFromVolumeFailure),
-			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
+			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-volume,name:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-ns/my-volume,name:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
 		)
 
 		DescribeTable("VM with boot order and inferred instancetype", func(explicit bool) {
@@ -292,8 +292,8 @@ var _ = Describe("create vm", func() {
 		},
 			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
 			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
-			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc", &ignoreInferFromVolumeFailure),
-			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
+			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-pvc,name:volume-import")}, "volume-import", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,src:my-namespace/my-pvc,name:volume-import"), setFlag(InferPreferenceFlag, "true")}, "volume-import", nil),
 		)
 
 		DescribeTable("VM with boot order and inferred preference", func(explicit bool) {
@@ -438,7 +438,7 @@ var _ = Describe("create vm", func() {
 			Entry("with namespace, name, size and bootorder", "my-ns", "my-dv", "my-dvt", "10Gi", 8, "src:my-ns/my-dv,name:my-dvt,size:10Gi,bootorder:8"),
 		)
 
-		DescribeTable("VM with specified volume source", func(params string, source *cdiv1.DataVolumeSource) {
+		DescribeTable("VM with specified volume source", func(params string, source *cdiv1.DataVolumeSource, inferVolume string) {
 			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -450,11 +450,11 @@ var _ = Describe("create vm", func() {
 			if source.PVC != nil {
 				// In this case inference should be possible
 				Expect(vm.Spec.Instancetype).ToNot(BeNil())
-				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(source.PVC.Name))
+				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(inferVolume))
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 				Expect(vm.Spec.Preference).ToNot(BeNil())
-				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(source.PVC.Name))
+				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(inferVolume))
 				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			} else {
@@ -463,15 +463,15 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Preference).To(BeNil())
 			}
 		},
-			Entry("with blank source", fmt.Sprintf("type:blank,size:%s", size), &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
-			Entry("with http source", fmt.Sprintf("type:http,size:%s,url:%s", size, url), &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: url}}),
-			Entry("with imageio source", fmt.Sprintf("type:imageio,size:%s,url:%s,diskid:1,secretref:%s", size, url, secretRef), &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: secretRef, URL: url}}),
-			Entry("with PVC source", fmt.Sprintf("type:pvc,size:%s,name:pvc-test,namespace:%s", size, util.NamespaceTestDefault), &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc-test", Namespace: util.NamespaceTestDefault}}),
-			Entry("with registry source", fmt.Sprintf("type:registry,size:%s,certconfigmap:%s,pullmethod:%s,url:%s,secretref:%s", size, certConfig, pullMethod, url, secretRef), &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.String(certConfig), PullMethod: (*cdiv1.RegistryPullMethod)(pointer.String(pullMethod)), URL: pointer.String(url), SecretRef: pointer.String(secretRef)}}),
-			Entry("with S3 source", fmt.Sprintf("type:s3,size:%s,url:%s,certconfigmap:%s,secretref:%s", size, url, certConfig, secretRef), &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: certConfig, SecretRef: secretRef, URL: url}}),
-			Entry("with VDDK source", fmt.Sprintf("type:vddk,size:%s,backingfile:backing-file,initimageurl:%s,uuid:123e-11", size, url), &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: url, UUID: "123e-11"}}),
-			Entry("with Snapshot source", fmt.Sprintf("type:snapshot,size:%s,name:snapshot,namespace:%s", size, util.NamespaceTestDefault), &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: util.NamespaceTestDefault}}),
-			Entry("with blank source and name", fmt.Sprintf("type:blank,size:%s,name:blank-name", size), &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
+			Entry("with blank source", fmt.Sprintf("type:blank,size:%s", size), &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
+			Entry("with http source", fmt.Sprintf("type:http,size:%s,url:%s", size, url), &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: url}}, ""),
+			Entry("with imageio source", fmt.Sprintf("type:imageio,size:%s,url:%s,diskid:1,secretref:%s", size, url, secretRef), &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: secretRef, URL: url}}, ""),
+			Entry("with PVC source", fmt.Sprintf("type:pvc,size:%s,src:%s/pvc,name:imported-volume", size, util.NamespaceTestDefault), &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: util.NamespaceTestDefault}}, "imported-volume"),
+			Entry("with registry source", fmt.Sprintf("type:registry,size:%s,certconfigmap:%s,pullmethod:%s,url:%s,secretref:%s", size, certConfig, pullMethod, url, secretRef), &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.String(certConfig), PullMethod: (*cdiv1.RegistryPullMethod)(pointer.String(pullMethod)), URL: pointer.String(url), SecretRef: pointer.String(secretRef)}}, ""),
+			Entry("with S3 source", fmt.Sprintf("type:s3,size:%s,url:%s,certconfigmap:%s,secretref:%s", size, url, certConfig, secretRef), &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: certConfig, SecretRef: secretRef, URL: url}}, ""),
+			Entry("with VDDK source", fmt.Sprintf("type:vddk,size:%s,backingfile:backing-file,initimageurl:%s,uuid:123e-11", size, url), &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: url, UUID: "123e-11"}}, ""),
+			Entry("with Snapshot source", fmt.Sprintf("type:snapshot,size:%s,src:%s/snapshot,name:imported-volume", size, util.NamespaceTestDefault), &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: util.NamespaceTestDefault}}, "imported-volume"),
+			Entry("with blank source and name", fmt.Sprintf("type:blank,size:%s,name:blank-name", size), &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
 		)
 
 		DescribeTable("VM with multiple volume-import sources and name", func(source1 *cdiv1.DataVolumeSource, source2 *cdiv1.DataVolumeSource, flags ...string) {
@@ -922,7 +922,16 @@ var _ = Describe("create vm", func() {
 			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: URL is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
 			Entry("Missing url in imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,diskid:0,size:256Mi")),
 			Entry("Missing diskid in imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,size:256Mi")),
-			Entry("Missing name and namespace in pvc volume source", "failed to parse \"--volume-import\" flag: name and namespace are both required with PVC volume source", setFlag(VolumeImportFlag, "type:pvc,size:256Mi")),
+			Entry("Missing src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi")),
+			Entry("Invalid src without slash in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:noslashingvalue")),
+			Entry("Invalid src in pvc volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:")),
+			Entry("Missing src namespace in pvc volume source", "failed to parse \"--volume-import\" flag: namespace of pvc 'my-pvc' must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:/my-pvc")),
+			Entry("Missing src name in pvc volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:pvc,size:256Mi,src:default/")),
+			Entry("Invalid src without slash in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'noslashingvalue' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:noslashingvalue")),
+			Entry("Missing src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:pvc,size:256Mi")),
+			Entry("Invalid src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi")),
+			Entry("Missing src namespace in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'my-snapshot' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:/my-snapshot")),
+			Entry("Missing src name in snapshot volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:default/")),
 			Entry("Missing url in S3 volume source", "failed to parse \"--volume-import\" flag: URL is required with S3 volume source", setFlag(VolumeImportFlag, "type:s3,size:256Mi")),
 			Entry("Unknown argument for blank source", fmt.Sprintf("failed to parse \"--volume-import\" flag: unknown param(s): %s", url), setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:256Mi,%s", url))),
 			Entry("Invalid value for PullMethod", "failed to parse \"--volume-import\" flag: pullmethod must be set to pod or node", setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,pullmethod:invalid,imagestream:my-image", size))),
