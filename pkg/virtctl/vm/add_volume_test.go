@@ -39,6 +39,11 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 )
 
+const (
+	vmiName    = "testvmi"
+	volumeName = "testvolume"
+)
+
 type VerifyFunc func(*v1.AddVolumeOptions)
 
 var _ = Describe("Add volume command", func() {
@@ -100,15 +105,15 @@ var _ = Describe("Add volume command", func() {
 		Expect(err.Error()).To(ContainSubstring(errorString))
 	},
 		Entry("addvolume no args", "addvolume", "argument validation failed"),
-		Entry("addvolume name, missing required volume-name", "addvolume", "required flag(s)", "testvmi"),
-		Entry("addvolume name, invalid extra parameter", "addvolume", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
+		Entry("addvolume name, missing required volume-name", "addvolume", "required flag(s)", vmiName),
+		Entry("addvolume name, invalid extra parameter", "addvolume", "unknown flag", vmiName, "--volume-name=blah", "--invalid=test"),
 	)
 
 	It("should fail when trying to add volume with invalid disk type", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
-		commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume", "--disk-type=cdrom"}
+		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(volumeName), k8smetav1.CreateOptions{})
+		commandAndArgs := []string{"addvolume", vmiName, "--volume-name=" + volumeName, "--disk-type=cdrom"}
 
 		cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		err := cmdAdd()
@@ -120,7 +125,7 @@ var _ = Describe("Add volume command", func() {
 	DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-		commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume"}
+		commandAndArgs := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
 
 		if isDryRun {
 			commandAndArgs = append(commandAndArgs, "--dry-run")
@@ -129,18 +134,13 @@ var _ = Describe("Add volume command", func() {
 		err := cmdAdd()
 
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("Volume testvolume is not a DataVolume or PersistentVolumeClaim"))
+		Expect(err.Error()).To(ContainSubstring("Volume " + volumeName + " is not a DataVolume or PersistentVolumeClaim"))
 	},
 		Entry("with default", false),
 		Entry("with dry-run arg", true),
 	)
 
 	DescribeTable("with DataVolume addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFunc VerifyFunc), args ...string) {
-		const (
-			vmiName    = "testvmi"
-			volumeName = "testvolume"
-		)
-
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
 			context.Background(),
@@ -168,16 +168,11 @@ var _ = Describe("Add volume command", func() {
 	)
 
 	DescribeTable("with PVC addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFunc VerifyFunc), args ...string) {
-		const (
-			vmiName    = "testvmi"
-			volumeName = "testvolume"
-		)
-
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
 			context.Background(),
-			createTestPVC(),
+			createTestPVC(volumeName),
 			k8smetav1.CreateOptions{})
 
 		verifyPVCVolumeSource := func(volumeOptions *v1.AddVolumeOptions) {
@@ -201,10 +196,10 @@ var _ = Describe("Add volume command", func() {
 	)
 })
 
-func createTestPVC() *k8sv1.PersistentVolumeClaim {
+func createTestPVC(name string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: "testvolume",
+			Name: name,
 		},
 	}
 }
