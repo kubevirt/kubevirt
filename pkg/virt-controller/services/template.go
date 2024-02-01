@@ -1377,9 +1377,6 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		vmi.GetObjectMeta().GetName(),
 		vmi.GetObjectMeta().GetNamespace())
 
-	// Set this annotation now to indicate that the newly created virt-launchers will use
-	// unix sockets as a transport for migration
-	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
 	return annotationsSet, nil
 }
 

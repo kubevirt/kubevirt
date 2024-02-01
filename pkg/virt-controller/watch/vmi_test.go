@@ -1892,7 +1892,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			pod.Annotations[virtv1.MigrationTransportUnixAnnotation] = "true"
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)

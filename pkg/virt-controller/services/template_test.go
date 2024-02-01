@@ -953,10 +953,8 @@ var _ = Describe("Template", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				vmi := api.NewMinimalVMI("fake-vmi")
 
-				pod, err := svc.RenderLaunchManifest(vmi)
+				_, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				_, ok := pod.Annotations[v1.MigrationTransportUnixAnnotation]
-				Expect(ok).To(BeTrue())
 			})
 		})
 		Context("with multus annotation", func() {
