@@ -8,7 +8,6 @@ SCRIPT_PATH=$(dirname "$(realpath "$0")")
 
 source ${SCRIPT_PATH}/vgpu-node/node.sh
 echo "_kubectl: " ${_kubectl}
-echo "KUBECTL_PATH: " $KUBECTL_PATH
 echo "KUBEVIRTCI_PATH: " ${KUBEVIRTCI_PATH}
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 echo "_kubectl: " ${_kubectl}
