@@ -323,7 +323,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			corev1.ResourceCPU: resource.MustParse("10m"),
 			// 325Mi - base memory request
 			// +32Mi - to account for the buffer used to verify containerdisk checksums
-			corev1.ResourceMemory: resource.MustParse("357Mi"),
+			corev1.ResourceMemory: resource.MustParse("375Mi"),
 		},
 	}
 	if prHelperImage == "" {
