@@ -147,6 +147,12 @@ var _ = Describe("Add volume command", func() {
 			libdv.NewDataVolume(libdv.WithName(volumeName)),
 			k8smetav1.CreateOptions{})
 
+		verifyDVVolumeSource := func(volumeOptions *v1.AddVolumeOptions) {
+			Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+			Expect(volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
+			Expect(volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
+		}
+
 		expectFunc(vmiName, volumeName, verifyDVVolumeSource)
 		commandAndArgs := append([]string{"addvolume", vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
@@ -174,6 +180,12 @@ var _ = Describe("Add volume command", func() {
 			createTestPVC(),
 			k8smetav1.CreateOptions{})
 
+		verifyPVCVolumeSource := func(volumeOptions *v1.AddVolumeOptions) {
+			Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+			Expect(volumeOptions.VolumeSource.DataVolume).To(BeNil())
+			Expect(volumeOptions.VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
+		}
+
 		expectFunc(vmiName, volumeName, verifyPVCVolumeSource)
 		commandAndArgs := append([]string{"addvolume", vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
@@ -195,16 +207,4 @@ func createTestPVC() *k8sv1.PersistentVolumeClaim {
 			Name: "testvolume",
 		},
 	}
-}
-
-func verifyDVVolumeSource(volumeOptions *v1.AddVolumeOptions) {
-	Expect(volumeOptions.VolumeSource).ToNot(BeNil())
-	ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
-	ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
-}
-
-func verifyPVCVolumeSource(volumeOptions *v1.AddVolumeOptions) {
-	Expect(volumeOptions.VolumeSource).ToNot(BeNil())
-	ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).To(BeNil())
-	ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
 }
