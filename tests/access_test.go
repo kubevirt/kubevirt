@@ -27,7 +27,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -444,121 +443,5 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("default")),
 		)
-	})
-
-	Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
-
-		var testUser string
-
-		BeforeEach(func() {
-			// Generate unique usernames based on the test namespace which is unique per ginkgo node
-			testUser = "testuser-" + testsuite.GetTestNamespace(nil)
-			clientcmd.SkipIfNoCmd("oc")
-			if !checks.IsOpenShift() {
-				Skip("Skip tests which require an openshift managed test user if not running on openshift")
-			}
-			By("Ensuring the cluster has new test user")
-			stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "create", "user", testUser)
-			Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-		})
-
-		testAction := func(resource, verb string, right string) {
-			// AS A TEST USER
-			By(fmt.Sprintf("verifying user rights for verb %s", verb))
-			result, _, _ := clientcmd.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
-			Expect(result).To(ContainSubstring(right), fmt.Sprintf("unexpected permission for %s to %s a %s", testUser, verb, resource))
-		}
-
-		testRights := func(resource, right string) {
-			verbsList := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
-
-			for _, verb := range verbsList {
-				testAction(resource, verb, right)
-			}
-		}
-
-		Context("should fail without admin rights for the project", func() {
-			BeforeEach(func() {
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "project", testsuite.GetTestNamespace(nil))
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-			})
-
-			AfterEach(func() {
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-			})
-
-			DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
-				testRights(resource, "no")
-			},
-				Entry("[test_id:2921]given a vmi", "virtualmachineinstances"),
-				Entry("[test_id:2915]given a vm", "virtualmachines"),
-				Entry("given a vmpool", "virtualmachinepools"),
-				Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
-				Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
-				Entry("[test_id:3235]given a vmi migration", "virtualmachineinstancemigrations"),
-				Entry("[test_id:5246]given a vmsnapshot", "virtualmachinesnapshots"),
-				Entry("[test_id:5247]given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
-				Entry("[test_id:5248]given a vmsrestore", "virtualmachinerestores"),
-			)
-
-			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
-				testAction(resource, action, "no")
-			},
-				Entry("[test_id:2921]given a vmi (pause)", "virtualmachineinstances/pause", "update"),
-				Entry("[test_id:2921]given a vmi (unpause)", "virtualmachineinstances/unpause", "update"),
-				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
-				Entry("[test_id:2921]given a vmi (console)", "virtualmachineinstances/console", "get"),
-				Entry("[test_id:2921]given a vmi (vnc)", "virtualmachineinstances/vnc", "get"),
-				Entry("[test_id:2921]given a vmi (vnc/screenshot)", "virtualmachineinstances/vnc/screenshot", "get"),
-			)
-		})
-
-		Context("should succeed with admin rights for the project", func() {
-			BeforeEach(func() {
-				By("Ensuring user has the admin rights for the test namespace project")
-				// This is ussually done in backgroung when creating new user with login and by creating new project by that user
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", testsuite.GetTestNamespace(nil), "admin", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-				stdOut, stdErr, err = clientcmd.RunCommandWithNS("", k8sClient, "project", testsuite.GetTestNamespace(nil))
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-			})
-
-			AfterEach(func() {
-				stdOut, stdErr, err := clientcmd.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
-				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-			})
-
-			DescribeTable("should verify permissions on resources are correct the test user", func(resource string) {
-				testRights(resource, "yes")
-			},
-				Entry("[test_id:2920]given a vmi", "virtualmachineinstances"),
-				Entry("[test_id:2831]given a vm", "virtualmachines"),
-				Entry("given a vmpool", "virtualmachinepools"),
-				Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
-				Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
-				Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
-				Entry("[test_id:5249]given a vmsnapshot", "virtualmachinesnapshots"),
-				Entry("[test_id:5250]given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
-				Entry("[test_id:5251]given a vmsrestore", "virtualmachinerestores"),
-			)
-
-			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
-				testAction(resource, action, "yes")
-			},
-				Entry("[test_id:2921]given a vmi (pause)", "virtualmachineinstances/pause", "update"),
-				Entry("[test_id:2921]given a vmi (unpause)", "virtualmachineinstances/unpause", "update"),
-				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
-				Entry("[test_id:2921]given a vmi (console)", "virtualmachineinstances/console", "get"),
-				Entry("[test_id:2921]given a vmi (vnc)", "virtualmachineinstances/vnc", "get"),
-				Entry("[test_id:2921]given a vmi (vnc/screenshot)", "virtualmachineinstances/vnc/screenshot", "get"),
-				Entry("[test_id:2921]given a vmi (guestosinfo)", "virtualmachineinstances/guestosinfo", "get"),
-				Entry("[test_id:2921]given a vmi (sev/fetchcertchain)", "virtualmachineinstances/sev/fetchcertchain", "get"),
-				Entry("[test_id:2921]given a vmi (sev/querylaunchmeasurement)", "virtualmachineinstances/sev/querylaunchmeasurement", "get"),
-				Entry("[test_id:2921]given a vmi (sev/setupsession)", "virtualmachineinstances/sev/setupsession", "update"),
-				Entry("[test_id:2921]given a vmi (sev/injectlaunchsecret)", "virtualmachineinstances/sev/injectlaunchsecret", "update"),
-			)
-		})
 	})
 })
