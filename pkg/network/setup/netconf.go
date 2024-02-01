@@ -158,12 +158,5 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 }
 
 func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
-	if vmi.Status.MigrationTransport == v1.MigrationTransportUnix {
-		return masquerade.New(masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)))
-	} else {
-		return masquerade.New(
-			masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
-			masquerade.WithLegacyMigrationPorts(),
-		)
-	}
+	return masquerade.New(masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)))
 }
