@@ -2218,7 +2218,7 @@ type VirtualMachineInstanceFileSystemList struct {
 // VirtualMachineInstanceFileSystemDisk represents the guest os FS disks
 type VirtualMachineInstanceFileSystemDisk struct {
 	Serial  string `json:"serial,omitempty"`
-	BusType string `json:"bus-type"`
+	BusType string `json:"busType"`
 }
 
 // VirtualMachineInstanceFileSystem represents guest os disk

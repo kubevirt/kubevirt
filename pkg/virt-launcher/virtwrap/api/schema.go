@@ -157,13 +157,18 @@ type FSFreeze struct {
 	Status string
 }
 
+type FSDisk struct {
+	Serial  string
+	BusType string
+}
+
 type Filesystem struct {
 	Name       string
 	Mountpoint string
 	Type       string
 	UsedBytes  int
 	TotalBytes int
-	Disk       []v1.VirtualMachineInstanceFileSystemDisk
+	Disk       []FSDisk
 }
 
 type User struct {

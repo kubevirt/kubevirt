@@ -19755,10 +19755,10 @@
     "description": "VirtualMachineInstanceFileSystemDisk represents the guest os FS disks",
     "type": "object",
     "required": [
-     "bus-type"
+     "busType"
     ],
     "properties": {
-     "bus-type": {
+     "busType": {
       "type": "string",
       "default": ""
      },
