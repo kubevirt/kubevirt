@@ -44,7 +44,7 @@ const (
 	volumeName = "testvolume"
 )
 
-type VerifyFunc func(*v1.AddVolumeOptions)
+type verifyFunc func(*v1.AddVolumeOptions)
 
 var _ = Describe("Add volume command", func() {
 	var vmInterface *kubecli.MockVirtualMachineInterface
@@ -64,7 +64,7 @@ var _ = Describe("Add volume command", func() {
 		coreClient = fake.NewSimpleClientset()
 	})
 
-	expectVMIEndpointAddVolume := func(vmiName, volumeName string, verifyFunc VerifyFunc) {
+	expectVMIEndpointAddVolume := func(vmiName, volumeName string, verifyFn verifyFunc) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachineInstance(k8smetav1.NamespaceDefault).
@@ -75,12 +75,12 @@ var _ = Describe("Add volume command", func() {
 			Expect(ok).To(BeTrue())
 			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
-			verifyFunc(volumeOptions)
+			verifyFn(volumeOptions)
 			return nil
 		})
 	}
 
-	expectVMEndpointAddVolume := func(vmiName, volumeName string, verifyFunc VerifyFunc) {
+	expectVMEndpointAddVolume := func(vmiName, volumeName string, verifyFn verifyFunc) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachine(k8smetav1.NamespaceDefault).
@@ -91,7 +91,7 @@ var _ = Describe("Add volume command", func() {
 			Expect(ok).To(BeTrue())
 			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
-			verifyFunc(volumeOptions)
+			verifyFn(volumeOptions)
 			return nil
 		})
 	}
@@ -140,7 +140,7 @@ var _ = Describe("Add volume command", func() {
 		Entry("with dry-run arg", true),
 	)
 
-	DescribeTable("with DataVolume addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFunc VerifyFunc), args ...string) {
+	DescribeTable("with DataVolume addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFn verifyFunc), args ...string) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
 			context.Background(),
@@ -167,7 +167,7 @@ var _ = Describe("Add volume command", func() {
 		Entry("with LUN-type disk should call VMI endpoint", expectVMIEndpointAddVolume, "--disk-type", "lun"),
 	)
 
-	DescribeTable("with PVC addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFunc VerifyFunc), args ...string) {
+	DescribeTable("with PVC addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFn verifyFunc), args ...string) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
 		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
