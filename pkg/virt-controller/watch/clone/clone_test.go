@@ -873,14 +873,23 @@ var _ = Describe("Clone", func() {
 			type mapType string
 			const labels mapType = "labels"
 			const annotations mapType = "annotations"
+			const templateLabels mapType = "templateLabels"
+			const templateAnnotations mapType = "templateAnnotations"
 
 			expectLabelsOrAnnotations := func(m map[string]string, labelOrAnnotation mapType) {
 				expectedVM := sourceVM.DeepCopy()
 
-				if labelOrAnnotation == labels {
+				switch labelOrAnnotation {
+				case labels:
 					expectedVM.Labels = m
-				} else {
+				case annotations:
 					expectedVM.Annotations = m
+				case templateLabels:
+					expectedVM.Spec.Template.ObjectMeta.Labels = m
+				case templateAnnotations:
+					expectedVM.Spec.Template.ObjectMeta.Annotations = m
+				default:
+					Fail(fmt.Sprintf("Unknown labelOrAnnotation: %s", labelOrAnnotation))
 				}
 
 				expectVMCreationFromPatches(expectedVM)
@@ -904,13 +913,23 @@ var _ = Describe("Clone", func() {
 					"somePrefix2/something",
 				}
 
-				if labelOrAnnotation == labels {
+				switch labelOrAnnotation {
+				case labels:
 					sourceVM.Labels = m
 					vmClone.Spec.LabelFilters = filters
-				} else {
+				case annotations:
 					sourceVM.Annotations = m
 					vmClone.Spec.AnnotationFilters = filters
+				case templateLabels:
+					sourceVM.Spec.Template.ObjectMeta.Labels = m
+					vmClone.Spec.Template.LabelFilters = filters
+				case templateAnnotations:
+					sourceVM.Spec.Template.ObjectMeta.Annotations = m
+					vmClone.Spec.Template.AnnotationFilters = filters
+				default:
+					Fail(fmt.Sprintf("Unknown labelOrAnnotation: %s", labelOrAnnotation))
 				}
+
 				addClone(vmClone)
 
 				expectLabelsOrAnnotations(map[string]string{
@@ -922,6 +941,8 @@ var _ = Describe("Clone", func() {
 			},
 				Entry("with labels", labels),
 				Entry("with annotations", annotations),
+				Entry("with templateLabels", templateLabels),
+				Entry("with templateAnnotations", templateAnnotations),
 			)
 
 			It("should not strip lastRestoreUID annotation from newly created VM", func() {
