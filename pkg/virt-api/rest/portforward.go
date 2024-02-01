@@ -9,7 +9,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
+	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 )
 
 func (app *SubresourceAPIApp) PortForwardRequestHandler(fetcher vmiFetcher) restful.RouteFunction {

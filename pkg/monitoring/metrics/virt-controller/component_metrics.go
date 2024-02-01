@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	operatorMetrics = []operatormetrics.Metric{
+	componentMetrics = []operatormetrics.Metric{
 		virtControllerLeading,
 		virtControllerReady,
 	}

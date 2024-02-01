@@ -13,22 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright the KubeVirt Authors.
  *
  */
 
-package perfscale
+package virt_operator
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/client-go/tools/cache"
+import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
-	"kubevirt.io/client-go/log"
-)
+func SetupMetrics() error {
+	return operatormetrics.RegisterMetrics(
+		configurationMetrics,
+		operatorMetrics,
+	)
+}
 
-func RegisterPerfScaleMetrics(vmiInformer cache.SharedIndexInformer) {
-	log.Log.Infof("Starting performance and scale metrics")
-	prometheus.MustRegister(newVMIPhaseTransitionTimeHistogramVec(vmiInformer))
-	prometheus.MustRegister(newVMIPhaseTransitionTimeFromCreationHistogramVec(vmiInformer))
-	prometheus.MustRegister(newVMIPhaseTransitionTimeFromDeletionHistogramVec(vmiInformer))
+func ListMetrics() []operatormetrics.Metric {
+	return operatormetrics.ListMetrics()
+}
+
+func boolToFloat64(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
 }

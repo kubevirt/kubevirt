@@ -9,7 +9,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/api"
+	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 )
 
 func (app *SubresourceAPIApp) USBRedirRequestHandler(request *restful.Request, response *restful.Response) {

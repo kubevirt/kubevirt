@@ -5,7 +5,9 @@ go_library(
     srcs = [
         "component_metrics.go",
         "metrics.go",
+        "migration_metrics.go",
         "migrationstats_collector.go",
+        "perfscale_metrics.go",
         "vmistats_collector.go",
         "vmstats_collector.go",
     ],
@@ -21,6 +23,7 @@ go_library(
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )
@@ -28,8 +31,10 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "metrics_suite_test.go",
+        "migration_metrics_test.go",
         "migrationstats_collector_test.go",
+        "perfscale_metrics_test.go",
+        "virt_controller_suite_test.go",
         "vmistats_collector_test.go",
         "vmstats_collector_test.go",
     ],

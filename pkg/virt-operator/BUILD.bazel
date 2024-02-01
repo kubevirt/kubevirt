@@ -14,7 +14,7 @@ go_library(
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/monitoring/configuration:go_default_library",
+        "//pkg/monitoring/metrics/virt-operator:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util/cluster:go_default_library",
@@ -33,7 +33,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
-        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/golang.org/x/time/rate:go_default_library",

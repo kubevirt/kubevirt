@@ -13,21 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
- *
+ * Copyright the KubeVirt Authors.
  */
 
-package virt_api
+package virt_operator
 
 import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
-func SetupMetrics() error {
-	return operatormetrics.RegisterMetrics(
-		connectionMetrics,
-		vmMetrics,
+var (
+	operatorMetrics = []operatormetrics.Metric{
+		leaderGauge,
+		readyGauge,
+	}
+
+	leaderGauge = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_virt_operator_leading_status",
+			Help: "Indication for an operating virt-operator.",
+		},
 	)
+
+	readyGauge = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_virt_operator_ready_status",
+			Help: "Indication for a virt-operator that is ready to take the lead.",
+		},
+	)
+)
+
+func SetLeader(isLeader bool) {
+	leaderGauge.Set(boolToFloat64(isLeader))
 }
 
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+func SetReady(isReady bool) {
+	readyGauge.Set(boolToFloat64(isReady))
 }
