@@ -173,11 +173,9 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 		It("should successfully plug guaranteed vCPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			checks.ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient)
-			By("Creating a running VM with 1 socket and 2 max sockets")
-			const (
-				maxSockets uint32 = 3
-			)
+			const maxSockets uint32 = 3
 
+			By("Creating a running VM with 1 socket and 2 max sockets")
 			vmi := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithMasqueradeNetworking()...,
 			)

@@ -138,21 +138,20 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData), &metav1.PatchOptions{})
 	util.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
-	if checks.HasFeature(virtconfig.CPUManager) && len(nodes.Items) > 1 {
-		// CPUManager is not enabled in the control-plane node
-		waitForSchedulableNodeWithCPUManager()
+	if checks.HasFeature(virtconfig.CPUManager) {
+		// CPUManager is not enabled in the control-plane node(s)
+		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
+		Expect(err).NotTo(HaveOccurred())
+		waitForSchedulableNodesWithCPUManager(len(nodes.Items))
 	}
 }
 
-func waitForSchedulableNodeWithCPUManager() {
-
+func waitForSchedulableNodesWithCPUManager(n int) {
 	virtClient := kubevirt.Client()
 	Eventually(func() bool {
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
 		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
-		return len(nodes.Items) != 0
+		return len(nodes.Items) == n
 	}, 360, 1*time.Second).Should(BeTrue())
 }
 
