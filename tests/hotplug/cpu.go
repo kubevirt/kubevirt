@@ -82,14 +82,6 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			return
 		}
 
-		checkRestartRequired := func(vm *v1.VirtualMachine, shouldHave bool) {
-			if shouldHave {
-				EventuallyWithOffset(1, ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineRestartRequired))
-			} else {
-				EventuallyWithOffset(1, ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
-			}
-		}
-
 		It("should successfully plug vCPUs", func() {
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			const (
@@ -172,7 +164,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			By("Ensuring the vm doesn't have a RestartRequired condition")
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			checkRestartRequired(vm, false)
+			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 
 			By("Changing the number of CPU cores")
 			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/cores", 2, 4)
@@ -181,12 +173,12 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the vm has a RestartRequired condition")
-			checkRestartRequired(vm, true)
+			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineRestartRequired))
 
 			By("Restarting the VM and expecting RestartRequired to be gone")
 			err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			checkRestartRequired(vm, false)
+			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 		})
 
 		It("should successfully plug guaranteed vCPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {

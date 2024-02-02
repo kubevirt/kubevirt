@@ -6,6 +6,7 @@ go_library(
         "affinity.go",
         "cpu.go",
         "memory.go",
+        "rolloutstrategy.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/hotplug",
     visibility = ["//visibility:public"],
