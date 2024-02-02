@@ -5306,6 +5306,30 @@ var _ = Describe("VirtualMachine", func() {
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
 				})
+
+				It("should set a restartRequired condition if the memory decreased from start", func() {
+					guestMemory := resource.MustParse("64Mi")
+					newMemory := resource.MustParse("32Mi")
+					vm, _ := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
+						Guest:    &newMemory,
+						MaxGuest: &maxGuestFromSpec,
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &guestMemory}
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
+					vmi.Status.Memory = &virtv1.MemoryStatus{
+						GuestAtBoot:  &guestMemory,
+						GuestCurrent: &guestMemory,
+					}
+
+					err := controller.handleMemoryHotplugRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
+					Expect(vmConditionController.HasCondition(vm, virtv1.VirtualMachineRestartRequired)).To(BeTrue())
+				})
 			})
 		})
 

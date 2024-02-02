@@ -3158,6 +3158,18 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
 	}
 
+	if vm.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Status.Memory.GuestAtBoot != nil &&
+		vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Status.Memory.GuestAtBoot) == -1 {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec to a value lower than what the VM started with",
+		})
+		return nil
+	}
+
 	// If the following is true, MaxGuest was calculated, not manually specified (or the validation webhook would have rejected the change).
 	// Since we're here, we can also assume MaxGuest was not changed in the VM spec since last boot.
 	// Therefore, bumping Guest to a value higher than MaxGuest is fine, it just requires a reboot.
