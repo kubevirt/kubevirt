@@ -43,6 +43,11 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+const (
+	virtualMachineKind         = "VirtualMachine"
+	virtualMachineSnapshotKind = "VirtualMachineSnapshot"
+)
+
 // VirtualMachineCloneAdmitter validates VirtualMachineClones
 type VirtualMachineCloneAdmitter struct {
 	Config *virtconfig.ClusterConfig
@@ -154,8 +159,8 @@ func validateSourceAndTargetKind(vmClone *clonev1alpha1.VirtualMachineClone) []m
 	var causes []metav1.StatusCause = nil
 	sourceField := k8sfield.NewPath("spec")
 
-	supportedSourceTypes := []string{"VirtualMachine", "VirtualMachineSnapshot"}
-	supportedTargetTypes := []string{"VirtualMachine"}
+	supportedSourceTypes := []string{virtualMachineKind, virtualMachineSnapshotKind}
+	supportedTargetTypes := []string{virtualMachineKind}
 
 	if !doesSliceContainStr(supportedSourceTypes, vmClone.Spec.Source.Kind) {
 		causes = []metav1.StatusCause{{
@@ -215,9 +220,9 @@ func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.Virtua
 	}
 	if source.Kind != "" && source.Name != "" {
 		switch source.Kind {
-		case "VirtualMachine":
+		case virtualMachineKind:
 			causes = append(causes, validateCloneSourceVM(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
-		case "VirtualMachineSnapshot":
+		case virtualMachineSnapshotKind:
 			causes = append(causes, validateCloneSourceSnapshot(client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
 		default:
 			causes = append(causes, metav1.StatusCause{
@@ -232,8 +237,6 @@ func validateSource(client kubecli.KubevirtClient, vmClone *clonev1alpha1.Virtua
 
 func validateTarget(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-
-	const virtualMachineKind = "VirtualMachine"
 
 	source := vmClone.Spec.Source
 	target := vmClone.Spec.Target
@@ -288,7 +291,7 @@ func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, k
 
 func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
 	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
-	causes := validateCloneSourceExists(err, sourceField, "VirtualMachine", name, namespace)
+	causes := validateCloneSourceExists(err, sourceField, virtualMachineKind, name, namespace)
 
 	if causes != nil {
 		return causes
@@ -305,7 +308,7 @@ func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string
 
 func validateCloneSourceSnapshot(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
 	vmSnapshot, err := client.VirtualMachineSnapshot(namespace).Get(context.Background(), name, metav1.GetOptions{})
-	causes := validateCloneSourceExists(err, sourceField, "VirtualMachineSnapshot", name, namespace)
+	causes := validateCloneSourceExists(err, sourceField, virtualMachineSnapshotKind, name, namespace)
 	if causes != nil {
 		return causes
 	}
