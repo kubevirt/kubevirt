@@ -220,7 +220,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					"#cloud-config\npassword: %s\nchpasswd: { expire: False }",
 					fedoraPassword,
 				)
-				vmi := libvmi.NewFedora(libvmi.WithCloudInitConfigDriveData(userData))
+				vmi := libvmi.NewFedora(libvmi.WithCloudInitConfigDriveUserData(userData))
 				// runStrategy := v1.RunStrategyManual
 				vm := &v1.VirtualMachine{
 					ObjectMeta: vmi.ObjectMeta,
