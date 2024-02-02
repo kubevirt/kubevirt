@@ -292,10 +292,10 @@ var _ = Describe("VirtualMachine", func() {
 			return runtime.RawExtension{Raw: patch}
 		}
 
-		createVMRevision := func(vm *virtv1.VirtualMachine, prefix string) *appsv1.ControllerRevision {
+		createVMRevision := func(vm *virtv1.VirtualMachine) *appsv1.ControllerRevision {
 			return &appsv1.ControllerRevision{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      getVMRevisionName(vm.UID, vm.Generation, prefix),
+					Name:      getVMRevisionName(vm.UID, vm.Generation),
 					Namespace: vm.Namespace,
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
@@ -1352,10 +1352,8 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			vmRevisionStart := createVMRevision(vm, revisionPrefixStart)
-			vmRevisionLastSeen := createVMRevision(vm, revisionPrefixLastSeen)
+			vmRevisionStart := createVMRevision(vm)
 			expectControllerRevisionCreation(vmRevisionStart)
-			expectControllerRevisionCreation(vmRevisionLastSeen)
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevisionStart.Name))
@@ -1375,11 +1373,11 @@ var _ = Describe("VirtualMachine", func() {
 		It("should delete older vmRevision and create VMI with new one", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.Generation = 1
-			oldVMRevision := createVMRevision(vm, revisionPrefixStart)
+			oldVMRevision := createVMRevision(vm)
 
 			vm.Generation = 2
 			addVirtualMachine(vm)
-			vmRevision := createVMRevision(vm, revisionPrefixStart)
+			vmRevision := createVMRevision(vm)
 
 			expectControllerRevisionList(oldVMRevision)
 			expectControllerRevisionDelete(oldVMRevision)
@@ -1494,8 +1492,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(gen).To(Equal(desiredGeneration))
 				}
 			},
-				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3, revisionPrefixStart), asInt64Ptr(3)),
-				Entry("with one dash in name", getVMRevisionName("abcdef", 5, revisionPrefixStart), asInt64Ptr(5)),
+				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), asInt64Ptr(3)),
+				Entry("with one dash in name", getVMRevisionName("abcdef", 5), asInt64Ptr(5)),
 				Entry("with no dash in name", "12345", nil),
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
@@ -1515,7 +1513,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Generation = 1
 					vm.Spec = revisionVmSpec
 
-					crName, err := controller.createVMRevision(vm, revisionPrefixStart)
+					crName, err := controller.createVMRevision(vm)
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), crName, metav1.GetOptions{})
@@ -1722,7 +1720,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmi.ObjectMeta.Annotations = initialAnnotations
 				vm.Generation = revisionVmGeneration
 
-				crName, err := controller.createVMRevision(vm, revisionPrefixStart)
+				crName, err := controller.createVMRevision(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi.Status.VirtualMachineRevisionName = crName
@@ -1829,7 +1827,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Generation = revisionVmGeneration
 					vm.Spec = revisionVmSpec
 
-					crName, err := controller.createVMRevision(vm, revisionPrefixStart)
+					crName, err := controller.createVMRevision(vm)
 					Expect(err).ToNot(HaveOccurred())
 
 					vmi.Status.VirtualMachineRevisionName = crName
@@ -5614,9 +5612,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectControllerRevisionCreation()
 				controller.Execute()
 				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
-				Eventually(func() {
-					Expect(crListFor(string(vm.ObjectMeta.UID))).To(HaveLen(2))
-				})
+				Expect(crListFor(string(vm.ObjectMeta.UID))).To(HaveLen(1))
 				Eventually(restartRequired[vm.UID]).Should(BeFalse())
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
@@ -5633,9 +5629,7 @@ var _ = Describe("VirtualMachine", func() {
 				}
 				controller.Execute()
 				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
-				Eventually(func() {
-					Expect(crListFor(string(vm.ObjectMeta.UID))).To(HaveLen(2))
-				})
+				Expect(crListFor(string(vm.ObjectMeta.UID))).To(HaveLen(1))
 				Eventually(restartRequired[vm.UID]).Should(Equal(expectCond))
 			},
 				Entry("should appear if the feature gate is not set",
