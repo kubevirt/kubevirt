@@ -583,16 +583,6 @@ func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, use
 	return NewRandomVMWithDataVolumeAndUserData(dataVolume, userData)
 }
 
-// NewRandomVMIWithEphemeralDiskAndUserdataHighMemory
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return vmi
-}
-
 // NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory
 //
 // Deprecated: Use libvmi directly
