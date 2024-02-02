@@ -102,7 +102,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Sockets:    1,
-				Cores:      2,
+				Cores:      1,
 				Threads:    1,
 				MaxSockets: maxSockets,
 			}
