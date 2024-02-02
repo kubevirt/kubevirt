@@ -51,6 +51,20 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
+pkg_tar(
+    name = "appliance_layer_ppc64le",
+    srcs = [
+        ":done-file",
+        "@libguestfs-appliance-ppc64le//appliance:README.fixed",
+        "@libguestfs-appliance-ppc64le//appliance:initrd",
+        "@libguestfs-appliance-ppc64le//appliance:kernel",
+        "@libguestfs-appliance-ppc64le//appliance:root",
+    ],
+    mode = "0444",
+    package_dir = "/usr/local/lib/guestfs/appliance",
+    visibility = ["//visibility:public"],
+)
+
 oci_image(
     name = "version-container",
     base = "//:passwd-image",
@@ -67,6 +81,11 @@ oci_image(
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             ":appliance_layer_s390x",
             "//rpm:libguestfs-tools_s390x",
+            ":entrypoint",
+        ],
+        "//rpm:linux_ppc64le": [
+            ":appliance_layer_ppc64le",
+            "//rpm:libguestfs-tools_ppc64le",
             ":entrypoint",
         ],
         "//conditions:default": [

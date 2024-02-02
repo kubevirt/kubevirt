@@ -43,6 +43,10 @@ oci_image(
             "//rpm:sidecar-shim_s390x",
             ":sidecar-shim-tar",
         ],
+        "//rpm:linux_ppc64le": [
+            "//rpm:sidecar-shim_ppc64le",
+            ":sidecar-shim-tar",
+        ],
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             "//rpm:sidecar-shim_aarch64",
             ":sidecar-shim-tar",

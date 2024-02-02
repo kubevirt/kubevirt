@@ -14,28 +14,22 @@
  *
  */
 
+// This file is build on all arches. Golang only filters files ending with _<arch>.go
 package archdefaulter
 
-import "kubevirt.io/client-go/log"
+// Ensure that there is a compile error should the struct not implement the ArchDefaulter interface anymore.
+var _ = ArchDefaulter(&defaulterPPC64{})
 
-type ArchDefaulter interface {
-	OSTypeArch() string
-	OSTypeMachine() string
-	DeepCopy() ArchDefaulter
+type defaulterPPC64 struct{}
+
+func (defaulterPPC64) OSTypeArch() string {
+	return "ppc64le"
 }
 
-func NewArchDefaulter(arch string) ArchDefaulter {
-	switch arch {
-	case "arm64":
-		return defaulterARM64{}
-	case "s390x":
-		return defaulterS390X{}
-	case "amd64":
-		return defaulterAMD64{}
-	case "ppc64le":
-		return defaulterPPC64{}
-	default:
-		log.Log.Warning("Trying to create an arch defaulter from an unknown arch: " + arch + ". Falling back to AMD64")
-		return defaulterAMD64{}
-	}
+func (defaulterPPC64) OSTypeMachine() string {
+	return "pseries"
+}
+
+func (defaulterPPC64) DeepCopy() ArchDefaulter {
+	return defaulterPPC64{}
 }

@@ -1,0 +1,16 @@
+# Custom regctl toolchain for ppc64le
+load("@rules_oci//oci:toolchain.bzl", "regctl_toolchain")
+
+exports_files(["regctl"])
+
+regctl_toolchain(
+    name = "regctl_toolchain_impl",
+    regctl = ":regctl",
+)
+
+toolchain(
+    name = "regctl_toolchain",
+    toolchain = ":regctl_toolchain_impl",
+    toolchain_type = "@rules_oci//oci:regctl_toolchain_type",
+    visibility = ["//visibility:public"],
+)

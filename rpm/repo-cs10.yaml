@@ -35,3 +35,19 @@ repositories:
   baseurl: http://mirror.stream.centos.org/10-stream/CRB/s390x/os/
   name: centos/stream10-crb-s390x
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/10-stream/BaseOS/ppc64le/os/
+  name: centos/stream10-baseos-ppc64le
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/SIGs/10-stream/virt/ppc64le/kvm-power/
+  name: centos/stream10-virt-kvm-power-ppc64le
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Virtualization-RH
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/10-stream/AppStream/ppc64le/os/
+  name: centos/stream10-appstream-ppc64le
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: ppc64le
+  baseurl: https://mirror.stream.centos.org/10-stream/CRB/ppc64le/os/
+  name: centos/stream10-crb-ppc64le
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official

@@ -196,6 +196,14 @@ http_file(
         "https://storage.googleapis.com/builddeps/4ca1462252246d53e4949523b87fcea088e8b4992dbd6df792818c5875069b16",
     ],
 )
+http_file(
+    name = "alpine_image_ppc64le",
+    sha256 = "f0ee46531aa7b897afa804b8fcc4a94e73143b4ce1a614e5c6a25b27a538d920",
+    urls = [
+        "https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/ppc64le/alpine-standard-3.18.8-ppc64le.iso",
+    ],
+)
+
 
 http_file(
     name = "cirros_image",
@@ -251,6 +259,13 @@ bazeldnf_dependencies()
 bazeldnf_register_toolchains(
     name = "bazeldnf_prebuilt",
 )
+# Register custom toolchains for ppc64le architecture
+# Only regctl uses proper toolchain mechanism
+register_toolchains(
+    # "//tools/bazeldnf:bazeldnf_toolchain",  # Commented out - using standard bazeldnf toolchain
+    "//tools/regctl:regctl_toolchain",
+)
+
 
 go_rules_dependencies()
 
@@ -367,6 +382,12 @@ oci_pull(
     digest = "sha256:7da65d894be967ee6cb28519bb0ae269c5521e22b88b2ce17b13aee259f3fa09",
     image = "gcr.io/distroless/base-debian12",
 )
+oci_pull(
+    name = "go_image_base_ppc64le",
+    digest = "sha256:0e72bb83ef5a42644da031c5b11b97e1c9d74ed4322a5314a88db97fbacbc9d3",
+    image = "gcr.io/distroless/base-debian12",
+)
+
 
 # Pull fedora container-disk preconfigured with ci tooling
 # like stress and qemu guest agent pre-configured
@@ -392,6 +413,14 @@ oci_pull(
     name = "alpine_with_test_tooling_s390x",
     digest = "sha256:1a52903133c00507607e8a82308a34923e89288d852762b9f4d5da227767e965",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
+# TODO: Build actual ppc64le version of this image
+# For now, using x86_64 version as placeholder to allow build to proceed
+oci_pull(
+    name = "alpine_with_test_tooling_ppc64le",
+    digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
+    image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
+)
+
 )
 
 oci_pull(
@@ -405,6 +434,12 @@ oci_pull(
     digest = "sha256:ae6d6510dfb1e1cbcf09ad85c2c0b3e58494fe10bdaa720362934422037d42a2",
     image = "quay.io/kubevirtci/fedora-with-test-tooling",
 )
+oci_pull(
+    name = "fedora_with_test_tooling_ppc64le",
+    digest = "sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522",
+    image = "quay.io/kubevirtci/fedora-with-test-tooling",
+)
+
 
 oci_pull(
     name = "s390x-guestless-kernel",
