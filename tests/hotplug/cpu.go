@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	v12 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -43,6 +45,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 	var (
 		virtClient kubecli.KubevirtClient
 	)
+
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		originalKv := util2.GetCurrentKv(virtClient)
@@ -175,6 +178,37 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			checks.ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient)
 			const maxSockets uint32 = 3
 
+			By("Creating 2 pods to make sure there won't be enough room")
+			pod := &v12.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mess1",
+				},
+				Spec: v12.PodSpec{
+					Containers: []v12.Container{{
+						Name:    "a",
+						Image:   "alpine",
+						Command: []string{"/bin/sleep", "1d"},
+						Resources: v12.ResourceRequirements{
+							Requests: v12.ResourceList{
+								"memory": resource.MustParse("512Mi"),
+								"cpu":    resource.MustParse("50m"),
+							},
+							Limits: v12.ResourceList{
+								"memory": resource.MustParse("512Mi"),
+								"cpu":    resource.MustParse("50m"),
+							},
+						},
+					}},
+					NodeSelector: map[string]string{"kubernetes.io/hostname": "node02"},
+				},
+			}
+			_, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			pod.ObjectMeta.Name = "mess2"
+			pod.Spec.NodeSelector["kubernetes.io/hostname"] = "node03"
+			_, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			vmi := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithMasqueradeNetworking()...,
@@ -193,7 +227,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				},
 			}
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)

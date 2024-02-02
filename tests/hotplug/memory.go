@@ -34,6 +34,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 	var (
 		virtClient kubecli.KubevirtClient
 	)
+
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		originalKv := util2.GetCurrentKv(virtClient)

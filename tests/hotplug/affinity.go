@@ -30,6 +30,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 	var (
 		virtClient kubecli.KubevirtClient
 	)
+
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
