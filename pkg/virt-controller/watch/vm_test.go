@@ -88,12 +88,13 @@ var _ = Describe("VirtualMachine", func() {
 		var config *virtconfig.ClusterConfig
 		var kvInformer cache.SharedIndexInformer
 
-		syncCaches := func(stop chan struct{}) {
-			go vmiInformer.Run(stop)
-			go vmInformer.Run(stop)
-			go dataVolumeInformer.Run(stop)
-			go crInformer.Run(stop)
-			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, vmInformer.HasSynced)).To(BeTrue())
+		syncCaches := func() {
+			Expect(cache.WaitForCacheSync(stop,
+				vmiInformer.HasSynced,
+				vmInformer.HasSynced,
+				dataVolumeInformer.HasSynced,
+				crInformer.HasSynced,
+			)).To(BeTrue())
 		}
 
 		asInt64Ptr := func(i int64) *int64 {
@@ -186,6 +187,14 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
+			go vmiInformer.Run(stop)
+			go vmInformer.Run(stop)
+			go dataVolumeInformer.Run(stop)
+			go crInformer.Run(stop)
+		})
+
+		AfterEach(func() {
+			close(stop)
 		})
 
 		shouldExpectGracePeriodPatched := func(expectedGracePeriod int64, vmi *virtv1.VirtualMachineInstance) {
@@ -312,7 +321,7 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		addVirtualMachine := func(vm *virtv1.VirtualMachine) {
-			syncCaches(stop)
+			syncCaches()
 			mockQueue.ExpectAdds(1)
 			vmSource.Add(vm)
 			mockQueue.Wait()
@@ -5481,7 +5490,6 @@ var _ = Describe("VirtualMachine", func() {
 						return cr.Name
 					}
 				}
-
 				return ""
 			}
 
@@ -5531,7 +5539,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
@@ -5545,7 +5553,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectControllerRevisionDelete()
 				expectVMUpdate()
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
@@ -5567,7 +5575,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
@@ -5581,7 +5589,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMUpdate()
 				expectControllerRevisionDelete()
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
@@ -5603,7 +5611,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmi.Status.Memory = &virtv1.MemoryStatus{
@@ -5622,7 +5630,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMUpdate()
 				expectControllerRevisionDelete()
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
@@ -5642,7 +5650,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
@@ -5660,7 +5668,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectVMIPatch()
 				}
 				controller.Execute()
-				Expect(cache.WaitForCacheSync(stop, crInformer.HasSynced)).To(BeTrue())
+				syncCaches()
 				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
 				Eventually(restartRequired, 10*time.Second).Should(Equal(expectCond), "restart required")
 			},
