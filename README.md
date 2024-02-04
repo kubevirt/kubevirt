@@ -124,7 +124,7 @@ sed -i "s|+ARTIFACTS_SERVER_IMAGE_TO_REPLACE+|${ARTIFACTS_SERVER_IMAGE}|g" deplo
 
 Create the namespace for the HCO.
 ```bash
-kubectl create ns kubevirt-hyperconverged
+$ kubectl create ns kubevirt-hyperconverged
 ```
 
 For the next set of commands, we will use the
@@ -145,7 +145,7 @@ Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt,
 CDI (Containerized Data Importer), Network-addons, VM import, TTO (Tekton Tasks Operator) and SSP (Scheduling, Scale 
 and Performance) Operator.
 ```bash
-kubectl create -f deploy/hco.cr.yaml -n kubevirt-hyperconverged
+$ kubectl create -f deploy/hco.cr.yaml -n kubevirt-hyperconverged
 ```
 
 ## Create a Cluster & Launch the HCO
