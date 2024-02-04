@@ -112,6 +112,7 @@ go_test(
         "node_test.go",
         "pool_test.go",
         "replicaset_test.go",
+        "restartrequired_test.go",
         "vm_test.go",
         "vmi_test.go",
         "vsock_test.go",
