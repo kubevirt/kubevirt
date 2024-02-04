@@ -23,6 +23,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -544,9 +545,8 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 		return nil
 	}
 
-	getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 	Eventually(func() error {
-		out := getKubevirtVMMetricsFunc(ip)
+		out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
 		for _, metricName := range migrationMetrics {
 			lines := libinfra.TakeMetricsWithPrefix(out, metricName)
 			metrics, err := libinfra.ParseMetricsToMap(lines)

@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -105,7 +106,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			}
 
 			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
-			verifyAlertExist(virtClient, "KubeVirtVMIExcessiveMigrations")
+			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtVMIExcessiveMigrations")
 
 			// delete VMI
 			By("Deleting the VMI")
@@ -170,11 +171,11 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			kv := disableVirtHandler()
 
 			By("Verifying KubeVirtNoAvailableNodesToRunVMs alert exists if emulation is disabled")
-			verifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
+			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
 
 			By("Restoring virt-handler")
 			restoreVirtHandler(kv)
-			waitUntilAlertDoesNotExist(virtClient, "KubeVirtNoAvailableNodesToRunVMs")
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, "KubeVirtNoAvailableNodesToRunVMs")
 		})
 	})
 
@@ -188,10 +189,10 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
-			verifyAlertExist(virtClient, "KubeVirtDeprecatedAPIRequested")
+			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtDeprecatedAPIRequested")
 
 			By("Verifying the alert disappears")
-			waitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
+			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
 		})
 	})
 

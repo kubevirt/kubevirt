@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
@@ -193,11 +194,10 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		virtClient kubecli.KubevirtClient
 		err        error
 
-		preparedVMIs         []*v1.VirtualMachineInstance
-		pod                  *k8sv1.Pod
-		handlerMetricIPs     []string
-		controllerMetricIPs  []string
-		getKubevirtVMMetrics func(string) string
+		preparedVMIs        []*v1.VirtualMachineInstance
+		pod                 *k8sv1.Pod
+		handlerMetricIPs    []string
+		controllerMetricIPs []string
 	)
 
 	// collect metrics whose key contains the given string, expects non-empty result
@@ -207,7 +207,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		var lines []string
 
 		Eventually(func() map[string]float64 {
-			out := getKubevirtVMMetrics(ip)
+			out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
 			lines = libinfra.TakeMetricsWithPrefix(out, metricSubstring)
 			metrics, err = libinfra.ParseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
@@ -290,9 +290,6 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		for _, ip := range pod.Status.PodIPs {
 			handlerMetricIPs = append(handlerMetricIPs, ip.IP)
 		}
-
-		// returns metrics from the node the VMI(s) runs on
-		getKubevirtVMMetrics = tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 	})
 
 	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
@@ -373,7 +370,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		errorsChan := make(chan error)
 		By("Scraping the Prometheus endpoint")
-		metricsURL := tests.PrepareMetricsURL(ip, 8443)
+		metricsURL := libmonitoring.PrepareMetricsURL(ip, 8443)
 		for ix := 0; ix < concurrency; ix++ {
 			go func(ix int) {
 				req, _ := http.NewRequest("GET", metricsURL, nil)
@@ -402,7 +399,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("Scraping the Prometheus endpoint")
 		Eventually(func() string {
-			out := getKubevirtVMMetrics(ip)
+			out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
 			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt")
 			return strings.Join(lines, "\n")
 		}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
