@@ -2984,13 +2984,14 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 	}
 
+	vm = vm.DeepCopy()
 	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
 
 	// Must check needsSync again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
 	// hotplugged volumes and interfaces
 	if c.needsSync(key) && syncErr == nil {
-		vmCopy := vm.DeepCopy()
+		vmCopy := vm
 		if c.clusterConfig.HotplugNetworkInterfacesEnabled() &&
 			vmi != nil && vmi.DeletionTimestamp == nil {
 			vmiCopy := vmi.DeepCopy()
