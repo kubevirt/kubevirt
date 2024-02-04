@@ -826,7 +826,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is still paused before migration")
-				isPausedb, err := tests.LibvirtDomainIsPaused(virtClient, vmi)
+				isPausedb, err := libvirtDomainIsPaused(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
 				Expect(isPausedb).To(BeTrue(), "The VMI should be paused before migration, but it is not.")
 
@@ -838,7 +838,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("verifying that the vmi is still paused after migration")
-				isPaused, err := tests.LibvirtDomainIsPaused(virtClient, vmi)
+				isPaused, err := libvirtDomainIsPaused(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
 				Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
 
@@ -848,7 +848,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is running")
-				isPaused, err = tests.LibvirtDomainIsPaused(virtClient, vmi)
+				isPaused, err = libvirtDomainIsPaused(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
 				Expect(isPaused).To(BeFalse(), "The VMI should be running, but it is not.")
 			})
@@ -3532,6 +3532,30 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 		return false, fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
 	}
 	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
+}
+
+func libvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
+	namespace := testsuite.GetTestNamespace(vmi)
+	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	vmiPod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
+	if err != nil {
+		return false, err
+	}
+
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
+		virtClient,
+		vmiPod,
+		libpod.LookupComputeContainer(vmiPod).Name,
+		[]string{"virsh", "--quiet", "domstate", vmi.Namespace + "_" + vmi.Name},
+	)
+	if err != nil {
+		return false, fmt.Errorf("could not get libvirt domstate (remotely on pod): %v: %s", err, stderr)
+	}
+	return strings.Contains(stdout, "paused"), nil
 }
 
 func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
