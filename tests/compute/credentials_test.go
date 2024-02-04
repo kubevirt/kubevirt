@@ -228,7 +228,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			})
 
 			vmi := libvmi.NewFedora(
-				libvmi.WithCloudInitConfigDriveData(userData),
+				libvmi.WithCloudInitConfigDriveUserData(userData),
 				withSSHPK(secretID, propagationMethod))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 			verifySSHKeys(vmi)
