@@ -268,7 +268,7 @@ func setConditionsByOperandConditions(req *common.HcoRequest, component string, 
 	}
 
 	if !foundAvailableCond {
-		componentNotAvailable(req, component, `missing "Available" shouldDeploy`)
+		componentNotAvailable(req, component, `missing "Available" condition`)
 	}
 
 	return isReady && foundAvailableCond && foundProgressingCond && foundDegradedCond

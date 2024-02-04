@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	aaqv1alpha1 "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1"
+	aaqv1alpha1 "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 )
@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false,"autoResourceLimits": false}
+	// +kubebuilder:default={"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false,"autoResourceLimits": false, "enableApplicationAwareQuota": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -229,6 +229,7 @@ type HyperConvergedSpec struct {
 	NetworkBinding map[string]v1.InterfaceBindingPlugin `json:"networkBinding,omitempty"`
 
 	// ApplicationAwareConfig set the AAQ configurations
+	// +optional
 	ApplicationAwareConfig *ApplicationAwareConfigurations `json:"applicationAwareConfig,omitempty"`
 }
 
@@ -461,6 +462,12 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	AlignCPUs *bool `json:"alignCPUs,omitempty"`
+
+	// EnableApplicationAwareQuota if true, enables the Application Aware Quota feature
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	EnableApplicationAwareQuota *bool `json:"enableApplicationAwareQuota,omitempty"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough
@@ -733,9 +740,9 @@ type ApplicationAwareConfigurations struct {
 	// NamespaceSelector determines in which namespaces scheduling gate will be added to pods..
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
-	// EnableClusterAppsResourceQuota if set to true, allows creation and management of ClusterAppsResourceQuota
+	// AllowApplicationAwareClusterResourceQuota if set to true, allows creation and management of ClusterAppsResourceQuota
 	// +kubebuilder:default=false
-	EnableClusterAppsResourceQuota bool `json:"enableClusterAppsResourceQuota,omitempty"`
+	AllowApplicationAwareClusterResourceQuota bool `json:"allowApplicationAwareClusterResourceQuota,omitempty"`
 }
 
 const (
@@ -778,7 +785,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "nonRoot": true, "disableMDevConfiguration": false, "persistentReservation": false, "enableManagedTenantQuota": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

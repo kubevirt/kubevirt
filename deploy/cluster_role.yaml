@@ -3656,7 +3656,7 @@ rules:
 - apiGroups:
   - aaq.kubevirt.io
   resources:
-  - applicationsresourcequotas
+  - applicationawareresourcequotas
   verbs:
   - get
   - update
@@ -3665,7 +3665,7 @@ rules:
 - apiGroups:
   - aaq.kubevirt.io
   resources:
-  - clusterappsresourcequotas
+  - applicationawareclusterresourcequotas
   verbs:
   - get
   - watch
@@ -3673,27 +3673,27 @@ rules:
 - apiGroups:
   - aaq.kubevirt.io
   resources:
-  - clusterappsresourcequotas/finalizers
+  - applicationawareclusterresourcequotas/finalizers
   verbs:
   - create
   - update
 - apiGroups:
   - aaq.kubevirt.io
   resources:
-  - applicationsresourcequotas/finalizers
+  - applicationawareresourcequotas/finalizers
   verbs:
   - create
   - update
 - apiGroups:
   - aaq.kubevirt.io
   resources:
-  - applicationsresourcequotas/status
+  - applicationawareresourcequotas/status
   verbs:
   - update
 - apiGroups:
   - aaq.kubevirt.io
   resources:
-  - clusterappsresourcequotas/status
+  - applicationawareclusterresourcequotas/status
   verbs:
   - update
 - apiGroups:

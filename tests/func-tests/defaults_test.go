@@ -86,6 +86,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			EnableManagedTenantQuota:    ptr.To(false),
 			AutoResourceLimits:          ptr.To(false),
 			AlignCPUs:                   ptr.To(false),
+			EnableApplicationAwareQuota: ptr.To(false),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {

@@ -30,7 +30,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	corev1 "kubevirt.io/api/core/v1"
-	v1alpha1 "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1"
+	v1alpha1 "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1"
 	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -289,6 +289,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 	}
 	if in.AlignCPUs != nil {
 		in, out := &in.AlignCPUs, &out.AlignCPUs
+		*out = new(bool)
+		**out = **in
+	}
+	if in.EnableApplicationAwareQuota != nil {
+		in, out := &in.EnableApplicationAwareQuota, &out.EnableApplicationAwareQuota
 		*out = new(bool)
 		**out = **in
 	}

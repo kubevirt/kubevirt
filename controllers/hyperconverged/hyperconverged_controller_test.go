@@ -260,12 +260,11 @@ var _ = Describe("HyperconvergedController", func() {
 
 				hco := commontestutils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-					WithHostPassthroughCPU:    ptr.To(true),
-					DeployTektonTaskResources: ptr.To(true),
-					EnableManagedTenantQuota:  ptr.To(true),
+					WithHostPassthroughCPU:      ptr.To(true),
+					DeployTektonTaskResources:   ptr.To(true),
+					EnableManagedTenantQuota:    ptr.To(true),
+					EnableApplicationAwareQuota: ptr.To(true),
 				}
-
-				hco.Spec.ApplicationAwareConfig = &hcov1beta1.ApplicationAwareConfigurations{}
 
 				ci := hcoutil.GetClusterInfo()
 				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco, ci.GetCSV()})

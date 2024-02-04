@@ -10,7 +10,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	aaqv1alpha1 "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1"
+	aaqv1alpha1 "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -26,7 +26,7 @@ func newAAQHandler(Client client.Client, Scheme *runtime.Scheme) Operand {
 			hooks:  &aaqHooks{},
 		},
 		shouldDeploy: func(hc *hcov1beta1.HyperConverged) bool {
-			return hc.Spec.ApplicationAwareConfig != nil
+			return hc.Spec.FeatureGates.EnableApplicationAwareQuota != nil && *hc.Spec.FeatureGates.EnableApplicationAwareQuota
 		},
 		getCRWithName: func(hc *hcov1beta1.HyperConverged) client.Object {
 			return NewAAQWithNameOnly(hc)
@@ -123,7 +123,7 @@ func NewAAQ(hc *hcov1beta1.HyperConverged) *aaqv1alpha1.AAQ {
 			spec.NamespaceSelector = config.NamespaceSelector.DeepCopy()
 		}
 
-		spec.Configuration.EnableClusterAppsResourceQuota = config.EnableClusterAppsResourceQuota
+		spec.Configuration.AllowApplicationAwareClusterResourceQuota = config.AllowApplicationAwareClusterResourceQuota
 	}
 
 	aaq := NewAAQWithNameOnly(hc)

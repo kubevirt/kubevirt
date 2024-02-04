@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	aaqv1alpha1 "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core/v1alpha1"
+	aaqv1alpha1 "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/flags"
 
@@ -22,8 +23,7 @@ import (
 )
 
 const (
-	enableAAQPatch  = `[{"op": "add", "path": "/spec/applicationAwareConfig", "value":{}}]`
-	disableAAQPatch = `[{"op": "remove", "path": "/spec/applicationAwareConfig"}]`
+	setAAQFGPatchTemplate = `[{"op": "replace", "path": "/spec/featureGates/enableApplicationAwareQuota", "value": %t}]`
 )
 
 var _ = Describe("Test AAQ", Label("AAQ"), Serial, Ordered, func() {
@@ -42,17 +42,17 @@ var _ = Describe("Test AAQ", Label("AAQ"), Serial, Ordered, func() {
 
 		ctx = context.Background()
 
-		disableAAQ(ctx, cli)
+		disableAAQFeatureGate(ctx, cli)
 	})
 
 	AfterAll(func() {
-		disableAAQ(ctx, cli)
+		disableAAQFeatureGate(ctx, cli)
 	})
 
 	When("set the applicationAwareConfig exists", func() {
 		It("should create the AAQ CR and all the pods", func() {
 
-			enableAAQ(ctx, cli)
+			enableAAQFeatureGate(ctx, cli)
 
 			By("check the AAQ CR")
 			Eventually(func(g Gomega) bool {
@@ -100,18 +100,14 @@ func getAAQResource(ctx context.Context, client kubecli.KubevirtClient) (*unstru
 	return client.DynamicClient().Resource(aaqGVR).Get(ctx, "aaq-"+hcoutil.HyperConvergedName, metav1.GetOptions{})
 }
 
-func enableAAQ(ctx context.Context, cli kubecli.KubevirtClient) {
-	By("enable the AAQ")
-	setAAQConfig(ctx, cli, enableAAQPatch)
+func enableAAQFeatureGate(ctx context.Context, cli kubecli.KubevirtClient) {
+	By("enable the AAQ FG")
+	setAAQFeatureGate(ctx, cli, true)
 }
 
-func disableAAQ(ctx context.Context, cli kubecli.KubevirtClient) {
+func disableAAQFeatureGate(ctx context.Context, cli kubecli.KubevirtClient) {
 	By("disable the AAQ FG")
-
-	hco := tests.GetHCO(ctx, cli)
-	if hco.Spec.ApplicationAwareConfig != nil { // k8s rejects "remove" actions if the object does not exist
-		setAAQConfig(ctx, cli, disableAAQPatch)
-	}
+	setAAQFeatureGate(ctx, cli, false)
 
 	By("make sure the AAQ CR was removed")
 	Eventually(func() error {
@@ -123,8 +119,8 @@ func disableAAQ(ctx context.Context, cli kubecli.KubevirtClient) {
 		Should(MatchError(errors.IsNotFound, "not found error"))
 }
 
-func setAAQConfig(ctx context.Context, cli kubecli.KubevirtClient, patchStr string) {
-	patch := []byte(patchStr)
+func setAAQFeatureGate(ctx context.Context, cli kubecli.KubevirtClient, fgState bool) {
+	patch := []byte(fmt.Sprintf(setAAQFGPatchTemplate, fgState))
 	Eventually(tests.PatchHCO).
 		WithArguments(ctx, cli, patch).
 		WithTimeout(10 * time.Second).

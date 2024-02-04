@@ -212,7 +212,7 @@ function create_mtq_csv() {
 }
 
 function create_aaq_csv() {
-  local operatorName="applications-aware-quota"
+  local operatorName="application-aware-quota"
   local dumpCRDsArg="--dump-crds"
   local operatorArgs=" \
     --csv-version=${CSV_VERSION} \

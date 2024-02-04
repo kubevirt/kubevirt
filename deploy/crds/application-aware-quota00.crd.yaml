@@ -78,20 +78,20 @@ spec:
               configuration:
                 description: holds aaq configurations.
                 properties:
-                  enableClusterAppsResourceQuota:
-                    description: EnableClusterAppsResourceQuota can be set to true
-                      to allow creation and management of ClusterAppsResourceQuota.
+                  allowApplicationAwareClusterResourceQuota:
+                    description: AllowApplicationAwareClusterResourceQuota can be
+                      set to true to allow creation and management of ApplicationAwareClusterResourceQuota.
                       Defaults to false
                     type: boolean
                   vmiCalculatorConfiguration:
-                    description: VmiCalculatorConfiguration Default is DedicatedVirtualResources
-                      please look for VmiCalculatorConfiguration type for more information.
+                    description: VmiCalculatorConfiguration determine how resource
+                      allocation will be done with ApplicationAwareResourceQuota
                     properties:
                       configName:
                         default: DedicatedVirtualResources
                         description: 'ConfigName determine how resource allocation
-                          will be done with ApplicationsResourceQuota. allowed values
-                          are: VmiPodUsage, VirtualResources, DedicatedVirtualResources
+                          will be done with ApplicationAwareResourceQuota. allowed
+                          values are: VmiPodUsage, VirtualResources, DedicatedVirtualResources
                           or IgnoreVmiCalculator'
                         enum:
                         - VmiPodUsage

@@ -230,6 +230,13 @@ to an even parity when using emulator thread isolation.
 
 **Default**: `false`
 
+### enableApplicationAwareQuota Feature Gate
+Set the `enableApplicationAwareQuota` feature gate to `true` to enable the [Application Aware Quota](https://github.com/kubevirt/application-aware-quota) feature 
+
+See [below](#configure-application-aware-quota-aaq) for Application Aware Quota configurations.
+
+**Default**: `false`
+
 ### Feature Gates Example
 
 ```yaml
@@ -246,6 +253,7 @@ spec:
     deployTektonTaskResources: true
     deployKubeSecondaryDNS: true
     enableManagedTenantQuota: true
+    enableApplicationAwareQuota: true
 ```
 
 ## Live Migration Configurations
@@ -1117,19 +1125,12 @@ With the `Custom` profile, the cipher list should be expressed according to Open
 
 On plain k8s, where APIServer CR is not available, the default value will be `Intermediate`.
 
-## Configure Applications Aware Quota (AAQ)
-To enable the AAQ feature, add the `applicationAwareConfig` field to the HyperConverged spec, with an empty object 
-or with custom settings (see below).
-
-For example:
-```yaml
-spec:
-  applicationAwareConfig: {}
-```
+## Configure Application Aware Quota (AAQ)
+To enable the AAQ feature, set the `spec.featureGates.enableApplicationAwareQuota` field to `true`. See [featureGates](#enableapplicationawarequota-feature-gate) above.
 
 To configure AAQ, set the fields of the `applicationAwareConfig` object in the HyperConverged resource's spec. The 
 `applicationAwareConfig` object contains several fields:
-* `vmiCalcConfigName` - determine how resource allocation will be done with ApplicationsResourceQuota.
+* `vmiCalcConfigName` - determines how resource allocation will be done with ApplicationResourceQuota.
   Supported values are:
   * `VmiPodUsage` - calculates pod usage for VM-associated pods while concealing migration-specific resources. 
   * `VirtualResources` - allocates resources for VM-associated pods, using the VM's RAM size for memory and CPU threads 
@@ -1141,7 +1142,7 @@ To configure AAQ, set the fields of the `applicationAwareConfig` object in the H
      resource allocation.
 * `namespaceSelector` - determines in which namespaces scheduling gate will be added to pods. This field is a standard 
                         kubernetes selector.
-* `enableClusterAppsResourceQuota` (default = false) - set to true, to allows creation and management of ClusterAppsResourceQuota
+* `allowApplicationAwareClusterResourceQuota` (default = false) - set to true, to allow creation and management of ClusterAppsResourceQuota
   
   **note**: this setting cause some performance cost. Only set to true if there is a good reason.
 
@@ -1153,7 +1154,7 @@ spec:
     namespaceSelector:
       matchLabels:
         some-label: "some value"
-    enableClusterAppsResourceQuota: true
+    allowApplicationAwareClusterResourceQuota: true
 ```
 
 ## Configurations via Annotations

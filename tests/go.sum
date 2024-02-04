@@ -1571,8 +1571,8 @@ k8s.io/utils v0.0.0-20240102154912-e7106e64919e h1:eQ/4ljkx21sObifjzXwlPKpdGLrCf
 k8s.io/utils v0.0.0-20240102154912-e7106e64919e/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 kubevirt.io/api v1.1.1 h1:vt5bOpACArNFIudx1bcE1VeejQdh5wCd7Oz/uFBIkH8=
 kubevirt.io/api v1.1.1/go.mod h1:CJ4vZsaWhVN3jNbyc9y3lIZhw8nUHbWjap0xHABQiqc=
-kubevirt.io/applications-aware-quota v1.1.2 h1:nrupiSrV84MzWQYXGowbmtqHP5Fq+g77YrokxpaVdgo=
-kubevirt.io/applications-aware-quota v1.1.2/go.mod h1:upB6Y32QOW4MbkHrHSoiGU73F2GPW1g9nhhOEkpnH4Y=
+kubevirt.io/application-aware-quota v1.1.4 h1:0/kUvFfZoayELMzJ4WXrmPd7SWkvog4oVXzBuapAZ0k=
+kubevirt.io/application-aware-quota v1.1.4/go.mod h1:Owe2lP1IH9SeXdLqzWtTkmBx59ilWJulaLUK8VG+b34=
 kubevirt.io/client-go v1.1.1 h1:X/fk9kLW65aHRM3GW71UIzXLZsALPoggt4786yLYz1g=
 kubevirt.io/client-go v1.1.1/go.mod h1:ZsE3LucLRzbkK/Mc7rhTArCgVifZt7BeNSW2WOGiCm4=
 kubevirt.io/containerized-data-importer-api v1.58.0 h1:l6bH2SrCUi14QAi1Mv1vzcrqZI0XYzrV1KLK6hiC0QI=

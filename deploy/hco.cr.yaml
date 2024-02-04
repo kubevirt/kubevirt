@@ -18,6 +18,7 @@ spec:
     deployTektonTaskResources: false
     deployVmConsoleProxy: false
     disableMDevConfiguration: false
+    enableApplicationAwareQuota: false
     enableCommonBootImageImport: true
     enableManagedTenantQuota: false
     nonRoot: true

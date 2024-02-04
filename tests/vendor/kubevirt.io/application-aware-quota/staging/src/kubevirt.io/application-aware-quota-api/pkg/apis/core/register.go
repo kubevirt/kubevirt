@@ -17,7 +17,7 @@
  *
  */
 
-package ApplicationsResourceQuota
+package ApplicationAwareResourceQuota
 
 // GroupName is the group name used in this package
 const (
@@ -25,10 +25,10 @@ const (
 	LatestVersion             = "v1alpha1"
 	AAQJobQueueConfigKind     = "AAQJobQueueConfig"
 	AAQJobQueueConfigListKind = "AAQJobQueueConfigList"
-	Kind                      = "ApplicationsResourceQuota"
-	ListKind                  = "ApplicationsResourceQuotaList"
+	Kind                      = "ApplicationAwareResourceQuota"
+	ListKind                  = "ApplicationAwareResourceQuotaList"
 
-	ResourceVMResourceQuotaSingular = "applicationsresourcequota"
+	ResourceVMResourceQuotaSingular = "applicationawareresourcequota"
 	ResourceVMResourceQuotaPlural   = ResourceVMResourceQuotaSingular + "s"
 )
 

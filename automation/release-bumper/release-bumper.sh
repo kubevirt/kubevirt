@@ -101,7 +101,7 @@ function get_updated_versions {
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
     ["MTQ"]="kubevirt/managed-tenant-quota"
-    ["AAQ"]="kubevirt/applications-aware-quota"
+    ["AAQ"]="kubevirt/application-aware-quota"
     ["KUBEVIRT_CONSOLE_PLUGIN"]="kubevirt-ui/kubevirt-plugin"
     ["KUBEVIRT_CONSOLE_PROXY"]="kubevirt-ui/kubevirt-apiserver-proxy"
     ["NODE_DRIVER_REG"]="kubernetes-csi/node-driver-registrar"
@@ -116,7 +116,7 @@ function get_updated_versions {
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
     ["SSP"]="kubevirt.io/ssp-operator/api"
     ["MTQ"]="kubevirt.io/managed-tenant-quota"
-    ["AAQ"]="kubevirt.io/applications-aware-quota"
+    ["AAQ"]="kubevirt.io/application-aware-quota"
   )
 
   UPDATED_VERSIONS=()

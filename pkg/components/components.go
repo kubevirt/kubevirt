@@ -30,7 +30,7 @@ import (
 
 	cnaoapi "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	kvapi "kubevirt.io/api/core"
-	aaqapi "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core"
+	aaqapi "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core"
 	cdiapi "kubevirt.io/containerized-data-importer-api/pkg/apis/core"
 	mtqapi "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core"
 	sspapi "kubevirt.io/ssp-operator/api/v1beta2"

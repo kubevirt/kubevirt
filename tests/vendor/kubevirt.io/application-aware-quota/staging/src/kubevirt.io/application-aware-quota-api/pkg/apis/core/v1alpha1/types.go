@@ -26,7 +26,7 @@ import (
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 )
 
-// ApplicationsResourceQuota defines resources that should be reserved for a VMI migration
+// ApplicationAwareResourceQuota defines resources that should be reserved for a VMI migration
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -34,32 +34,32 @@ import (
 // +kubebuilder:subresource:status
 // +k8s:openapi-gen=true
 // +genclient
-type ApplicationsResourceQuota struct {
+type ApplicationAwareResourceQuota struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ApplicationsResourceQuotaSpec   `json:"spec" valid:"required"`
-	Status ApplicationsResourceQuotaStatus `json:"status,omitempty"`
+	Spec   ApplicationAwareResourceQuotaSpec   `json:"spec" valid:"required"`
+	Status ApplicationAwareResourceQuotaStatus `json:"status,omitempty"`
 }
 
-// ApplicationsResourceQuotaSpec is an extension of corev1.ResourceQuotaSpec
-type ApplicationsResourceQuotaSpec struct {
+// ApplicationAwareResourceQuotaSpec is an extension of corev1.ResourceQuotaSpec
+type ApplicationAwareResourceQuotaSpec struct {
 	corev1.ResourceQuotaSpec `json:",inline"`
 }
 
-// ApplicationsResourceQuotaStatus is an extension of corev1.ResourceQuotaStatus
-type ApplicationsResourceQuotaStatus struct {
+// ApplicationAwareResourceQuotaStatus is an extension of corev1.ResourceQuotaStatus
+type ApplicationAwareResourceQuotaStatus struct {
 	corev1.ResourceQuotaStatus `json:",inline"`
 }
 
-// ApplicationsResourceQuota List is a list of ApplicationsResourceQuotas
+// ApplicationAwareResourceQuota List is a list of ApplicationAwareResourceQuota
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ApplicationsResourceQuotaList struct {
+type ApplicationAwareResourceQuotaList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	// +listType=atomic
-	Items []ApplicationsResourceQuota `json:"items"`
+	Items []ApplicationAwareResourceQuota `json:"items"`
 }
 
 // this has to be here otherwise informer-gen doesn't recognize it
@@ -153,17 +153,17 @@ type AAQSpec struct {
 
 // AAQConfiguration holds all AAQ configurations
 type AAQConfiguration struct {
-	// VmiCalculatorConfiguration Default is DedicatedVirtualResources please look for VmiCalculatorConfiguration type for more information.
+	// VmiCalculatorConfiguration determine how resource allocation will be done with ApplicationAwareResourceQuota
 	VmiCalculatorConfiguration VmiCalculatorConfiguration `json:"vmiCalculatorConfiguration,omitempty"`
-	// EnableClusterAppsResourceQuota can be set to true to allow creation and management
-	// of ClusterAppsResourceQuota. Defaults to false
-	EnableClusterAppsResourceQuota bool `json:"enableClusterAppsResourceQuota,omitempty"`
+	// AllowApplicationAwareClusterResourceQuota can be set to true to allow creation and management
+	// of ApplicationAwareClusterResourceQuota. Defaults to false
+	AllowApplicationAwareClusterResourceQuota bool `json:"allowApplicationAwareClusterResourceQuota,omitempty"`
 }
 
 type VmiCalcConfigName string
 
 type VmiCalculatorConfiguration struct {
-	// ConfigName determine how resource allocation will be done with ApplicationsResourceQuota.
+	// ConfigName determine how resource allocation will be done with ApplicationAwareResourceQuota.
 	// allowed values are: VmiPodUsage, VirtualResources, DedicatedVirtualResources or IgnoreVmiCalculator
 	// +kubebuilder:validation:Enum=VmiPodUsage;VirtualResources;DedicatedVirtualResources;IgnoreVmiCalculator
 	// +kubebuilder:default=DedicatedVirtualResources
@@ -171,14 +171,17 @@ type VmiCalculatorConfiguration struct {
 }
 
 const (
-	// VmiPodUsage Calculate usage of launcher like any other pod but hide migration additional resources
+	// VmiPodUsage (default) calculates pod usage for VM-associated pods while concealing migration-specific resources.
 	VmiPodUsage VmiCalcConfigName = "VmiPodUsage"
-	// VirtualResources Calculate memory.request/limits as the vmi's ram size and cpu.request/limits as number of threads of vmi
+	// VirtualResources allocates resources for VM-associated pods, using the VM's RAM size for memory and CPU threads
+	// for processing.
 	VirtualResources VmiCalcConfigName = "VirtualResources"
-	// DedicatedVirtualResources Calculate vmi.requests.memory as the vmi's ram size and vmi.requests.cpu as number of threads of vmi
-	// in this configuration no memory.request/limits and cpu.request/limits won't be included
+	// DedicatedVirtualResources allocates resources for VM-associated pods,
+	//appending a /vm suffix to requests/limits.cpu and requests/limits.memory,
+	//derived from the VM's RAM size and CPU threads.
+	//Notably, it does not allocate resources for the standard requests/limits.cpu and requests/limits.memory.
 	DedicatedVirtualResources VmiCalcConfigName = "DedicatedVirtualResources"
-	// in this configuration no memory.request/limits and cpu.request/limits won't be included
+	// avoids allocating VM-associated pods differently from normal pods, maintaining uniform resource allocation.
 	IgnoreVmiCalculator VmiCalcConfigName = "IgnoreVmiCalculator"
 	//VirtualResources:
 	// ResourcePodsOfVmi Launcher Pods, number.
@@ -220,21 +223,21 @@ type AAQJobQueueConfigList struct {
 	Items []AAQJobQueueConfig `json:"items"`
 }
 
-///  Openshift ClusterAppsResourceQuota
+/// ApplicationAwareClusterResourceQuota
 
 // this has to be here otherwise informer-gen doesn't recognize it
 // see https://github.com/kubernetes/code-generator/issues/59
 // +genclient:nonNamespaced
 
-// ClusterAppsResourceQuota mirrors ResourceQuota at a cluster scope.  This object is easily convertible to
+// ApplicationAwareClusterResourceQuota mirrors ResourceQuota at a cluster scope.  This object is easily convertible to
 // synthetic ResourceQuota object to allow quota evaluation re-use.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=carq;carqs,scope=Cluster
+// +kubebuilder:resource:shortName=acrq;acrqs,scope=Cluster
 // +kubebuilder:subresource:status
 // +k8s:openapi-gen=true
-type ClusterAppsResourceQuota struct {
+type ApplicationAwareClusterResourceQuota struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is the standard object's metadata.
@@ -242,45 +245,45 @@ type ClusterAppsResourceQuota struct {
 	metav1.ObjectMeta `json:"metadata" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Spec defines the desired quota
-	Spec ClusterAppsResourceQuotaSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
+	Spec ApplicationAwareClusterResourceQuotaSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
 
 	// Status defines the actual enforced quota and its current usage
-	Status ClusterAppsResourceQuotaStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	Status ApplicationAwareClusterResourceQuotaStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
-// ClusterAppsResourceQuotaSpec defines the desired quota restrictions
-type ClusterAppsResourceQuotaSpec struct {
+// ApplicationAwareClusterResourceQuotaSpec defines the desired quota restrictions
+type ApplicationAwareClusterResourceQuotaSpec struct {
 	ocquotav1.ClusterResourceQuotaSpec `json:",inline"`
 }
 
-// ClusterAppsResourceQuotaStatus defines the actual enforced quota and its current usage
-type ClusterAppsResourceQuotaStatus struct {
+// ApplicationAwareClusterResourceQuotaStatus defines the actual enforced quota and its current usage
+type ApplicationAwareClusterResourceQuotaStatus struct {
 	ocquotav1.ClusterResourceQuotaStatus `json:",inline"`
 }
 
-// ClusterAppsResourceQuotaList is a collection of ClusterResourceQuotas
+// ApplicationAwareClusterResourceQuotaList is a collection of ClusterResourceQuotas
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterAppsResourceQuotaList struct {
+type ApplicationAwareClusterResourceQuotaList struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is the standard list's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	// Items is a list of ClusterAppsResourceQuotas
-	Items []ClusterAppsResourceQuota `json:"items" protobuf:"bytes,2,rep,name=items"`
+	// Items is a list of ApplicationAwareClusterResourceQuota
+	Items []ApplicationAwareClusterResourceQuota `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// AppliedClusterAppsResourceQuota mirrors ClusterResourceQuota at a project scope, for projection
+// AppliedApplicationAwareClusterResourceQuota mirrors ClusterResourceQuota at a project scope, for projection
 // into a project.  It allows a project-admin to know which ClusterResourceQuotas are applied to
 // his project and their associated usage.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=acarq;acarqs,categories=all
+// +kubebuilder:resource:shortName=acrq;acrqs,categories=all
 // +kubebuilder:subresource:status
 // +k8s:openapi-gen=true
 // +genclient:onlyVerbs=get,list
-type AppliedClusterAppsResourceQuota struct {
+type AppliedApplicationAwareClusterResourceQuota struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is the standard object's metadata.
@@ -288,21 +291,21 @@ type AppliedClusterAppsResourceQuota struct {
 	metav1.ObjectMeta `json:"metadata" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Spec defines the desired quota
-	Spec ClusterAppsResourceQuotaSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
+	Spec ApplicationAwareClusterResourceQuotaSpec `json:"spec" protobuf:"bytes,2,opt,name=spec"`
 
 	// Status defines the actual enforced quota and its current usage
-	Status ClusterAppsResourceQuotaStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	Status ApplicationAwareClusterResourceQuotaStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
-// AppliedClusterAppsResourceQuotaList is a collection of AppliedClusterAppsResourceQuotas
+// AppliedApplicationAwareClusterResourceQuotaList is a collection of AppliedApplicationAwareClusterResourceQuotas
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type AppliedClusterAppsResourceQuotaList struct {
+type AppliedApplicationAwareClusterResourceQuotaList struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is the standard list's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	// Items is a list of AppliedClusterAppsResourceQuota
-	Items []AppliedClusterAppsResourceQuota `json:"items" protobuf:"bytes,2,rep,name=items"`
+	// Items is a list of AppliedApplicationAwareClusterResourceQuota
+	Items []AppliedApplicationAwareClusterResourceQuota `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

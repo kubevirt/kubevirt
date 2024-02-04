@@ -75,9 +75,9 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_ApplicationAwar
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
 						},
 					},
-					"enableClusterAppsResourceQuota": {
+					"allowApplicationAwareClusterResourceQuota": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EnableClusterAppsResourceQuota if set to true, allows creation and management of ClusterAppsResourceQuota",
+							Description: "AllowApplicationAwareClusterResourceQuota if set to true, allows creation and management of ClusterAppsResourceQuota",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -314,6 +314,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					"alignCPUs": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enable KubeVirt to request up to two additional dedicated CPUs in order to complete the total CPU count to an even parity when using emulator thread isolation. Note: this feature is in Developer Preview.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"enableApplicationAwareQuota": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnableApplicationAwareQuota if true, enables the Application Aware Quota feature",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",

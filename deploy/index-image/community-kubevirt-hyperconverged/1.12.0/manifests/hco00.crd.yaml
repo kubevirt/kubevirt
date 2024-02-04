@@ -62,6 +62,7 @@ spec:
                 deployTektonTaskResources: false
                 deployVmConsoleProxy: false
                 disableMDevConfiguration: false
+                enableApplicationAwareQuota: false
                 enableCommonBootImageImport: true
                 enableManagedTenantQuota: false
                 nonRoot: true
@@ -85,10 +86,10 @@ spec:
               applicationAwareConfig:
                 description: ApplicationAwareConfig set the AAQ configurations
                 properties:
-                  enableClusterAppsResourceQuota:
+                  allowApplicationAwareClusterResourceQuota:
                     default: false
-                    description: EnableClusterAppsResourceQuota if set to true, allows
-                      creation and management of ClusterAppsResourceQuota
+                    description: AllowApplicationAwareClusterResourceQuota if set
+                      to true, allows creation and management of ClusterAppsResourceQuota
                     type: boolean
                   namespaceSelector:
                     description: NamespaceSelector determines in which namespaces
@@ -1064,6 +1065,7 @@ spec:
                   deployTektonTaskResources: false
                   deployVmConsoleProxy: false
                   disableMDevConfiguration: false
+                  enableApplicationAwareQuota: false
                   enableCommonBootImageImport: true
                   enableManagedTenantQuota: false
                   nonRoot: true
@@ -1106,6 +1108,11 @@ spec:
                   disableMDevConfiguration:
                     default: false
                     description: Disable mediated devices handling on KubeVirt
+                    type: boolean
+                  enableApplicationAwareQuota:
+                    default: false
+                    description: EnableApplicationAwareQuota if true, enables the
+                      Application Aware Quota feature
                     type: boolean
                   enableCommonBootImageImport:
                     default: true

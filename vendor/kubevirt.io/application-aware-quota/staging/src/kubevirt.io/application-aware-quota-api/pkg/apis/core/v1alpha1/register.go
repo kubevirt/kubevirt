@@ -23,14 +23,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	applicationsResourceQuota "kubevirt.io/applications-aware-quota/staging/src/kubevirt.io/applications-aware-quota-api/pkg/apis/core"
+	applicationAwareResourceQuota "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core"
 )
 
 var (
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion                        = schema.GroupVersion{Group: applicationsResourceQuota.GroupName, Version: applicationsResourceQuota.LatestVersion}
-	ApplicationsResourceQuotaGroupVersionKind = schema.GroupVersionKind{Group: applicationsResourceQuota.GroupName, Version: applicationsResourceQuota.LatestVersion, Kind: "ApplicationsResourceQuota"}
-	ClusterAppsResourceQuotaGroupVersionKind  = schema.GroupVersionKind{Group: applicationsResourceQuota.GroupName, Version: applicationsResourceQuota.LatestVersion, Kind: "ClusterAppsResourceQuota"}
+	SchemeGroupVersion                                   = schema.GroupVersion{Group: applicationAwareResourceQuota.GroupName, Version: applicationAwareResourceQuota.LatestVersion}
+	ApplicationAwareResourceQuotaGroupVersionKind        = schema.GroupVersionKind{Group: applicationAwareResourceQuota.GroupName, Version: applicationAwareResourceQuota.LatestVersion, Kind: "ApplicationAwareResourceQuota"}
+	ApplicationAwareClusterResourceQuotaGroupVersionKind = schema.GroupVersionKind{Group: applicationAwareResourceQuota.GroupName, Version: applicationAwareResourceQuota.LatestVersion, Kind: "ApplicationAwareClusterResourceQuota"}
 )
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
@@ -53,12 +53,12 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&ApplicationsResourceQuota{},
-		&ApplicationsResourceQuotaList{},
-		&ClusterAppsResourceQuota{},
-		&ClusterAppsResourceQuotaList{},
-		&AppliedClusterAppsResourceQuota{},
-		&AppliedClusterAppsResourceQuotaList{},
+		&ApplicationAwareResourceQuota{},
+		&ApplicationAwareResourceQuotaList{},
+		&ApplicationAwareClusterResourceQuota{},
+		&ApplicationAwareClusterResourceQuotaList{},
+		&AppliedApplicationAwareClusterResourceQuota{},
+		&AppliedApplicationAwareClusterResourceQuota{},
 		&AAQJobQueueConfig{},
 		&AAQJobQueueConfigList{},
 		&AAQ{},
@@ -74,10 +74,10 @@ func AddKnownTypesGenerator(groupVersions []schema.GroupVersion) func(scheme *ru
 	return func(scheme *runtime.Scheme) error {
 		for _, groupVersion := range groupVersions {
 			scheme.AddKnownTypes(groupVersion,
-				&ApplicationsResourceQuota{},
-				&ApplicationsResourceQuotaList{},
-				&ClusterAppsResourceQuota{},
-				&ClusterAppsResourceQuotaList{},
+				&ApplicationAwareResourceQuota{},
+				&ApplicationAwareResourceQuotaList{},
+				&ApplicationAwareClusterResourceQuota{},
+				&ApplicationAwareClusterResourceQuotaList{},
 				&AAQJobQueueConfig{},
 				&AAQJobQueueConfigList{},
 				&AAQ{},
