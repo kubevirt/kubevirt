@@ -41,6 +41,7 @@ const (
 const (
 	FedoraVolumeSize = "6Gi"
 	CirrosVolumeSize = "512Mi"
+	AlpineVolumeSize = "512Mi"
 	BlankVolumeSize  = "16Mi"
 )
 

@@ -170,6 +170,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
 
 		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			Expect(libstorage.HasCDI()).To(BeTrue(), "Skip DataVolume tests when CDI is not present")
 			sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
 			Expect(foundSC).To(BeTrue(), "Filesystem storage is not present")
 
@@ -178,7 +179,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 				libdv.WithPVC(
 					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+					libdv.PVCWithVolumeSize(cd.AlpineVolumeSize),
 					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
 					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
 				),
@@ -187,8 +188,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
 				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
 			)
 			return vmi, dataVolume
