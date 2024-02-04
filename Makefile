@@ -216,6 +216,10 @@ lint:
 	  tests/console/... \
 	  tests/libnet/... \
 	  tests/libvmi/... \
+	  && \
+	  golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
+	  ./pkg/... \
+	  ./tests/... \
 	"
 
 lint-metrics:
