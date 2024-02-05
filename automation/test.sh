@@ -27,7 +27,19 @@ readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
 
-if [ ${CI} == "true" ]; then
+# Skip if it's docs changes only
+# Only if we are in CI, and this is a non-batch change
+if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" ]]; then
+    SKIP_PATTERN="^(docs/)|(OWNERS|OWNERS_ALIASES|.*\.(md|txt))$"
+    CI_GIT_ALL_CHANGES=$(git diff --name-only $PULL_BASE_SHA $PULL_PULL_SHA)
+    CI_GIT_NO_DOCS_CHANGES=$(cat <<<$CI_GIT_ALL_CHANGES | grep -vE "$SKIP_PATTERN" || :)
+    if [[ -z "$CI_GIT_NO_DOCS_CHANGES" ]]; then
+        echo "Aborting as there were only none-code related changes detected."
+        exit 0
+    fi
+ fi
+
+if [[ ${CI} == "true" ]]; then
   if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
     _delay="$(( ( RANDOM % 180 )))"
     echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
