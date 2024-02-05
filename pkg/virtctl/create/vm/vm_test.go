@@ -6,19 +6,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/yaml"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/util"
-
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 const (
@@ -34,13 +32,6 @@ chpasswd: { expire: False }`
   name: eth0
   subnets:
     - type: dhcp`
-
-	create     = "create"
-	size       = "256Mi"
-	certConfig = "my-cert"
-	pullMethod = "pod"
-	url        = "http://url.com"
-	secretRef  = "secret-ref"
 )
 
 var _ = Describe("create vm", func() {
@@ -467,20 +458,20 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Preference).To(BeNil())
 			}
 		},
-			Entry("with blank source", fmt.Sprintf("type:blank,size:%s", size), size, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
-			Entry("with http source", fmt.Sprintf("type:http,size:%s,url:%s", size, url), size, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: url}}, ""),
-			Entry("with imageio source", fmt.Sprintf("type:imageio,size:%s,url:%s,diskid:1,secretref:%s", size, url, secretRef), size, &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: secretRef, URL: url}}, ""),
-			Entry("with PVC source", fmt.Sprintf("type:pvc,size:%s,src:%s/pvc,name:imported-volume", size, util.NamespaceTestDefault), size, &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: util.NamespaceTestDefault}}, "imported-volume"),
-			Entry("with PVC source without size", fmt.Sprintf("type:pvc,src:%s/pvc,name:imported-volume", util.NamespaceTestDefault), "", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: util.NamespaceTestDefault}}, "imported-volume"),
-			Entry("with registry source", fmt.Sprintf("type:registry,size:%s,certconfigmap:%s,pullmethod:%s,url:%s,secretref:%s", size, certConfig, pullMethod, url, secretRef), size, &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.String(certConfig), PullMethod: (*cdiv1.RegistryPullMethod)(pointer.String(pullMethod)), URL: pointer.String(url), SecretRef: pointer.String(secretRef)}}, ""),
-			Entry("with S3 source", fmt.Sprintf("type:s3,size:%s,url:%s,certconfigmap:%s,secretref:%s", size, url, certConfig, secretRef), size, &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: certConfig, SecretRef: secretRef, URL: url}}, ""),
-			Entry("with VDDK source", fmt.Sprintf("type:vddk,size:%s,backingfile:backing-file,initimageurl:%s,uuid:123e-11", size, url), size, &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: url, UUID: "123e-11"}}, ""),
-			Entry("with Snapshot source", fmt.Sprintf("type:snapshot,size:%s,src:%s/snapshot,name:imported-volume", size, util.NamespaceTestDefault), size, &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: util.NamespaceTestDefault}}, "imported-volume"),
-			Entry("with Snapshot source without size", fmt.Sprintf("type:snapshot,src:%s/snapshot,name:imported-volume", util.NamespaceTestDefault), "", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: util.NamespaceTestDefault}}, "imported-volume"),
-			Entry("with blank source and name", fmt.Sprintf("type:blank,size:%s,name:blank-name", size), size, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
+			Entry("with blank source", "type:blank,size:256Mi", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
+			Entry("with http source", "type:http,size:256Mi,url:http://url.com", "256Mi", &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, ""),
+			Entry("with imageio source", "type:imageio,size:256Mi,url:http://url.com,diskid:1,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{Imageio: &cdiv1.DataVolumeSourceImageIO{DiskID: "1", SecretRef: "secret-ref", URL: "http://url.com"}}, ""),
+			Entry("with PVC source", "type:pvc,size:256Mi,src:default/pvc,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, "imported-volume"),
+			Entry("with PVC source without size", "type:pvc,src:default/pvc,name:imported-volume", "", &cdiv1.DataVolumeSource{PVC: &cdiv1.DataVolumeSourcePVC{Name: "pvc", Namespace: "default"}}, "imported-volume"),
+			Entry("with registry source", "type:registry,size:256Mi,certconfigmap:my-cert,pullmethod:pod,url:http://url.com,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{CertConfigMap: pointer.String("my-cert"), PullMethod: (*cdiv1.RegistryPullMethod)(pointer.String("pod")), URL: pointer.String("http://url.com"), SecretRef: pointer.String("secret-ref")}}, ""),
+			Entry("with S3 source", "type:s3,size:256Mi,url:http://url.com,certconfigmap:my-cert,secretref:secret-ref", "256Mi", &cdiv1.DataVolumeSource{S3: &cdiv1.DataVolumeSourceS3{CertConfigMap: "my-cert", SecretRef: "secret-ref", URL: "http://url.com"}}, ""),
+			Entry("with VDDK source", "type:vddk,size:256Mi,backingfile:backing-file,initimageurl:http://url.com,uuid:123e-11", "256Mi", &cdiv1.DataVolumeSource{VDDK: &cdiv1.DataVolumeSourceVDDK{BackingFile: "backing-file", InitImageURL: "http://url.com", UUID: "123e-11"}}, ""),
+			Entry("with Snapshot source", "type:snapshot,size:256Mi,src:default/snapshot,name:imported-volume", "256Mi", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, "imported-volume"),
+			Entry("with Snapshot source without size", "type:snapshot,src:default/snapshot,name:imported-volume", "", &cdiv1.DataVolumeSource{Snapshot: &cdiv1.DataVolumeSourceSnapshot{Name: "snapshot", Namespace: "default"}}, "imported-volume"),
+			Entry("with blank source and name", "type:blank,size:256Mi,name:blank-name", "256Mi", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, ""),
 		)
 
-		DescribeTable("VM with multiple volume-import sources and name", func(source1 *cdiv1.DataVolumeSource, source2 *cdiv1.DataVolumeSource, flags ...string) {
+		DescribeTable("VM with multiple volume-import sources and name", func(source1 *cdiv1.DataVolumeSource, source2 *cdiv1.DataVolumeSource, size string, flags ...string) {
 			out, err := runCmd(flags...)
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -498,8 +489,8 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
-			Entry("with blank source", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:volume-source1", size)), setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:volume-source2", size))),
-			Entry("with blank source and http source", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: url}}, setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:volume-source1", size)), setFlag(VolumeImportFlag, fmt.Sprintf("type:http,size:%s,url:%s,name:volume-source2", size, url))),
+			Entry("with blank source", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, "256Mi", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:volume-source1"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:volume-source2")),
+			Entry("with blank source and http source", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "http://url.com"}}, "256Mi", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:volume-source1"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com,name:volume-source2")),
 		)
 
 		DescribeTable("VM with specified clone pvc", func(pvcNamespace, pvcName, dvtName, dvtSize string, bootOrder int, params string) {
@@ -925,7 +916,7 @@ var _ = Describe("create vm", func() {
 		},
 			Entry("Missing size with blank source", "size must be specified", setFlag(VolumeImportFlag, "type:blank")),
 			Entry("Missing type value", "type must be specified", setFlag(VolumeImportFlag, "size:256Mi")),
-			Entry("Missing size with http volume source", "size must be specified", setFlag(VolumeImportFlag, fmt.Sprintf("type:http,url:%s", url))),
+			Entry("Missing size with http volume source", "size must be specified", setFlag(VolumeImportFlag, "type:http,url:http://url.com")),
 			Entry("Missing url with http volume source", "failed to parse \"--volume-import\" flag: URL is required with http volume source", setFlag(VolumeImportFlag, "type:http,size:256Mi")),
 			Entry("Missing size with imageIO volume source", "size must be specified", setFlag(VolumeImportFlag, "type:imageio,url:http://imageio.com,diskid:0")),
 			Entry("Missing url in imageIO volume source", "failed to parse \"--volume-import\" flag: URL and diskid are both required with imageIO volume source", setFlag(VolumeImportFlag, "type:imageio,diskid:0,size:256Mi")),
@@ -940,15 +931,15 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid src in snapshot volume source", "failed to parse \"--volume-import\" flag: src must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi")),
 			Entry("Missing src namespace in snapshot volume source", "failed to parse \"--volume-import\" flag: namespace of snapshot 'my-snapshot' must be specified", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:/my-snapshot")),
 			Entry("Missing src name in snapshot volume source", "failed to parse \"--volume-import\" flag: src invalid: name cannot be empty", setFlag(VolumeImportFlag, "type:snapshot,size:256Mi,src:default/")),
-			Entry("Missing size with S3 volume source", "size must be specified", setFlag(VolumeImportFlag, fmt.Sprintf("type:s3,url:%s", url))),
+			Entry("Missing size with S3 volume source", "size must be specified", setFlag(VolumeImportFlag, "type:s3,url:http://url.com")),
 			Entry("Missing url in S3 volume source", "failed to parse \"--volume-import\" flag: URL is required with S3 volume source", setFlag(VolumeImportFlag, "type:s3,size:256Mi")),
-			Entry("Unknown argument for blank source", fmt.Sprintf("failed to parse \"--volume-import\" flag: unknown param(s): %s", url), setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:256Mi,%s", url))),
+			Entry("Unknown argument for blank source", "failed to parse \"--volume-import\" flag: unknown param(s): testparam:", setFlag(VolumeImportFlag, "type:blank,size:256Mi,testparam:")),
 			Entry("Missing size with registry volume source", "size must be specified", setFlag(VolumeImportFlag, "type:registry,imagestream:my-image")),
-			Entry("Invalid value for PullMethod", "failed to parse \"--volume-import\" flag: pullmethod must be set to pod or node", setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,pullmethod:invalid,imagestream:my-image", size))),
-			Entry("Both url and imagestream defined in registry source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,pullmethod:node,imagestream:my-image,url:%s", size, url))),
-			Entry("Missing url and imagestream in registry source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s", size))),
+			Entry("Invalid value for PullMethod", "failed to parse \"--volume-import\" flag: pullmethod must be set to pod or node", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:invalid,imagestream:my-image")),
+			Entry("Both url and imagestream defined in registry source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi,pullmethod:node,imagestream:my-image,url:http://url.com")),
+			Entry("Missing url and imagestream in registry source", "failed to parse \"--volume-import\" flag: exactly one of url or imagestream must be defined", setFlag(VolumeImportFlag, "type:registry,size:256Mi")),
 			Entry("Missing size with vddk volume source", "size must be specified", setFlag(VolumeImportFlag, "type:vddk")),
-			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:duplicated", size)), setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:duplicated", size))),
+			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
 		)
 
 		DescribeTable("Invalid arguments to ContainerdiskVolumeFlag", func(flag, errMsg string) {
@@ -1084,7 +1075,7 @@ func setFlag(flag, parameter string) string {
 }
 
 func runCmd(args ...string) ([]byte, error) {
-	_args := append([]string{create, VM}, args...)
+	_args := append([]string{"create", VM}, args...)
 	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
 
