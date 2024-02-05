@@ -83,20 +83,6 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 		clientMAC = mac.String()
 	})
 
-	It("should successfully create a VM with macvtap interface with custom MAC address", func() {
-		vmi := libvmi.NewAlpineWithTestTooling(
-			libvmi.WithInterface(*libvmi.InterfaceWithMac(
-				libvmi.InterfaceWithMacvtapBindingPlugin(macvtapNetworkName), serverMAC)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
-		)
-		vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-		Expect(err).ToNot(HaveOccurred(), "should create VMI successfully")
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-		Expect(vmi.Status.Interfaces).To(HaveLen(1), "should have a single interface")
-		Expect(vmi.Status.Interfaces[0].MAC).To(Equal(serverMAC), "the expected MAC address should be set in the VMI")
-	})
-
 	It("two VMs with macvtap interface should be able to communicate over macvtap network", func() {
 		const (
 			guestIfaceName = "eth0"
@@ -150,6 +136,9 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 		})
 
 		It("should be successful when the VMI MAC address is defined in its spec", func() {
+			Expect(clientVMI.Status.Interfaces).To(HaveLen(1), "should have a single interface")
+			Expect(clientVMI.Status.Interfaces[0].MAC).To(Equal(clientMAC), "the expected MAC address should be set in the VMI")
+
 			By("starting the migration")
 			migration := libmigration.New(clientVMI.Name, clientVMI.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
