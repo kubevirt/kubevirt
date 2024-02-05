@@ -39,6 +39,13 @@ import (
 	"kubevirt.io/kubevirt/tests/libdv"
 )
 
+const (
+	vmiName    = "testvmi"
+	volumeName = "testvolume"
+)
+
+type verifyFunc func(*v1.AddVolumeOptions)
+
 var _ = Describe("Add volume command", func() {
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
@@ -57,7 +64,7 @@ var _ = Describe("Add volume command", func() {
 		coreClient = fake.NewSimpleClientset()
 	})
 
-	expectVMIEndpointAddVolume := func(vmiName, volumeName string, useDv bool) {
+	expectVMIEndpointAddVolume := func(vmiName, volumeName string, verifyFn verifyFunc) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachineInstance(k8smetav1.NamespaceDefault).
@@ -68,12 +75,12 @@ var _ = Describe("Add volume command", func() {
 			Expect(ok).To(BeTrue())
 			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
-			verifyVolumeSource(volumeOptions, useDv)
+			verifyFn(volumeOptions)
 			return nil
 		})
 	}
 
-	expectVMEndpointAddVolume := func(vmiName, volumeName string, useDv bool) {
+	expectVMEndpointAddVolume := func(vmiName, volumeName string, verifyFn verifyFunc) {
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
 			VirtualMachine(k8smetav1.NamespaceDefault).
@@ -84,7 +91,7 @@ var _ = Describe("Add volume command", func() {
 			Expect(ok).To(BeTrue())
 			Expect(volumeOptions).ToNot(BeNil())
 			Expect(volumeOptions.Name).To(Equal(volumeName))
-			verifyVolumeSource(volumeOptions, useDv)
+			verifyFn(volumeOptions)
 			return nil
 		})
 	}
@@ -98,15 +105,15 @@ var _ = Describe("Add volume command", func() {
 		Expect(err.Error()).To(ContainSubstring(errorString))
 	},
 		Entry("addvolume no args", "addvolume", "argument validation failed"),
-		Entry("addvolume name, missing required volume-name", "addvolume", "required flag(s)", "testvmi"),
-		Entry("addvolume name, invalid extra parameter", "addvolume", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
+		Entry("addvolume name, missing required volume-name", "addvolume", "required flag(s)", vmiName),
+		Entry("addvolume name, invalid extra parameter", "addvolume", "unknown flag", vmiName, "--volume-name=blah", "--invalid=test"),
 	)
 
 	It("should fail when trying to add volume with invalid disk type", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
-		commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume", "--disk-type=cdrom"}
+		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(volumeName), k8smetav1.CreateOptions{})
+		commandAndArgs := []string{"addvolume", vmiName, "--volume-name=" + volumeName, "--disk-type=cdrom"}
 
 		cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 		err := cmdAdd()
@@ -118,7 +125,7 @@ var _ = Describe("Add volume command", func() {
 	DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-		commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume"}
+		commandAndArgs := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
 
 		if isDryRun {
 			commandAndArgs = append(commandAndArgs, "--dry-run")
@@ -127,66 +134,72 @@ var _ = Describe("Add volume command", func() {
 		err := cmdAdd()
 
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("Volume testvolume is not a DataVolume or PersistentVolumeClaim"))
+		Expect(err.Error()).To(ContainSubstring("Volume " + volumeName + " is not a DataVolume or PersistentVolumeClaim"))
 	},
 		Entry("with default", false),
 		Entry("with dry-run arg", true),
 	)
 
-	DescribeTable("should call correct endpoint", func(commandName, vmiName, volumeName string, useDv bool, expectFunc func(vmiName, volumeName string, useDv bool), args ...string) {
-		if commandName == "addvolume" {
-			kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
-			if useDv {
-				cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
-					context.Background(),
-					libdv.NewDataVolume(libdv.WithName("testvolume")),
-					k8smetav1.CreateOptions{})
-			} else {
-				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
-				coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
-					context.Background(),
-					createTestPVC(),
-					k8smetav1.CreateOptions{})
-			}
+	DescribeTable("with DataVolume addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFn verifyFunc), args ...string) {
+		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+		cdiClient.CdiV1beta1().DataVolumes(k8smetav1.NamespaceDefault).Create(
+			context.Background(),
+			libdv.NewDataVolume(libdv.WithName(volumeName)),
+			k8smetav1.CreateOptions{})
+
+		verifyDVVolumeSource := func(volumeOptions *v1.AddVolumeOptions) {
+			Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+			Expect(volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
+			Expect(volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
 		}
-		expectFunc(vmiName, volumeName, useDv)
-		commandAndArgs := append([]string{commandName, vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
+
+		expectFunc(vmiName, volumeName, verifyDVVolumeSource)
+		commandAndArgs := append([]string{"addvolume", vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 
 		Expect(cmd.Execute()).To(Succeed())
 	},
-		Entry("addvolume dv, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume),
-		Entry("addvolume pvc, no persist should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume),
-		Entry("addvolume dv, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist"),
-		Entry("addvolume pvc, with persist should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist"),
+		Entry("no persist should call VMI endpoint", expectVMIEndpointAddVolume),
+		Entry("with persist should call VM endpoint", expectVMEndpointAddVolume, "--persist"),
+		Entry("no persist with dry-run should call VMI endpoint", expectVMIEndpointAddVolume, "--dry-run"),
+		Entry("with persist with dry-run should call VM endpoint", expectVMEndpointAddVolume, "--persist", "--dry-run"),
+		Entry("with persist and LUN-type disk should call VM endpoint", expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
+		Entry("with LUN-type disk should call VMI endpoint", expectVMIEndpointAddVolume, "--disk-type", "lun"),
+	)
 
-		Entry("addvolume dv, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--dry-run"),
-		Entry("addvolume pvc, no persist with dry-run should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume, "--dry-run"),
-		Entry("addvolume dv, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist", "--dry-run"),
-		Entry("addvolume pvc, with persist with dry-run should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist", "--dry-run"),
+	DescribeTable("with PVC addvolume cmd, should call correct endpoint", func(expectFunc func(vmiName, volumeName string, verifyFn verifyFunc), args ...string) {
+		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(
+			context.Background(),
+			createTestPVC(volumeName),
+			k8smetav1.CreateOptions{})
 
-		Entry("addvolume pvc, with persist and LUN-type disk should call VM endpoint", "addvolume", "testvmi", "testvolume", false, expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
-		Entry("addvolume dv, with persist and LUN-type disk should call VM endpoint", "addvolume", "testvmi", "testvolume", true, expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
-		Entry("addvolume pvc, with LUN-type disk should call VMI endpoint", "addvolume", "testvmi", "testvolume", false, expectVMIEndpointAddVolume, "--disk-type", "lun"),
-		Entry("addvolume dv, with LUN-type disk should call VMI endpoint", "addvolume", "testvmi", "testvolume", true, expectVMIEndpointAddVolume, "--disk-type", "lun"),
+		verifyPVCVolumeSource := func(volumeOptions *v1.AddVolumeOptions) {
+			Expect(volumeOptions.VolumeSource).ToNot(BeNil())
+			Expect(volumeOptions.VolumeSource.DataVolume).To(BeNil())
+			Expect(volumeOptions.VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
+		}
+
+		expectFunc(vmiName, volumeName, verifyPVCVolumeSource)
+		commandAndArgs := append([]string{"addvolume", vmiName, fmt.Sprintf("--volume-name=%s", volumeName)}, args...)
+		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+
+		Expect(cmd.Execute()).To(Succeed())
+	},
+		Entry("no persist should call VMI endpoint", expectVMIEndpointAddVolume),
+		Entry("with persist should call VM endpoint", expectVMEndpointAddVolume, "--persist"),
+		Entry("no persist with dry-run should call VMI endpoint", expectVMIEndpointAddVolume, "--dry-run"),
+		Entry("with persist with dry-run should call VM endpoint", expectVMEndpointAddVolume, "--persist", "--dry-run"),
+		Entry("with persist and LUN-type disk should call VM endpoint", expectVMEndpointAddVolume, "--persist", "--disk-type", "lun"),
+		Entry("with LUN-type disk should call VMI endpoint", expectVMIEndpointAddVolume, "--disk-type", "lun"),
 	)
 })
 
-func createTestPVC() *k8sv1.PersistentVolumeClaim {
+func createTestPVC(name string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: "testvolume",
+			Name: name,
 		},
-	}
-}
-
-func verifyVolumeSource(volumeOptions *v1.AddVolumeOptions, useDv bool) {
-	Expect(volumeOptions.VolumeSource).ToNot(BeNil())
-	if useDv {
-		ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).ToNot(BeNil())
-		ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).To(BeNil())
-	} else {
-		ExpectWithOffset(3, volumeOptions.VolumeSource.DataVolume).To(BeNil())
-		ExpectWithOffset(3, volumeOptions.VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
 	}
 }
