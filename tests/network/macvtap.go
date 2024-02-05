@@ -39,6 +39,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -49,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
+var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 	const (
 		macvtapLowerDevice = "eth0"
 		macvtapNetworkName = "net1"
@@ -59,6 +61,10 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+	})
+
+	BeforeEach(func() {
+		tests.EnableFeatureGate(deprecation.MacvtapGate)
 	})
 
 	BeforeEach(func() {
