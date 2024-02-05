@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["launcher.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/launcher",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)

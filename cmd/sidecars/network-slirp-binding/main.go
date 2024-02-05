@@ -20,7 +20,6 @@
 package main
 
 import (
-	"net"
 	"os"
 	"path/filepath"
 
@@ -34,6 +33,8 @@ import (
 
 	"kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/dns"
 	srv "kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/server"
+
+	"kubevirt.io/kubevirt/cmd/sidecars/launcher"
 )
 
 func main() {
@@ -44,18 +45,15 @@ func main() {
 	}
 
 	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, "slirp.sock")
-	socket, err := net.Listen("unix", socketPath)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)
-		log.Log.Error("Check whether given directory exists and socket name is not already taken by other file")
-		os.Exit(1)
-	}
-	defer os.Remove(socketPath)
-
-	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha2"})
-	hooksV1alpha2.RegisterCallbacksServer(server, srv.V1alpha2Server{SearchDomains: searchDomains})
 
 	log.Log.Infof("Starting hook server exposing 'info' and '%s' services on socket %q", socketPath, "v1alpha2")
-	server.Serve(socket)
+
+	registerCallbacks := func(server *grpc.Server, shutdownCh chan struct{}) {
+		hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha2"})
+		hooksV1alpha2.RegisterCallbacksServer(server, srv.V1alpha2Server{SearchDomains: searchDomains})
+	}
+	if err := launcher.Run(socketPath, registerCallbacks); err != nil {
+		log.Log.Reason(err).Error("failed to launch sidecar")
+		os.Exit(1)
+	}
 }

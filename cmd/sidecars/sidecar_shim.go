@@ -24,12 +24,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
@@ -44,6 +41,8 @@ import (
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
+
+	"kubevirt.io/kubevirt/cmd/sidecars/launcher"
 )
 
 const (
@@ -276,46 +275,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	socket, err := net.Listen("unix", socketPath)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)
+	registerCallbacks := func(server *grpc.Server, shutdownCh chan struct{}) {
+		hooksInfo.RegisterInfoServer(server, infoServer{Version: version})
+		hooksV1alpha1.RegisterCallbacksServer(server, v1Alpha1Server{})
+		hooksV1alpha2.RegisterCallbacksServer(server, v1Alpha2Server{})
+		hooksV1alpha3.RegisterCallbacksServer(server, v1Alpha3Server{done: shutdownCh})
+	}
+	if err := launcher.Run(socketPath, registerCallbacks); err != nil {
+		log.Log.Errorf("failed to launch sidecar: %v", err)
 		os.Exit(1)
-	}
-	defer os.Remove(socketPath)
-
-	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksInfo.RegisterInfoServer(server, infoServer{Version: version})
-	hooksV1alpha1.RegisterCallbacksServer(server, v1Alpha1Server{})
-	hooksV1alpha2.RegisterCallbacksServer(server, v1Alpha2Server{})
-
-	shutdownChan := make(chan struct{})
-	hooksV1alpha3.RegisterCallbacksServer(server, v1Alpha3Server{done: shutdownChan})
-
-	// Handle signals to properly shutdown process
-	signalStopChan := make(chan os.Signal, 1)
-	signal.Notify(signalStopChan, os.Interrupt,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
-
-	log.Log.Infof("shim is now exposing its services on socket %s", socketPath)
-	errChan := make(chan error)
-	go func() {
-		errChan <- server.Serve(socket)
-	}()
-
-	select {
-	case s := <-signalStopChan:
-		log.Log.Infof("sidecar-shim received signal: %s", s.String())
-	case err = <-errChan:
-		log.Log.Reason(err).Error("Failed to run grpc server")
-	case <-shutdownChan:
-		log.Log.Info("Exiting")
-	}
-
-	if err == nil {
-		server.GracefulStop()
 	}
 }
