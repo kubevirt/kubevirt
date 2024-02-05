@@ -136,44 +136,6 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 			macvtapIfaceIPReportTimeout := 4 * time.Minute
 
-			waitVMMacvtapIfaceIPReport := func(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
-				var vmiIP string
-				err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
-					if err != nil {
-						return false, err
-					}
-
-					for _, iface := range vmi.Status.Interfaces {
-						if iface.MAC == macAddress {
-							if ip := iface.IP; ip != "" {
-								vmiIP = ip
-								return true, nil
-							}
-							return false, nil
-						}
-					}
-
-					return false, nil
-				})
-				if err != nil {
-					return "", err
-				}
-
-				return vmiIP, nil
-			}
-
-			waitForPodCompleted := func(podNamespace string, podName string) error {
-				pod, err := virtClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, k8smetav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
-					return nil
-				}
-				return fmt.Errorf("pod hasn't completed, current Phase: %s", pod.Status.Phase)
-			}
-
 			BeforeEach(func() {
 				macAddressHW, err := GenerateRandomMac()
 				Expect(err).ToNot(HaveOccurred())
@@ -261,4 +223,42 @@ func newFedoraVMIWithExplicitMacAndGuestAgent(macvtapNetworkName string, mac str
 				v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
+}
+
+func waitVMMacvtapIfaceIPReport(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
+	var vmiIP string
+	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
+		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		for _, iface := range vmi.Status.Interfaces {
+			if iface.MAC == macAddress {
+				if ip := iface.IP; ip != "" {
+					vmiIP = ip
+					return true, nil
+				}
+				return false, nil
+			}
+		}
+
+		return false, nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return vmiIP, nil
+}
+
+func waitForPodCompleted(podNamespace string, podName string) error {
+	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, k8smetav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
+		return nil
+	}
+	return fmt.Errorf("pod hasn't completed, current Phase: %s", pod.Status.Phase)
 }
