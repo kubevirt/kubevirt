@@ -64,6 +64,7 @@ const (
 
 	cloudInitDisk = "cloudinitdisk"
 	blank         = "blank"
+	gcs           = "gcs"
 	http          = "http"
 	imageIO       = "imageio"
 	pvc           = "pvc"
@@ -168,6 +169,14 @@ type dataVolumeSourceBlank struct {
 	Name string             `param:"name"`
 }
 
+type dataVolumeSourceGcs struct {
+	SecretRef string             `param:"secretref"`
+	URL       string             `param:"url"`
+	Size      *resource.Quantity `param:"size"`
+	Type      string             `param:"type"`
+	Name      string             `param:"name"`
+}
+
 type dataVolumeSourceHttp struct {
 	CertConfigMap      string             `param:"certconfigmap"`
 	ExtraHeaders       []string           `param:"extraheaders"`
@@ -239,6 +248,7 @@ type volumeImportFn func(string) (*cdiv1.DataVolumeSource, error)
 
 var volumeImportOptions = map[string]volumeImportFn{
 	blank:    withVolumeSourceBlank,
+	gcs:      withVolumeSourceGcs,
 	http:     withVolumeSourceHttp,
 	imageIO:  withVolumeSourceImageIO,
 	pvc:      withVolumeSourcePVC,
@@ -295,8 +305,9 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(pvcVolume{})))
 	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
 	cmd.Flags().StringArrayVar(&c.volumeImport, VolumeImportFlag, c.volumeImport, fmt.Sprintf(
-		"Specify the source for DataVolume. Can be provided multiple times.\nSupported parameters:\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s",
+		"Specify the source for DataVolume. Can be provided multiple times.\nSupported parameters:\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s",
 		blank, params.Supported(dataVolumeSourceBlank{}),
+		gcs, params.Supported(dataVolumeSourceGcs{}),
 		http, params.Supported(dataVolumeSourceHttp{}),
 		imageIO, params.Supported(dataVolumeSourceImageIO{}),
 		pvc, params.Supported(dataVolumeSourcePVC{}),
@@ -1056,6 +1067,26 @@ func withVolumeSourceBlank(paramStr string) (*cdiv1.DataVolumeSource, error) {
 
 	source := cdiv1.DataVolumeSource{
 		Blank: &cdiv1.DataVolumeBlankImage{},
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourceGcs(paramStr string) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceGcs{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	if sourceStruct.URL == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "URL is required with GCS volume source")
+	}
+
+	source := cdiv1.DataVolumeSource{
+		GCS: &cdiv1.DataVolumeSourceGCS{
+			URL:       sourceStruct.URL,
+			SecretRef: sourceStruct.SecretRef,
+		},
 	}
 
 	return &source, nil
