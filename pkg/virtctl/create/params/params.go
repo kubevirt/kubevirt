@@ -14,6 +14,24 @@ const (
 	paramTag = "param"
 )
 
+type NotFoundError struct {
+	Name string
+}
+
+func (e NotFoundError) Error() string {
+	return fmt.Sprintf("%s must be specified", e.Name)
+}
+
+func (e NotFoundError) Is(target error) bool {
+	switch x := target.(type) {
+	case NotFoundError:
+		return x.Name == e.Name
+	case *NotFoundError:
+		return x.Name == e.Name
+	}
+	return false
+}
+
 func FlagErr(flagName, format string, a ...any) error {
 	return fmt.Errorf("failed to parse \"--%s\" flag: %w", flagName, fmt.Errorf(format, a...))
 }
@@ -195,7 +213,7 @@ func GetParamByName(paramName, paramsStr string) (string, error) {
 
 	paramValue, exists := paramsMap[paramName]
 	if !exists {
-		return "", fmt.Errorf("%s must be specified", paramName)
+		return "", &NotFoundError{Name: paramName}
 	}
 
 	return paramValue, nil
