@@ -1230,6 +1230,15 @@ var CRDsValidation map[string]string = map[string]string{
                           The standard domain attachment can be used instead or in
                           addition to the sidecarImage. version: 1alphav1'
                         type: string
+                      migration:
+                        description: 'Migration means the VM using the plugin can
+                          be safely migrated version: 1alphav1'
+                        properties:
+                          method:
+                            description: 'Method defines a pre-defined migration methodology
+                              version: 1alphav1'
+                            type: string
+                        type: object
                       networkAttachmentDefinition:
                         description: 'NetworkAttachmentDefinition references to a
                           NetworkAttachmentDefinition CR object. Format: <name>, <namespace>/<name>.

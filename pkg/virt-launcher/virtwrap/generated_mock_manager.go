@@ -215,14 +215,14 @@ func (_mr *_MockDomainManagerRecorder) GetFilesystems() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetFilesystems")
 }
 
-func (_m *MockDomainManager) FinalizeVirtualMachineMigration(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", _param0)
+func (_m *MockDomainManager) FinalizeVirtualMachineMigration(_param0 *v1.VirtualMachineInstance, _param1 *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "FinalizeVirtualMachineMigration", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockDomainManagerRecorder) FinalizeVirtualMachineMigration(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0)
+func (_mr *_MockDomainManagerRecorder) FinalizeVirtualMachineMigration(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FinalizeVirtualMachineMigration", arg0, arg1)
 }
 
 func (_m *MockDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {

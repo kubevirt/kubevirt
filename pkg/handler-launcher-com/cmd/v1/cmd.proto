@@ -100,6 +100,10 @@ message ClusterConfig{
   bool SerialConsoleLogDisabled = 4;
 }
 
+message InterfaceBindingMigration{
+  string Method = 1;
+}
+
 message VirtualMachineOptions {
   SMBios VirtualMachineSMBios = 1;
   uint32 MemBalloonStatsPeriod = 2;
@@ -110,6 +114,7 @@ message VirtualMachineOptions {
   bool ExpandDisksEnabled = 6;
   ClusterConfig clusterConfig = 7;
   map<string, string> interfaceDomainAttachment = 8;
+  map<string, InterfaceBindingMigration> interfaceMigration = 9;
 }
 
 message VMIRequest {

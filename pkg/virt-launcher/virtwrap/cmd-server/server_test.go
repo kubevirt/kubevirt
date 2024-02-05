@@ -267,16 +267,16 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should finalize VM migration", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
-			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(nil)
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{}).Return(nil)
 
-			Expect(client.FinalizeVirtualMachineMigration(vmi)).Should(Succeed())
+			Expect(client.FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{})).Should(Succeed())
 		})
 
 		It("should fail to finalize VM migration", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
-			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(errors.New("error"))
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{}).Return(errors.New("error"))
 
-			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
+			Expect(client.FinalizeVirtualMachineMigration(vmi, &cmdv1.VirtualMachineOptions{})).ToNot(Succeed())
 		})
 
 		It("should get the qemu version", func() {

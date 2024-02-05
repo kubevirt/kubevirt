@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/errors"
 
@@ -2452,20 +2454,7 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 }
 
 func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
-	ifaces := vmi.Spec.Domain.Devices.Interfaces
-	if len(ifaces) == 0 {
-		return nil
-	}
-
-	_, allowPodBridgeNetworkLiveMigration := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]
-	if allowPodBridgeNetworkLiveMigration && netvmispec.IsPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
-		return nil
-	}
-	if netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) {
-		return nil
-	}
-
-	return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network or bridge with %s VM annotation", v1.AllowPodBridgeNetworkLiveMigrationAnnotation)
+	return netvmispec.VerifyVMIMigratable(vmi, d.clusterConfig.GetNetworkBindings())
 }
 
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {
@@ -3396,7 +3385,9 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
 	}
 
-	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
+	options := &cmdv1.VirtualMachineOptions{}
+	options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
+	if err := client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
