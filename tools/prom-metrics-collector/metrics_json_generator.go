@@ -23,8 +23,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	"github.com/kubevirt/monitoring/pkg/metrics/parser"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules"
 )
 
 // This should be used only for very rare cases where the naming conventions that are explained in the best practices:
@@ -32,6 +34,7 @@ import (
 // should be ignored.
 var excludedMetrics = map[string]struct{}{
 	"kubevirt_hyperconverged_operator_health_status": struct{}{},
+	"cluster:vmi_request_cpu_cores:sum":              struct{}{},
 }
 
 func main() {
@@ -42,6 +45,13 @@ func main() {
 
 	metricsList := metrics.ListMetrics()
 
+	err = rules.SetupRules()
+	if err != nil {
+		panic(err)
+	}
+
+	rulesList := rules.ListRecordingRules()
+
 	var metricFamilies []parser.Metric
 	for _, m := range metricsList {
 		if _, isExcludedMetric := excludedMetrics[m.GetOpts().Name]; !isExcludedMetric {
@@ -49,6 +59,16 @@ func main() {
 				Name: m.GetOpts().Name,
 				Help: m.GetOpts().Help,
 				Type: strings.ToUpper(string(m.GetBaseType())),
+			})
+		}
+	}
+
+	for _, r := range rulesList {
+		if _, isExcludedMetric := excludedMetrics[r.GetOpts().Name]; !isExcludedMetric {
+			metricFamilies = append(metricFamilies, parser.Metric{
+				Name: r.GetOpts().Name,
+				Help: r.GetOpts().Help,
+				Type: strings.ToUpper(string(r.GetType())),
 			})
 		}
 	}

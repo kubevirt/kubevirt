@@ -2,11 +2,12 @@ package main
 
 import (
 	"encoding/json"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
-
 	"fmt"
 	"os"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules"
 )
 
 func verifyArgs() error {
@@ -25,8 +26,24 @@ func main() {
 
 	targetFile := os.Args[1]
 
-	promRuleSpec := alerts.NewPrometheusRuleSpec()
-	b, err := json.Marshal(promRuleSpec)
+	err := rules.SetupRules()
+	if err != nil {
+		panic(err)
+	}
+
+	promRule, err := rules.BuildPrometheusRule(
+		"kubevirt-hyperconverged",
+		metav1.OwnerReference{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+			Name:       "kubevirt-hyperconverged",
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	b, err := json.Marshal(promRule.Spec)
 	if err != nil {
 		panic(err)
 	}

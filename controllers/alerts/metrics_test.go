@@ -7,21 +7,23 @@ import (
 	"os"
 	"testing"
 
-	"k8s.io/utils/ptr"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/machadovilaca/operator-observability/pkg/operatorrules"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -48,6 +50,8 @@ var _ = Describe("alert tests", func() {
 		}
 
 		req = commontestutils.NewReq(nil)
+
+		operatorrules.CleanRegistry()
 	})
 
 	Context("test reconciler", func() {
@@ -125,10 +129,14 @@ var _ = Describe("alert tests", func() {
 	Context("test PrometheusRule", func() {
 		BeforeEach(func() {
 			currentMetric, _ = metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)
+
+			err := rules.SetupRules()
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			os.Unsetenv(runbookURLTemplateEnv)
+			err := os.Unsetenv(runbookURLTemplateEnv)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		expectedEvents := []commontestutils.MockEvent{
@@ -141,7 +149,8 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 			existRule.Labels = map[string]string{
 				"wrongKey1": "wrongValue1",
 				"wrongKey2": "wrongValue2",
@@ -162,7 +171,8 @@ var _ = Describe("alert tests", func() {
 
 		It("should add the labels if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 			existRule.Labels = nil
 
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
@@ -186,7 +196,8 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: ptr.To(true),
 				UID:                "0987654321",
 			}
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
@@ -217,7 +228,8 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: ptr.To(true),
 				UID:                "0987654321",
 			}
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
@@ -247,7 +259,8 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the referenceOwner if missing", func() {
 			owner := metav1.OwnerReference{}
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 			existRule.OwnerReferences = nil
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
@@ -270,15 +283,16 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the spec if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 
-			existRule.Spec.Groups[0].Rules = []monitoringv1.Rule{
-				existRule.Spec.Groups[0].Rules[0],
-				existRule.Spec.Groups[0].Rules[2],
-				existRule.Spec.Groups[0].Rules[3],
+			existRule.Spec.Groups[1].Rules = []monitoringv1.Rule{
+				existRule.Spec.Groups[1].Rules[0],
+				existRule.Spec.Groups[1].Rules[2],
+				existRule.Spec.Groups[1].Rules[3],
 			}
 			// modify the first rule
-			existRule.Spec.Groups[0].Rules[0].Alert = "modified alert"
+			existRule.Spec.Groups[1].Rules[0].Alert = "modified alert"
 
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
@@ -286,7 +300,9 @@ var _ = Describe("alert tests", func() {
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
 			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
-			Expect(pr.Spec).Should(Equal(*NewPrometheusRuleSpec()))
+			newRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pr.Spec).Should(Equal(newRule.Spec))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
 			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
@@ -294,7 +310,8 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the spec if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 
 			existRule.Spec = monitoringv1.PrometheusRuleSpec{}
 
@@ -304,7 +321,9 @@ var _ = Describe("alert tests", func() {
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
 			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
-			Expect(pr.Spec).Should(Equal(*NewPrometheusRuleSpec()))
+			newRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pr.Spec).Should(Equal(newRule.Spec))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
 			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
@@ -312,7 +331,8 @@ var _ = Describe("alert tests", func() {
 
 		It("should use the default runbook URL template when no ENV Variable is set", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			promRule := newPrometheusRule(commontestutils.Namespace, owner)
+			promRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 
 			for _, group := range promRule.Spec.Groups {
 				for _, rule := range group.Rules {
@@ -326,11 +346,17 @@ var _ = Describe("alert tests", func() {
 		})
 
 		It("should use the desired runbook URL template when its ENV Variable is set", func() {
+			operatorrules.CleanRegistry()
+
 			desiredRunbookURLTemplate := "desired/runbookURL/template/%s"
 			os.Setenv(runbookURLTemplateEnv, desiredRunbookURLTemplate)
 
+			err := rules.SetupRules()
+			Expect(err).ToNot(HaveOccurred())
+
 			owner := getDeploymentReference(ci.GetDeployment())
-			promRule := newPrometheusRule(commontestutils.Namespace, owner)
+			promRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 
 			for _, group := range promRule.Spec.Groups {
 				for _, rule := range group.Rules {
@@ -355,7 +381,8 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: ptr.To(true),
 				UID:                "0987654321",
 			}
-			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			existRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
+			Expect(err).ToNot(HaveOccurred())
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 

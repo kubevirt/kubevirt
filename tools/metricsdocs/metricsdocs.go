@@ -6,6 +6,7 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/docs"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules"
 )
 
 const tpl = `# Hyperconverged Cluster Operator metrics
@@ -27,9 +28,6 @@ const tpl = `# Hyperconverged Cluster Operator metrics
 
 {{- end }}
 
-### kubevirt_hyperconverged_operator_health_status
-Indicates whether HCO and its secondary resources health status is healthy (0), warning (1) or critical (2), based both on the firing alerts that impact the operator health, and on kubevirt_hco_system_health_status metric. Type: Gauge.
-
 ## Developing new metrics
 
 All metrics documented here are auto-generated and reflect exactly what is being
@@ -43,8 +41,14 @@ func main() {
 		panic(err)
 	}
 
-	metricsList := metrics.ListMetrics()
+	err = rules.SetupRules()
+	if err != nil {
+		panic(err)
+	}
 
-	docsString := docs.BuildMetricsDocsWithCustomTemplate(metricsList, nil, tpl)
+	metricsList := metrics.ListMetrics()
+	rulesList := rules.ListRecordingRules()
+
+	docsString := docs.BuildMetricsDocsWithCustomTemplate(metricsList, rulesList, tpl)
 	fmt.Print(docsString)
 }

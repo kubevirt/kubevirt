@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
@@ -36,14 +37,21 @@ type MonitoringReconciler struct {
 	eventEmitter  hcoutil.EventEmitter
 }
 
+var logger = logf.Log.WithName("hyperconverged-operator-monitoring-reconciler")
+
 func NewMonitoringReconciler(ci hcoutil.ClusterInfo, cl client.Client, ee hcoutil.EventEmitter, scheme *runtime.Scheme) *MonitoringReconciler {
 	deployment := ci.GetDeployment()
 	namespace := deployment.Namespace
 	owner := getDeploymentReference(deployment)
 
+	alertRuleReconciler, err := newAlertRuleReconciler(namespace, owner)
+	if err != nil {
+		logger.Error(err, "failed to create the 'PrometheusRule' reconciler")
+	}
+
 	return &MonitoringReconciler{
 		reconcilers: []MetricReconciler{
-			newAlertRuleReconciler(namespace, owner),
+			alertRuleReconciler,
 			newRoleReconciler(namespace, owner),
 			newRoleBindingReconciler(namespace, owner, ci),
 			newMetricServiceReconciler(namespace, owner),
