@@ -25,10 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
@@ -37,7 +34,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -45,15 +41,9 @@ import (
 
 var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 	const (
-		macvtapLowerDevice = "eth0"
-		macvtapNetworkName = "net1"
+		macvtapLowerDevice      = "eth0"
+		macvtapNetAttachDefName = "net1"
 	)
-
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
 
 	BeforeEach(func() {
 		tests.EnableFeatureGate(deprecation.MacvtapGate)
@@ -61,38 +51,25 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 
 	BeforeEach(func() {
 		ns := testsuite.GetTestNamespace(nil)
-		Expect(libnet.CreateMacvtapNetworkAttachmentDefinition(ns, macvtapNetworkName, macvtapLowerDevice)).To(Succeed(),
-			"A macvtap network named %s should be provisioned", macvtapNetworkName)
+		Expect(libnet.CreateMacvtapNetworkAttachmentDefinition(ns, macvtapNetAttachDefName, macvtapLowerDevice)).To(Succeed(),
+			"A macvtap network named %s should be provisioned", macvtapNetAttachDefName)
 	})
 
-	Context("a virtual machine with one macvtap interface, with a custom MAC address", func() {
-		var serverVMI *v1.VirtualMachineInstance
-		var chosenMAC string
-		var nodeList *k8sv1.NodeList
-		var nodeName string
+	It("should successfully create a VM with macvtap interface with custom MAC address", func() {
+		macHW, err := GenerateRandomMac()
+		Expect(err).ToNot(HaveOccurred())
+		mac := macHW.String()
 
-		BeforeEach(func() {
-			nodeList = libnode.GetAllSchedulableNodes(virtClient)
-			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
-			nodeName = nodeList.Items[0].Name
-			chosenMACHW, err := GenerateRandomMac()
-			Expect(err).ToNot(HaveOccurred())
-			chosenMAC = chosenMACHW.String()
+		const macvtapNetName = "test-macvtap"
+		vmi := libvmi.NewAlpineWithTestTooling(
+			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(macvtapNetName), mac)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetName, macvtapNetAttachDefName)),
+		)
+		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+		Expect(err).ToNot(HaveOccurred())
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-			const macvtapNetName = "test-macvtap"
-			serverVMI := libvmi.NewAlpineWithTestTooling(
-				libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(macvtapNetName), chosenMAC)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetName, macvtapNetworkName)),
-				libvmi.WithNodeAffinityFor(nodeName),
-			)
-			serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(serverVMI)).Create(context.Background(), serverVMI)
-			Expect(err).ToNot(HaveOccurred())
-			serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
-		})
-
-		It("should have the specified MAC address reported back via the API", func() {
-			Expect(serverVMI.Status.Interfaces).To(HaveLen(1), "should have a single interface")
-			Expect(serverVMI.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
-		})
+		Expect(vmi.Status.Interfaces).To(HaveLen(1), "should have a single interface")
+		Expect(vmi.Status.Interfaces[0].MAC).To(Equal(mac), "the expected MAC address should be set in the VMI")
 	})
 })
