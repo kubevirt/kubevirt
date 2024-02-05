@@ -24,22 +24,18 @@ import (
 	"io"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/testsuite"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const startupTimeout = 30
@@ -120,11 +116,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 
 			It("[test_id:1593]should not be connected if scheduled to non-existing host", func() {
 				vmi := libvmi.NewAlpine(
-					libvmi.WithNodeAffinityFor(&k8sv1.Node{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "nonexistent",
-						},
-					}),
+					libvmi.WithNodeAffinityFor("nonexistent"),
 				)
 
 				By("Creating a new VirtualMachineInstance")
