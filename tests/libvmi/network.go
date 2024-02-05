@@ -106,6 +106,15 @@ func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
 	}
 }
 
+// InterfaceWithMacvtapBindingPlugin returns an Interface named "default" with "macvtap" binding plugin.
+func InterfaceWithMacvtapBindingPlugin(name string) *kvirtv1.Interface {
+	const macvtapBindingName = "macvtap"
+	return &kvirtv1.Interface{
+		Name:    name,
+		Binding: &kvirtv1.PluginBinding{Name: macvtapBindingName},
+	}
+}
+
 func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
 		Name:    name,

@@ -21,20 +21,11 @@ package network
 
 import (
 	"context"
-	"fmt"
-	"time"
-
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -43,7 +34,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -78,7 +70,6 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 		var chosenMAC string
 		var nodeList *k8sv1.NodeList
 		var nodeName string
-		var serverIP string
 
 		BeforeEach(func() {
 			nodeList = libnode.GetAllSchedulableNodes(virtClient)
@@ -87,185 +78,21 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 			chosenMACHW, err := GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 			chosenMAC = chosenMACHW.String()
-			serverCIDR := "192.0.2.102/24"
 
-			serverIP, err = libnet.CidrToIP(serverCIDR)
+			const macvtapNetName = "test-macvtap"
+			serverVMI := libvmi.NewAlpineWithTestTooling(
+				libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(macvtapNetName), chosenMAC)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetName, macvtapNetworkName)),
+				libvmi.WithNodeAffinityFor(nodeName),
+			)
+			serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(serverVMI)).Create(context.Background(), serverVMI)
 			Expect(err).ToNot(HaveOccurred())
-
-			serverVMI = createAlpineVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
+			serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 		})
 
 		It("should have the specified MAC address reported back via the API", func() {
 			Expect(serverVMI.Status.Interfaces).To(HaveLen(1), "should have a single interface")
 			Expect(serverVMI.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
 		})
-
-		Context("and another virtual machine connected to the same network", func() {
-			var clientVMI *v1.VirtualMachineInstance
-			BeforeEach(func() {
-				clientVMI = createAlpineVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
-			})
-			It("can communicate with the virtual machine in the same network", func() {
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
-			})
-		})
-	})
-
-	Context("VMI migration", func() {
-		var clientVMI *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			checks.SkipIfMigrationIsNotPossible()
-		})
-
-		BeforeEach(func() {
-			macAddressHW, err := GenerateRandomMac()
-			Expect(err).ToNot(HaveOccurred())
-			macAddress := macAddressHW.String()
-			clientVMI, err = createAlpineVMIRandomNode(macvtapNetworkName, macAddress)
-			Expect(err).NotTo(HaveOccurred(), "must succeed creating a VMI on a random node")
-		})
-
-		It("should be successful when the VMI MAC address is defined in its spec", func() {
-			By("starting the migration")
-			migration := libmigration.New(clientVMI.Name, clientVMI.Namespace)
-			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
-			// check VMI, confirm migration state
-			libmigration.ConfirmVMIPostMigration(virtClient, clientVMI, migration)
-		})
-
-		Context("with live traffic", func() {
-			var serverVMI *v1.VirtualMachineInstance
-			var serverVMIPodName string
-			var serverIP string
-
-			macvtapIfaceIPReportTimeout := 4 * time.Minute
-
-			BeforeEach(func() {
-				macAddressHW, err := GenerateRandomMac()
-				Expect(err).ToNot(HaveOccurred())
-				macAddress := macAddressHW.String()
-
-				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
-				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
-				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
-				serverVMIPodName = tests.GetVmPodName(virtClient, serverVMI)
-
-				serverIP, err = waitVMMacvtapIfaceIPReport(serverVMI, macAddress, macvtapIfaceIPReportTimeout)
-				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
-			})
-
-			BeforeEach(func() {
-				// TODO test also the IPv6 address (issue- https://github.com/kubevirt/kubevirt/issues/7506)
-				libnet.SkipWhenClusterNotSupportIpv4()
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
-			})
-
-			It("should keep connectivity after a migration", func() {
-				const containerCompletionWaitTime = 60
-				migration := libmigration.New(serverVMI.Name, serverVMI.GetNamespace())
-				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
-				// will be reachable only when the original launcher pod terminates.
-				Eventually(func() error {
-					return waitForPodCompleted(serverVMI.Namespace, serverVMIPodName)
-				}, containerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", serverVMIPodName))
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
-			})
-		})
 	})
 })
-
-func createAlpineVMIStaticIPOnNode(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
-	var vmi *v1.VirtualMachineInstance
-	if mac != nil {
-		vmi = libvmi.NewAlpineWithTestTooling(
-			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), *mac)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
-			libvmi.WithNodeAffinityFor(nodeName),
-		)
-	} else {
-		vmi = libvmi.NewAlpine(
-			libvmi.WithInterface(*v1.DefaultMacvtapNetworkInterface(networkName)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
-			libvmi.WithNodeAffinityFor(nodeName),
-		)
-	}
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-	// configure the client VMI
-	Expect(libnet.AddIPAddress(vmi, ifaceName, ipCIDR)).To(Succeed())
-	Expect(libnet.SetInterfaceUp(vmi, ifaceName)).To(Succeed())
-	return vmi
-}
-
-func createAlpineVMIRandomNode(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-	runningVMI := tests.RunVMIAndExpectLaunch(
-		libvmi.NewAlpineWithTestTooling(
-			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(networkName), mac)),
-			libvmi.WithNetwork(libvmi.MultusNetwork(networkName, networkName)),
-		),
-		180,
-	)
-	err := console.LoginToAlpine(runningVMI)
-	return runningVMI, err
-}
-
-func createFedoraVMIRandomNode(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
-	runningVMI := tests.RunVMIAndExpectLaunch(
-		newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
-		180,
-	)
-	err := console.LoginToFedora(runningVMI)
-	return runningVMI, err
-}
-
-func newFedoraVMIWithExplicitMacAndGuestAgent(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-	return libvmi.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithInterface(
-			*libvmi.InterfaceWithMac(
-				v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)))
-}
-
-func waitVMMacvtapIfaceIPReport(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
-	var vmiIP string
-	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		for _, iface := range vmi.Status.Interfaces {
-			if iface.MAC == macAddress {
-				if ip := iface.IP; ip != "" {
-					vmiIP = ip
-					return true, nil
-				}
-				return false, nil
-			}
-		}
-
-		return false, nil
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return vmiIP, nil
-}
-
-func waitForPodCompleted(podNamespace string, podName string) error {
-	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, k8smetav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
-		return nil
-	}
-	return fmt.Errorf("pod hasn't completed, current Phase: %s", pod.Status.Phase)
-}
