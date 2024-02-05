@@ -32,14 +32,10 @@ import (
 )
 
 var _ = Describe("Node controller with", func() {
-
-	var ctrl *gomock.Controller
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var nodeSource *framework.FakeControllerSource
 	var nodeInformer cache.SharedIndexInformer
-	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
-	var stop chan struct{}
 	var controller *NodeController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
@@ -54,13 +50,17 @@ var _ = Describe("Node controller with", func() {
 	}
 
 	BeforeEach(func() {
-		stop = make(chan struct{})
-		ctrl = gomock.NewController(GinkgoT())
+		stop := make(chan struct{})
+		DeferCleanup(func() {
+			close(stop)
+		})
+		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8sv1.Node{})
-		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		informer, vmiSource := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmiInformer = informer
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
@@ -374,7 +374,6 @@ var _ = Describe("Node controller with", func() {
 	})
 
 	AfterEach(func() {
-		close(stop)
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 	})
