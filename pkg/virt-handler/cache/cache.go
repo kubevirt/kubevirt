@@ -43,7 +43,6 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const socketDialTimeout = 5
@@ -88,13 +87,6 @@ type ghostRecord struct {
 var ghostRecordGlobalCache map[string]ghostRecord
 var ghostRecordGlobalMutex sync.Mutex
 var ghostRecordDir string
-
-// this function is only used by unit tests
-func clearGhostRecordCache() {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
-	ghostRecordGlobalCache = make(map[string]ghostRecord)
-}
 
 func InitializeGhostRecordCache(directoryPath string) error {
 	ghostRecordGlobalMutex.Lock()
@@ -195,9 +187,9 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	} else if namespace == "" {
 		return fmt.Errorf("can not add ghost record when 'namespace' is not provided")
 	} else if string(uid) == "" {
-		return fmt.Errorf("Unable to add ghost record with empty UID")
+		return fmt.Errorf("unable to add ghost record with empty UID")
 	} else if socketFile == "" {
-		return fmt.Errorf("Unable to add ghost record without a socketFile")
+		return fmt.Errorf("unable to add ghost record without a socketFile")
 	}
 
 	key := namespace + "/" + name
@@ -256,7 +248,7 @@ func DeleteGhostRecord(namespace string, name string) error {
 	}
 
 	if string(record.UID) == "" {
-		return fmt.Errorf("Unable to remove ghost record with empty UID")
+		return fmt.Errorf("unable to remove ghost record with empty UID")
 	}
 
 	recordPath := filepath.Join(ghostRecordDir, string(record.UID))
@@ -304,7 +296,7 @@ func (d *DomainWatcher) startBackground() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.backgroundWatcherStarted == true {
+	if d.backgroundWatcherStarted {
 		return nil
 	}
 
@@ -339,7 +331,6 @@ func (d *DomainWatcher) startBackground() error {
 			case <-resyncTickerChan:
 				d.handleResync()
 			case <-expiredWatchdogTickerChan:
-				d.handleStaleWatchdogFiles()
 				d.handleStaleSocketConnections()
 			case err := <-srvErr:
 				if err != nil {
@@ -356,26 +347,7 @@ func (d *DomainWatcher) startBackground() error {
 	return nil
 }
 
-// TODO remove watchdog file usage eventually and only rely on detecting stale socket connections
-// for now we have to keep watchdog files around for backwards compatibility with old VMIs
-func (d *DomainWatcher) handleStaleWatchdogFiles() error {
-	domains, err := watchdog.GetExpiredDomains(d.watchdogTimeout, d.virtShareDir)
-	if err != nil {
-		log.Log.Reason(err).Error("failed to detect expired watchdog files in domain informer")
-		return err
-	}
-
-	for _, domain := range domains {
-		log.Log.Object(domain).Warning("detected expired watchdog for domain")
-		now := k8sv1.Now()
-		domain.ObjectMeta.DeletionTimestamp = &now
-		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-	}
-	return nil
-}
-
 func (d *DomainWatcher) handleResync() {
-
 	socketFiles, err := listSockets()
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
@@ -419,12 +391,6 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 	}
 
 	for _, socket := range socketFiles {
-		if !cmdclient.SocketMonitoringEnabled(socket) {
-			// don't process legacy sockets here. They still use the
-			// old watchdog file method
-			continue
-		}
-
 		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
 		if err == nil {
 			// socket is alive still
@@ -541,7 +507,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 			// be sent.
 			continue
 		}
-		if exists == true {
+		if exists {
 			domains = append(domains, domain)
 		}
 	}
@@ -579,7 +545,7 @@ func (d *DomainWatcher) Stop() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	if d.backgroundWatcherStarted == false {
+	if !d.backgroundWatcherStarted {
 		return
 	}
 	close(d.stopChan)
