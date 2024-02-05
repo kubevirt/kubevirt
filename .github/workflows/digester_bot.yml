@@ -54,7 +54,7 @@ jobs:
         if: ${{ env.CHANGED }}
         run: ./hack/build-manifests.sh
 
-      - uses: peter-evans/create-pull-request@v5
+      - uses: peter-evans/create-pull-request@v6
         if: ${{ env.CHANGED }}
         with:
           token: ${{ secrets.HCO_BOT_TOKEN }}

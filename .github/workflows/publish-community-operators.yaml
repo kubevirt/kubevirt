@@ -118,7 +118,7 @@ jobs:
           git add ./deploy/
           echo "CHANGED=true" >> $GITHUB_ENV
 
-      - uses: peter-evans/create-pull-request@v5
+      - uses: peter-evans/create-pull-request@v6
         if: ${{ env.CHANGED }}
         with:
           token: ${{ secrets.HCO_BOT_TOKEN }}

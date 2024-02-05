@@ -30,7 +30,7 @@ jobs:
           fi
 
       - name: Create a PR
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v6
         if: ${{ env.UPDATED }}
         with:
           path: hco
