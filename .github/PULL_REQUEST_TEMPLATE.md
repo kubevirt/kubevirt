@@ -17,7 +17,6 @@ The following tradeoffs were made:
 The following alternatives were considered:
 
 Links to places where the discussion took place: <!-- optional: slack, other GH issue, mailinglist, ... -->
--
 
 ### Special notes for your reviewer
 
