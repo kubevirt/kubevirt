@@ -398,7 +398,7 @@ func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi
 			metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
 		)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(pods.Items)).To(Equal(1))
+		Expect(pods.Items).To(HaveLen(1))
 
 		return pods.Items[0].Status.Phase
 	}, 30*time.Second).Should(Equal(k8sv1.PodSucceeded))
