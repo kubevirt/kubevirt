@@ -20,6 +20,7 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -245,6 +246,11 @@ var volumeImportOptions = map[string]volumeImportFn{
 	s3:       withVolumeSourceS3,
 	vddk:     withVolumeSourceVDDK,
 	snapshot: withVolumeSourceSnapshot,
+}
+
+var volumeImportSizeOptional = map[string]bool{
+	pvc:      true,
+	snapshot: true,
 }
 
 var runStrategies = []string{
@@ -1025,7 +1031,9 @@ func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
 
 		size, err := params.GetParamByName("size", volume)
 		if err != nil {
-			return err
+			if !volumeImportSizeOptional[volumeSourceType] || !errors.Is(err, params.NotFoundError{Name: "size"}) {
+				return err
+			}
 		}
 
 		name, err := params.GetParamByName("name", volume)
@@ -1243,22 +1251,26 @@ func createVolumeWithSource(source *cdiv1.DataVolumeSource, size string, name st
 		return err
 	}
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+	dvt := v1.DataVolumeTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: cdiv1.DataVolumeSpec{
 			Source: source,
-			Storage: &cdiv1.StorageSpec{
-				Resources: k8sv1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceStorage: resource.MustParse(size),
-					},
+		},
+	}
+
+	if size != "" {
+		dvt.Spec.Storage = &cdiv1.StorageSpec{
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse(size),
 				},
 			},
-		},
-	})
+		}
+	}
 
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dvt)
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
