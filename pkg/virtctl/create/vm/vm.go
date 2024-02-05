@@ -1203,6 +1203,26 @@ func withVolumeSourceVDDK(paramStr string) (*cdiv1.DataVolumeSource, error) {
 		return nil, err
 	}
 
+	if sourceStruct.URL == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "URL is required with VDDK volume source")
+	}
+
+	if sourceStruct.UUID == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "UUID is required with VDDK volume source")
+	}
+
+	if sourceStruct.ThumbPrint == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "ThumbPrint is required with VDDK volume source")
+	}
+
+	if sourceStruct.SecretRef == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "SecretRef is required with VDDK volume source")
+	}
+
+	if sourceStruct.BackingFile == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "BackingFile is required with VDDK volume source")
+	}
+
 	source := cdiv1.DataVolumeSource{
 		VDDK: &cdiv1.DataVolumeSourceVDDK{
 			URL:          sourceStruct.URL,
