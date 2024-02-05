@@ -26,6 +26,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
+
 	"kubevirt.io/client-go/kubecli"
 )
 

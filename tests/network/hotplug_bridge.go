@@ -157,7 +157,8 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			const ip2 = "10.1.1.2"
 
 			By("Configuring static IP address on the hotplugged interface inside the guest")
-			Expect(configInterface(hotPluggedVMI, vmIfaceName, ip1+subnetMask)).To(Succeed())
+			Expect(libnet.AddIPAddress(hotPluggedVMI, vmIfaceName, ip1+subnetMask)).To(Succeed())
+			Expect(libnet.SetInterfaceUp(hotPluggedVMI, vmIfaceName)).To(Succeed())
 
 			By("creating another VM connected to the same secondary network")
 			net := v1.Network{

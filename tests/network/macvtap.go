@@ -190,7 +190,8 @@ func createAlpineVMIStaticIPOnNode(nodeName string, networkName string, ifaceNam
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 	// configure the client VMI
-	Expect(configInterface(vmi, ifaceName, ipCIDR)).To(Succeed())
+	Expect(libnet.AddIPAddress(vmi, ifaceName, ipCIDR)).To(Succeed())
+	Expect(libnet.SetInterfaceUp(vmi, ifaceName)).To(Succeed())
 	return vmi
 }
 
