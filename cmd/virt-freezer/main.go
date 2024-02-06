@@ -21,6 +21,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+)
+
+const (
+	gaNotAvailableError = "Guest agent not available for now"
+	windowsOS           = "windows"
 )
 
 func getGrpcClient() (cmdclient.LauncherClient, error) {
@@ -109,7 +115,18 @@ func main() {
 	if *freeze {
 		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
 		if err != nil {
-			log.Log.Reason(err).Error("Freezeing VMI failed")
+			if strings.Contains(err.Error(), gaNotAvailableError) {
+				// make best effort of make sure fsstatus is not stuck on frozen
+				// due to bug https://issues.redhat.com/browse/RHEL-24046
+				client.UnfreezeVirtualMachine(vmi)
+				if strings.Contains(strings.ToLower(info.OS.Name), windowsOS) {
+					log.Log.Reason(err).Error("Freezeing VMI failed, please make sure guest agent and VSS are runnning and try again")
+				} else {
+					log.Log.Reason(err).Error("Freezeing VMI failed, please make sure guest agent is runnning and try again")
+				}
+			} else {
+				log.Log.Reason(err).Error("Freezeing VMI failed")
+			}
 			os.Exit(1)
 		}
 	} else {
