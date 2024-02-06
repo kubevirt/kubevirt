@@ -101,6 +101,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			vmi = libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
 			)
 
 			kv := util.GetCurrentKv(virtClient)
