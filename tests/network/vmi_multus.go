@@ -444,7 +444,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", ptpSubnetIP2+ptpSubnetMask)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByDevice("eth1", ptpSubnetIP2+ptpSubnetMask)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmiTwo, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo)
 				Expect(err).ToNot(HaveOccurred())
@@ -460,7 +460,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmiOne, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Create(context.Background(), vmiOne)
 				Expect(err).ToNot(HaveOccurred())
@@ -631,7 +631,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				vmiUnderTest := libvmi.NewFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -640,7 +640,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				targetVmi := libvmi.NewFedora(
 					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
 					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask)),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByDevice("eth0", targetVMIPAddress+bridgeSubnetMask)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -777,29 +777,6 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 	}
 
 	return nil
-}
-
-func cloudInitNetworkDataWithStaticIPsByMac(nicName, macAddress, ipAddress string) string {
-	networkData, err := cloudinit.NewNetworkData(
-		cloudinit.WithEthernet(nicName,
-			cloudinit.WithAddresses(ipAddress),
-			cloudinit.WithNameserverFromCluster(),
-			cloudinit.WithMatchingMAC(macAddress),
-		),
-	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create static IPs by mac address cloud init network data")
-	return networkData
-}
-
-func cloudInitNetworkDataWithStaticIPsByDevice(deviceName, ipAddress string) string {
-	networkData, err := cloudinit.NewNetworkData(
-		cloudinit.WithEthernet(deviceName,
-			cloudinit.WithAddresses(ipAddress),
-			cloudinit.WithNameserverFromCluster(),
-		),
-	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create static IPs by device name cloud init network data")
-	return networkData
 }
 
 // If staticIP is empty the interface would get a dynamic IP

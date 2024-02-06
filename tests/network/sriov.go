@@ -798,7 +798,7 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 	// no DHCP server to serve the address to the guest
 	vmi := newSRIOVVmi(
 		[]string{networkName},
-		cloudInitNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr),
+		netcloudinit.CreateNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr),
 	)
 	libvmi.WithNodeAffinityFor(nodeName)(vmi)
 	const secondaryInterfaceIndex = 1
