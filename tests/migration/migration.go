@@ -674,7 +674,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
 			})
 
-			It("should migrate vmi with a usb disk", func() {
+			It("[test_id:9795]should migrate vmi with a usb disk", func() {
 
 				vmi := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithEmptyDisk("uniqueusbdisk", v1.DiskBusUSB, resource.MustParse("128Mi")),
