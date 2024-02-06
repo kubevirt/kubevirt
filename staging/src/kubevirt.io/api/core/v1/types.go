@@ -1487,9 +1487,6 @@ type VirtualMachineSpec struct {
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
 	DataVolumeTemplates []DataVolumeTemplateSpec `json:"dataVolumeTemplates,omitempty"`
-
-	// LiveUpdateFeatures references a configuration of hotpluggable resources
-	LiveUpdateFeatures *LiveUpdateFeatures `json:"liveUpdateFeatures,omitempty" optional:"true"`
 }
 
 // StateChangeRequestType represents the existing state change requests that are possible
@@ -1666,6 +1663,9 @@ const (
 
 	// VirtualMachineInitialized means the virtual machine object has been seen by the VM controller
 	VirtualMachineInitialized VirtualMachineConditionType = "Initialized"
+
+	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI
+	VirtualMachineRestartRequired VirtualMachineConditionType = "RestartRequired"
 )
 
 type HostDiskType string
@@ -2423,7 +2423,21 @@ type KubeVirtConfiguration struct {
 	AutoCPULimitNamespaceLabelSelector *metav1.LabelSelector `json:"autoCPULimitNamespaceLabelSelector,omitempty"`
 	// LiveUpdateConfiguration holds defaults for live update features
 	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
+
+	// VMRolloutStrategy defines how changes to a VM object propagate to its VMI
+	// +nullable
+	// +kubebuilder:validation:Enum=Stage;LiveUpdate
+	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
 }
+
+type VMRolloutStrategy string
+
+const (
+	// VMRolloutStrategyStage is the default strategy. It means changes to VM objects will be staged until the next VM reboot
+	VMRolloutStrategyStage VMRolloutStrategy = "Stage"
+	// VMRolloutStrategyLiveUpdate means changes to VM objects will be propagated to their VMI when possible
+	VMRolloutStrategyLiveUpdate VMRolloutStrategy = "LiveUpdate"
+)
 
 type ArchConfiguration struct {
 	Amd64               *ArchSpecificConfiguration `json:"amd64,omitempty"`
@@ -2891,19 +2905,6 @@ func (p PreferenceMatcher) GetName() string {
 
 func (p PreferenceMatcher) GetRevisionName() string {
 	return p.RevisionName
-}
-
-type LiveUpdateFeatures struct {
-	// LiveUpdateCPU holds hotplug configuration for the CPU resource.
-	// Empty struct indicates that default will be used for maxSockets.
-	// Default is specified on cluster level.
-	// Absence of the struct means opt-out from CPU hotplug functionality.
-	CPU *LiveUpdateCPU `json:"cpu,omitempty" optional:"true"`
-	// Affinity allows live updating the virtual machines node affinity
-	Affinity *LiveUpdateAffinity `json:"affinity,omitempty" optional:"true"`
-	// MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine
-	// +optional
-	Memory *LiveUpdateMemory `json:"memory,omitempty"`
 }
 
 type LiveUpdateAffinity struct{}

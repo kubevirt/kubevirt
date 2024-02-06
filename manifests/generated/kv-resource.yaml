@@ -899,6 +899,14 @@ spec:
                           AutoattachSerialConsole is disabled.
                         type: object
                     type: object
+                  vmRolloutStrategy:
+                    description: VMRolloutStrategy defines how changes to a VM object
+                      propagate to its VMI
+                    enum:
+                    - Stage
+                    - LiveUpdate
+                    nullable: true
+                    type: string
                   vmStateStorageClass:
                     description: VMStateStorageClass is the name of the storage class
                       to use for the PVCs created to preserve VM state, like TPM.
@@ -3983,6 +3991,14 @@ spec:
                           AutoattachSerialConsole is disabled.
                         type: object
                     type: object
+                  vmRolloutStrategy:
+                    description: VMRolloutStrategy defines how changes to a VM object
+                      propagate to its VMI
+                    enum:
+                    - Stage
+                    - LiveUpdate
+                    nullable: true
+                    type: string
                   vmStateStorageClass:
                     description: VMStateStorageClass is the name of the storage class
                       to use for the PVCs created to preserve VM state, like TPM.

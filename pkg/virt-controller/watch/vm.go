@@ -33,8 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
-	"kubevirt.io/kubevirt/pkg/util/hardware"
-
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
@@ -89,6 +87,7 @@ const (
 	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
 	failedMemoryDump                      = "Memory dump failed"
+	failedCleanupRestartRequired          = "Failed to delete RestartRequired condition or last-seen controller revisions"
 
 	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
 	// ServiceAccount doesn't have permission to create a DataVolume
@@ -288,7 +287,6 @@ func (c *VMController) Execute() bool {
 }
 
 func (c *VMController) execute(key string) error {
-
 	obj, exists, err := c.vmInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return nil
@@ -636,17 +634,11 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
-	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.CPU == nil {
-		return nil
-	}
-
 	if vm.Spec.Template.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU == nil {
 		return nil
 	}
 
-	vmTemplVCPUs := hardware.GetNumberOfVCPUs(vm.Spec.Template.Spec.Domain.CPU)
-	vmiVCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-	if vmTemplVCPUs == vmiVCPUs {
+	if vm.Spec.Template.Spec.Domain.CPU.Sockets == vmi.Spec.Domain.CPU.Sockets {
 		return nil
 	}
 
@@ -657,6 +649,20 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 
 	if migrations.IsMigrating(vmi) {
 		return fmt.Errorf("CPU hotplug is not allowed while VMI is migrating")
+	}
+
+	// If the following is true, MaxSockets was calculated, not manually specified (or the validation webhook would have rejected the change).
+	// Since we're here, we can also assume MaxSockets was not changed in the VM spec since last boot.
+	// Therefore, bumping Sockets to a value higher than MaxSockets is fine, it just requires a reboot.
+	if vm.Spec.Template.Spec.Domain.CPU.Sockets > vmi.Spec.Domain.CPU.MaxSockets {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "CPU sockets updated in template spec to a value higher than what's available",
+		})
+		return nil
 	}
 
 	if err := c.VMICPUsPatch(vm, vmi); err != nil {
@@ -731,10 +737,6 @@ func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.V
 
 func (c *VMController) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
-		return nil
-	}
-
-	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.Affinity == nil {
 		return nil
 	}
 
@@ -875,15 +877,15 @@ func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
-func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) syncError {
+func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, syncError) {
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
-		return &syncErrorImpl{fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason}
+		return vm, &syncErrorImpl{fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason}
 	}
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Errorf(fetchingVMKeyErrFmt, err)
-		return &syncErrorImpl{err, FailedCreateReason}
+		return vm, &syncErrorImpl{err, FailedCreateReason}
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
@@ -904,30 +906,30 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				// is keep the VirtualMachineInstance running, therefore it restarts it.
 				// restarting VirtualMachineInstance by stopping it and letting it start in next step
 				log.Log.Object(vm).V(4).Info(stoppingVmMsg)
-				err := c.stopVMI(vm, vmi)
+				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+					return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 				}
 				// return to let the controller pick up the expected deletion
 			}
 			// VirtualMachineInstance is OK no need to do anything
-			return nil
+			return vm, nil
 		}
 
 		timeLeft := startFailureBackoffTimeLeft(vm)
 		if timeLeft > 0 {
 			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
 			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
-			return nil
+			return vm, nil
 		}
 
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
-		err := c.startVMI(vm)
+		vm, err = c.startVMI(vm)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
+			return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 		}
-		return nil
+		return vm, nil
 
 	case virtv1.RunStrategyRerunOnFailure:
 		// For this RunStrategy, a VMI should only be restarted if it failed.
@@ -943,40 +945,40 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			if vmi.DeletionTimestamp == nil && (forceStop || vmiFailed || vmiSucceeded) {
 				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance if it failed.
 				log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
-				err := c.stopVMI(vm, vmi)
+				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+					return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 				}
 
 				if vmiFailed {
 					err = c.addStartRequest(vm)
 					if err != nil {
-						return &syncErrorImpl{fmt.Errorf("failed to patch VM with start action: %v", err), VMIFailedDeleteReason}
+						return vm, &syncErrorImpl{fmt.Errorf("failed to patch VM with start action: %v", err), VMIFailedDeleteReason}
 					}
 				}
 			}
 			// return to let the controller pick up the expected deletion
-			return nil
+			return vm, nil
 		}
 
 		if !hasStartRequest(vm) {
-			return nil
+			return vm, nil
 		}
 
 		timeLeft := startFailureBackoffTimeLeft(vm)
 		if timeLeft > 0 {
 			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
 			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
-			return nil
+			return vm, nil
 		}
 
 		log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmMsg, runStrategy)
-		err := c.startVMI(vm)
+		vm, err = c.startVMI(vm)
 		if err != nil {
-			return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
+			return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 		}
-		return nil
+		return vm, nil
 
 	case virtv1.RunStrategyManual:
 		// For this RunStrategy, VMI's will be started/stopped/restarted using api endpoints only
@@ -985,25 +987,25 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 
 			if forceStop := hasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", vmi.Status.Phase, stoppingVmMsg, runStrategy)
-				err := c.stopVMI(vm, vmi)
+				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
-					return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+					return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 				}
 				// return to let the controller pick up the expected deletion
-				return nil
+				return vm, nil
 			}
 		} else {
 			if hasStartRequest(vm) {
 				log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
 
-				err := c.startVMI(vm)
+				vm, err = c.startVMI(vm)
 				if err != nil {
-					return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
+					return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 				}
 			}
 		}
-		return nil
+		return vm, nil
 
 	case virtv1.RunStrategyHalted:
 		// For this runStrategy, no VMI should be running under any circumstances.
@@ -1020,28 +1022,29 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 					vmCopy.Spec.Running = &running
 				}
 				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
-				return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
+				return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 			}
-			return nil
+			return vm, nil
 		}
 		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
-		if err := c.stopVMI(vm, vmi); err != nil {
-			return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+		vm, err = c.stopVMI(vm, vmi)
+		if err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 		}
-		return nil
+		return vm, nil
 	case virtv1.RunStrategyOnce:
 		if vmi == nil {
 			log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
 
-			err := c.startVMI(vm)
+			vm, err = c.startVMI(vm)
 			if err != nil {
-				return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
+				return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 			}
 		}
 
-		return nil
+		return vm, nil
 	default:
-		return &syncErrorImpl{fmt.Errorf("unknown runstrategy: %s", runStrategy), FailedCreateReason}
+		return vm, &syncErrorImpl{fmt.Errorf("unknown runstrategy: %s", runStrategy), FailedCreateReason}
 	}
 }
 
@@ -1113,12 +1116,28 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 	}
 }
 
-func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
+func (c *VMController) cleanupRestartRequired(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+		vm = vm.DeepCopy()
+		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
+	}
+
+	return vm, c.deleteVMRevisions(vm)
+}
+
+func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
-		return nil
+		return vm, nil
+	}
+
+	vm, err = c.cleanupRestartRequired(vm)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error(failedCleanupRestartRequired)
+		return vm, err
 	}
 
 	// start it
@@ -1126,7 +1145,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
-		return err
+		return vm, err
 	}
 	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
@@ -1142,7 +1161,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
-		return err
+		return vm, err
 	}
 
 	util.SetDefaultVolumeDisk(&vmi.Spec)
@@ -1151,14 +1170,14 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 
 	err = c.clusterConfig.SetVMISpecDefaultNetworkInterface(&vmi.Spec)
 	if err != nil {
-		return err
+		return vm, err
 	}
 
 	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
-		return err
+		return vm, err
 	}
 
 	c.expectations.ExpectCreations(vmKey, 1)
@@ -1167,12 +1186,12 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s", controller.NamespacedKey(vmi.Namespace, vmi.Name))
 		c.expectations.CreationObserved(vmKey)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
-		return err
+		return vm, err
 	}
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
-	return nil
+	return vm, nil
 }
 
 func setGenerationAnnotationOnVmi(generation int64, vmi *virtv1.VirtualMachineInstance) {
@@ -1432,16 +1451,16 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 }
 
 // here is stop
-func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		// nothing to do
-		return nil
+		return vm, nil
 	}
 
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
-		return nil
+		return vm, nil
 	}
 
 	// stop it
@@ -1452,7 +1471,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		err = c.patchVMITerminationGracePeriod(vm.GetDeletionGracePeriodSeconds(), vmi)
 		if err != nil {
 			log.Log.Object(vmi).Errorf("unable to patch vmi termination grace period: %v", err)
-			return err
+			return vm, err
 		}
 	}
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
@@ -1463,21 +1482,27 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		// We can't observe a delete if it was not accepted by the server
 		c.expectations.DeletionObserved(vmKey, controller.VirtualMachineInstanceKey(vmi))
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
-		return err
+		return vm, err
+	}
+
+	vm, err = c.cleanupRestartRequired(vm)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error(failedCleanupRestartRequired)
+		return vm, nil
 	}
 
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
 	log.Log.Object(vm).Infof("Dispatching delete event for vmi %s with phase %s", controller.NamespacedKey(vmi.Namespace, vmi.Name), vmi.Status.Phase)
 
-	return nil
+	return vm, nil
 }
 
-func vmRevisionNamePrefix(vmUID types.UID) string {
+func vmRevisionName(vmUID types.UID) string {
 	return fmt.Sprintf("revision-start-vm-%s", vmUID)
 }
 
 func getVMRevisionName(vmUID types.UID, generation int64) string {
-	return fmt.Sprintf("%s-%d", vmRevisionNamePrefix(vmUID), generation)
+	return fmt.Sprintf("%s-%d", vmRevisionName(vmUID), generation)
 }
 
 func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
@@ -1505,6 +1530,10 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 
 	createNotNeeded := false
 	for _, key := range keys {
+		if !strings.Contains(key, vmRevisionName(vm.UID)) {
+			continue
+		}
+
 		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
 		if !exists || err != nil {
 			return false, err
@@ -1515,10 +1544,6 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 			return false, fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		// check the revision is of the revisions that are created in the vm startup
-		if !strings.HasPrefix(cr.Name, vmRevisionNamePrefix(vm.UID)) {
-			continue
-		}
 		if cr.Revision == vm.ObjectMeta.Generation {
 			createNotNeeded = true
 			continue
@@ -1530,6 +1555,35 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 	}
 
 	return createNotNeeded, nil
+}
+
+func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
+	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return err
+	}
+
+	for _, key := range keys {
+		if !strings.Contains(key, vmRevisionName(vm.UID)) {
+			continue
+		}
+
+		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
+		if !exists || err != nil {
+			return err
+		}
+		cr, ok := storeObj.(*appsv1.ControllerRevision)
+		if !ok {
+			return fmt.Errorf("unexpected resource %+v", storeObj)
+		}
+
+		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // getControllerRevision attempts to get the controller revision by name and
@@ -1546,8 +1600,73 @@ func (c *VMController) getControllerRevision(namespace string, name string) (*ap
 	return cr, nil
 }
 
+func (c *VMController) getVMSpecForKey(key string) (*virtv1.VirtualMachineSpec, error) {
+	obj, exists, err := c.crInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("could not find key %s", key)
+	}
+
+	cr, ok := obj.(*appsv1.ControllerRevision)
+	if !ok {
+		return nil, fmt.Errorf("unexpected resource %+v", obj)
+	}
+
+	revisionData := VirtualMachineRevisionData{}
+	err = json.Unmarshal(cr.Data.Raw, &revisionData)
+	if err != nil {
+		return nil, err
+	}
+
+	return &revisionData.Spec, nil
+}
+
+func genFromKey(key string) (int64, error) {
+	items := strings.Split(key, "-")
+	genString := items[len(items)-1]
+	return strconv.ParseInt(genString, 10, 64)
+}
+
+func (c *VMController) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineSpec, error) {
+	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	var highestGen int64 = 0
+	var key string
+	for _, k := range keys {
+		if !strings.Contains(k, vmRevisionName(vm.UID)) {
+			continue
+		}
+		gen, err := genFromKey(k)
+
+		if err != nil {
+			return nil, fmt.Errorf("invalid key: %s", k)
+		}
+		if gen > highestGen {
+			if key != "" {
+				log.Log.Object(vm).Warningf("expected no more than 1 revision, found at least 2")
+			}
+			highestGen = gen
+			key = k
+		}
+	}
+
+	if key == "" {
+		return nil, nil
+	}
+
+	return c.getVMSpecForKey(key)
+}
+
 func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, error) {
-	vmRevisionName := getVMRevisionName(vm.UID, vm.ObjectMeta.Generation)
+	vmRevisionName := getVMRevisionName(vm.UID, vm.Generation)
 	createNotNeeded, err := c.deleteOlderVMRevision(vm)
 	if err != nil || createNotNeeded {
 		return vmRevisionName, err
@@ -1625,7 +1744,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		}
 	}
 
-	c.setupLiveFeatures(vm, vmi, VMIDefaults)
+	c.setupHotplug(vmi, VMIDefaults)
 
 	return vmi
 }
@@ -1708,17 +1827,9 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
 }
 
-func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vm.Spec.LiveUpdateFeatures.CPU == nil {
-		return
-	}
-
+func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
 	if vmi.Spec.Domain.CPU == nil {
 		vmi.Spec.Domain.CPU = &virtv1.CPU{}
-	}
-
-	if vm.Spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
-		vmi.Spec.Domain.CPU.MaxSockets = *vm.Spec.LiveUpdateFeatures.CPU.MaxSockets
 	}
 
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
@@ -1734,13 +1845,9 @@ func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
 	}
 }
 
-func (c *VMController) setupMemoryHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vm.Spec.LiveUpdateFeatures.Memory == nil {
+func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
+	if vmi.Spec.Domain.Memory == nil {
 		return
-	}
-
-	if vm.Spec.LiveUpdateFeatures.Memory.MaxGuest != nil {
-		vmi.Spec.Domain.Memory.MaxGuest = vm.Spec.LiveUpdateFeatures.Memory.MaxGuest
 	}
 
 	if vmi.Spec.Domain.Memory.MaxGuest == nil {
@@ -2276,7 +2383,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 
 	syncStartFailureStatus(vm, vmi)
-	c.syncConditions(vm, vmi, syncErr)
+	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 
 	// only update if necessary
@@ -2472,7 +2579,7 @@ func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualM
 	return false
 }
 
-func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
 		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
@@ -2510,12 +2617,12 @@ func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi 
 	}
 }
 
-func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
 	cm := controller.NewVirtualMachineConditionManager()
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
-	c.syncReadyConditionFromVMI(vm, vmi)
-	c.processFailureCondition(vm, vmi, syncErr)
+	syncReadyConditionFromVMI(vm, vmi)
+	processFailureCondition(vm, vmi, syncErr)
 
 	// nothing to do if vmi hasn't been created yet.
 	if vmi == nil {
@@ -2524,9 +2631,10 @@ func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 
 	// sync VMI conditions, ignore list represents conditions that are not synced generically
 	syncIgnoreMap := map[string]interface{}{
-		string(virtv1.VirtualMachineReady):       nil,
-		string(virtv1.VirtualMachineFailure):     nil,
-		string(virtv1.VirtualMachineInitialized): nil,
+		string(virtv1.VirtualMachineReady):           nil,
+		string(virtv1.VirtualMachineFailure):         nil,
+		string(virtv1.VirtualMachineInitialized):     nil,
+		string(virtv1.VirtualMachineRestartRequired): nil,
 	}
 	vmiCondMap := make(map[string]interface{})
 
@@ -2561,7 +2669,7 @@ func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 	}
 }
 
-func (c *VMController) processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+func processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
 
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if syncErr == nil {
@@ -2758,12 +2866,58 @@ func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 	vm.Status.VolumeRequests = tmpVolRequests
 }
 
+// addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
+func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, bool) {
+	if lastSeenVMSpec == nil {
+		return vm, false
+	}
+	// Ignore all the live-updatable fields by copying them over. (If the feature gate is disabled, nothing is live-updatable)
+	// Note: this list needs to stay up-to-date with everything that can be live-updated
+	// Note2: destroying lastSeenVMSpec here is fine, we don't need it later
+	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
+		lastSeenVMSpec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+		lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && vm.Spec.Template.Spec.Domain.CPU != nil {
+			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets
+		}
+		if lastSeenVMSpec.Template.Spec.Domain.Memory != nil && vm.Spec.Template.Spec.Domain.Memory != nil {
+			lastSeenVMSpec.Template.Spec.Domain.Memory.Guest = vm.Spec.Template.Spec.Domain.Memory.Guest
+		}
+		lastSeenVMSpec.Template.Spec.NodeSelector = vm.Spec.Template.Spec.NodeSelector
+		lastSeenVMSpec.Template.Spec.Affinity = vm.Spec.Template.Spec.Affinity
+	}
+
+	if !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec, vm.Spec.Template.Spec) {
+		vm = vm.DeepCopy()
+		vmConditionManager := controller.NewVirtualMachineConditionManager()
+		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "a non-live-updatable field was changed in the template spec",
+		})
+		return vm, true
+	}
+
+	return vm, false
+}
+
 func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (*virtv1.VirtualMachine, syncError, error) {
-	var syncErr syncError
-	var err error
+	var (
+		syncErr     syncError
+		err         error
+		startVMSpec *virtv1.VirtualMachineSpec
+	)
 
 	if !c.needsSync(key) {
 		return vm, nil, nil
+	}
+
+	if vmi != nil {
+		startVMSpec, err = c.getLastVMRevisionSpec(vm)
+		if err != nil {
+			return vm, nil, err
+		}
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
@@ -2792,7 +2946,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 				return vm, nil, err
 			}
 		} else {
-			err = c.stopVMI(vm, vmi)
+			vm, err = c.stopVMI(vm, vmi)
 			if err != nil {
 				log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 				return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}, nil
@@ -2829,11 +2983,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		if err != nil {
 			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}
 		} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
-			syncErr = c.startStop(vm, vmi)
+			vm, syncErr = c.startStop(vm, vmi)
 		} else {
 			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
 		}
 	}
+
+	vm, restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
 
 	// Must check needsSync again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
@@ -2879,19 +3035,21 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			}
 		}
 
-		err = c.handleCPUChangeRequest(vmCopy, vmi)
-		if err != nil {
-			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
-		}
+		if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+			err = c.handleCPUChangeRequest(vmCopy, vmi)
+			if err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
+			}
 
-		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
-			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
-		}
+			if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
+			}
 
-		if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
-			syncErr = &syncErrorImpl{
-				err:    fmt.Errorf("error encountered while handling memory hotplug requests: %v", err),
-				reason: HotPlugMemoryErrorReason,
+			if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
+				syncErr = &syncErrorImpl{
+					err:    fmt.Errorf("error encountered while handling memory hotplug requests: %v", err),
+					reason: HotPlugMemoryErrorReason,
+				}
 			}
 		}
 
@@ -2904,6 +3062,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			}
 		}
 	}
+
 	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
 	return vm, syncErr, nil
@@ -2982,10 +3141,6 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.Memory == nil {
-		return nil
-	}
-
 	if vm.Spec.Template.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory == nil {
 		return nil
 	}
@@ -2996,11 +3151,9 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		vmi.Status.Memory.GuestCurrent == nil ||
 		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*guestMemory) {
 		return nil
-
 	}
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
-
 	if conditionManager.HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionTrue) {
 		return fmt.Errorf("another memory hotplug is in progress")
@@ -3008,6 +3161,33 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	if migrations.IsMigrating(vmi) {
 		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
+	}
+
+	if vm.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Status.Memory.GuestAtBoot != nil &&
+		vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Status.Memory.GuestAtBoot) == -1 {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec to a value lower than what the VM started with",
+		})
+		return nil
+	}
+
+	// If the following is true, MaxGuest was calculated, not manually specified (or the validation webhook would have rejected the change).
+	// Since we're here, we can also assume MaxGuest was not changed in the VM spec since last boot.
+	// Therefore, bumping Guest to a value higher than MaxGuest is fine, it just requires a reboot.
+	if vm.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Spec.Domain.Memory.MaxGuest != nil &&
+		vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Spec.Domain.Memory.MaxGuest) == 1 {
+		vmConditions := controller.NewVirtualMachineConditionManager()
+		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineRestartRequired,
+			LastTransitionTime: v1.Now(),
+			Status:             k8score.ConditionTrue,
+			Message:            "memory updated in template spec to a value higher than what's available",
+		})
+		return nil
 	}
 
 	newMemoryReq := vm.Spec.Template.Spec.Domain.Memory.Guest.DeepCopy()
@@ -3069,18 +3249,15 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 	return err
 }
 
-func (c *VMController) setupLiveFeatures(
-	vm *virtv1.VirtualMachine,
-	vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
-
-	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
-
-	if vm.Spec.LiveUpdateFeatures == nil {
+func (c *VMController) setupHotplug(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
+	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
 		return
 	}
 
-	c.setupCPUHotplug(vm, vmi, VMIDefaults, maxRatio)
-	c.setupMemoryHotplug(vm, vmi, maxRatio)
+	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
+
+	c.setupCPUHotplug(vmi, VMIDefaults, maxRatio)
+	c.setupMemoryHotplug(vmi, maxRatio)
 }
 
 func (c *VMController) patchVMITerminationGracePeriod(gracePeriod *int64, vmi *virtv1.VirtualMachineInstance) error {

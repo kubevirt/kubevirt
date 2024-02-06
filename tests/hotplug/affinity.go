@@ -6,6 +6,12 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	util2 "kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -16,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -32,6 +37,9 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+		kv := util2.GetCurrentKv(virtClient)
+		kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
+		testsuite.UpdateKubeVirtConfigValue(kv.Spec.Configuration)
 	})
 
 	Context("Updating VMs node affinity", func() {
@@ -100,9 +108,6 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
-				Affinity: &v1.LiveUpdateAffinity{},
-			}
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -160,9 +165,6 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			vm.Spec.LiveUpdateFeatures = &v1.LiveUpdateFeatures{
-				Affinity: &v1.LiveUpdateAffinity{},
-			}
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
