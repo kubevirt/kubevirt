@@ -59,7 +59,7 @@ var (
 			Expr:  intstr.FromString("kubevirt_vmi_non_evictable > 0"),
 			For:   ptr.To(promv1.Duration("1m")),
 			Annotations: map[string]string{
-				"description": "Eviction policy for {{ $labels.name }} (on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
+				"description": "Eviction policy for VirtualMachine {{ $labels.name }} in namespace {{ $labels.namespace }} (on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
 				"summary":     "The VM's eviction strategy is set to Live Migration but the VM is not migratable",
 			},
 			Labels: map[string]string{
@@ -69,9 +69,9 @@ var (
 		},
 		{
 			Alert: "KubeVirtVMIExcessiveMigrations",
-			Expr:  intstr.FromString("sum by (vmi) (max_over_time(kubevirt_vmi_migration_succeeded[1d])) >= 12"),
+			Expr:  intstr.FromString("sum by (vmi, namespace) (max_over_time(kubevirt_vmi_migration_succeeded[1d])) >= 12"),
 			Annotations: map[string]string{
-				"description": "VirtualMachineInstance {{ $labels.vmi }} has been migrated more than 12 times during the last 24 hours",
+				"description": "VirtualMachineInstance {{ $labels.vmi }} in namespace {{ $labels.namespace }} has been migrated more than 12 times during the last 24 hours",
 				"summary":     "An excessive amount of migrations have been detected on a VirtualMachineInstance in the last 24 hours.",
 			},
 			Labels: map[string]string{
