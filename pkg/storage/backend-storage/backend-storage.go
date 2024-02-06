@@ -86,6 +86,10 @@ func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfi
 	if storageClass == "" {
 		return fmt.Errorf("backend VM storage requires a backend storage class defined in the custom resource")
 	}
+	accessMode := clusterConfig.GetVMStateAccessMode()
+	if accessMode == "" {
+		return fmt.Errorf("backend VM storage requires a backend access mode defined in the custom resource")
+	}
 	ownerReferences := vmi.OwnerReferences
 	if len(vmi.OwnerReferences) == 0 {
 		// If the VMI has no owner, then it did not originate from a VM.
@@ -102,7 +106,7 @@ func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfi
 			OwnerReferences: ownerReferences,
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
-			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
+			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
 			Resources: v1.ResourceRequirements{
 				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(PVCSize)},
 			},

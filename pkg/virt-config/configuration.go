@@ -181,6 +181,8 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	}
 	defaultEvictionStrategy := v1.EvictionStrategyNone
 
+	defaultVMStateAccessMode := DefaultVMStateAccessMode
+
 	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -268,6 +270,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
 			MaxHotplugRatio: DefaultMaxHotplugRatio,
 		},
+		VMStateAccessMode: defaultVMStateAccessMode,
 	}
 }
 
