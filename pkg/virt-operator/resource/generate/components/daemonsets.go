@@ -182,6 +182,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		"8186",
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
+		"--pod-name",
+		"$(MY_POD_NAME)",
+		"--pod-uid",
+		"$(MY_POD_UID)",
 		"-v",
 		verbosity,
 	}
@@ -212,6 +216,22 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "status.podIP",
+				},
+			},
+		},
+		{
+			Name: "MY_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name: "MY_POD_UID",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.uid",
 				},
 			},
 		},

@@ -33,6 +33,8 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
@@ -124,6 +126,9 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+
+	defaultPodName = ""
+	defaultPodUID  = ""
 )
 
 type virtHandlerApp struct {
@@ -164,6 +169,8 @@ type virtHandlerApp struct {
 	clusterConfig         *virtconfig.ClusterConfig
 	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
 	caManager             kvtls.ClientCAManager
+	podName               string
+	podUID                string
 }
 
 var (
@@ -223,6 +230,23 @@ func (app *virtHandlerApp) Run() {
 	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
+	}
+
+	_, err = app.virtCli.ShadowNodeClient().Create(context.TODO(), &v1.ShadowNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: app.HostOverride,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       app.podName,
+					UID:        types.UID(app.podUID),
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		panic(fmt.Sprintf("Failed to register shadow node, %s", err))
 	}
 
 	app.markNodeAsUnschedulable(logger)
@@ -648,6 +672,12 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.gracefulShutdownSeconds, "graceful-shutdown-seconds", defaultGracefulShutdownSeconds,
 		"The number of seconds to wait for existing migration connections to close before shutting down virt-handler.")
+
+	flag.StringVar(&app.podName, "pod-name", defaultPodName,
+		"The pod name")
+
+	flag.StringVar(&app.podUID, "pod-uid", defaultPodUID,
+		"The pod uid")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {

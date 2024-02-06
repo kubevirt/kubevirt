@@ -754,6 +754,15 @@ rules:
   - list
   - watch
 - apiGroups:
+  - kubevirt.io
+  resources:
+  - shadownodes
+  verbs:
+  - get
+  - create
+  - patch
+  - update
+- apiGroups:
   - ""
   resources:
   - configmaps
