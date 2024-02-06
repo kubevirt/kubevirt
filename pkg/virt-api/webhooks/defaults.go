@@ -50,7 +50,16 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	setDefaultHypervFeatureDependencies(&vmi.Spec)
 	setDefaultCPUArch(clusterConfig, &vmi.Spec)
 	setGuestMemoryStatus(vmi)
+	setGuestCPUTopologyStatus(vmi)
 	return nil
+}
+
+func setGuestCPUTopologyStatus(vmi *v1.VirtualMachineInstance) {
+	vmi.Status.CurrentCPUTopology = &v1.CPUTopology{
+		Sockets: vmi.Spec.Domain.CPU.Sockets,
+		Cores:   vmi.Spec.Domain.CPU.Cores,
+		Threads: vmi.Spec.Domain.CPU.Threads,
+	}
 }
 
 func setGuestMemoryStatus(vmi *v1.VirtualMachineInstance) {
