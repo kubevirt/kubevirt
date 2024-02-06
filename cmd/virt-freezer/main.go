@@ -37,6 +37,7 @@ import (
 const (
 	gaNotAvailableError = "Guest agent not available for now"
 	windowsOS           = "windows"
+	freezeLimitReached  = "fsfreeze is limited"
 )
 
 func getGrpcClient() (cmdclient.LauncherClient, error) {
@@ -65,7 +66,7 @@ func main() {
 	log.Log.Info("Starting...")
 
 	freeze := pflag.Bool("freeze", false, "Freeze VM")
-	unfreeze := pflag.Bool("unfreeze", false, "Freeze VM")
+	unfreeze := pflag.Bool("unfreeze", false, "Unfreeze VM")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	unfreezeTimeoutSeconds := pflag.Int32("unfreezeTimeoutSeconds", 300, "Timeout in seconds to automatically unfreeze the VirtualMachineInstance")
@@ -132,7 +133,11 @@ func main() {
 	} else {
 		err = client.UnfreezeVirtualMachine(vmi)
 		if err != nil {
-			log.Log.Reason(err).Error("Unfreezeing VMI failed")
+			if strings.Contains(err.Error(), freezeLimitReached) {
+				log.Log.Reason(err).Error("Unfreezeing VMI failed, please try again. If problem continues, stop the vm and backup while down")
+			} else {
+				log.Log.Reason(err).Error("Unfreezeing VMI failed")
+			}
 			os.Exit(1)
 		}
 	}
