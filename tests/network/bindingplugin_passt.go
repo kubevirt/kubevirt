@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkvconfig"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -405,10 +406,10 @@ func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi
 }
 
 func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	networkData, err := libnet.NewNetworkData(
-		libnet.WithEthernet("eth0",
-			libnet.WithDHCP4Enabled(),
-			libnet.WithDHCP6Enabled(),
+	networkData, err := cloudinit.NewNetworkData(
+		cloudinit.WithEthernet("eth0",
+			cloudinit.WithDHCP4Enabled(),
+			cloudinit.WithDHCP6Enabled(),
 		),
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

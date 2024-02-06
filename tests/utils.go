@@ -85,7 +85,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
-	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -626,7 +626,7 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 //
 // Deprecated: Use libvmi directly
 func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(append([]libvmi.Option{
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -640,7 +640,7 @@ func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 //
 // Deprecated: Use libvmi directly
 func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
