@@ -560,60 +560,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.subdomain"))
 		})
-		It("should accept disk and volume lists equal to max element length", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			for i := 0; i < arrayLenMax; i++ {
-				diskName := fmt.Sprintf("testdisk%d", i)
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: diskName,
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: diskName,
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: testutils.NewFakeContainerDiskSource(),
-					},
-				})
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
-		})
-		It("should reject disk lists greater than max element length", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			for i := 0; i <= arrayLenMax; i++ {
-				diskName := "testDisk"
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: diskName,
-				})
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			// if this is processed correctly, it should result in a single error
-			// If multiple causes occurred, then the spec was processed too far.
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks"))
-		})
-		It("should reject volume lists greater than max element length", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			for i := 0; i <= arrayLenMax; i++ {
-				volumeName := "testVolume"
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: volumeName,
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: testutils.NewFakeContainerDiskSource(),
-					},
-				})
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			// if this is processed correctly, it should result in a single error
-			// If multiple causes occurred, then the spec was processed too far.
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.volumes"))
-		})
 		It("should reject disk with missing volume", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 
@@ -1062,54 +1008,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
-		It("should accept interface and network lists equal to max element length", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			for i := 1; i < arrayLenMax; i++ {
-				networkName := fmt.Sprintf("default%d", i)
-
-				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
-					v1.Interface{Name: networkName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{}}})
-
-				vmi.Spec.Networks = append(vmi.Spec.Networks,
-					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: networkName}}})
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
-		})
-		It("should reject interface lists greater than max element length", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			for i := 0; i < arrayLenMax; i++ {
-				networkName := fmt.Sprintf("default%d", i)
-				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
-					v1.Interface{Name: networkName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{}}})
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake.domain.devices.interfaces "+
-				"list exceeds the %d element limit in length", arrayLenMax)))
-		})
-		It("should reject network lists greater than max element length", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			for i := 0; i < arrayLenMax; i++ {
-				networkName := fmt.Sprintf("default%d", i)
-				vmi.Spec.Networks = append(vmi.Spec.Networks,
-					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: networkName}}})
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake.networks "+
-				"list exceeds the %d element limit in length", arrayLenMax)))
-		})
 		It("should reject disks with the same boot order", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			order := uint(1)

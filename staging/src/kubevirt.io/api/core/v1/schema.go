@@ -446,10 +446,12 @@ type Devices struct {
 	// DisableHotplug disabled the ability to hotplug disks.
 	DisableHotplug bool `json:"disableHotplug,omitempty"`
 	// Disks describes disks, cdroms and luns which are connected to the vmi.
+	// +kubebuilder:validation:MaxItems:=256
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
+	// +kubebuilder:validation:MaxItems:=256
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Inputs describe input devices
 	Inputs []Input `json:"inputs,omitempty"`
