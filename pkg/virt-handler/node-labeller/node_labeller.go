@@ -197,14 +197,20 @@ func (n *NodeLabeller) run() error {
 		//prepare new labels
 		newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
 		//remove old labeller labels
-		n.removeLabellerLabels(node)
+		removedLabels := getRemoveLabellerLabels(node.Labels)
+		removeLabelsFromNode(node, removedLabels)
 		//add new labels
-		n.addLabellerLabels(node, newLabels)
+		addLabelsToNode(node, newLabels)
 	}
 
-	err = n.patchNode(originalNode, node)
+	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
+		err = n.patchNode(originalNode, node)
+		if err != nil {
+			return err
+		}
+	}
 
-	return err
+	return nil
 }
 
 func skipNodeLabelling(node *k8sv1.Node) bool {
@@ -213,18 +219,7 @@ func skipNodeLabelling(node *k8sv1.Node) bool {
 }
 
 func (n *NodeLabeller) patchNode(originalNode, node *k8sv1.Node) error {
-	p := make([]patch.PatchOperation, 0)
-	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
-		p = append(p, patch.PatchOperation{
-			Op:    "test",
-			Path:  "/metadata/labels",
-			Value: originalNode.Labels,
-		}, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata/labels",
-			Value: node.Labels,
-		})
-	}
+	p := createNodePatchPath(originalNode.Labels, node.Labels)
 
 	// patch node only if there is change in labels
 	if len(p) > 0 {
@@ -310,23 +305,46 @@ func (n *NodeLabeller) prepareLabels(node *k8sv1.Node, cpuModels []string, cpuFe
 	return newLabels
 }
 
-// addNodeLabels adds labels to node.
-func (n *NodeLabeller) addLabellerLabels(node *k8sv1.Node, labels map[string]string) {
+// addLabelsToNode adds labels to the node object.
+func addLabelsToNode(node *k8sv1.Node, labels map[string]string) {
 	for key, value := range labels {
 		node.Labels[key] = value
 	}
+}
+
+func createNodePatchPath(originalNodeLabels, nodeLabels map[string]string) []patch.PatchOperation {
+	p := make([]patch.PatchOperation, 0)
+	p = append(p, patch.PatchOperation{
+		Op:    "test",
+		Path:  "/metadata/labels",
+		Value: originalNodeLabels,
+	}, patch.PatchOperation{
+		Op:    "replace",
+		Path:  "/metadata/labels",
+		Value: nodeLabels,
+	})
+	return p
 }
 
 func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
 	return n.capabilities
 }
 
-// removeLabellerLabels removes labels from node
-func (n *NodeLabeller) removeLabellerLabels(node *k8sv1.Node) {
-	for label := range node.Labels {
+// removeLabellerLabels returns the labels to be removed from node
+func getRemoveLabellerLabels(nodeLabels map[string]string) map[string]string {
+	removedLabels := map[string]string{}
+	for label, valueOfLabel := range nodeLabels {
 		if isNodeLabellerLabel(label) {
-			delete(node.Labels, label)
+			removedLabels[label] = valueOfLabel
 		}
+	}
+	return removedLabels
+}
+
+// removeLabelsFromNode returns the labels to be removed from node
+func removeLabelsFromNode(node *k8sv1.Node, removedLabels map[string]string) {
+	for label, _ := range removedLabels {
+		delete(node.Labels, label)
 	}
 }
 

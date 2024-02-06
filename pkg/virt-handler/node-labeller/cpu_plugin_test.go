@@ -212,7 +212,8 @@ var _ = Describe("Node-labeller config", func() {
 			},
 		}
 
-		nlController.removeLabellerLabels(node)
+		removedLabels := getRemoveLabellerLabels(nodeLabels)
+		removeLabelsFromNode(node, removedLabels)
 
 		badKey := ""
 		for key, _ := range node.Labels {
