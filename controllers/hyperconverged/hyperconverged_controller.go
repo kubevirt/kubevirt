@@ -1193,11 +1193,6 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	err = r.removeOldMetricsObjs(req)
-	if err != nil {
-		return false, err
-	}
-
 	removeOldQuickStartGuides(req, r.client, r.operandHandler.GetQuickStartNames())
 
 	return upgradePatched, nil
@@ -1301,56 +1296,6 @@ func (r *ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHc
 	return false, nil
 }
 
-var (
-	operatorMetrics = "hyperconverged-cluster-operator-metrics"
-	webhookMetrics  = "hyperconverged-cluster-webhook-metrics"
-
-	oldMetricsObjects map[string]client.Object
-)
-
-func initOldMetricsObjects(req *common.HcoRequest) {
-	if oldMetricsObjects == nil {
-		oldMetricsObjects = map[string]client.Object{
-			"operatorService": &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      operatorMetrics,
-					Namespace: req.Namespace,
-				},
-			},
-			"webhookService": &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      webhookMetrics,
-					Namespace: req.Namespace,
-				},
-			},
-			"operatorEndpoint": &corev1.Endpoints{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      operatorMetrics,
-					Namespace: req.Namespace,
-				},
-			},
-		}
-	}
-}
-
-func (r *ReconcileHyperConverged) removeOldMetricsObjs(req *common.HcoRequest) error {
-	initOldMetricsObjects(req)
-
-	for name, object := range oldMetricsObjects {
-		removed, err := r.deleteObj(req, object, false)
-
-		if err != nil {
-			return err
-		}
-
-		if removed {
-			delete(oldMetricsObjects, name)
-		}
-	}
-
-	return nil
-}
-
 func (r *ReconcileHyperConverged) deleteObj(req *common.HcoRequest, obj client.Object, protectNonHCOObjects bool) (bool, error) {
 	removed, err := hcoutil.EnsureDeleted(req.Ctx, r.client, obj, req.Instance.Name, req.Logger, false, false, protectNonHCOObjects)
 
@@ -1365,10 +1310,12 @@ func (r *ReconcileHyperConverged) deleteObj(req *common.HcoRequest, obj client.O
 		return removed, err
 	}
 
-	r.eventEmitter.EmitEvent(
-		req.Instance, corev1.EventTypeNormal, "Killing",
-		fmt.Sprintf("Removed %s %s", obj.GetName(), obj.GetObjectKind().GroupVersionKind().Kind),
-	)
+	if removed {
+		r.eventEmitter.EmitEvent(
+			req.Instance, corev1.EventTypeNormal, "Killing",
+			fmt.Sprintf("Removed %s %s", obj.GetName(), obj.GetObjectKind().GroupVersionKind().Kind),
+		)
+	}
 
 	return removed, nil
 }
