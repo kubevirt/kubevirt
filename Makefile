@@ -215,6 +215,7 @@ lint:
 	  pkg/network/sriov/... \
 	  tests/console/... \
 	  tests/libnet/... \
+	  tests/libpod/... \
 	  tests/libvmi/... \
 	  && \
 	  golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \

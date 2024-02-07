@@ -1961,7 +1961,7 @@ status:
 		var nodeName string
 
 		AfterEach(func() {
-			libpod.DeleteKubernetesApiBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			libpod.DeleteKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
 			Eventually(func(g Gomega) {
 				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
@@ -1980,7 +1980,7 @@ status:
 			oldUID := vmi.UID
 
 			By("Blocking virt-handler from reconciling the VMI")
-			libpod.AddKubernetesApiBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			libpod.AddKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
 			Eventually(func(g Gomega) {
 				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
