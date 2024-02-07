@@ -41,7 +41,7 @@ const (
 const (
 	FedoraVolumeSize = "6Gi"
 	CirrosVolumeSize = "512Mi"
-	BlankVolumeSize  = "64Mi"
+	BlankVolumeSize  = "16Mi"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full

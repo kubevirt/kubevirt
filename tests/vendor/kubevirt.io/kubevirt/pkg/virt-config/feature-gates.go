@@ -19,39 +19,33 @@
 
 package virtconfig
 
+import "kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+
 /*
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
 const (
-	ExpandDisksGate   = "ExpandDisks"
-	CPUManager        = "CPUManager"
-	NUMAFeatureGate   = "NUMA"
-	IgnitionGate      = "ExperimentalIgnitionSupport"
-	LiveMigrationGate = "LiveMigration"
-	// SRIOVLiveMigrationGate enables Live Migration for VM's with network SR-IOV interfaces.
-	SRIOVLiveMigrationGate     = "SRIOVLiveMigration"
-	CPUNodeDiscoveryGate       = "CPUNodeDiscovery"
-	HypervStrictCheckGate      = "HypervStrictCheck"
-	SidecarGate                = "Sidecar"
-	GPUGate                    = "GPU"
-	HostDevicesGate            = "HostDevices"
-	SnapshotGate               = "Snapshot"
-	VMExportGate               = "VMExport"
-	HotplugVolumesGate         = "HotplugVolumes"
-	HostDiskGate               = "HostDisk"
-	VirtIOFSGate               = "ExperimentalVirtiofsSupport"
-	MacvtapGate                = "Macvtap"
-	PasstGate                  = "Passt"
+	ExpandDisksGate       = "ExpandDisks"
+	CPUManager            = "CPUManager"
+	NUMAFeatureGate       = "NUMA"
+	IgnitionGate          = "ExperimentalIgnitionSupport"
+	HypervStrictCheckGate = "HypervStrictCheck"
+	SidecarGate           = "Sidecar"
+	GPUGate               = "GPU"
+	HostDevicesGate       = "HostDevices"
+	SnapshotGate          = "Snapshot"
+	VMExportGate          = "VMExport"
+	HotplugVolumesGate    = "HotplugVolumes"
+	HostDiskGate          = "HostDisk"
+	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
+
 	DownwardMetricsFeatureGate = "DownwardMetrics"
-	NonRootDeprecated          = "NonRootExperimental"
-	NonRoot                    = "NonRoot"
 	Root                       = "Root"
 	ClusterProfiler            = "ClusterProfiler"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
-	PSA                        = "PSA"
 	VSOCKGate                  = "VSOCK"
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
@@ -86,20 +80,15 @@ const (
 	AlignCPUsGate = "AlignCPUs"
 )
 
-var deprecatedFeatureGates = [...]string{
-	LiveMigrationGate,
-	SRIOVLiveMigrationGate,
-	NonRoot,
-	NonRootDeprecated,
-	PSA,
-	CPUNodeDiscoveryGate,
-}
-
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if config.IsFeatureGateDeprecated(featureGate) {
-		// Deprecated feature gates are considered enabled and no-op.
-		// For more info about deprecation policy: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md
-		return true
+	deprecatedFeature := deprecation.FeatureGateInfo(featureGate)
+	if deprecatedFeature != nil {
+		switch state := deprecatedFeature.State; state {
+		case deprecation.GA:
+			return true
+		case deprecation.Discontinued:
+			return false
+		}
 	}
 
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
@@ -107,16 +96,6 @@ func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 			return true
 		}
 	}
-	return false
-}
-
-func (config *ClusterConfig) IsFeatureGateDeprecated(featureGate string) bool {
-	for _, deprecatedFeatureGate := range deprecatedFeatureGates {
-		if featureGate == deprecatedFeatureGate {
-			return true
-		}
-	}
-
 	return false
 }
 
@@ -141,11 +120,11 @@ func (config *ClusterConfig) IgnitionEnabled() bool {
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(LiveMigrationGate)
+	return config.isFeatureGateEnabled(deprecation.LiveMigrationGate)
 }
 
 func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(SRIOVLiveMigrationGate)
+	return config.isFeatureGateEnabled(deprecation.SRIOVLiveMigrationGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
@@ -153,7 +132,7 @@ func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
 }
 
 func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
-	return config.isFeatureGateEnabled(CPUNodeDiscoveryGate)
+	return config.isFeatureGateEnabled(deprecation.CPUNodeDiscoveryGate)
 }
 
 func (config *ClusterConfig) SidecarEnabled() bool {
@@ -185,11 +164,11 @@ func (config *ClusterConfig) VirtiofsEnabled() bool {
 }
 
 func (config *ClusterConfig) MacvtapEnabled() bool {
-	return config.isFeatureGateEnabled(MacvtapGate)
+	return config.isFeatureGateEnabled(deprecation.MacvtapGate)
 }
 
 func (config *ClusterConfig) PasstEnabled() bool {
-	return config.isFeatureGateEnabled(PasstGate)
+	return config.isFeatureGateEnabled(deprecation.PasstGate)
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {

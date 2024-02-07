@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "checks.go",
+        "expects.go",
         "skips.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/framework/checks",

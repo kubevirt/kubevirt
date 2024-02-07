@@ -15,10 +15,10 @@ require (
 	k8s.io/apimachinery v0.29.1
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	kubevirt.io/api v1.1.1
-	kubevirt.io/client-go v1.1.1
+	kubevirt.io/api v1.2.0-beta.0
+	kubevirt.io/client-go v1.2.0-beta.0
 	kubevirt.io/containerized-data-importer-api v1.58.1
-	kubevirt.io/kubevirt v1.1.1
+	kubevirt.io/kubevirt v1.2.0-beta.0
 )
 
 replace (
@@ -48,22 +48,17 @@ require (
 )
 
 require (
-	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/cilium/ebpf v0.9.1 // indirect
-	github.com/coreos/prometheus-operator v0.38.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
-	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/fatih/color v1.14.1 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
-	github.com/go-kit/kit v0.10.0 // indirect
+	github.com/go-kit/kit v0.13.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
-	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-openapi/jsonpointer v0.20.2 // indirect
 	github.com/go-openapi/jsonreference v0.20.4 // indirect
@@ -76,7 +71,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/goexpect v0.0.0-20191001010744-5b6988669ffa // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f // indirect
@@ -92,10 +86,8 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0 // indirect
 	github.com/machadovilaca/operator-observability v0.0.11 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -103,8 +95,6 @@ require (
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/operator-framework/api v0.21.0 // indirect
 	github.com/operator-framework/operator-lib v0.12.0 // indirect
-	github.com/pborman/uuid v1.2.1 // indirect
-	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect

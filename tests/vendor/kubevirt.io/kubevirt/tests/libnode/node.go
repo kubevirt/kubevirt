@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/util/nodes"
@@ -50,6 +52,8 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/util"
 )
+
+const workerLabel = "node-role.kubernetes.io/worker"
 
 var SchedulableNode = ""
 
@@ -365,4 +369,14 @@ func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
 	Expect(controlPlaneNodes.Items).ShouldNot(BeEmpty(),
 		"There are no control-plane nodes in the cluster")
 	return controlPlaneNodes
+}
+
+func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8sv1.Node {
+	ginkgo.By("getting the list of worker nodes that have cpumanager enabled")
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(nodeList).ToNot(BeNil())
+	return nodeList.Items
 }

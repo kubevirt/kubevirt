@@ -31,10 +31,10 @@ import (
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -739,6 +739,19 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 			}
 
 			if vmClone.Status.Phase == clonev1alpha1.RestoreInProgress && vmClone.Status.RestoreName != nil {
+				return []string{getkey(vmClone, *vmClone.Status.RestoreName)}, nil
+			}
+
+			return nil, nil
+		},
+		// Gets: restore key. Returns: clones in phase Succeeded
+		string(clonev1alpha1.Succeeded): func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if vmClone.Status.Phase == clonev1alpha1.Succeeded && vmClone.Status.RestoreName != nil {
 				return []string{getkey(vmClone, *vmClone.Status.RestoreName)}, nil
 			}
 

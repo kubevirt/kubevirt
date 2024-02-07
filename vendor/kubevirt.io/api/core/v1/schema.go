@@ -427,6 +427,15 @@ type Firmware struct {
 	// Settings to set the kernel for booting.
 	// +optional
 	KernelBoot *KernelBoot `json:"kernelBoot,omitempty"`
+	// Information that can be set in the ACPI table
+	ACPI *ACPI `json:"acpi,omitempty"`
+}
+
+type ACPI struct {
+	// SlicNameRef should match the volume name of a secret object. The data in the secret should
+	// be a binary blob that follows the ACPI SLIC standard, see:
+	// https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)
+	SlicNameRef string `json:"slicNameRef,omitempty"`
 }
 
 type Devices struct {
@@ -1317,8 +1326,12 @@ type InterfaceBindingMethod struct {
 	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
-	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
-	Passt      *InterfacePasst      `json:"passt,omitempty"`
+	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	// +optional
+	Macvtap *InterfaceMacvtap `json:"macvtap,omitempty"`
+	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	// +optional
+	Passt *InterfacePasst `json:"passt,omitempty"`
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.

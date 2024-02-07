@@ -28,19 +28,25 @@ import (
 const cloudInitDiskName = "disk1"
 
 // WithCloudInitNoCloudUserData adds cloud-init no-cloud user data.
-func WithCloudInitNoCloudUserData(data string, b64Encoding bool) Option {
+func WithCloudInitNoCloudUserData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		if b64Encoding {
-			encodedData := base64.StdEncoding.EncodeToString([]byte(data))
-			volume.CloudInitNoCloud.UserData = ""
-			volume.CloudInitNoCloud.UserDataBase64 = encodedData
-		} else {
-			volume.CloudInitNoCloud.UserData = data
-			volume.CloudInitNoCloud.UserDataBase64 = ""
-		}
+		volume.CloudInitNoCloud.UserData = data
+		volume.CloudInitNoCloud.UserDataBase64 = ""
+	}
+}
+
+// WithCloudInitNoCloudEncodedUserData adds cloud-init no-cloud base64-encoded user data
+func WithCloudInitNoCloudEncodedUserData(data string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		encodedData := base64.StdEncoding.EncodeToString([]byte(data))
+		volume.CloudInitNoCloud.UserData = ""
+		volume.CloudInitNoCloud.UserDataBase64 = encodedData
 	}
 }
 
@@ -55,19 +61,13 @@ func WithCloudInitNoCloudNetworkData(data string) Option {
 }
 
 // WithCloudInitConfigDriveData adds cloud-init config-drive user data.
-func WithCloudInitConfigDriveData(data string, b64Encoding bool) Option {
+func WithCloudInitConfigDriveData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 
 		volume := getVolume(vmi, cloudInitDiskName)
-		if b64Encoding {
-			encodedData := base64.StdEncoding.EncodeToString([]byte(data))
-			volume.CloudInitConfigDrive.UserData = ""
-			volume.CloudInitConfigDrive.UserDataBase64 = encodedData
-		} else {
-			volume.CloudInitConfigDrive.UserData = data
-			volume.CloudInitConfigDrive.UserDataBase64 = ""
-		}
+		volume.CloudInitConfigDrive.UserData = data
+		volume.CloudInitConfigDrive.UserDataBase64 = ""
 	}
 }
 

@@ -192,9 +192,6 @@ github.com/operator-framework/operator-lib/handler
 github.com/operator-framework/operator-lib/handler/internal/metrics
 github.com/operator-framework/operator-lib/internal/annotation
 github.com/operator-framework/operator-lib/internal/utils
-# github.com/pborman/uuid v1.2.1
-## explicit
-github.com/pborman/uuid
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -670,7 +667,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# kubevirt.io/api v1.1.1
+# kubevirt.io/api v1.2.0-beta.0
 ## explicit; go 1.17
 kubevirt.io/api/core
 kubevirt.io/api/core/v1

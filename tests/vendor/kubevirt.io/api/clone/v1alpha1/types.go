@@ -37,6 +37,19 @@ type VirtualMachineClone struct {
 	Status VirtualMachineCloneStatus `json:"status,omitempty"`
 }
 
+type VirtualMachineCloneTemplateFilters struct {
+	// Example use: "!some/key*".
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
+	// +optional
+	// +listType=atomic
+	AnnotationFilters []string `json:"annotationFilters,omitempty"`
+	// Example use: "!some/key*".
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
+	// +optional
+	// +listType=atomic
+	LabelFilters []string `json:"labelFilters,omitempty"`
+}
+
 type VirtualMachineCloneSpec struct {
 	// Source is the object that would be cloned. Currently supported source types are:
 	// VirtualMachine of kubevirt.io API group,
@@ -63,7 +76,9 @@ type VirtualMachineCloneSpec struct {
 	// +optional
 	// +listType=atomic
 	LabelFilters []string `json:"labelFilters,omitempty"`
-
+	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
+	// +optional
+	Template VirtualMachineCloneTemplateFilters `json:"template,omitempty"`
 	// NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the
 	// value is the new mac address. If this field is not specified, a new MAC address will
 	// be generated automatically, as for any interface that is not included in this map.

@@ -41,7 +41,7 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	fedoraOptions := []Option{
 		WithResourceMemory("512Mi"),
 		WithRng(),
-		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
 	opts = append(fedoraOptions, opts...)
 	return New(opts...)
@@ -50,10 +50,10 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // NewCirros instantiates a new CirrOS based VMI configuration
 func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, Cirros image takes 230s to allow login
-	withNonEmptyUserData := WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true)
+	withNonEmptyUserData := WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
 
 	cirrosOpts := []Option{
-		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
 		WithResourceMemory(cirrosMemory()),
 	}
@@ -65,7 +65,7 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
-		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 		WithResourceMemory(alpineMemory()),
 		WithRng(),
 	}
@@ -75,10 +75,10 @@ func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
 
 func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
-	withNonEmptyUserData := WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true)
+	withNonEmptyUserData := WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
 	alpineMemory := cirrosMemory
 	alpineOpts := []Option{
-		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
+		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		withNonEmptyUserData,
 		WithResourceMemory(alpineMemory()),
 		WithRng(),

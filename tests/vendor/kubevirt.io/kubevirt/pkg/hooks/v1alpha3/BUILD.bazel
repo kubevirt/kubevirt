@@ -1,0 +1,25 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+proto_library(
+    name = "kubevirt_hooks_v1alpha3_proto",
+    srcs = ["api_v1alpha3.proto"],
+    visibility = ["//visibility:public"],
+)
+
+go_proto_library(
+    name = "kubevirt_hooks_v1alpha3_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "kubevirt.io/kubevirt/pkg/hooks/v1alpha3",
+    proto = ":kubevirt_hooks_v1alpha3_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["v1alpha3.go"],
+    embed = [":kubevirt_hooks_v1alpha3_go_proto"],
+    importpath = "kubevirt.io/kubevirt/pkg/hooks/v1alpha3",
+    visibility = ["//visibility:public"],
+)

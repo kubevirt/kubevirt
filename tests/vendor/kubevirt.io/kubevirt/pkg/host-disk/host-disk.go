@@ -109,14 +109,22 @@ func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVol
 	volumeStatus := pvcVolume[volumeName]
 	isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
 	file := getPVCDiskImgPath(volumeName, "disk.img")
-	capacity := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
-	requested := volumeStatus.PersistentVolumeClaimInfo.Requests[k8sv1.ResourceStorage]
-	// Use the requested size if it is smaller than the overall capacity of the PVC to ensure the created disks are the size requested by the user
-	if capacity.Value() > requested.Value() {
-		capacity = requested
+	capacity, capacityOk := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
+	requested, requestedOk := volumeStatus.PersistentVolumeClaimInfo.Requests[k8sv1.ResourceStorage]
+
+	if !capacityOk && !requestedOk {
+		return fmt.Errorf("unable to determine capacity of HostDisk from PVC that provides no storage capacity or requests")
 	}
-	// The host-disk must be 1MiB-aligned. If the volume specifies a misaligned size, shrink it down to the nearest multiple of 1MiB
-	size := util.AlignImageSizeTo1MiB(capacity.Value(), log.Log)
+
+	var size int64
+	// Use the requested size if it is smaller than the overall capacity of the PVC to ensure the created disks are the size requested by the user
+	if requestedOk && ((capacityOk && capacity.Value() > requested.Value()) || !capacityOk) {
+		// The host-disk must be 1MiB-aligned. If the volume specifies a misaligned size, shrink it down to the nearest multiple of 1MiB
+		size = util.AlignImageSizeTo1MiB(requested.Value(), log.Log)
+	} else {
+		size = util.AlignImageSizeTo1MiB(capacity.Value(), log.Log)
+	}
+
 	if size == 0 {
 		return fmt.Errorf("the size for volume %s is too low, must be at least 1MiB", volumeName)
 	}

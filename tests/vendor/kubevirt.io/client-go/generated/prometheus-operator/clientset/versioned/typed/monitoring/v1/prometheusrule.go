@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KubeVirt Authors.
+Copyright The KubeVirt Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	v1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

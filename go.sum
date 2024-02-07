@@ -104,7 +104,6 @@ github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38/go.mod h1:kpwsk12EmLe
 github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
 github.com/google/pprof v0.0.0-20240125082051-42cd04596328 h1:oI+lCI2DY1BsRrdzMJBhIMxBBdlZJl31YNQC11EiyvA=
 github.com/google/pprof v0.0.0-20240125082051-42cd04596328/go.mod h1:czg5+yv1E0ZGTi6S6vVK1mke0fV+FaUhNGcd6VRS9Ik=
-github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
@@ -214,8 +213,6 @@ github.com/operator-framework/api v0.21.0 h1:89LhqGTLskxpPR4siEaorkF9PY3KLI51S5m
 github.com/operator-framework/api v0.21.0/go.mod h1:3tsDLxXChMY1KgxO5v1CZQogHNQCIMy14YXkXqA5lT4=
 github.com/operator-framework/operator-lib v0.0.0-20230717184314-6efbe3a22f6f h1:/8ZvVScjUC3kz8akWtPrGxZO0JVqDC8H42GJmapEl3c=
 github.com/operator-framework/operator-lib v0.0.0-20230717184314-6efbe3a22f6f/go.mod h1:fmVTfDgR/OMPg7eJvXWlyBVzCXUfHAOxIXO8W51HvKY=
-github.com/pborman/uuid v1.2.1 h1:+ZZIw58t/ozdjRaXh/3awHfmWRbzYxJoAdNJxe/3pvw=
-github.com/pborman/uuid v1.2.1/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e/go.mod h1:pJLUxLENpZxwdsKMEsNbx1VGcRFpLqf3715MtcvvzbA=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -453,8 +450,8 @@ k8s.io/utils v0.0.0-20210802155522-efc7438f0176/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20230726121419-3b25d923346b/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 k8s.io/utils v0.0.0-20240102154912-e7106e64919e h1:eQ/4ljkx21sObifjzXwlPKpdGLrCfRziVtos3ofG/sQ=
 k8s.io/utils v0.0.0-20240102154912-e7106e64919e/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
-kubevirt.io/api v1.1.1 h1:vt5bOpACArNFIudx1bcE1VeejQdh5wCd7Oz/uFBIkH8=
-kubevirt.io/api v1.1.1/go.mod h1:CJ4vZsaWhVN3jNbyc9y3lIZhw8nUHbWjap0xHABQiqc=
+kubevirt.io/api v1.2.0-beta.0 h1:f55i9T3fpp340HuTCJ8wBsraxqDjTWsrwf+JJsAQX58=
+kubevirt.io/api v1.2.0-beta.0/go.mod h1:SbeR9ma4EwnaOZEUkh/lNz0kzYm5LPpEDE30vKXC5Zg=
 kubevirt.io/application-aware-quota v1.1.4 h1:0/kUvFfZoayELMzJ4WXrmPd7SWkvog4oVXzBuapAZ0k=
 kubevirt.io/application-aware-quota v1.1.4/go.mod h1:Owe2lP1IH9SeXdLqzWtTkmBx59ilWJulaLUK8VG+b34=
 kubevirt.io/containerized-data-importer-api v1.58.1 h1:Zbf0pCvxb4fBvtMR6uI2OIJZ4UfwFxripzOLMO4HPbI=

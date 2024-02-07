@@ -1,6 +1,0 @@
-{
-    "storageClassRhel":        "rhel",
-    "storageClassWindows":     "windows",
-    "storageRWOFileSystem":    "local"
-}
-

@@ -9,8 +9,10 @@ go_library(
         "factory.go",
         "memory.go",
         "network.go",
+        "selector.go",
         "status.go",
         "storage.go",
+        "vm.go",
         "vmi.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libvmi",
@@ -28,5 +30,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

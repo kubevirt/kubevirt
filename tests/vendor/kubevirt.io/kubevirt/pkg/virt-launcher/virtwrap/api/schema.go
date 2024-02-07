@@ -163,6 +163,7 @@ type Filesystem struct {
 	Type       string
 	UsedBytes  int
 	TotalBytes int
+	Disk       []v1.VirtualMachineInstanceFileSystemDisk
 }
 
 type User struct {
@@ -591,7 +592,7 @@ type HostDevice struct {
 	Source    HostDeviceSource `xml:"source"`
 	Type      string           `xml:"type,attr"`
 	BootOrder *BootOrder       `xml:"boot,omitempty"`
-	Managed   string           `xml:"managed,attr"`
+	Managed   string           `xml:"managed,attr,omitempty"`
 	Mode      string           `xml:"mode,attr,omitempty"`
 	Model     string           `xml:"model,attr,omitempty"`
 	Address   *Address         `xml:"address,omitempty"`
@@ -934,6 +935,7 @@ func (alias *Alias) UnmarshalJSON(data []byte) error {
 
 type OS struct {
 	Type       OSType    `xml:"type"`
+	ACPI       *OSACPI   `xml:"acpi,omitempty"`
 	SMBios     *SMBios   `xml:"smbios,omitempty"`
 	BootOrder  []Boot    `xml:"boot"`
 	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
@@ -949,6 +951,15 @@ type OSType struct {
 	OS      string `xml:",chardata"`
 	Arch    string `xml:"arch,attr,omitempty"`
 	Machine string `xml:"machine,attr,omitempty"`
+}
+
+type OSACPI struct {
+	Table ACPITable `xml:"table,omitempty"`
+}
+
+type ACPITable struct {
+	Path string `xml:",chardata"`
+	Type string `xml:"type,attr,omitempty"`
 }
 
 type SMBios struct {

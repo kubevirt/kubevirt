@@ -25,8 +25,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-const DefaultInterfaceName = "default"
-
 // WithInterface adds a Domain Device Interface.
 func WithInterface(iface kvirtv1.Interface) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
@@ -52,10 +50,14 @@ func WithMasqueradeNetworking(ports ...kvirtv1.Port) []Option {
 	}
 }
 
+func WithPasstInterfaceWithPort() Option {
+	return WithInterface(InterfaceWithPasstBindingPlugin([]kvirtv1.Port{{Port: 1234, Protocol: "TCP"}}...))
+}
+
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
-		Name: DefaultInterfaceName,
+		Name: kvirtv1.DefaultPodNetwork().Name,
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
 			Masquerade: &kvirtv1.InterfaceMasquerade{},
 		},
@@ -94,21 +96,21 @@ func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 	}
 }
 
-// InterfaceDeviceWithPasstBinding returns an Interface named "default" with passt binding.
-func InterfaceDeviceWithPasstBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
+// InterfaceWithPasstBinding returns an Interface named "default" with passt binding plugin.
+func InterfaceWithPasstBindingPlugin(ports ...kvirtv1.Port) kvirtv1.Interface {
+	const passtBindingName = "passt"
 	return kvirtv1.Interface{
-		Name: DefaultInterfaceName,
-		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			Passt: &kvirtv1.InterfacePasst{},
-		},
-		Ports: ports,
+		Name:    kvirtv1.DefaultPodNetwork().Name,
+		Binding: &kvirtv1.PluginBinding{Name: passtBindingName},
+		Ports:   ports,
 	}
 }
 
-func InterfaceDeviceWithBindingPlugin(name string, binding kvirtv1.PluginBinding) kvirtv1.Interface {
+func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
 		Name:    name,
 		Binding: &binding,
+		Ports:   ports,
 	}
 }
 

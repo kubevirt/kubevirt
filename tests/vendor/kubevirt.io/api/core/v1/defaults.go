@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -106,7 +106,7 @@ func SetDefaults_I6300ESBWatchdog(obj *I6300ESBWatchdog) {
 
 func SetDefaults_Firmware(obj *Firmware) {
 	if obj.UUID == "" {
-		obj.UUID = types.UID(uuid.NewRandom().String())
+		obj.UUID = types.UID(uuid.NewString())
 	}
 }
 

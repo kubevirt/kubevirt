@@ -13,7 +13,7 @@ import (
 
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	kvtests "kubevirt.io/kubevirt/tests"
+	kvlibvmi "kubevirt.io/kubevirt/tests/libvmi"
 	kvtutil "kubevirt.io/kubevirt/tests/util"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
@@ -45,7 +45,11 @@ var _ = Describe("[rfe_id:273][crit:critical][vendor:cnv-qe@redhat.com][level:sy
 
 func verifyVMICreation(client kubecli.KubevirtClient) string {
 	By("Creating VMI...")
-	vmi := kvtests.NewRandomVMI()
+	vmi := kvlibvmi.New(
+		kvlibvmi.WithResourceMemory("128Mi"),
+		kvlibvmi.WithInterface(kvlibvmi.InterfaceDeviceWithMasqueradeBinding()),
+		kvlibvmi.WithNetwork(kubevirtcorev1.DefaultPodNetwork()),
+	)
 	EventuallyWithOffset(1, func() error {
 		_, err := client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Create(context.Background(), vmi)
 		return err
