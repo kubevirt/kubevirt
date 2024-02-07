@@ -7,7 +7,7 @@ RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install
 
 RUN pip3 install j2cli && pip3 install operator-courier
 
-ENV GO_VERSION=1.20.10 \
+ENV GO_VERSION=1.21.7 \
     KUBEBUILDER_VERSION="3.2.0" \
     ARCH="amd64" \
     GOPATH="/go" \
