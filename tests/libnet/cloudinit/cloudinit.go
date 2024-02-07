@@ -85,6 +85,14 @@ func WithDHCP4Enabled() NetworkDataInterfaceOption {
 	}
 }
 
+func WithDHCP4Disabled() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		enabled := false
+		networkDataInterface.DHCP4 = &enabled
+		return nil
+	}
+}
+
 func WithAcceptRA() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
 		accept := true
