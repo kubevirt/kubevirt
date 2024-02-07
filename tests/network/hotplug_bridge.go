@@ -178,14 +178,24 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 				},
 			}
 
+			networkData, err := cloudinit.NewNetworkData(
+				cloudinit.WithEthernet("eth0",
+					cloudinit.WithDHCP4Disabled(),
+				),
+				cloudinit.WithEthernet("eth1",
+					cloudinit.WithAddresses(ip2+subnetMask),
+					cloudinit.WithNameserverFromCluster(),
+				),
+			)
+
 			anotherVmi := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(iface),
 				libvmi.WithNetwork(&net),
-				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ip2+subnetMask)),
+				libvmi.WithCloudInitNoCloudNetworkData(networkData),
 				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName))
-			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi)
+			anotherVmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi)
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			libwait.WaitUntilVMIReady(anotherVmi, console.LoginToFedora)
 
