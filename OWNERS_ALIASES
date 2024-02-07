@@ -147,6 +147,8 @@ aliases:
     - dhiller
   sig-buildsystem-reviewers:
     - brianmcarey
+    - enp0s3
+    - xpivarc
 
   #
   # SIG Architecture
