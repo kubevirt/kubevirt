@@ -757,7 +757,7 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 
 func (vca *VirtControllerApp) initEvacuationController() {
 	var err error
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "evacuation-controller")
 	vca.evacuationController, err = evacuation.NewEvacuationController(
 		vca.vmiInformer,
 		vca.migrationInformer,
