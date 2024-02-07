@@ -19,9 +19,9 @@
 
 package cloudinit
 
-func CreateNetworkDataWithStaticIPsByMac(nicName, macAddress, ipAddress string) string {
+func CreateNetworkDataWithStaticIPsByMac(ifaceName, macAddress, ipAddress string) string {
 	networkData, err := NewNetworkData(
-		WithEthernet(nicName,
+		WithEthernet(ifaceName,
 			WithAddresses(ipAddress),
 			WithNameserverFromCluster(),
 			WithMatchingMAC(macAddress),
@@ -33,9 +33,9 @@ func CreateNetworkDataWithStaticIPsByMac(nicName, macAddress, ipAddress string) 
 	return networkData
 }
 
-func CreateNetworkDataWithStaticIPsByDevice(deviceName, ipAddress string) string {
+func CreateNetworkDataWithStaticIPsByIface(ifaceName, ipAddress string) string {
 	networkData, err := NewNetworkData(
-		WithEthernet(deviceName,
+		WithEthernet(ifaceName,
 			WithAddresses(ipAddress),
 			WithNameserverFromCluster(),
 		),
