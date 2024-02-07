@@ -44,13 +44,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 var nodeLabellerLabels = []string{
-	util.DeprecatedLabelNamespace + util.DeprecatedcpuModelPrefix,
-	util.DeprecatedLabelNamespace + util.DeprecatedcpuFeaturePrefix,
-	util.DeprecatedLabelNamespace + util.DeprecatedHyperPrefix,
 	kubevirtv1.CPUFeatureLabel,
 	kubevirtv1.CPUModelLabel,
 	kubevirtv1.SupportedHostModelMigrationCPU,
@@ -230,20 +226,7 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 		})
 	}
 
-	if !equality.Semantic.DeepEqual(originalNode.Annotations, node.Annotations) {
-		p = append(p, patch.PatchOperation{
-			Op:    "test",
-			Path:  "/metadata/annotations",
-			Value: originalNode.Annotations,
-		}, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata/annotations",
-			Value: node.Annotations,
-		},
-		)
-	}
-
-	//patch node only if there is change in labels or annotations
+	// patch node only if there is change in labels
 	if len(p) > 0 {
 		payloadBytes, err := json.Marshal(p)
 		if err != nil {
@@ -343,12 +326,6 @@ func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
 	for label := range node.Labels {
 		if isNodeLabellerLabel(label) {
 			delete(node.Labels, label)
-		}
-	}
-
-	for annotation := range node.Annotations {
-		if strings.HasPrefix(annotation, util.DeprecatedLabellerNamespaceAnnotation) {
-			delete(node.Annotations, annotation)
 		}
 	}
 }

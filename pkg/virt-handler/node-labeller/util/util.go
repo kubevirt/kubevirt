@@ -20,15 +20,10 @@
 package util
 
 const (
-	DeprecatedLabelNamespace              string = "feature.node.kubernetes.io"
-	DeprecatedLabellerNamespaceAnnotation        = "node-labeller-feature.node.kubernetes.io"
-	DeprecatedcpuFeaturePrefix                   = "/cpu-feature-"
-	DeprecatedcpuModelPrefix                     = "/cpu-model-"
-	DeprecatedHyperPrefix                        = "/kvm-info-cap-hyperv-"
-	DefaultMinCPUModel                           = "Penryn"
-	RequirePolicy                                = "require"
-	KVMPath                                      = "/dev/kvm"
-	VmxFeature                                   = "vmx"
+	DefaultMinCPUModel = "Penryn"
+	RequirePolicy      = "require"
+	KVMPath            = "/dev/kvm"
+	VmxFeature         = "vmx"
 )
 
 var DefaultObsoleteCPUModels = map[string]bool{
