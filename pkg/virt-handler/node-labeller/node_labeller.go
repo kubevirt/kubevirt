@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"k8s.io/client-go/tools/record"
+	"kubevirt.io/client-go/kubecli"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -64,6 +65,7 @@ var nodeLabellerLabels = []string{
 type NodeLabeller struct {
 	recorder                record.EventRecorder
 	nodeClient              k8scli.NodeInterface
+	shadowNodeClient        kubecli.ShadowNodeInterface
 	host                    string
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
@@ -80,14 +82,15 @@ type NodeLabeller struct {
 	SEV                     SEVConfiguration
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, nodeLabellerVolumePath, recorder)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, shadowNodeClient kubecli.ShadowNodeInterface, host string, recorder record.EventRecorder) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, shadowNodeClient, host, nodeLabellerVolumePath, recorder)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, shadowNodeClient kubecli.ShadowNodeInterface, host, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:                recorder,
 		nodeClient:              nodeClient,
+		shadowNodeClient:        shadowNodeClient,
 		host:                    host,
 		logger:                  log.DefaultLogger(),
 		clusterConfig:           clusterConfig,
@@ -180,6 +183,13 @@ func (n *NodeLabeller) loadAll() error {
 	return nil
 }
 
+type patchData struct {
+	remove []string
+	add    map[string]string
+	update map[string]string
+	old    map[string]string
+}
+
 func (n *NodeLabeller) run() error {
 	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
 	cpuModels := n.getSupportedCpuModels(obsoleteCPUsx86)
@@ -193,6 +203,7 @@ func (n *NodeLabeller) run() error {
 
 	node := originalNode.DeepCopy()
 
+	var shadowNodePatchData patchData
 	if !skipNodeLabelling(node) {
 		//prepare new labels
 		newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
@@ -201,10 +212,17 @@ func (n *NodeLabeller) run() error {
 		removeLabelsFromNode(node, removedLabels)
 		//add new labels
 		addLabelsToNode(node, newLabels)
+		//calculate shadowNode patches
+		shadowNodePatchData = calculateShadowNodePatchData(removedLabels, newLabels)
 	}
 
 	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
 		err = n.patchNode(originalNode, node)
+		if err != nil {
+			return err
+		}
+
+		err = n.patchShadowNode(shadowNodePatchData, node.Name)
 		if err != nil {
 			return err
 		}
@@ -228,6 +246,32 @@ func (n *NodeLabeller) patchNode(originalNode, node *k8sv1.Node) error {
 			return err
 		}
 		_, err = n.nodeClient.Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (n *NodeLabeller) patchShadowNode(patchData patchData, shadowNodeName string) error {
+	sn, err := n.shadowNodeClient.Get(context.TODO(), shadowNodeName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	p, err := createShadowNodePatchPath(patchData, sn.Labels)
+	if err != nil {
+		return err
+	}
+
+	if len(p) > 0 {
+		payloadBytes, err := json.Marshal(p)
+		if err != nil {
+			return err
+		}
+
+		_, err = n.shadowNodeClient.Patch(context.TODO(), shadowNodeName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -323,6 +367,82 @@ func createNodePatchPath(originalNodeLabels, nodeLabels map[string]string) []pat
 		Path:  "/metadata/labels",
 		Value: nodeLabels,
 	})
+	return p
+}
+
+func createShadowNodePatchPath(pat patchData, shadowNodeLabels map[string]string) ([]patch.PatchOperation, error) {
+	shadowNodeOperation := make([]patch.PatchOperation, 0)
+
+	if shadowNodeLabels == nil {
+		for key, value := range pat.update {
+			pat.add[key] = value
+		}
+
+		shadowNodeOperation = append(shadowNodeOperation,
+			patch.PatchOperation{
+				Op:    "add",
+				Path:  "/metadata/labels",
+				Value: pat.add,
+			},
+		)
+
+	} else {
+		for key, value := range pat.add {
+			shadowNodeOperation = append(shadowNodeOperation,
+				patch.PatchOperation{
+					Op:    "add",
+					Path:  fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+					Value: value,
+				},
+			)
+		}
+		for key, value := range pat.update {
+			oldValue := pat.old[key]
+			shadowNodeOperation = append(shadowNodeOperation,
+				patch.PatchOperation{
+					Op:    "test",
+					Path:  fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+					Value: oldValue,
+				},
+				patch.PatchOperation{
+					Op:    "replace",
+					Path:  fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+					Value: value,
+				},
+			)
+		}
+
+		for _, key := range pat.remove {
+			shadowNodeOperation = append(shadowNodeOperation,
+				patch.PatchOperation{
+					Op:   "remove",
+					Path: fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+				},
+			)
+		}
+	}
+	return shadowNodeOperation, nil
+}
+
+func calculateShadowNodePatchData(removedLabels, newLabels map[string]string) patchData {
+	p := patchData{
+		add:    map[string]string{},
+		old:    map[string]string{},
+		update: map[string]string{},
+	}
+	for key, value := range newLabels {
+		if oldValue, exist := removedLabels[key]; exist {
+			p.update[key] = value
+			p.old[key] = oldValue
+			delete(removedLabels, key)
+			continue
+		}
+		p.add[key] = value
+	}
+	for label := range removedLabels {
+		p.remove = append(p.remove, label)
+	}
+
 	return p
 }
 
