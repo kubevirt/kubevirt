@@ -2144,6 +2144,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
 				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
@@ -2231,7 +2232,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			ioNone := ""
 
 			By("checking if default io has not been set for sparsed file")
-			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
+			Expect(disks[0].Alias.GetName()).To(Equal("disk0"))
 			Expect(string(disks[0].Driver.IO)).To(Equal(ioNone))
 
 			By("checking if default io mode has been set to 'native' for block device")
