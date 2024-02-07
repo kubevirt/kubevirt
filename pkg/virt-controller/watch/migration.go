@@ -735,7 +735,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 func (c *MigrationController) expandPDB(pdb *policyv1.PodDisruptionBudget, vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) error {
 	minAvailable := 2
 
-	if pdb.Spec.MinAvailable.IntValue() == minAvailable && pdb.Labels[virtv1.MigrationNameLabel] == vmim.Name {
+	if pdb.Spec.MinAvailable != nil && pdb.Spec.MinAvailable.IntValue() == minAvailable && pdb.Labels[virtv1.MigrationNameLabel] == vmim.Name {
 		log.Log.V(4).Object(vmi).Infof("PDB has been already expanded")
 		return nil
 	}

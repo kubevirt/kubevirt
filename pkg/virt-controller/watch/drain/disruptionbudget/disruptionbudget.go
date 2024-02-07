@@ -462,7 +462,7 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisr
 }
 
 func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
-	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable.IntValue() != 1 {
+	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable != nil && pdb.Spec.MinAvailable.IntValue() != 1 {
 		patchOps := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
 			patch.EscapeJSONPointer(virtv1.MigrationNameLabel)))
 
