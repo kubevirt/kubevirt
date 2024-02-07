@@ -3524,7 +3524,7 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		virtClient,
 		vmiPod,
-		tests.GetComputeContainerOfPod(vmiPod).Name,
+		libpod.LookupComputeContainer(vmiPod).Name,
 		[]string{"virsh", "--quiet", "list", "--persistent", "--name"},
 	)
 	if err != nil {

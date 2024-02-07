@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -106,7 +107,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 200m CPU")
-			compute := tests.GetComputeContainerOfPod(tests.GetVmiPod(virtClient, vmi))
+			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu := compute.Resources.Requests.Cpu().Value()
@@ -155,7 +156,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("Ensuring the virt-launcher pod now has 400m CPU")
-			compute = tests.GetComputeContainerOfPod(tests.GetVmiPod(virtClient, vmi))
+			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu = compute.Resources.Requests.Cpu().Value()
 			expCpu = resource.MustParse("400m")
@@ -205,7 +206,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 2 CPU")
-			compute := tests.GetComputeContainerOfPod(tests.GetVmiPod(virtClient, vmi))
+			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu := compute.Resources.Requests.Cpu().Value()
@@ -252,7 +253,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("Ensuring the virt-launcher pod now has 4 CPU")
-			compute = tests.GetComputeContainerOfPod(tests.GetVmiPod(virtClient, vmi))
+			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu = compute.Resources.Requests.Cpu().Value()

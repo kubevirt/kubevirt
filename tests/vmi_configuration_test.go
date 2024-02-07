@@ -76,6 +76,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -1679,7 +1680,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			getComputeMemoryRequest := func(vmi *virtv1.VirtualMachineInstance) resource.Quantity {
 				launcherPod := tests.GetPodByVirtualMachineInstance(vmi)
-				computeContainer := tests.GetComputeContainerOfPod(launcherPod)
+				computeContainer := libpod.LookupComputeContainer(launcherPod)
 				return computeContainer.Resources.Requests[kubev1.ResourceMemory]
 			}
 
@@ -1957,7 +1958,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
-			computeContainer := tests.GetComputeContainerOfPod(readyPod)
+			computeContainer := libpod.LookupComputeContainer(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("500m"))
 		})
@@ -1968,7 +1969,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
-			computeContainer := tests.GetComputeContainerOfPod(readyPod)
+			computeContainer := libpod.LookupComputeContainer(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
@@ -1986,7 +1987,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
-			computeContainer := tests.GetComputeContainerOfPod(readyPod)
+			computeContainer := libpod.LookupComputeContainer(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("800m"))
 		})
@@ -2010,7 +2011,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("Ensuring no CPU limit is set")
 			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
-			computeContainer := tests.GetComputeContainerOfPod(readyPod)
+			computeContainer := libpod.LookupComputeContainer(readyPod)
 			_, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
 			Expect(exists).To(BeFalse(), "CPU limit set on the compute container when none was expected")
 		})
@@ -2031,7 +2032,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("Ensuring the CPU limit is set to the correct value")
 			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
-			computeContainer := tests.GetComputeContainerOfPod(readyPod)
+			computeContainer := libpod.LookupComputeContainer(readyPod)
 			limits, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
 			Expect(exists).To(BeTrue(), "expected CPU limit not set on the compute container")
 			Expect(limits.String()).To(Equal("1"))
@@ -2049,7 +2050,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Ensuring no memory and cpu limits are set")
 				readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
-				computeContainer := tests.GetComputeContainerOfPod(readyPod)
+				computeContainer := libpod.LookupComputeContainer(readyPod)
 				_, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
 				Expect(exists).To(BeFalse(), "Memory limits set on the compute container when none was expected")
 				_, exists = computeContainer.Resources.Limits[kubev1.ResourceCPU]
@@ -2106,7 +2107,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Ensuring the memory and cpu limits are set to the correct values")
 				readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
-				computeContainer := tests.GetComputeContainerOfPod(readyPod)
+				computeContainer := libpod.LookupComputeContainer(readyPod)
 				memLimits, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
 				Expect(exists).To(BeTrue(), "expected memory limits set on the compute container")
 				Expect(memLimits.Value()).To(BeEquivalentTo(expectedLauncherMemLimits.Value()))
