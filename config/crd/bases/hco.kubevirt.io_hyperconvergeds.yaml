@@ -2822,8 +2822,11 @@ spec:
                 - BlockUninstallIfWorkloadsExist
                 type: string
               vddkInitImage:
-                description: VDDK Init Image eventually used to import VMs from external
-                  providers
+                description: |-
+                  VDDK Init Image eventually used to import VMs from external providers
+
+
+                  Deprecated: please use the Migration Toolkit for Virtualization
                 type: string
               virtualMachineOptions:
                 default:

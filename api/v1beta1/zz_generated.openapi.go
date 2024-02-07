@@ -456,7 +456,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					},
 					"vddkInitImage": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VDDK Init Image eventually used to import VMs from external providers",
+							Description: "VDDK Init Image eventually used to import VMs from external providers\n\nDeprecated: please use the Migration Toolkit for Virtualization",
 							Type:        []string{"string"},
 							Format:      "",
 						},

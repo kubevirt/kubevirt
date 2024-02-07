@@ -104,6 +104,8 @@ type HyperConvergedSpec struct {
 	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
 
 	// VDDK Init Image eventually used to import VMs from external providers
+	//
+	// Deprecated: please use the Migration Toolkit for Virtualization
 	// +optional
 	VddkInitImage *string `json:"vddkInitImage,omitempty"`
 
