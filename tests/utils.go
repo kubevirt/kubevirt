@@ -60,7 +60,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
 
@@ -752,20 +751,6 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 	})
 }
 
-func DeletePvAndPvc(name string) {
-	virtCli := kubevirt.Client()
-
-	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-
-	err = virtCli.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-}
-
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -785,27 +770,6 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 		},
 	}
 	return rs
-}
-
-// CreateExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
-// run commands against the PVC through this Pod.
-func CreateExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	var err error
-
-	pod := libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"}, nil, pvc)
-	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
-		ProbeHandler: k8sv1.ProbeHandler{
-			Exec: &k8sv1.ExecAction{
-				Command: []string{"/bin/cat", "/tmp/startup"},
-			},
-		},
-	}
-	pod = RunPod(pod)
-
-	Eventually(ThisPod(pod), 120).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
-	pod, err = ThisPod(pod)()
-	Expect(err).ToNot(HaveOccurred())
-	return pod
 }
 
 func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
