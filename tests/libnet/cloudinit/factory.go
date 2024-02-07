@@ -19,10 +19,6 @@
 
 package cloudinit
 
-import (
-	. "github.com/onsi/gomega"
-)
-
 func CreateNetworkDataWithStaticIPsByMac(nicName, macAddress, ipAddress string) string {
 	networkData, err := NewNetworkData(
 		WithEthernet(nicName,
@@ -31,7 +27,9 @@ func CreateNetworkDataWithStaticIPsByMac(nicName, macAddress, ipAddress string) 
 			WithMatchingMAC(macAddress),
 		),
 	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create static IPs by mac address cloud init network data")
+	if err != nil {
+		panic(err)
+	}
 	return networkData
 }
 
@@ -42,6 +40,8 @@ func CreateNetworkDataWithStaticIPsByDevice(deviceName, ipAddress string) string
 			WithNameserverFromCluster(),
 		),
 	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create static IPs by device name cloud init network data")
+	if err != nil {
+		panic(err)
+	}
 	return networkData
 }
