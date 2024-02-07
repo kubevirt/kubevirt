@@ -36,7 +36,7 @@ func IsPDBFromOldMigrationController(pdb *policyv1.PodDisruptionBudget) bool {
 
 	owner := v1.GetControllerOf(pdb)
 	ownedByVMI := owner != nil && owner.Kind == virtv1.VirtualMachineInstanceGroupVersionKind.Kind
-	if ownedByVMI && !migrationLabelExists && pdb.Spec.MinAvailable.IntValue() == 2 {
+	if ownedByVMI && !migrationLabelExists && pdb.Spec.MinAvailable != nil && pdb.Spec.MinAvailable.IntValue() == 2 {
 		return true
 	}
 	return false
