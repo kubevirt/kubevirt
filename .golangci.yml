@@ -7,9 +7,10 @@ linters:
 linters-settings:
   ginkgolinter:
     forbid-focus-container: true
-issues:
-  exclude-rules:
-  - linters:
-    - revive
-    source: ". \"github.com/onsi/(ginkgo/v2|gomega)\""
-    text: "dot-imports: should not use dot imports"
+  revive:
+    rules:
+    - name: dot-imports
+      arguments:
+      - allowedPackages:
+        - github.com/onsi/ginkgo/v2
+        - github.com/onsi/gomega

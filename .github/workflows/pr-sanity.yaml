@@ -73,7 +73,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.55.1
+          version: v1.56.0
           skip-pkg-cache: true
           args: --timeout=5m --out-${NO_FUTURE}format line-number
           working-directory: ${{matrix.working-directory}}
