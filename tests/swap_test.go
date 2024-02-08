@@ -229,10 +229,10 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 func getMemInfoByString(node v1.Node, field string) int {
 	stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(kubevirt.Client(), node.Name, []string{"grep", field, "/proc/meminfo"})
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
+	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
 	fields := strings.Fields(stdout)
 	size, err := strconv.Atoi(fields[1])
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 	return size
 }
 
@@ -264,10 +264,10 @@ func confirmMigrationMode(vmi *virtv1.VirtualMachineInstance, expectedMode virtv
 	var err error
 	By("Retrieving the VMI post migration")
 	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
 
 	By("Verifying the VMI's migration mode")
-	Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
+	ExpectWithOffset(1, vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
 }
 
 func skipIfSwapOff(message string) {
