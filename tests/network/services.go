@@ -61,14 +61,6 @@ const (
 var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
-	exposeExistingVMISpec := func(vmi *v1.VirtualMachineInstance, subdomain string, hostname string, selectorLabelKey string, selectorLabelValue string) *v1.VirtualMachineInstance {
-		vmi.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
-		vmi.Spec.Subdomain = subdomain
-		vmi.Spec.Hostname = hostname
-
-		return vmi
-	}
-
 	readyVMI := func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
 		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
@@ -104,17 +96,15 @@ var _ = SIGDescribe("Services", func() {
 			servicePort        = 1500
 		)
 
-		createVMISpecWithBridgeInterface := func() *v1.VirtualMachineInstance {
-			return libvmi.NewCirros(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()))
-		}
-
 		createReadyVMIWithBridgeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
-			return readyVMI(
-				exposeExistingVMISpec(
-					createVMISpecWithBridgeInterface(), subdomain, hostname, selectorLabelKey, selectorLabelValue),
-				console.LoginToCirros)
+			vmi := libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+			)
+			vmi.Spec.Subdomain = subdomain
+			vmi.Spec.Hostname = hostname
+			return readyVMI(vmi, console.LoginToCirros)
 		}
 
 		BeforeEach(func() {
@@ -215,12 +205,13 @@ var _ = SIGDescribe("Services", func() {
 		)
 
 		createReadyVMIWithMasqueradeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
-			vmi := libvmi.NewFedora(
-				libnet.WithMasqueradeNetworking()...,
-			)
-			return readyVMI(
-				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue),
-				console.LoginToFedora)
+			vmi := libvmi.NewFedora(append(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+			)...)
+			vmi.Spec.Subdomain = subdomain
+			vmi.Spec.Hostname = hostname
+			return readyVMI(vmi, console.LoginToFedora)
 		}
 
 		BeforeEach(func() {
