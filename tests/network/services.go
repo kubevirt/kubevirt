@@ -101,9 +101,9 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+				libvmi.WithSubdomain(subdomain),
+				libvmi.WithHostname(hostname),
 			)
-			vmi.Spec.Subdomain = subdomain
-			vmi.Spec.Hostname = hostname
 			return readyVMI(vmi, console.LoginToCirros)
 		}
 
@@ -208,9 +208,9 @@ var _ = SIGDescribe("Services", func() {
 			vmi := libvmi.NewFedora(append(
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
+				libvmi.WithSubdomain(subdomain),
+				libvmi.WithHostname(hostname),
 			)...)
-			vmi.Spec.Subdomain = subdomain
-			vmi.Spec.Hostname = hostname
 			return readyVMI(vmi, console.LoginToFedora)
 		}
 
