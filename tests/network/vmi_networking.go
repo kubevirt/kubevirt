@@ -889,6 +889,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				Expect(ping(podIP)).To(Succeed())
 
@@ -929,6 +930,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 				Expect(ping(podIP)).To(Succeed())
 			})
