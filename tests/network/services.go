@@ -61,10 +61,6 @@ const (
 var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
-	cleanupService := func(namespace string, serviceName string) error {
-		return virtClient.CoreV1().Services(namespace).Delete(context.Background(), serviceName, k8smetav1.DeleteOptions{})
-	}
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -94,10 +90,6 @@ var _ = SIGDescribe("Services", func() {
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToCirros)
-		})
-
-		AfterEach(func() {
-			Expect(inboundVMI).NotTo(BeNil(), "the VMI object must exist in order to be deleted.")
 		})
 
 		Context("with a service matching the vmi exposed", func() {
@@ -143,17 +135,17 @@ var _ = SIGDescribe("Services", func() {
 		})
 
 		Context("with a subdomain and a headless service given", func() {
-			var serviceName string
 			BeforeEach(func() {
-				serviceName = inboundVMI.Spec.Subdomain
-
-				service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+				namespace, name := inboundVMI.Namespace, inboundVMI.Spec.Subdomain
+				service := netservice.BuildHeadlessSpec(name, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+				var err error
+				service, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-			})
 
-			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(context.Background(), serviceName, k8smetav1.DeleteOptions{})).To(Succeed())
+				DeferCleanup(func() {
+					err := virtClient.CoreV1().Services(service.Namespace).Delete(context.Background(), service.Name, k8smetav1.DeleteOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				})
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
@@ -198,18 +190,9 @@ var _ = SIGDescribe("Services", func() {
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
 		})
 
-		AfterEach(func() {
-			Expect(inboundVMI).NotTo(BeNil(), "the VMI object must exist in order to be deleted.")
-		})
-
 		Context("with a service matching the vmi exposed", func() {
-			var service *k8sv1.Service
-
-			AfterEach(func() {
-				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
-			})
-
 			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
+				var service *k8sv1.Service
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
 					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
@@ -222,6 +205,11 @@ var _ = SIGDescribe("Services", func() {
 
 					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
+
+					DeferCleanup(func() {
+						err := virtClient.CoreV1().Services(service.Namespace).Delete(context.Background(), service.Name, k8smetav1.DeleteOptions{})
+						Expect(err).NotTo(HaveOccurred())
+					})
 				})
 
 				By("checking connectivity the exposed service")
