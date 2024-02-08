@@ -4495,6 +4495,7 @@ var CRDsValidation map[string]string = map[string]string{
                         - source
                         type: object
                     type: object
+                  maxItems: 256
                   type: array
                   x-kubernetes-list-type: atomic
                 affinity:
@@ -5755,6 +5756,7 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                          maxItems: 256
                           type: array
                         downwardMetrics:
                           description: DownwardMetrics creates a virtio serials for
@@ -6018,6 +6020,7 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                          maxItems: 256
                           type: array
                         logSerialConsole:
                           description: Whether to log the auto-attached default serial
@@ -6693,6 +6696,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
                 nodeSelector:
                   additionalProperties:
@@ -7475,6 +7479,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
               required:
               - domain
@@ -9178,6 +9183,7 @@ var CRDsValidation map[string]string = map[string]string{
                 - source
                 type: object
             type: object
+          maxItems: 256
           type: array
           x-kubernetes-list-type: atomic
         affinity:
@@ -10344,6 +10350,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
                 downwardMetrics:
                   description: DownwardMetrics creates a virtio serials for exposing
@@ -10596,6 +10603,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
                 logSerialConsole:
                   description: Whether to log the auto-attached default serial console
@@ -11222,6 +11230,7 @@ var CRDsValidation map[string]string = map[string]string{
             required:
             - name
             type: object
+          maxItems: 256
           type: array
         nodeSelector:
           additionalProperties:
@@ -11964,6 +11973,7 @@ var CRDsValidation map[string]string = map[string]string{
             required:
             - name
             type: object
+          maxItems: 256
           type: array
       required:
       - domain
@@ -13123,6 +13133,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
                 downwardMetrics:
                   description: DownwardMetrics creates a virtio serials for exposing
@@ -13375,6 +13386,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
                 logSerialConsole:
                   description: Whether to log the auto-attached default serial console
@@ -14049,6 +14061,7 @@ var CRDsValidation map[string]string = map[string]string{
                         - source
                         type: object
                     type: object
+                  maxItems: 256
                   type: array
                   x-kubernetes-list-type: atomic
                 affinity:
@@ -15309,6 +15322,7 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                          maxItems: 256
                           type: array
                         downwardMetrics:
                           description: DownwardMetrics creates a virtio serials for
@@ -15572,6 +15586,7 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                          maxItems: 256
                           type: array
                         logSerialConsole:
                           description: Whether to log the auto-attached default serial
@@ -16247,6 +16262,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
                 nodeSelector:
                   additionalProperties:
@@ -17029,6 +17045,7 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  maxItems: 256
                   type: array
               required:
               - domain
@@ -18294,6 +18311,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 - source
                                 type: object
                             type: object
+                          maxItems: 256
                           type: array
                           x-kubernetes-list-type: atomic
                         affinity:
@@ -19669,6 +19687,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     required:
                                     - name
                                     type: object
+                                  maxItems: 256
                                   type: array
                                 downwardMetrics:
                                   description: DownwardMetrics creates a virtio serials
@@ -19950,6 +19969,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     required:
                                     - name
                                     type: object
+                                  maxItems: 256
                                   type: array
                                 logSerialConsole:
                                   description: Whether to log the auto-attached default
@@ -20660,6 +20680,7 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                          maxItems: 256
                           type: array
                         nodeSelector:
                           additionalProperties:
@@ -21500,6 +21521,7 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                          maxItems: 256
                           type: array
                       required:
                       - domain
@@ -23370,6 +23392,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     - source
                                     type: object
                                 type: object
+                              maxItems: 256
                               type: array
                               x-kubernetes-list-type: atomic
                             affinity:
@@ -24821,6 +24844,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         required:
                                         - name
                                         type: object
+                                      maxItems: 256
                                       type: array
                                     downwardMetrics:
                                       description: DownwardMetrics creates a virtio
@@ -25114,6 +25138,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         required:
                                         - name
                                         type: object
+                                      maxItems: 256
                                       type: array
                                     logSerialConsole:
                                       description: Whether to log the auto-attached
@@ -25847,6 +25872,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - name
                                 type: object
+                              maxItems: 256
                               type: array
                             nodeSelector:
                               additionalProperties:
@@ -26723,6 +26749,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - name
                                 type: object
+                              maxItems: 256
                               type: array
                           required:
                           - domain

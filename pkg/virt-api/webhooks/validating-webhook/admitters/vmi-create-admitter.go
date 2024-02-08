@@ -57,8 +57,7 @@ import (
 const requiredFieldFmt = "%s is a required field"
 
 const (
-	arrayLenMax = 256
-	maxStrLen   = 256
+	maxStrLen = 256
 
 	// cloudInitNetworkMaxLen and CloudInitUserMaxLen are being limited
 	// to 2K to allow scaling of config as edits will cause entire object
@@ -146,16 +145,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	volumeNameMap := make(map[string]*v1.Volume)
 	networkNameMap := make(map[string]*v1.Network)
 
-	maxNumberOfDisksExceeded := len(spec.Domain.Devices.Disks) > arrayLenMax
-	if maxNumberOfDisksExceeded {
-		return appendNewStatusCauseForNumberOfDisksExceeded(field, causes)
-	}
-
-	maxNumberOfVolumesExceeded := len(spec.Volumes) > arrayLenMax
-	if maxNumberOfVolumesExceeded {
-		return appendNewStatusCauseForMaxNumberOfVolumesExceeded(field, causes)
-	}
-
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
@@ -178,14 +167,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
-	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
-	if maxNumberOfInterfacesExceeded {
-		return appendStatusCauseForMaxNumberOfInterfacesExceeded(field, causes)
-	}
-	maxNumberOfNetworksExceeded := len(spec.Networks) > arrayLenMax
-	if maxNumberOfNetworksExceeded {
-		return appendStatusCauseMaxNumberOfNetworksExceeded(field, causes)
-	}
 	moreThanOnePodInterface := getNumberOfPodInterfaces(spec) > 1
 	if moreThanOnePodInterface {
 		return appendStatusCauseForMoreThanOnePodInterface(field, causes)
@@ -1080,22 +1061,6 @@ func appendStatusCauseForMoreThanOnePodInterface(field *k8sfield.Path, causes []
 	})
 }
 
-func appendStatusCauseMaxNumberOfNetworksExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("networks").String(), arrayLenMax),
-		Field:   field.Child("networks").String(),
-	})
-}
-
-func appendStatusCauseForMaxNumberOfInterfacesExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("domain", "devices", "interfaces").String(), arrayLenMax),
-		Field:   field.Child("domain", "devices", "interfaces").String(),
-	})
-}
-
 func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
 		for idx, feature := range spec.Domain.CPU.Features {
@@ -1639,22 +1604,6 @@ func appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field *k8sfield
 	})
 }
 
-func appendNewStatusCauseForMaxNumberOfVolumesExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("volumes").String(), arrayLenMax),
-		Field:   field.Child("volumes").String(),
-	})
-}
-
-func appendNewStatusCauseForNumberOfDisksExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("domain", "devices", "disks").String(), arrayLenMax),
-		Field:   field.Child("domain", "devices", "disks").String(),
-	})
-}
-
 // ValidateVirtualMachineInstanceMandatoryFields should be invoked after all defaults and presets are applied.
 // It is only meant to be used for VMI reviews, not if they are templates on other objects
 func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
@@ -1889,16 +1838,6 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 
 func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.AccessCredential, volumes []v1.Volume) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-
-	if len(accessCredentials) > arrayLenMax {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.String(), arrayLenMax),
-			Field:   field.String(),
-		})
-		// We won't process anything over the limit
-		return causes
-	}
 
 	hasNoCloudVolume := false
 	for _, volume := range volumes {
