@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -65,6 +66,10 @@ func SetupMetrics(
 	preferenceInformer = preference
 	vmiMigrationInformer = vmiMigration
 	clusterConfig = virtClusterConfig
+
+	if err := client.SetupMetrics(); err != nil {
+		return err
+	}
 
 	if err := operatormetrics.RegisterMetrics(metrics...); err != nil {
 		return err

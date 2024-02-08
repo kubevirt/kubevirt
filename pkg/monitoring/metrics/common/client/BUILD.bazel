@@ -2,11 +2,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["prometheus.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus",
+    srcs = [
+        "latency_adapter.go",
+        "metrics.go",
+        "rest_metrics.go",
+        "rt_wrapper.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/tools/metrics:go_default_library",
@@ -16,8 +22,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "prometheus_suite_test.go",
-        "prometheus_test.go",
+        "client_suite_test.go",
+        "client_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

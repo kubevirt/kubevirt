@@ -19,9 +19,17 @@
 
 package virt_operator
 
-import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+import (
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+)
 
 func SetupMetrics() error {
+	if err := client.SetupMetrics(); err != nil {
+		return err
+	}
+
 	return operatormetrics.RegisterMetrics(
 		configurationMetrics,
 		operatorMetrics,

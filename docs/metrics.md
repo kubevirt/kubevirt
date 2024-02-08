@@ -270,6 +270,15 @@ Returns the labels of the persistent volume claims that are used for restoring v
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
 
+### rest_client_rate_limiter_duration_seconds
+Client side rate limiter latency in seconds. Broken down by verb and URL. Type: Histogram.
+
+### rest_client_request_latency_seconds
+Request latency in seconds. Broken down by verb and URL. Type: Histogram.
+
+### rest_client_requests_total
+Number of HTTP requests, partitioned by status code, method, and host. Type: Counter.
+
 ## Developing new metrics
 After developing new metrics or changing old ones, please run `make generate` to regenerate this document.
 

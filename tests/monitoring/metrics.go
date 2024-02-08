@@ -74,6 +74,12 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migrations_in_running_phase":                           true,
 			"kubevirt_vmi_migration_succeeded":                                   true,
 			"kubevirt_vmi_migration_failed":                                      true,
+
+			// name do not follow the convention to be prefixed with 'kubevirt_'
+			// TODO: @machadovilaca - refactor the metric names
+			"rest_client_request_latency_seconds":       true,
+			"rest_client_rate_limiter_duration_seconds": true,
+			"rest_client_requests_total":                true,
 		}
 
 		It("should contain virt components metrics", func() {
