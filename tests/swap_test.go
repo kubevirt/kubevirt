@@ -61,8 +61,6 @@ import (
 )
 
 const (
-	// Define relevant k8s versions
-	k8sSwapVer = "1.22"
 	//20% of the default size which is 2G in kubevirt-ci
 	maxSwapSizeToUseKib = 415948
 	swapPartToUse       = 0.2
