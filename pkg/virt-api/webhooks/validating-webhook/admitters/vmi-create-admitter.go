@@ -190,7 +190,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateInterfaceStateValue(field, spec)...)
 	causes = append(causes, validateInterfaceBinding(field, spec)...)
 
-	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
@@ -679,27 +678,6 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("networks").Index(i).Child("name").String(), network.Name),
 				Field:   field.Child("networks").Index(i).Child("name").String(),
-			})
-		}
-	}
-	return causes
-}
-
-func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	for idx, input := range spec.Domain.Devices.Inputs {
-		if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Input device can have only virtio or usb bus.",
-				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("bus").String(),
-			})
-		}
-
-		if input.Type != v1.InputTypeTablet {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Input device can have only tablet type.",
-				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("type").String(),
 			})
 		}
 	}

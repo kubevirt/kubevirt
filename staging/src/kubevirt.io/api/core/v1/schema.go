@@ -567,9 +567,13 @@ const (
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
 	// Supported values: virtio, usb.
+	// +kubebuilder:validation:Enum:=virtio;usb
+	// +kubebuilder:validation:Optional
 	Bus InputBus `json:"bus,omitempty"`
 	// Type indicated the type of input device.
 	// Supported values: tablet.
+	// +kubebuilder:validation:Enum:=tablet
+	// +kubebuilder:validation:Required
 	Type InputType `json:"type"`
 	// Name is the device name
 	Name string `json:"name"`

@@ -5851,6 +5851,9 @@ var CRDsValidation map[string]string = map[string]string{
                               bus:
                                 description: 'Bus indicates the bus of input device
                                   to emulate. Supported values: virtio, usb.'
+                                enum:
+                                - virtio
+                                - usb
                                 type: string
                               name:
                                 description: Name is the device name
@@ -5858,6 +5861,8 @@ var CRDsValidation map[string]string = map[string]string{
                               type:
                                 description: 'Type indicated the type of input device.
                                   Supported values: tablet.'
+                                enum:
+                                - tablet
                                 type: string
                             required:
                             - name
@@ -10446,6 +10451,9 @@ var CRDsValidation map[string]string = map[string]string{
                       bus:
                         description: 'Bus indicates the bus of input device to emulate.
                           Supported values: virtio, usb.'
+                        enum:
+                        - virtio
+                        - usb
                         type: string
                       name:
                         description: Name is the device name
@@ -10453,6 +10461,8 @@ var CRDsValidation map[string]string = map[string]string{
                       type:
                         description: 'Type indicated the type of input device. Supported
                           values: tablet.'
+                        enum:
+                        - tablet
                         type: string
                     required:
                     - name
@@ -13232,6 +13242,9 @@ var CRDsValidation map[string]string = map[string]string{
                       bus:
                         description: 'Bus indicates the bus of input device to emulate.
                           Supported values: virtio, usb.'
+                        enum:
+                        - virtio
+                        - usb
                         type: string
                       name:
                         description: Name is the device name
@@ -13239,6 +13252,8 @@ var CRDsValidation map[string]string = map[string]string{
                       type:
                         description: 'Type indicated the type of input device. Supported
                           values: tablet.'
+                        enum:
+                        - tablet
                         type: string
                     required:
                     - name
@@ -15427,6 +15442,9 @@ var CRDsValidation map[string]string = map[string]string{
                               bus:
                                 description: 'Bus indicates the bus of input device
                                   to emulate. Supported values: virtio, usb.'
+                                enum:
+                                - virtio
+                                - usb
                                 type: string
                               name:
                                 description: Name is the device name
@@ -15434,6 +15452,8 @@ var CRDsValidation map[string]string = map[string]string{
                               type:
                                 description: 'Type indicated the type of input device.
                                   Supported values: tablet.'
+                                enum:
+                                - tablet
                                 type: string
                             required:
                             - name
@@ -19800,6 +19820,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: 'Bus indicates the bus of input
                                           device to emulate. Supported values: virtio,
                                           usb.'
+                                        enum:
+                                        - virtio
+                                        - usb
                                         type: string
                                       name:
                                         description: Name is the device name
@@ -19807,6 +19830,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       type:
                                         description: 'Type indicated the type of input
                                           device. Supported values: tablet.'
+                                        enum:
+                                        - tablet
                                         type: string
                                     required:
                                     - name
@@ -24965,6 +24990,9 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: 'Bus indicates the bus of
                                               input device to emulate. Supported values:
                                               virtio, usb.'
+                                            enum:
+                                            - virtio
+                                            - usb
                                             type: string
                                           name:
                                             description: Name is the device name
@@ -24972,6 +25000,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           type:
                                             description: 'Type indicated the type
                                               of input device. Supported values: tablet.'
+                                            enum:
+                                            - tablet
                                             type: string
                                         required:
                                         - name

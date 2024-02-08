@@ -293,8 +293,8 @@ func (TPMDevice) SwaggerDoc() map[string]string {
 
 func (Input) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.",
-		"type": "Type indicated the type of input device.\nSupported values: tablet.",
+		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.\n+kubebuilder:validation:Enum:=virtio;usb\n+kubebuilder:validation:Optional",
+		"type": "Type indicated the type of input device.\nSupported values: tablet.\n+kubebuilder:validation:Enum:=tablet\n+kubebuilder:validation:Required",
 		"name": "Name is the device name",
 	}
 }
