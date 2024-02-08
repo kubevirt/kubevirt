@@ -166,22 +166,23 @@ var _ = SIGDescribe("Services", func() {
 			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
 				var service *k8sv1.Service
 				serviceName := "myservice"
-				By("setting up resources to expose the VMI via a service", func() {
-					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
-					if ipFamily == k8sv1.IPv6Protocol {
-						serviceName += "v6"
-						service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-					} else {
-						service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-					}
 
-					c := kubevirt.Client()
-					var err error
-					service, err = c.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
+				libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-					deferServiceCleanup(service.Namespace, service.Name)
-				})
+				By("setting up resources to expose the VMI via a service")
+				if ipFamily == k8sv1.IPv6Protocol {
+					serviceName += "v6"
+					service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+				} else {
+					service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+				}
+
+				virtClient := kubevirt.Client()
+				var err error
+				service, err = virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
+
+				deferServiceCleanup(service.Namespace, service.Name)
 
 				By("checking connectivity the exposed service")
 				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
