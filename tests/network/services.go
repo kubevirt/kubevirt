@@ -38,7 +38,6 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -59,12 +58,6 @@ const (
 )
 
 var _ = SIGDescribe("Services", func() {
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
 	Context("bridge interface binding", func() {
 		var inboundVMI *v1.VirtualMachineInstance
 
@@ -85,7 +78,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)
 			var err error
-			inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
@@ -96,6 +89,7 @@ var _ = SIGDescribe("Services", func() {
 			const serviceName = "myservice"
 
 			BeforeEach(func() {
+				virtClient := kubevirt.Client()
 				service := netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				serv, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -112,7 +106,8 @@ var _ = SIGDescribe("Services", func() {
 				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
 				DeferCleanup(func() {
-					Expect(virtClient.BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})).To(Succeed())
+					c := kubevirt.Client()
+					Expect(c.BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})).To(Succeed())
 				})
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
@@ -122,7 +117,7 @@ var _ = SIGDescribe("Services", func() {
 				tcpJob, err := createServiceConnectivityJob("wrongservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
 				DeferCleanup(func() {
-					err := virtClient.BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
+					err := kubevirt.Client().BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
 					Expect(err).To(SatisfyAny(
 						Not(HaveOccurred()),
 						MatchError(errors.IsNotFound, "does not exist"),
@@ -139,6 +134,7 @@ var _ = SIGDescribe("Services", func() {
 				namespace, name := inboundVMI.Namespace, inboundVMI.Spec.Subdomain
 				service := netservice.BuildHeadlessSpec(name, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				var err error
+				virtClient := kubevirt.Client()
 				service, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -155,7 +151,7 @@ var _ = SIGDescribe("Services", func() {
 				tcpJob, err := createServiceConnectivityJob(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
 				DeferCleanup(func() {
-					Expect(virtClient.BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})).To(
+					Expect(kubevirt.Client().BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})).To(
 						Succeed(),
 						cleaningK8sv1JobShouldSucceed,
 					)
@@ -183,7 +179,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)...)
 			var err error
-			inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)
@@ -203,6 +199,7 @@ var _ = SIGDescribe("Services", func() {
 						service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					}
 
+					virtClient := kubevirt.Client()
 					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 
@@ -216,7 +213,7 @@ var _ = SIGDescribe("Services", func() {
 				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
 				DeferCleanup(func() {
-					err := virtClient.BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
+					err := kubevirt.Client().BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
 					Expect(err).To(SatisfyAny(
 						Not(HaveOccurred()),
 						MatchError(errors.IsNotFound, "does not exist"),
@@ -236,7 +233,7 @@ var _ = SIGDescribe("Services", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				DeferCleanup(func() {
-					err := virtClient.BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
+					err := kubevirt.Client().BatchV1().Jobs(tcpJob.Namespace).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
 					Expect(err).To(SatisfyAny(
 						Not(HaveOccurred()),
 						MatchError(errors.IsNotFound, "does not exist"),
