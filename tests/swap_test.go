@@ -282,7 +282,11 @@ func skipIfSwapOff(message string) {
 
 func getAffinityForTargetNode(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
 	nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
+	if err != nil {
+		return nil, err
+	}
+
 	return &v1.Affinity{
 		NodeAffinity: nodeAffinityRuleForVmiToFill,
-	}, err
+	}, nil
 }
