@@ -101,7 +101,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			By("Allowing post-copy")
 			kv := util.GetCurrentKv(virtClient)
-			oldMigrationConfiguration := kv.Spec.Configuration.MigrationConfiguration
 			kv.Spec.Configuration.MigrationConfiguration = &virtv1.MigrationConfiguration{
 				AllowPostCopy:           pointer.P(true),
 				CompletionTimeoutPerGiB: pointer.P(int64(1)),
@@ -149,11 +148,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			By("Waiting for VMI to disappear")
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			kv = util.GetCurrentKv(virtClient)
-			kv.Spec.Configuration.MigrationConfiguration = oldMigrationConfiguration
-			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-
 		})
 
 		It("Migration of vmi to memory overcommited node", func() {
