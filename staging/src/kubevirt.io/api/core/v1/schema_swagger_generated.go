@@ -231,7 +231,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"uuid":       "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
 		"bootloader": "Settings to control the bootloader that is used.\n+optional",
-		"serial":     "The system-serial-number in SMBIOS",
+		"serial":     "The system-serial-number in SMBIOS\n+kubebuilder:validation:MaxLength:=256\n+kubebuilder:validation:Pattern:=\"^[A-Za-z0-9_.+-]+$\"",
 		"kernelBoot": "Settings to set the kernel for booting.\n+optional",
 		"acpi":       "Information that can be set in the ACPI table",
 	}
@@ -343,7 +343,7 @@ func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":              "Name is the device name",
 		"bootOrder":         "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
-		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
+		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional\n+kubebuilder:validation:MaxLength:=256",
 		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
 		"cache":             "Cache specifies which kvm disk cache mode should be used.\nSupported values are: CacheNone, CacheWriteThrough.\n+optional",
 		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",

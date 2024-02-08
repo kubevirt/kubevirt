@@ -3108,25 +3108,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0].serial"))
 		})
 
-		It("should reject SN > maxStrLen characters", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			order := uint(1)
-			sn := strings.Repeat("1", maxStrLen+1)
-
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:      "testdisk2",
-				BootOrder: &order,
-				Serial:    sn,
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{},
-				},
-			})
-
-			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake[0].serial"))
-		})
-
 		It("should accept valid SN", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			order := uint(1)
@@ -4937,26 +4918,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(ContainSubstring("bootOrder"))
 	})
-	It("should reject a serial number whose length is greater than 256", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		sn := strings.Repeat("1", maxStrLen+1)
 
-		spec.Domain.Firmware = &v1.Firmware{Serial: sn}
-
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Field).To(ContainSubstring("serial"))
-	})
-	It("should reject a serial number with invalid characters", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		sn := "$$$$"
-
-		spec.Domain.Firmware = &v1.Firmware{Serial: sn}
-
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Field).To(ContainSubstring("serial"))
-	})
 	It("should accept a valid serial number", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		sn := "6a1a24a1-4061-4607-8bf4-a3963d0c5895"

@@ -5744,6 +5744,7 @@ var CRDsValidation map[string]string = map[string]string{
                               serial:
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
+                                maxLength: 256
                                 type: string
                               shareable:
                                 description: If specified the disk is made sharable
@@ -6391,6 +6392,8 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         serial:
                           description: The system-serial-number in SMBIOS
+                          maxLength: 256
+                          pattern: ^[A-Za-z0-9_.+-]+$
                           type: string
                         uuid:
                           description: UUID reported by the vmi bios. Defaults to
@@ -7741,6 +7744,7 @@ var CRDsValidation map[string]string = map[string]string{
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
+                        maxLength: 256
                         type: string
                       shareable:
                         description: If specified the disk is made sharable and multiple
@@ -10338,6 +10342,7 @@ var CRDsValidation map[string]string = map[string]string{
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
+                        maxLength: 256
                         type: string
                       shareable:
                         description: If specified the disk is made sharable and multiple
@@ -10942,6 +10947,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 serial:
                   description: The system-serial-number in SMBIOS
+                  maxLength: 256
+                  pattern: ^[A-Za-z0-9_.+-]+$
                   type: string
                 uuid:
                   description: UUID reported by the vmi bios. Defaults to a random
@@ -13121,6 +13128,7 @@ var CRDsValidation map[string]string = map[string]string{
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
+                        maxLength: 256
                         type: string
                       shareable:
                         description: If specified the disk is made sharable and multiple
@@ -13725,6 +13733,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 serial:
                   description: The system-serial-number in SMBIOS
+                  maxLength: 256
+                  pattern: ^[A-Za-z0-9_.+-]+$
                   type: string
                 uuid:
                   description: UUID reported by the vmi bios. Defaults to a random
@@ -15310,6 +15320,7 @@ var CRDsValidation map[string]string = map[string]string{
                               serial:
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
+                                maxLength: 256
                                 type: string
                               shareable:
                                 description: If specified the disk is made sharable
@@ -15957,6 +15968,8 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         serial:
                           description: The system-serial-number in SMBIOS
+                          maxLength: 256
+                          pattern: ^[A-Za-z0-9_.+-]+$
                           type: string
                         uuid:
                           description: UUID reported by the vmi bios. Defaults to
@@ -19673,6 +19686,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       serial:
                                         description: Serial provides the ability to
                                           specify a serial number for the disk device.
+                                        maxLength: 256
                                         type: string
                                       shareable:
                                         description: If specified the disk is made
@@ -20360,6 +20374,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 serial:
                                   description: The system-serial-number in SMBIOS
+                                  maxLength: 256
+                                  pattern: ^[A-Za-z0-9_.+-]+$
                                   type: string
                                 uuid:
                                   description: UUID reported by the vmi bios. Defaults
@@ -24830,6 +24846,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: Serial provides the ability
                                               to specify a serial number for the disk
                                               device.
+                                            maxLength: 256
                                             type: string
                                           shareable:
                                             description: If specified the disk is
@@ -25541,6 +25558,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: object
                                     serial:
                                       description: The system-serial-number in SMBIOS
+                                      maxLength: 256
+                                      pattern: ^[A-Za-z0-9_.+-]+$
                                       type: string
                                     uuid:
                                       description: UUID reported by the vmi bios.
@@ -27036,6 +27055,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   serial:
                                     description: Serial provides the ability to specify
                                       a serial number for the disk device.
+                                    maxLength: 256
                                     type: string
                                   shareable:
                                     description: If specified the disk is made sharable

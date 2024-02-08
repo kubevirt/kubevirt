@@ -423,6 +423,8 @@ type Firmware struct {
 	// +optional
 	Bootloader *Bootloader `json:"bootloader,omitempty"`
 	// The system-serial-number in SMBIOS
+	// +kubebuilder:validation:MaxLength:=256
+	// +kubebuilder:validation:Pattern:="^[A-Za-z0-9_.+-]+$"
 	Serial string `json:"serial,omitempty"`
 	// Settings to set the kernel for booting.
 	// +optional
@@ -632,6 +634,7 @@ type Disk struct {
 	BootOrder *uint `json:"bootOrder,omitempty"`
 	// Serial provides the ability to specify a serial number for the disk device.
 	// +optional
+	// +kubebuilder:validation:MaxLength:=256
 	Serial string `json:"serial,omitempty"`
 	// dedicatedIOThread indicates this disk should have an exclusive IO Thread.
 	// Enabling this implies useIOThreads = true.

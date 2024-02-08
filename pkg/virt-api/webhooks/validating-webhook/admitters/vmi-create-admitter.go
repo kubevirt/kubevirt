@@ -57,8 +57,6 @@ import (
 const requiredFieldFmt = "%s is a required field"
 
 const (
-	maxStrLen = 256
-
 	// cloudInitNetworkMaxLen and CloudInitUserMaxLen are being limited
 	// to 2K to allow scaling of config as edits will cause entire object
 	// to be distributed to large no of nodes. For larger than 2K, user should
@@ -87,7 +85,6 @@ var restrictedVmiLabels = map[string]bool{
 
 const (
 	nameOfTypeNotFoundMessagePattern  = "%s '%s' not found."
-	listExceedsLimitMessagePattern    = "%s list exceeds the %d element limit in length"
 	valueMustBePositiveMessagePattern = "%s '%s': must be greater than or equal to 0."
 )
 
@@ -152,7 +149,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateHugepagesMemoryRequests(field, spec)...)
 	causes = append(causes, validateGuestMemoryLimit(field, spec)...)
 	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
-	causes = append(causes, validateFirmwareSerial(field, spec)...)
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
 	causes = append(causes, validateCPULimitNotNegative(field, spec)...)
 	causes = append(causes, validateCpuRequestDoesNotExceedLimit(field, spec)...)
@@ -1327,32 +1323,6 @@ func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachine
 	return causes
 }
 
-func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Firmware != nil && len(spec.Domain.Firmware.Serial) > 0 {
-		// Verify serial number is within valid length, if provided
-		if len(spec.Domain.Firmware.Serial) > maxStrLen {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified",
-					field.Child("domain", "firmware", "serial").String(),
-					maxStrLen,
-				),
-				Field: field.Child("domain", "firmware", "serial").String(),
-			})
-		}
-		// Verify serial number is made up of valid characters for libvirt, if provided
-		isValid := regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
-		if !isValid(spec.Domain.Firmware.Serial) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Child("domain", "firmware", "serial").String()),
-				Field:   field.Child("domain", "firmware", "serial").String(),
-			})
-		}
-	}
-	return causes
-}
-
 func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if machine := spec.Domain.Machine; machine != nil && len(machine.Type) > 0 {
 		supportedMachines := config.GetEmulatedMachines(spec.Architecture)
@@ -2417,15 +2387,6 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Index(idx).String()),
-				Field:   field.Index(idx).Child("serial").String(),
-			})
-		}
-
-		// Verify serial number is within valid length, if provided
-		if disk.Serial != "" && len([]rune(disk.Serial)) > maxStrLen {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified", field.Index(idx).String(), maxStrLen),
 				Field:   field.Index(idx).Child("serial").String(),
 			})
 		}
