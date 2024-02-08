@@ -224,8 +224,8 @@ var _ = SIGDescribe("Services", func() {
 		}
 
 		BeforeEach(func() {
-			subdomain := "vmi"
-			hostname := "inbound"
+			const subdomain = "vmi"
+			const hostname = "inbound"
 
 			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
@@ -248,7 +248,7 @@ var _ = SIGDescribe("Services", func() {
 				By("setting up resources to expose the VMI via a service", func() {
 					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 					if ipFamily == k8sv1.IPv6Protocol {
-						serviceName = serviceName + "v6"
+						serviceName += "v6"
 						service = netservice.BuildIPv6Spec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 					} else {
 						service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
