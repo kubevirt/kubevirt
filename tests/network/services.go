@@ -61,13 +61,6 @@ const (
 var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
-	readyVMI := func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
-		Expect(err).ToNot(HaveOccurred())
-
-		return libwait.WaitUntilVMIReady(createdVMI, loginTo)
-	}
-
 	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 		By("Deleting the VMI")
 		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
@@ -96,23 +89,21 @@ var _ = SIGDescribe("Services", func() {
 			servicePort        = 1500
 		)
 
-		createReadyVMIWithBridgeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
-			vmi := libvmi.NewCirros(
+		BeforeEach(func() {
+			libnet.SkipWhenClusterNotSupportIpv4()
+
+			inboundVMI = libvmi.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
-				libvmi.WithSubdomain(subdomain),
-				libvmi.WithHostname(hostname),
+				libvmi.WithSubdomain("vmi"),
+				libvmi.WithHostname("inbound"),
 			)
-			return readyVMI(vmi, console.LoginToCirros)
-		}
+			var err error
+			inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			Expect(err).ToNot(HaveOccurred())
 
-		BeforeEach(func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			subdomain := "vmi"
-			hostname := "inbound"
-
-			inboundVMI = createReadyVMIWithBridgeBindingAndExposedService(hostname, subdomain)
+			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToCirros)
 		})
 
@@ -204,21 +195,18 @@ var _ = SIGDescribe("Services", func() {
 			servicePort        = 1500
 		)
 
-		createReadyVMIWithMasqueradeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
-			vmi := libvmi.NewFedora(append(
+		BeforeEach(func() {
+			inboundVMI = libvmi.NewFedora(append(
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithLabel(selectorLabelKey, selectorLabelValue),
-				libvmi.WithSubdomain(subdomain),
-				libvmi.WithHostname(hostname),
+				libvmi.WithSubdomain("vmi"),
+				libvmi.WithHostname("inbound"),
 			)...)
-			return readyVMI(vmi, console.LoginToFedora)
-		}
+			var err error
+			inboundVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			Expect(err).ToNot(HaveOccurred())
 
-		BeforeEach(func() {
-			const subdomain = "vmi"
-			const hostname = "inbound"
-
-			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
+			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
 		})
 
