@@ -227,28 +227,28 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	})
 })
 
-func getMemInfoByString(node v1.Node, field string) (size int) {
+func getMemInfoByString(node v1.Node, field string) int {
 	stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(kubevirt.Client(), node.Name, []string{"grep", field, "/proc/meminfo"})
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
 	fields := strings.Fields(stdout)
-	size, err = strconv.Atoi(fields[1])
+	size, err := strconv.Atoi(fields[1])
 	Expect(err).ToNot(HaveOccurred())
 	return size
 }
 
-func getAvailableMemSizeInKib(node v1.Node) (size int) {
+func getAvailableMemSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "MemAvailable")
 }
 
-func getTotalMemSizeInKib(node v1.Node) (size int) {
+func getTotalMemSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "MemTotal")
 }
 
-func getSwapFreeSizeInKib(node v1.Node) (size int) {
+func getSwapFreeSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "SwapFree")
 }
 
-func getSwapSizeInKib(node v1.Node) (size int) {
+func getSwapSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "SwapTotal")
 }
 
