@@ -12,6 +12,7 @@ go_library(
         "//pkg/monitoring/domainstats/prometheus:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
+        "//pkg/monitoring/metrics/virt-handler:go_default_library",
         "//pkg/monitoring/metrics/virt-operator:go_default_library",
         "//pkg/monitoring/rules:go_default_library",
         "//pkg/virt-controller/watch:go_default_library",

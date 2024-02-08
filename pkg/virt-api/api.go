@@ -154,6 +154,10 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
+	if err := metrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtAPIQPS, virtconfig.DefaultVirtAPIBurst))
 	app.reloadableWebhookRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtWebhookClientQPS, virtconfig.DefaultVirtWebhookClientBurst))
 
@@ -187,12 +191,6 @@ func (app *virtAPIApp) Execute() {
 
 	app.ConfigureOpenAPIService()
 	app.reInitChan = make(chan string, 10)
-
-	// setup monitoring
-	err = metrics.SetupMetrics()
-	if err != nil {
-		panic(err)
-	}
 
 	app.Run()
 }

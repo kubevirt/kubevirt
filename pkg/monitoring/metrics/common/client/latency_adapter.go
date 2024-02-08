@@ -13,29 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
- *
+ * Copyright the KubeVirt Authors.
  */
 
-package virt_api
+package client
 
 import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"context"
+	"net/url"
+	"time"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 )
 
-func SetupMetrics() error {
-	if err := client.SetupMetrics(); err != nil {
-		return err
-	}
-
-	return operatormetrics.RegisterMetrics(
-		connectionMetrics,
-		vmMetrics,
-	)
+type latencyAdapter struct {
+	m *operatormetrics.HistogramVec
 }
 
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+func (l *latencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
+	l.m.WithLabelValues(verb, u.String()).Observe(latency.Seconds())
 }
