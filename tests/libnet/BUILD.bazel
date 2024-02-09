@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "cloudinit.go",
         "dns.go",
         "expose_util.go",
         "interface.go",
@@ -33,6 +32,5 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
-        "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
 )

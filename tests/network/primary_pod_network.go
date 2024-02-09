@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -186,7 +187,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 }
 
 func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
 	vmi := libvmi.NewFedora(
 		libvmi.WithInterface(iface),

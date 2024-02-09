@@ -64,6 +64,7 @@ import (
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -358,7 +359,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By(checkingEth0MACAddr)
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.MacAddress = "de:ad:00:00:be:af"
-			networkData := libnet.CreateDefaultCloudInitNetworkData()
+			networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
 			deadbeafVMI := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(masqIface),
@@ -655,13 +656,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
 			if ipv6NetworkCIDR == "" {
-				ipv6NetworkCIDR = libnet.DefaultIPv6CIDR
+				ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
 			}
-			networkData, err := libnet.NewNetworkData(
-				libnet.WithEthernet("eth0",
-					libnet.WithDHCP4Enabled(),
-					libnet.WithAddresses(ipv6NetworkCIDR),
-					libnet.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
+			networkData, err := cloudinit.NewNetworkData(
+				cloudinit.WithEthernet("eth0",
+					cloudinit.WithDHCP4Enabled(),
+					cloudinit.WithAddresses(ipv6NetworkCIDR),
+					cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
 				),
 			)
 			if err != nil {
@@ -976,11 +977,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var err error
 
 				By("Create masquerade VMI")
-				networkData, err := libnet.NewNetworkData(
-					libnet.WithEthernet("eth0",
-						libnet.WithDHCP4Enabled(),
-						libnet.WithDHCP6Enabled(),
-						libnet.WithAddresses(""), // This is a workaround o make fedora client to configure local IPv6
+				networkData, err := cloudinit.NewNetworkData(
+					cloudinit.WithEthernet("eth0",
+						cloudinit.WithDHCP4Enabled(),
+						cloudinit.WithDHCP6Enabled(),
+						cloudinit.WithAddresses(""), // This is a workaround o make fedora client to configure local IPv6
 					),
 				)
 				Expect(err).ToNot(HaveOccurred())

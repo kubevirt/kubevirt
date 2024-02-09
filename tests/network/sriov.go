@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
+	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -649,7 +650,7 @@ func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi
 }
 
 func defaultCloudInitNetworkData() string {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := netcloudinit.CreateDefaultCloudInitNetworkData()
 	return networkData
 }
 
@@ -797,7 +798,7 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 	// no DHCP server to serve the address to the guest
 	vmi := newSRIOVVmi(
 		[]string{networkName},
-		cloudInitNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr),
+		netcloudinit.CreateNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr),
 	)
 	libvmi.WithNodeAffinityFor(nodeName)(vmi)
 	const secondaryInterfaceIndex = 1
