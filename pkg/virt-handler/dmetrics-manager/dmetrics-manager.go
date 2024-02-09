@@ -86,8 +86,10 @@ func (m *DownwardMetricsManager) StopServer(vmi *v1.VirtualMachineInstance) {
 	// Even it's not strictly required for stopping the server,
 	// since the server will stop when the VM closes the unix socket,
 	// we cancel the context to avoid leaking it
-	m.stopServer[vmi.UID]()
-	delete(m.stopServer, vmi.UID)
+	if cancelCtx, exists := m.stopServer[vmi.UID]; exists {
+		cancelCtx()
+		delete(m.stopServer, vmi.UID)
+	}
 }
 
 // StartServer start a new DownwardMetrics server if the VM request it and is not already started
