@@ -6409,6 +6409,9 @@ var CRDsValidation map[string]string = map[string]string{
                       description: 'Controls whether or not disks will share IOThreads.
                         Omitting IOThreadsPolicy disables use of IOThreads. One of:
                         shared, auto'
+                      enum:
+                      - shared
+                      - auto
                       type: string
                     launchSecurity:
                       description: Launch Security setting of the vmi.
@@ -10968,6 +10971,9 @@ var CRDsValidation map[string]string = map[string]string{
             ioThreadsPolicy:
               description: 'Controls whether or not disks will share IOThreads. Omitting
                 IOThreadsPolicy disables use of IOThreads. One of: shared, auto'
+              enum:
+              - shared
+              - auto
               type: string
             launchSecurity:
               description: Launch Security setting of the vmi.
@@ -13759,6 +13765,9 @@ var CRDsValidation map[string]string = map[string]string{
             ioThreadsPolicy:
               description: 'Controls whether or not disks will share IOThreads. Omitting
                 IOThreadsPolicy disables use of IOThreads. One of: shared, auto'
+              enum:
+              - shared
+              - auto
               type: string
             launchSecurity:
               description: Launch Security setting of the vmi.
@@ -16000,6 +16009,9 @@ var CRDsValidation map[string]string = map[string]string{
                       description: 'Controls whether or not disks will share IOThreads.
                         Omitting IOThreadsPolicy disables use of IOThreads. One of:
                         shared, auto'
+                      enum:
+                      - shared
+                      - auto
                       type: string
                     launchSecurity:
                       description: Launch Security setting of the vmi.
@@ -20411,6 +20423,9 @@ var CRDsValidation map[string]string = map[string]string{
                               description: 'Controls whether or not disks will share
                                 IOThreads. Omitting IOThreadsPolicy disables use of
                                 IOThreads. One of: shared, auto'
+                              enum:
+                              - shared
+                              - auto
                               type: string
                             launchSecurity:
                               description: Launch Security setting of the vmi.
@@ -25600,6 +25615,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: 'Controls whether or not disks will
                                     share IOThreads. Omitting IOThreadsPolicy disables
                                     use of IOThreads. One of: shared, auto'
+                                  enum:
+                                  - shared
+                                  - auto
                                   type: string
                                 launchSecurity:
                                   description: Launch Security setting of the vmi.

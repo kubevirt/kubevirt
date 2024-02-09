@@ -71,7 +71,6 @@ const (
 )
 
 var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, v1.VirtIO: nil}
-var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
 var restrictedVmiLabels = map[string]bool{
@@ -190,7 +189,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateInterfaceStateValue(field, spec)...)
 	causes = append(causes, validateInterfaceBinding(field, spec)...)
 
-	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
 
@@ -678,27 +676,6 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("networks").Index(i).Child("name").String(), network.Name),
 				Field:   field.Child("networks").Index(i).Child("name").String(),
-			})
-		}
-	}
-	return causes
-}
-
-func validateIOThreadsPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.IOThreadsPolicy != nil {
-		isValidPolicy := func(policy v1.IOThreadsPolicy) bool {
-			for _, p := range validIOThreadsPolicies {
-				if policy == p {
-					return true
-				}
-			}
-			return false
-		}
-		if !isValidPolicy(*spec.Domain.IOThreadsPolicy) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid IOThreadsPolicy (%s)", *spec.Domain.IOThreadsPolicy),
-				Field:   field.Child("domain", "ioThreadsPolicy").String(),
 			})
 		}
 	}

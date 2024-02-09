@@ -202,6 +202,7 @@ type DomainSpec struct {
 	// Omitting IOThreadsPolicy disables use of IOThreads.
 	// One of: shared, auto
 	// +optional
+	// +kubebuilder:validation:Enum:=shared;auto
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
 	// Chassis specifies the chassis info passed to the domain.
 	// +optional

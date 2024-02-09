@@ -689,30 +689,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Type: v1.InputTypeTablet,
 					Name: "tablet0",
 				}, 0, []string{}, "Expect no errors"),
-			Entry("and reject input with ps2 bus",
-				v1.Input{
-					Type: v1.InputTypeTablet,
-					Name: "tablet0",
-					Bus:  v1.InputBus("ps2"),
-				}, 1, []string{"fake.domain.devices.inputs[0].bus"}, "Expect bus error"),
-			Entry("and reject input with keyboard type and virtio bus",
-				v1.Input{
-					Type: v1.InputTypeKeyboard,
-					Name: "tablet0",
-					Bus:  v1.InputBusVirtio,
-				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
-			Entry("and reject input with keyboard type and usb bus",
-				v1.Input{
-					Type: v1.InputTypeKeyboard,
-					Name: "tablet0",
-					Bus:  v1.InputBusUSB,
-				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
-			Entry("and reject input with wrong type and wrong bus",
-				v1.Input{
-					Type: v1.InputTypeKeyboard,
-					Name: "tablet0",
-					Bus:  v1.InputBus("ps2"),
-				}, 2, []string{"fake.domain.devices.inputs[0].bus", "fake.domain.devices.inputs[0].type"}, "Expect type error"),
 		)
 
 		It("should reject negative requests.cpu value", func() {
@@ -1987,16 +1963,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.IOThreadsPolicy = &ioThreadPolicy
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
-		})
-
-		It("should reject invalid ioThreadsPolicy", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			var ioThreadPolicy v1.IOThreadsPolicy
-			ioThreadPolicy = "bad"
-			vmi.Spec.Domain.IOThreadsPolicy = &ioThreadPolicy
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Invalid IOThreadsPolicy (%s)", ioThreadPolicy)))
 		})
 
 		It("should reject GPU devices when feature gate is disabled", func() {

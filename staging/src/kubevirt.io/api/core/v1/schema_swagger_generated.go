@@ -92,7 +92,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
 		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, and others",
-		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional\n+kubebuilder:validation:Enum:=shared;auto",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
 		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
 	}
