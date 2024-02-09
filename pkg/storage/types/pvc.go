@@ -36,7 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-const MiB = 1024 * 1024
+const (
+	MiB = 1024 * 1024
+
+	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
+
+	dataVolumeGarbageCollectionAnnotation = "cdi.kubevirt.io/garbageCollected"
+)
 
 type PvcNotFoundError struct {
 	Reason string
@@ -44,6 +50,10 @@ type PvcNotFoundError struct {
 
 func (e PvcNotFoundError) Error() string {
 	return e.Reason
+}
+
+func IsDataVolumeGarbageCollected(pvc *k8sv1.PersistentVolumeClaim) bool {
+	return pvc != nil && pvc.Annotations[dataVolumeGarbageCollectionAnnotation] == "true"
 }
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {

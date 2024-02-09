@@ -463,8 +463,12 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			if err != nil {
 				return false, err
 			}
+
 			if pvc != nil {
-				continue
+				// don't want to keep creating DataVolumes that will be garbage collected
+				if storagetypes.IsDataVolumeGarbageCollected(pvc) {
+					continue
+				}
 			}
 
 			// ready = false because encountered DataVolume that is not created yet

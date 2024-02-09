@@ -222,6 +222,12 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
+			allAnnotations := map[string]string{
+				"cdi.kubevirt.io/allowClaimAdoption": "true",
+			}
+			for k, v := range annotations {
+				allAnnotations[k] = v
+			}
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
@@ -229,7 +235,7 @@ var _ = Describe("VirtualMachine", func() {
 				dataVolume := update.GetObject().(*cdiv1.DataVolume)
 				Expect(dataVolume.ObjectMeta.OwnerReferences[0].UID).To(Equal(uid))
 				Expect(dataVolume.ObjectMeta.Labels).To(Equal(labels))
-				Expect(dataVolume.ObjectMeta.Annotations).To(Equal(annotations))
+				Expect(dataVolume.ObjectMeta.Annotations).To(Equal(allAnnotations))
 				Expect(dataVolume.Spec.PriorityClassName).To(Equal(priorityClassName))
 				return true, update.GetObject(), nil
 			})
@@ -926,6 +932,53 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
+
+		DescribeTable("should properly handle PVC existing before DV created", func(annotations map[string]string, expectedCreations int) {
+			vm, _ := DefaultVirtualMachine(false)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+				Name: "test1",
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
+			addVirtualMachine(vm)
+
+			pvc := k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "dv1",
+					Namespace:   vm.Namespace,
+					Annotations: annotations,
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Phase: k8sv1.ClaimBound,
+				},
+			}
+			Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+
+			createCount := 0
+			if expectedCreations > 0 {
+				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
+			}
+
+			controller.Execute()
+			Expect(createCount).To(Equal(expectedCreations))
+			if expectedCreations > 0 {
+				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+			}
+		},
+			Entry("when PVC has no annotation", map[string]string{}, 1, nil),
+			Entry("when PVC was garbage collected", map[string]string{"cdi.kubevirt.io/garbageCollected": "true"}, 0, nil),
+		)
 
 		DescribeTable("should properly set priority class", func(dvPriorityClass, vmPriorityClass, expectedPriorityClass string) {
 			vm, _ := DefaultVirtualMachine(true)
