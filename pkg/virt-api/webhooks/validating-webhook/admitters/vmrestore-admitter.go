@@ -303,7 +303,7 @@ func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namesp
 	if sourceTargetVmsAreDifferent && targetVMExists {
 		cause := metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("when shapsnot source and restore target VMs are different - target VM must not exist"),
+			Message: fmt.Sprintf("when snapshot source and restore target VMs are different - target VM must not exist"),
 			Field:   field.String(),
 		}
 		causes = append(causes, cause)
