@@ -81,8 +81,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}
 			return
 		}
-
-		It("should successfully plug vCPUs", func() {
+		It("[test_id:10811]should successfully plug vCPUs", func() {
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			const (
 				maxSockets uint32 = 2
@@ -181,7 +180,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 		})
 
-		It("should successfully plug guaranteed vCPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+		It("[test_id:10822]should successfully plug guaranteed vCPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			checks.ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient)
 			const maxSockets uint32 = 3
 
