@@ -307,6 +307,7 @@ type Features struct {
 	KVM        *FeatureKVM        `xml:"kvm,omitempty"`
 	PVSpinlock *FeaturePVSpinlock `xml:"pvspinlock,omitempty"`
 	PMU        *FeatureState      `xml:"pmu,omitempty"`
+	VMPort     *FeatureState      `xml:"vmport,omitempty"`
 }
 
 type FeatureHyperv struct {
