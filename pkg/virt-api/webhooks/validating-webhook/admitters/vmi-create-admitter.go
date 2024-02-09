@@ -2206,21 +2206,8 @@ func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
 
 func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	nameMap := make(map[string]int)
 
 	for idx, disk := range disks {
-		// verify name is unique
-		otherIdx, ok := nameMap[disk.Name]
-		if !ok {
-			nameMap[disk.Name] = idx
-		} else {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s and %s must not have the same Name.", field.Index(idx).String(), field.Index(otherIdx).String()),
-				Field:   field.Index(idx).Child("name").String(),
-			})
-		}
-
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
 		var diskType string

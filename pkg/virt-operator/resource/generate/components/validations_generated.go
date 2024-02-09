@@ -5759,6 +5759,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         downwardMetrics:
                           description: DownwardMetrics creates a virtio serials for
                             exposing the downward metrics to the vmi.
@@ -10365,6 +10368,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 downwardMetrics:
                   description: DownwardMetrics creates a virtio serials for exposing
                     the downward metrics to the vmi.
@@ -13159,6 +13165,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 downwardMetrics:
                   description: DownwardMetrics creates a virtio serials for exposing
                     the downward metrics to the vmi.
@@ -15359,6 +15368,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         downwardMetrics:
                           description: DownwardMetrics creates a virtio serials for
                             exposing the downward metrics to the vmi.
@@ -19735,6 +19747,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   maxItems: 256
                                   type: array
+                                  x-kubernetes-list-map-keys:
+                                  - name
+                                  x-kubernetes-list-type: map
                                 downwardMetrics:
                                   description: DownwardMetrics creates a virtio serials
                                     for exposing the downward metrics to the vmi.
@@ -24903,6 +24918,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                       maxItems: 256
                                       type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
                                     downwardMetrics:
                                       description: DownwardMetrics creates a virtio
                                         serials for exposing the downward metrics

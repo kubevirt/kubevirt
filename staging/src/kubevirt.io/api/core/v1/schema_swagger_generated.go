@@ -247,7 +247,7 @@ func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"useVirtioTransitional":      "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.\nThis is helpful for old machines like CentOS6 or RHEL6 which\ndo not understand virtio_non_transitional (virtio 1.0).",
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
-		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.\n+kubebuilder:validation:MaxItems:=256",
+		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.\n+kubebuilder:validation:MaxItems:=256\n+listType:=map\n+listMapKey:=name",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
 		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.\n+kubebuilder:validation:MaxItems:=256",
 		"inputs":                     "Inputs describe input devices",
