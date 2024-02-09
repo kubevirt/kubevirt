@@ -72,7 +72,7 @@ const (
 	vddk          = "vddk"
 	snapshot      = "snapshot"
 
-	InvalidInferenceVolumeError = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
+	InvalidInferenceVolumeError = "inference of instancetype or preference works only with DataSources, DataVolumes, PersistentVolumeClaims or ContainerDisks"
 )
 
 type createVM struct {
@@ -358,7 +358,7 @@ func volumeValidToInferFrom(vm *v1.VirtualMachine, vol *v1.Volume) error {
 		return dataVolumeValidToInferFrom(vm, vol)
 	}
 
-	if vol.PersistentVolumeClaim != nil {
+	if vol.PersistentVolumeClaim != nil || vol.ContainerDisk != nil {
 		return nil
 	}
 
