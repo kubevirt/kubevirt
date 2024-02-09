@@ -393,24 +393,6 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	return
 }
 
-func GetComputeContainerOfPod(pod *k8sv1.Pod) *k8sv1.Container {
-	return GetContainerOfPod(pod, "compute")
-}
-
-func GetContainerOfPod(pod *k8sv1.Pod, containerName string) *k8sv1.Container {
-	var computeContainer *k8sv1.Container
-	for _, container := range pod.Spec.Containers {
-		if container.Name == containerName {
-			computeContainer = &container
-			break
-		}
-	}
-	if computeContainer == nil {
-		util2.PanicOnError(fmt.Errorf("could not find the %s container", containerName))
-	}
-	return computeContainer
-}
-
 // NewRandomVirtualMachineInstanceWithDisk
 //
 // Deprecated: Use libvmi directly
@@ -908,7 +890,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		virtClient,
 		vmiPod,
-		GetComputeContainerOfPod(vmiPod).Name,
+		libpod.LookupComputeContainer(vmiPod).Name,
 		command,
 	)
 	if err != nil {
@@ -926,7 +908,7 @@ func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		virtClient,
 		vmiPod,
-		GetComputeContainerOfPod(vmiPod).Name,
+		libpod.LookupComputeContainer(vmiPod).Name,
 		[]string{"virsh", "--quiet", "domstate", vmi.Namespace + "_" + vmi.Name},
 	)
 	if err != nil {
