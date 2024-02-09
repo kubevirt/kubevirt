@@ -1,0 +1,27 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "bitreader.go",
+        "bitwriter.go",
+        "bytereader.go",
+        "compress.go",
+        "decompress.go",
+        "decompress_amd64.go",
+        "decompress_amd64.s",
+        "decompress_generic.go",
+        "huff0.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/klauspost/compress/huff0",
+    importpath = "github.com/klauspost/compress/huff0",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/klauspost/compress/fse:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:amd64": [
+            "//vendor/github.com/klauspost/compress/internal/cpuinfo:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

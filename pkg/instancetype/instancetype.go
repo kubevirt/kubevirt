@@ -8,6 +8,10 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/kubernetes"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -822,6 +826,9 @@ func (m *InstancetypeMethods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine
 		if volume.DataVolume != nil {
 			return m.inferDefaultsFromDataVolume(vm, volume.DataVolume.Name, defaultNameLabel, defaultKindLabel)
 		}
+		if volume.ContainerDisk != nil {
+			return m.inferDefaultsFromContainerDisk(vm, volume.ContainerDisk, defaultNameLabel, defaultKindLabel)
+		}
 		return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from volume %s as type is not supported", inferFromVolumeName))
 	}
 	return "", "", fmt.Errorf("unable to find volume %s to infer defaults", inferFromVolumeName)
@@ -905,6 +912,39 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 		return m.inferDefaultsFromDataSource(sourceRef.Name, namespace, defaultNameLabel, defaultKindLabel)
 	}
 	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind))
+}
+
+func (m *InstancetypeMethods) inferDefaultsFromContainerDisk(vm *virtv1.VirtualMachine, source *virtv1.ContainerDiskSource, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
+	ref, err := name.ParseReference(source.Image)
+	if err != nil {
+		return "", "", err
+	}
+
+	var opts []remote.Option
+	if source.ImagePullSecret != "" {
+		keychain, err := kubernetes.New(context.Background(), m.Clientset, kubernetes.Options{
+			Namespace:          vm.Namespace,
+			ServiceAccountName: kubernetes.NoServiceAccount,
+			ImagePullSecrets:   []string{source.ImagePullSecret},
+		})
+		if err != nil {
+			return "", "", err
+		}
+		opts = append(opts, remote.WithAuthFromKeychain(keychain))
+	} else {
+		opts = append(opts, remote.WithAuth(authn.Anonymous))
+	}
+
+	image, err := remote.Image(ref, opts...)
+	if err != nil {
+		return "", "", err
+	}
+	config, err := image.ConfigFile()
+	if err != nil {
+		return "", "", err
+	}
+
+	return inferDefaultsFromLabels(config.Config.Labels, defaultNameLabel, defaultKindLabel)
 }
 
 func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts Conflicts) {
