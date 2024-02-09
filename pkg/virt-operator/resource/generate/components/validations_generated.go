@@ -7495,6 +7495,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
               required:
               - domain
               type: object
@@ -12004,6 +12007,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           maxItems: 256
           type: array
+          x-kubernetes-list-map-keys:
+          - name
+          x-kubernetes-list-type: map
       required:
       - domain
       type: object
@@ -17104,6 +17110,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
               required:
               - domain
               type: object
@@ -21594,6 +21603,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                       required:
                       - domain
                       type: object
@@ -26836,6 +26848,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                               maxItems: 256
                               type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                           required:
                           - domain
                           type: object

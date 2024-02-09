@@ -20609,7 +20609,11 @@
       "items": {
        "default": {},
        "$ref": "#/definitions/v1.Volume"
-      }
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
      }
     }
    },

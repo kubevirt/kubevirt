@@ -1889,7 +1889,6 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 
 func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	nameMap := make(map[string]int)
 
 	// check that we have max 1 instance of below disks
 	serviceAccountVolumeCount := 0
@@ -1897,18 +1896,6 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	memoryDumpVolumeCount := 0
 
 	for idx, volume := range volumes {
-		// verify name is unique
-		otherIdx, ok := nameMap[volume.Name]
-		if !ok {
-			nameMap[volume.Name] = idx
-		} else {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s and %s must not have the same Name.", field.Index(idx).String(), field.Index(otherIdx).String()),
-				Field:   field.Index(idx).Child("name").String(),
-			})
-		}
-
 		// Verify exactly one source is set
 		volumeSourceSetCount := 0
 		if volume.PersistentVolumeClaim != nil {

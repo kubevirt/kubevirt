@@ -1062,26 +1062,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
-		It("should reject volumes with duplicate names", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "testvolume",
-				VolumeSource: v1.VolumeSource{
-					ContainerDisk: testutils.NewFakeContainerDiskSource(),
-				},
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "testvolume",
-				VolumeSource: v1.VolumeSource{
-					ContainerDisk: testutils.NewFakeContainerDiskSource(),
-				},
-			})
-
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake[1].name"))
-		})
 
 		DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
 			vmi := api.NewMinimalVMI("testvmi")
