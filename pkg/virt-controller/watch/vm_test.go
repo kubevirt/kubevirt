@@ -2063,6 +2063,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm3, _ := DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
 			vmi3 := controller.setupVMIFromVM(vm3)
 			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
+
+			// different namespaces, same name
+			vm4, _ := DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
+			vm4.Namespace = "namespace0"
+			vmi4 := controller.setupVMIFromVM(vm4)
+			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi4.Spec.Domain.Firmware.UUID))
 		})
 
 		It("should honour any firmware UUID present in the template", func() {
