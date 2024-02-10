@@ -20,6 +20,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+// list of namespace allowed for HCO installations (for tests)
+const (
+	operatorTestNamespace       = "test-operators"
+	operatorHubNamespace        = "operators"
+	communityHubNamespace       = "community-kubevirt-hyperconverged"
+	communityHubTargetNamespace = "community-kubevirt-hyperconverged-target"
+)
+
 type HcCmdHelper struct {
 	Logger     logr.Logger
 	runInLocal bool
@@ -129,7 +137,13 @@ func (h HcCmdHelper) checkNameSpace() {
 
 	// Allowing the operator to be deployed in OperatorTestNamespace, in addition to OPERATOR_NAMESPACE env var,
 	// to unblock its publish in OperatorHub.io
-	nsAllowList := []string{requiredNS, hcoutil.OperatorTestNamespace, hcoutil.OperatorHubNamespace}
+	nsAllowList := []string{
+		requiredNS,
+		operatorTestNamespace,
+		operatorHubNamespace,
+		communityHubNamespace,
+		communityHubTargetNamespace,
+	}
 	if !StringInSlice(actualNS, nsAllowList) {
 		err := fmt.Errorf("%s is running in different namespace than expected", h.Name)
 		msg := fmt.Sprintf("Please re-deploy this %s into %v namespace", h.Name, requiredNS)

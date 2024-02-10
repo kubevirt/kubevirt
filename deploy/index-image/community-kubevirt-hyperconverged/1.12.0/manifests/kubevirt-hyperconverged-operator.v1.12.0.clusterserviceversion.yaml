@@ -3687,7 +3687,7 @@ spec:
                 - /manager
                 env:
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator:v0.19.0
+                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:f6db539fe4d4b752644c6bc8a308f5a80ae09a71da5c5d535114dc4c3cf18e0a
                 - name: VIRTIO_IMG
                 - name: OPERATOR_VERSION
                   value: v0.19.0
@@ -4804,6 +4804,8 @@ spec:
     name: kubevirt-apiserver-proxy
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:4ed1f37116cbaf883edd8783201d091fbbe121fcb84e7184ee531d3b1abd77ab
     name: kubevirt-plugin
+  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:f6db539fe4d4b752644c6bc8a308f5a80ae09a71da5c5d535114dc4c3cf18e0a
+    name: kubevirt-template-validator
   - image: quay.io/kubevirt/libguestfs-tools@sha256:d79838e7d87b00fa36c16f1699680167dc13e759a357d31e4d92301d28bd6dc8
     name: libguestfs-tools
   - image: registry.k8s.io/sig-storage/livenessprobe@sha256:5baeb4a6d7d517434292758928bb33efc6397368cbb48c8a4cf29496abf4e987
@@ -4828,6 +4830,8 @@ spec:
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:a996022594cac841109f7acdfeb087c3592462648c5a40765ab74c628b922a2f
     name: virt-api
+  - image: +ARTIFACTS_SERVER_IMAGE_TO_REPLACE+
+    name: virt-artifacts-server
   - image: quay.io/kubevirt/virt-controller@sha256:0dcedd6865b6f0fe9ac1a0679f7e3ab99d50368a9bc44c972c52fff0c6e32c56
     name: virt-controller
   - image: quay.io/kubevirt/virt-exportproxy@sha256:1c1e81f29f297e0a7c3c17a93b604f380ecb497b7e9eb0c10908153e98aae82f

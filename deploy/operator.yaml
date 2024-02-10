@@ -511,7 +511,7 @@ spec:
         - /manager
         env:
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator:v0.19.0
+          value: quay.io/kubevirt/kubevirt-template-validator@sha256:f6db539fe4d4b752644c6bc8a308f5a80ae09a71da5c5d535114dc4c3cf18e0a
         - name: VIRTIO_IMG
         - name: OPERATOR_VERSION
           value: v0.19.0
