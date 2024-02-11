@@ -1035,7 +1035,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 
 			Context("With a USB device", func() {
-				It("should successfully start and have the USB storage device attached", func() {
+				It("[test_id:9797]should successfully start and have the USB storage device attached", func() {
 					vmi = libvmi.NewAlpine(
 						libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusUSB, resource.MustParse("128Mi")),
 					)
