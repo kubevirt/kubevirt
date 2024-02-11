@@ -1158,6 +1158,8 @@ var _ = SIGDescribe("Hotplug", func() {
 					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					// Stir things up, /dev/urandom access will be needed
+					libvmi.WithRng(),
 				)
 
 				return vmi
