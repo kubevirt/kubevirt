@@ -129,6 +129,19 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
 		}
 	}
+	if vmi.Spec.Domain.Devices.Rng != nil {
+		path, err := safepath.JoinNoFollow(mountRoot, "/dev/urandom")
+		if err != nil {
+			return nil, err
+		}
+		if deviceRule, err := newAllowedDeviceRule(path); err != nil {
+			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
+		} else if deviceRule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for volume rng: %v", deviceRule)
+			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		}
+	}
+
 	return vmiDeviceRules, nil
 }
 
