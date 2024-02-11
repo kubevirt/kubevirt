@@ -119,7 +119,7 @@ var istioTests = func(vmType VmType) {
 	Context("Virtual Machine with istio supported interface", func() {
 		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
 			By("Starting HTTP Server")
-			vmnetserver.StartPythonHttpServer(vmi, targetPort)
+			vmnetserver.StartPythonHTTPServer(vmi, targetPort)
 
 			By("Getting back the VMI IP")
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -362,7 +362,7 @@ var istioTests = func(vmType VmType) {
 
 				By("Starting HTTP Server")
 				Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
-				vmnetserver.StartPythonHttpServer(serverVMI, vmiServerTestPort)
+				vmnetserver.StartPythonHTTPServer(serverVMI, vmiServerTestPort)
 
 				By("Creating Istio VirtualService")
 				virtualServicesRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "virtualservices"}

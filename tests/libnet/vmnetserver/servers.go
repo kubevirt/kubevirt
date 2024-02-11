@@ -55,12 +55,12 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.L
 	HTTPServer.Start(vmi, port)
 }
 
-func StartHTTPServerWithSourceIp(vmi *v1.VirtualMachineInstance, port int, sourceIP string, loginTo console.LoginToFunction) {
+func StartHTTPServerWithSourceIP(vmi *v1.VirtualMachineInstance, port int, sourceIP string, loginTo console.LoginToFunction) {
 	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
 	HTTPServer.Start(vmi, port, fmt.Sprintf("-s %s", sourceIP))
 }
 
-func StartPythonHttpServer(vmi *v1.VirtualMachineInstance, port int) {
+func StartPythonHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(console.RunCommand(vmi, "echo 'Hello World!' > index.html", 60*time.Second)).To(Succeed())
 
 	serverCommand := fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)

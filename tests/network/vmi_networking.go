@@ -800,7 +800,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
 				By("starting a http server")
-				vmnetserver.StartPythonHttpServer(serverVMI, tcpPort)
+				vmnetserver.StartPythonHTTPServer(serverVMI, tcpPort)
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
