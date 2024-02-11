@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -185,7 +186,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 					startServerVMI(ports)
 
 					By("starting a TCP server")
-					tests.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
+					vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
 
 					Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, ipFamily)).To(Succeed())
 
@@ -194,7 +195,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 						vmPort := int(ports[0].Port)
 						serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 
-						tests.StartTCPServer(serverVMI, vmPort+1, console.LoginToAlpine)
+						vmnetserver.StartTCPServer(serverVMI, vmPort+1, console.LoginToAlpine)
 
 						By("Connecting from the client VM to a port not specified on the VM spec")
 						Expect(console.SafeExpectBatch(clientVMI, checkConnectionToServer(serverIP, tcpPort+1, true), 30)).To(Not(Succeed()))
@@ -251,7 +252,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 					)
 
 					By("Starting a UDP server")
-					tests.StartPythonUDPServer(serverVMI, SERVER_PORT, ipFamily)
+					vmnetserver.StartPythonUDPServer(serverVMI, SERVER_PORT, ipFamily)
 
 					By("Starting client VMI")
 					clientVMI = libvmi.NewAlpineWithTestTooling(

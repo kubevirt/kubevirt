@@ -6,7 +6,6 @@ go_library(
         "io_utils.go",
         "pod_servers.go",
         "utils.go",
-        "vmi_servers.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests",
     visibility = ["//visibility:public"],

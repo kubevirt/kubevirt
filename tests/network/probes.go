@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -357,9 +358,9 @@ func isHTTPProbe(probe v1.Probe) bool {
 
 func serverStarter(vmi *v1.VirtualMachineInstance, probe *v1.Probe, port int) {
 	if isHTTPProbe(*probe) {
-		tests.StartHTTPServer(vmi, port, console.LoginToAlpine)
+		vmnetserver.StartHTTPServer(vmi, port, console.LoginToAlpine)
 	} else {
-		tests.StartTCPServer(vmi, port, console.LoginToAlpine)
+		vmnetserver.StartTCPServer(vmi, port, console.LoginToAlpine)
 	}
 }
 
