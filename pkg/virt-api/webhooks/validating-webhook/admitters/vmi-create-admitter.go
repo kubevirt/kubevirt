@@ -70,8 +70,6 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
-
 var restrictedVmiLabels = map[string]bool{
 	v1.CreatedByLabel:               true,
 	v1.MigrationJobLabel:            true,
@@ -153,7 +151,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCpuPinning(field, spec, config)...)
 	causes = append(causes, validateNUMA(field, spec, config)...)
 	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
-	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateCPUHotplug(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
 	causes = append(causes, validateRealtime(field, spec)...)
@@ -906,21 +903,6 @@ func appendStatusCauseForMoreThanOnePodInterface(field *k8sfield.Path, causes []
 		Message: fmt.Sprintf("more than one interface is connected to a pod network in %s", field.Child("interfaces").String()),
 		Field:   field.Child("interfaces").String(),
 	})
-}
-
-func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
-		for idx, feature := range spec.Domain.CPU.Features {
-			if _, exists := validCPUFeaturePolicies[feature.Policy]; !exists {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: fmt.Sprintf("CPU feature %s uses policy %s that is not supported.", feature.Name, feature.Policy),
-					Field:   field.Child("domain", "cpu", "features").Index(idx).Child("policy").String(),
-				})
-			}
-		}
-	}
-	return causes
 }
 
 func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {

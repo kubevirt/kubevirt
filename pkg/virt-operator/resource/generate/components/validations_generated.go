@@ -5529,6 +5529,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   by virtual CPU. forbid   - Guest creation will fail
                                   if the feature is supported by host CPU. Defaults
                                   to require'
+                                enum:
+                                - force
+                                - require
+                                - optional
+                                - disable
+                                - forbid
                                 type: string
                             required:
                             - name
@@ -8419,6 +8425,12 @@ var CRDsValidation map[string]string = map[string]string{
                       will not be supported by virtual CPU. forbid   - Guest creation
                       will fail if the feature is supported by host CPU. Defaults
                       to require'
+                    enum:
+                    - force
+                    - require
+                    - optional
+                    - disable
+                    - forbid
                     type: string
                 required:
                 - name
@@ -10181,6 +10193,12 @@ var CRDsValidation map[string]string = map[string]string{
                           disable  - The feature will not be supported by virtual
                           CPU. forbid   - Guest creation will fail if the feature
                           is supported by host CPU. Defaults to require'
+                        enum:
+                        - force
+                        - require
+                        - optional
+                        - disable
+                        - forbid
                         type: string
                     required:
                     - name
@@ -13007,6 +13025,12 @@ var CRDsValidation map[string]string = map[string]string{
                           disable  - The feature will not be supported by virtual
                           CPU. forbid   - Guest creation will fail if the feature
                           is supported by host CPU. Defaults to require'
+                        enum:
+                        - force
+                        - require
+                        - optional
+                        - disable
+                        - forbid
                         type: string
                     required:
                     - name
@@ -15221,6 +15245,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   by virtual CPU. forbid   - Guest creation will fail
                                   if the feature is supported by host CPU. Defaults
                                   to require'
+                                enum:
+                                - force
+                                - require
+                                - optional
+                                - disable
+                                - forbid
                                 type: string
                             required:
                             - name
@@ -19611,6 +19641,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           CPU. forbid   - Guest creation will fail
                                           if the feature is supported by host CPU.
                                           Defaults to require'
+                                        enum:
+                                        - force
+                                        - require
+                                        - optional
+                                        - disable
+                                        - forbid
                                         type: string
                                     required:
                                     - name
@@ -21928,6 +21964,12 @@ var CRDsValidation map[string]string = map[string]string{
                       will not be supported by virtual CPU. forbid   - Guest creation
                       will fail if the feature is supported by host CPU. Defaults
                       to require'
+                    enum:
+                    - force
+                    - require
+                    - optional
+                    - disable
+                    - forbid
                     type: string
                 required:
                 - name
@@ -24801,6 +24843,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               Guest creation will fail if the feature
                                               is supported by host CPU. Defaults to
                                               require'
+                                            enum:
+                                            - force
+                                            - require
+                                            - optional
+                                            - disable
+                                            - forbid
                                             type: string
                                         required:
                                         - name

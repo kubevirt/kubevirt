@@ -374,6 +374,7 @@ type CPUFeature struct {
 	// forbid   - Guest creation will fail if the feature is supported by host CPU.
 	// Defaults to require
 	// +optional
+	// +kubebuilder:validation:Enum:=force;require;optional;disable;forbid
 	Policy string `json:"policy,omitempty"`
 }
 

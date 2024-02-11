@@ -193,7 +193,7 @@ func (CPUFeature) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "CPUFeature allows specifying a CPU feature.",
 		"name":   "Name of the CPU feature",
-		"policy": "Policy is the CPU feature attribute which can have the following attributes:\nforce    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU.\nrequire  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it.\noptional - The feature will be supported by virtual CPU if and only if it is supported by host CPU.\ndisable  - The feature will not be supported by virtual CPU.\nforbid   - Guest creation will fail if the feature is supported by host CPU.\nDefaults to require\n+optional",
+		"policy": "Policy is the CPU feature attribute which can have the following attributes:\nforce    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU.\nrequire  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it.\noptional - The feature will be supported by virtual CPU if and only if it is supported by host CPU.\ndisable  - The feature will not be supported by virtual CPU.\nforbid   - Guest creation will fail if the feature is supported by host CPU.\nDefaults to require\n+optional\n+kubebuilder:validation:Enum:=force;require;optional;disable;forbid",
 	}
 }
 

@@ -2528,39 +2528,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
-	Context("with CPU features", func() {
-		It("should accept valid CPU feature policies", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Features: []v1.CPUFeature{
-					{
-						Name: "lahf_lm",
-					},
-				},
-			}
-
-			for policy := range validCPUFeaturePolicies {
-				vmi.Spec.Domain.CPU.Features[0].Policy = policy
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(BeEmpty())
-			}
-		})
-
-		It("should reject invalid CPU feature policy", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Features: []v1.CPUFeature{
-					{
-						Name:   "lahf_lm",
-						Policy: "invalid_policy",
-					},
-				},
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-		})
-	})
-
 	Context("with Disk", func() {
 		DescribeTable("should accept valid disks",
 			func(disk v1.Disk) {
