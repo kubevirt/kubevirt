@@ -184,6 +184,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		clientTest = fake.NewSimpleClientset()
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().ShadowNodeClient().Return(kubecli.NewMockShadowNodeInterface(ctrl))
 		virtClient.EXPECT().CoreV1().Return(clientTest.CoreV1()).AnyTimes()
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()

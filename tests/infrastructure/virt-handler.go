@@ -66,27 +66,23 @@ var _ = DescribeInfra("virt-handler", func() {
 		return nodesWithKSM
 	}
 
-	forceMemoryPressureOnNodes := func(nodes []string) {
-		for _, node := range nodes {
+	forceMemoryPressureOnShadowNodes := func(nodeNames []string) {
+		for _, nodeName := range nodeNames {
 			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s", "%s": "%s"}}}`,
 				v1.KSMFreePercentOverride, "1.0",
 				v1.KSMPagesDecayOverride, "-300",
 			))
-			_, err := virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			_, err := virtClient.ShadowNodeClient().Patch(context.Background(), nodeName, types.MergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
 
-	restoreNodes := func(nodes []string) {
+	restoreShadowNodes := func(nodes []string) {
 		for _, node := range nodes {
 			patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}, {"op": "remove", "path": "/metadata/annotations/%s"}]`,
 				strings.ReplaceAll(v1.KSMFreePercentOverride, "/", "~1"), strings.ReplaceAll(v1.KSMPagesDecayOverride, "/", "~1")))
-			_, err := virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			if err != nil {
-				node2, err2 := virtClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
-				Expect(err2).NotTo(HaveOccurred())
-				Expect(err).NotTo(HaveOccurred(), `patch:"%s" annotations:%#v`, string(patchBytes), node2.GetAnnotations())
-			}
+			shadowNode, err := virtClient.ShadowNodeClient().Get(context.Background(), node, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred(), `patch:"%s" annotations:%#v`, string(patchBytes), shadowNode.GetAnnotations())
 		}
 	}
 
@@ -98,13 +94,13 @@ var _ = DescribeInfra("virt-handler", func() {
 			Fail("There isn't any node with KSM available")
 		}
 
-		forceMemoryPressureOnNodes(nodesToEnableKSM)
+		forceMemoryPressureOnShadowNodes(nodesToEnableKSM)
 
 		originalKubeVirt = util.GetCurrentKv(virtClient)
 	})
 
 	AfterEach(func() {
-		restoreNodes(nodesToEnableKSM)
+		restoreShadowNodes(nodesToEnableKSM)
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 	})
 
@@ -126,11 +122,11 @@ var _ = DescribeInfra("virt-handler", func() {
 			}, 3*time.Minute, 2*time.Second).Should(BeEquivalentTo("1\n"), fmt.Sprintf("KSM should be enabled in node %s", node))
 
 			Eventually(func() (bool, error) {
-				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
+				shadowNode, err := virtClient.ShadowNodeClient().Get(context.Background(), node, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
-				value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]
+				value, found := shadowNode.GetAnnotations()[v1.KSMHandlerManagedAnnotation]
 				return found && value == "true", nil
 			}, 3*time.Minute, 2*time.Second).Should(BeTrue(), fmt.Sprintf("Node %s should have %s annotation", node, v1.KSMHandlerManagedAnnotation))
 		}

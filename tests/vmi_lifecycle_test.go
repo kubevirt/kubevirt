@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libshadownode"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -580,30 +581,30 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		Context("[Serial]when virt-handler is responsive", Serial, func() {
 			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
-				By("adding a heartbeat annotation and a schedulable label to the node")
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				for _, node := range nodes.Items {
-					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(BeEmpty(), "Nodes should have be ready for VMI")
+				By("Remove Schedulable label from a shadowNode")
+				shadowNodes := libshadownode.GetAllSchedulableShadowNodes(kubevirt.Client())
+				Expect(shadowNodes.Items).ToNot(BeEmpty(), "There should be some compute shadowNode")
+				for _, node := range shadowNodes.Items {
+					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(BeEmpty(), "ShadowNodes should have heartbeat")
 				}
 
-				node := &nodes.Items[0]
-				node, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)), metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
-				timestamp := node.Annotations[v1.VirtHandlerHeartbeat]
+				shadowNode := &shadowNodes.Items[0]
+				shadowNode, err = kubevirt.Client().ShadowNodeClient().Patch(context.Background(), shadowNode.Name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)), metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should patch shadowNode successfully")
+				timestamp := shadowNode.Annotations[v1.VirtHandlerHeartbeat]
 
-				By("setting the schedulable label back to true")
+				By("Expecting the schedulable label to switch back")
 				Eventually(func() string {
-					n, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
+					n, err := kubevirt.Client().ShadowNodeClient().Get(context.Background(), shadowNode.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get shadowNodes successfully")
 					return n.Labels[v1.NodeSchedulable]
 				}, 5*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
-				By("updating the heartbeat roughly every minute")
+				By("Expecting the heartbeat to be updated")
 				Expect(func() string {
-					n, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
+					n, err := kubevirt.Client().ShadowNodeClient().Get(context.Background(), shadowNode.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get shadowNodes successfully")
 					return n.Labels[v1.VirtHandlerHeartbeat]
-				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
+				}()).ShouldNot(Equal(timestamp), "Should not have old heartbeat")
 			})
 
 			It("[test_id:3198]device plugins should re-register if the kubelet restarts", func() {
@@ -719,12 +720,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
-				// Update virt-handler heartbeat, to trigger a timeout
+				By("Update virt-handler heartbeat, to trigger a timeout")
 				data := []byte(fmt.Sprintf(`{"metadata": { "labels": { "%s": "true" }, "annotations": {"%s": "%s"}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, nowAsJSONWithOffset(-10*time.Minute)))
-				_, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
+				_, err = kubevirt.Client().ShadowNodeClient().Patch(context.Background(), nodeName, types.MergePatchType, data, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should patch shadowNode successfully")
 
-				// Delete vmi pod
+				By("Delete vmi pod")
 				pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
 				})
@@ -736,28 +737,21 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				})).To(Succeed(), "The vmi pod should be deleted successfully")
 
 				// it will take at least 45 seconds until the vmi is gone, check the schedulable state in the meantime
-				By("marking the node as not schedulable")
+				By("Expecting the node to sync the unschedulable label")
 				Eventually(func() string {
 					node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get node successfully")
 					return node.Labels[v1.NodeSchedulable]
 				}, 20*time.Second, 1*time.Second).Should(Equal("false"), "The node should not be schedulable")
 
-				By("moving stuck vmis to failed state")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					failedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-					return failedVMI.Status.Phase
-				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+				By("Expecting the VMI to see in failed state")
+				Eventually(matcher.ThisVMI(vmi), 3*time.Minute, 1*time.Second).Should(matcher.BeInPhase(v1.Failed))
 
-				Eventually(func() string {
-					failedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-					return failedVMI.Status.Reason
-				}, 180*time.Second, 1*time.Second).Should(Equal(watch.NodeUnresponsiveReason))
-
-				err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				By("Expecting to see NodeUnresponsive as reason of failed state")
+				Expect(matcher.ThisVMI(vmi)()).To(WithTransform(func(vmi *v1.VirtualMachineInstance) string {
+					return vmi.Status.Reason
+				}, Equal(watch.NodeUnresponsiveReason),
+				), "Failed reason should be set")
 			})
 
 			AfterEach(func() {

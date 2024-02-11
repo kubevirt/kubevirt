@@ -292,7 +292,7 @@ func NewController(
 		device_manager.PermanentHostDevicePlugins(maxDevices, permissions),
 		clusterConfig,
 		clientset.CoreV1())
-	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1().Nodes(), clientset.ShadowNodeClient(), c.deviceManagerController, clusterConfig, host)
 
 	return c, nil
 }
