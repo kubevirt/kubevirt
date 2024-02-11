@@ -17,7 +17,7 @@
  *
  */
 
-package services
+package network
 
 import (
 	"encoding/json"
