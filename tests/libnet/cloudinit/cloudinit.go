@@ -22,7 +22,7 @@ package cloudinit
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/dns"
 
 	"sigs.k8s.io/yaml"
 )
@@ -110,13 +110,13 @@ func WithGateway6(gateway6 string) NetworkDataInterfaceOption {
 
 func WithNameserverFromCluster() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
-		dnsServerIP, err := libnet.ClusterDNSServiceIP()
+		dnsServerIP, err := dns.ClusterDNSServiceIP()
 		if err != nil {
 			return fmt.Errorf("failed defining network data nameservers when retrieving cluster DNS service IP: %w", err)
 		}
 		networkDataInterface.Nameservers = CloudInitNameservers{
 			Addresses: []string{dnsServerIP},
-			Search:    libnet.SearchDomains(),
+			Search:    dns.SearchDomains(),
 		}
 		return nil
 	}

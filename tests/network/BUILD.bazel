@@ -65,6 +65,7 @@ go_library(
         "//tests/libnet:go_default_library",
         "//tests/libnet/cloudinit:go_default_library",
         "//tests/libnet/cluster:go_default_library",
+        "//tests/libnet/dns:go_default_library",
         "//tests/libnet/job:go_default_library",
         "//tests/libnet/service:go_default_library",
         "//tests/libnode:go_default_library",
