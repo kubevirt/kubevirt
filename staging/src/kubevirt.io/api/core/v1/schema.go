@@ -457,6 +457,8 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
+	// +listType:=map
+	// +listMapKey:=name
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Inputs describe input devices
 	Inputs []Input `json:"inputs,omitempty"`
@@ -1241,11 +1243,13 @@ type I6300ESBWatchdog struct {
 type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks.
 	// Must match the Name of a Network.
+	// +kubebuilder:validation:Pattern:="^[A-Za-z0-9-_]+$"
 	Name string `json:"name"`
 	// Interface model.
 	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
 	// Defaults to virtio.
-	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
+	// +kubebuilder:validation:Enum:=e1000;e1000e;ne2k_pci;pcnet;rtl8139;virtio
+	// +kubebuilder:default:=virtio
 	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.
@@ -1281,6 +1285,7 @@ type Interface struct {
 	// State represents the requested operational state of the interface.
 	// The (only) value supported is `absent`, expressing a request to remove the interface.
 	// +optional
+	// +kubebuilder:validation:Enum:=absent
 	State InterfaceState `json:"state,omitempty"`
 }
 
@@ -1386,9 +1391,16 @@ type Port struct {
 	// Protocol for port. Must be UDP or TCP.
 	// Defaults to "TCP".
 	// +optional
+	//+kubebuilder:validation:Enum=TCP;UDP
+	// +kubebuilder:default="TCP"
 	Protocol string `json:"protocol,omitempty"`
 	// Number of port to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
+	// +kubebuilder:validation:ExclusiveMaximum:=true
+	// +kubebuilder:validation:ExclusiveMinimum:=true
+	// +kubebuilder:validation:Maximum:=65536
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Required
 	Port int32 `json:"port"`
 }
 

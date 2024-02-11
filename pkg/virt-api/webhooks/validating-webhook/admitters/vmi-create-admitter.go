@@ -70,7 +70,6 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, v1.VirtIO: nil}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
 var restrictedVmiLabels = map[string]bool{
@@ -281,13 +280,9 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, networkData, config, numOfInterfaces)...)
 
-		causes = append(causes, validateInterfaceNameUnique(field, networkInterfaceMap, iface, idx)...)
-		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
-
 		networkInterfaceMap[iface.Name] = struct{}{}
 
 		causes = append(causes, validatePortConfiguration(field, networkExists, networkData, iface, idx, portForwardMap)...)
-		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
 		causes = append(causes, validateMacAddress(field, iface, idx)...)
 		causes = append(causes, validateInterfaceBootOrder(field, iface, idx, bootOrderMap)...)
 		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
@@ -444,27 +439,11 @@ func validateMacAddress(field *k8sfield.Path, iface v1.Interface, idx int) (caus
 	return causes
 }
 
-func validateInterfaceModel(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if iface.Model != "" {
-		if _, exists := validInterfaceModels[iface.Model]; !exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
-			})
-		}
-	}
-	return causes
-}
-
 func validatePortConfiguration(field *k8sfield.Path, networkExists bool, networkData *v1.Network, iface v1.Interface, idx int, portForwardMap map[string]struct{}) (causes []metav1.StatusCause) {
 
 	// Check only ports configured on interfaces connected to a pod network
 	if networkExists && networkData.Pod != nil && iface.Ports != nil {
 		for portIdx, forwardPort := range iface.Ports {
-			causes = append(causes, validateForwardPortNonZero(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortInRange(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortProtocol(field, forwardPort, idx, portIdx)...)
 			causes = append(causes, validateForwardPortName(field, forwardPort, portForwardMap, idx, portIdx)...)
 		}
 	}
@@ -490,43 +469,6 @@ func validateForwardPortName(field *k8sfield.Path, forwardPort v1.Port, portForw
 		}
 
 		portForwardMap[forwardPort.Name] = struct{}{}
-	}
-	return causes
-}
-
-func validateForwardPortProtocol(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Protocol != "" {
-		if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Unknown protocol, only TCP or UDP allowed",
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
-			})
-		}
-	} else {
-		forwardPort.Protocol = "TCP"
-	}
-	return causes
-}
-
-func validateForwardPortInRange(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Port < 0 || forwardPort.Port > 65536 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Port field must be in range 0 < x < 65536.",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-		})
-	}
-	return causes
-}
-
-func validateForwardPortNonZero(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Port == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Port field is mandatory.",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-		})
 	}
 	return causes
 }
@@ -633,29 +575,6 @@ func appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field *k8sfield.Pat
 		Message: "Binding plugins feature gate is not enabled",
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
-	return causes
-}
-
-func validateInterfaceNameFormat(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	isValid := regexp.MustCompile(`^[A-Za-z0-9-_]+$`).MatchString
-	if !isValid(iface.Name) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		})
-	}
-	return causes
-}
-
-func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[string]struct{}, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueDuplicate,
-			Message: "Only one interface can be connected to one specific network",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		})
-	}
 	return causes
 }
 

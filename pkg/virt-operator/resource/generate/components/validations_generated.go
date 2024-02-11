@@ -5960,15 +5960,22 @@ var CRDsValidation map[string]string = map[string]string{
                                   network using netfilter rules to nat the traffic.
                                 type: object
                               model:
+                                default: virtio
                                 description: 'Interface model. One of: e1000, e1000e,
-                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports
-                                  them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.'
+                                enum:
+                                - e1000
+                                - e1000e
+                                - ne2k_pci
+                                - pcnet
+                                - rtl8139
+                                - virtio
                                 type: string
                               name:
                                 description: Logical name of the interface as well
                                   as a reference to the associated networks. Must
                                   match the Name of a Network.
+                                pattern: ^[A-Za-z0-9-_]+$
                                 type: string
                               passt:
                                 description: Deprecated, please refer to Kubevirt
@@ -5997,11 +6004,19 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Number of port to expose for the
                                         virtual machine. This must be a valid port
                                         number, 0 < x < 65536.
+                                      exclusiveMaximum: true
+                                      exclusiveMinimum: true
                                       format: int32
+                                      maximum: 65536
+                                      minimum: 0
                                       type: integer
                                     protocol:
+                                      default: TCP
                                       description: Protocol for port. Must be UDP
                                         or TCP. Defaults to "TCP".
+                                      enum:
+                                      - TCP
+                                      - UDP
                                       type: string
                                   required:
                                   - port
@@ -6020,6 +6035,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   state of the interface. The (only) value supported
                                   is 'absent', expressing a request to remove the
                                   interface.
+                                enum:
+                                - absent
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -6031,6 +6048,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         logSerialConsole:
                           description: Whether to log the auto-attached default serial
                             console or not. Serial console logs will be collect to
@@ -10571,13 +10591,21 @@ var CRDsValidation map[string]string = map[string]string{
                           using netfilter rules to nat the traffic.
                         type: object
                       model:
+                        default: virtio
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
-                          pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
-                          switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          pcnet, rtl8139, virtio. Defaults to virtio.'
+                        enum:
+                        - e1000
+                        - e1000e
+                        - ne2k_pci
+                        - pcnet
+                        - rtl8139
+                        - virtio
                         type: string
                       name:
                         description: Logical name of the interface as well as a reference
                           to the associated networks. Must match the Name of a Network.
+                        pattern: ^[A-Za-z0-9-_]+$
                         type: string
                       passt:
                         description: Deprecated, please refer to Kubevirt user guide
@@ -10605,11 +10633,19 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Number of port to expose for the virtual
                                 machine. This must be a valid port number, 0 < x <
                                 65536.
+                              exclusiveMaximum: true
+                              exclusiveMinimum: true
                               format: int32
+                              maximum: 65536
+                              minimum: 0
                               type: integer
                             protocol:
+                              default: TCP
                               description: Protocol for port. Must be UDP or TCP.
                                 Defaults to "TCP".
+                              enum:
+                              - TCP
+                              - UDP
                               type: string
                           required:
                           - port
@@ -10627,6 +10663,8 @@ var CRDsValidation map[string]string = map[string]string{
                         description: State represents the requested operational state
                           of the interface. The (only) value supported is 'absent',
                           expressing a request to remove the interface.
+                        enum:
+                        - absent
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -10637,6 +10675,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 logSerialConsole:
                   description: Whether to log the auto-attached default serial console
                     or not. Serial console logs will be collect to a file and then
@@ -13376,13 +13417,21 @@ var CRDsValidation map[string]string = map[string]string{
                           using netfilter rules to nat the traffic.
                         type: object
                       model:
+                        default: virtio
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
-                          pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
-                          switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          pcnet, rtl8139, virtio. Defaults to virtio.'
+                        enum:
+                        - e1000
+                        - e1000e
+                        - ne2k_pci
+                        - pcnet
+                        - rtl8139
+                        - virtio
                         type: string
                       name:
                         description: Logical name of the interface as well as a reference
                           to the associated networks. Must match the Name of a Network.
+                        pattern: ^[A-Za-z0-9-_]+$
                         type: string
                       passt:
                         description: Deprecated, please refer to Kubevirt user guide
@@ -13410,11 +13459,19 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Number of port to expose for the virtual
                                 machine. This must be a valid port number, 0 < x <
                                 65536.
+                              exclusiveMaximum: true
+                              exclusiveMinimum: true
                               format: int32
+                              maximum: 65536
+                              minimum: 0
                               type: integer
                             protocol:
+                              default: TCP
                               description: Protocol for port. Must be UDP or TCP.
                                 Defaults to "TCP".
+                              enum:
+                              - TCP
+                              - UDP
                               type: string
                           required:
                           - port
@@ -13432,6 +13489,8 @@ var CRDsValidation map[string]string = map[string]string{
                         description: State represents the requested operational state
                           of the interface. The (only) value supported is 'absent',
                           expressing a request to remove the interface.
+                        enum:
+                        - absent
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -13442,6 +13501,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 logSerialConsole:
                   description: Whether to log the auto-attached default serial console
                     or not. Serial console logs will be collect to a file and then
@@ -15590,15 +15652,22 @@ var CRDsValidation map[string]string = map[string]string{
                                   network using netfilter rules to nat the traffic.
                                 type: object
                               model:
+                                default: virtio
                                 description: 'Interface model. One of: e1000, e1000e,
-                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports
-                                  them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.'
+                                enum:
+                                - e1000
+                                - e1000e
+                                - ne2k_pci
+                                - pcnet
+                                - rtl8139
+                                - virtio
                                 type: string
                               name:
                                 description: Logical name of the interface as well
                                   as a reference to the associated networks. Must
                                   match the Name of a Network.
+                                pattern: ^[A-Za-z0-9-_]+$
                                 type: string
                               passt:
                                 description: Deprecated, please refer to Kubevirt
@@ -15627,11 +15696,19 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Number of port to expose for the
                                         virtual machine. This must be a valid port
                                         number, 0 < x < 65536.
+                                      exclusiveMaximum: true
+                                      exclusiveMinimum: true
                                       format: int32
+                                      maximum: 65536
+                                      minimum: 0
                                       type: integer
                                     protocol:
+                                      default: TCP
                                       description: Protocol for port. Must be UDP
                                         or TCP. Defaults to "TCP".
+                                      enum:
+                                      - TCP
+                                      - UDP
                                       type: string
                                   required:
                                   - port
@@ -15650,6 +15727,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   state of the interface. The (only) value supported
                                   is 'absent', expressing a request to remove the
                                   interface.
+                                enum:
+                                - absent
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -15661,6 +15740,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         logSerialConsole:
                           description: Whether to log the auto-attached default serial
                             console or not. Serial console logs will be collect to
@@ -19989,16 +20071,23 @@ var CRDsValidation map[string]string = map[string]string{
                                           to nat the traffic.
                                         type: object
                                       model:
+                                        default: virtio
                                         description: 'Interface model. One of: e1000,
                                           e1000e, ne2k_pci, pcnet, rtl8139, virtio.
-                                          Defaults to virtio. TODO:(ihar) switch to
-                                          enums once opengen-api supports them. See:
-                                          https://github.com/kubernetes/kube-openapi/issues/51'
+                                          Defaults to virtio.'
+                                        enum:
+                                        - e1000
+                                        - e1000e
+                                        - ne2k_pci
+                                        - pcnet
+                                        - rtl8139
+                                        - virtio
                                         type: string
                                       name:
                                         description: Logical name of the interface
                                           as well as a reference to the associated
                                           networks. Must match the Name of a Network.
+                                        pattern: ^[A-Za-z0-9-_]+$
                                         type: string
                                       passt:
                                         description: Deprecated, please refer to Kubevirt
@@ -20030,11 +20119,19 @@ var CRDsValidation map[string]string = map[string]string{
                                               description: Number of port to expose
                                                 for the virtual machine. This must
                                                 be a valid port number, 0 < x < 65536.
+                                              exclusiveMaximum: true
+                                              exclusiveMinimum: true
                                               format: int32
+                                              maximum: 65536
+                                              minimum: 0
                                               type: integer
                                             protocol:
+                                              default: TCP
                                               description: Protocol for port. Must
                                                 be UDP or TCP. Defaults to "TCP".
+                                              enum:
+                                              - TCP
+                                              - UDP
                                               type: string
                                           required:
                                           - port
@@ -20055,6 +20152,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           operational state of the interface. The
                                           (only) value supported is 'absent', expressing
                                           a request to remove the interface.
+                                        enum:
+                                        - absent
                                         type: string
                                       tag:
                                         description: If specified, the virtual network
@@ -20066,6 +20165,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   maxItems: 256
                                   type: array
+                                  x-kubernetes-list-map-keys:
+                                  - name
+                                  x-kubernetes-list-type: map
                                 logSerialConsole:
                                   description: Whether to log the auto-attached default
                                     serial console or not. Serial console logs will
@@ -25176,16 +25278,23 @@ var CRDsValidation map[string]string = map[string]string{
                                               to nat the traffic.
                                             type: object
                                           model:
+                                            default: virtio
                                             description: 'Interface model. One of:
                                               e1000, e1000e, ne2k_pci, pcnet, rtl8139,
-                                              virtio. Defaults to virtio. TODO:(ihar)
-                                              switch to enums once opengen-api supports
-                                              them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                              virtio. Defaults to virtio.'
+                                            enum:
+                                            - e1000
+                                            - e1000e
+                                            - ne2k_pci
+                                            - pcnet
+                                            - rtl8139
+                                            - virtio
                                             type: string
                                           name:
                                             description: Logical name of the interface
                                               as well as a reference to the associated
                                               networks. Must match the Name of a Network.
+                                            pattern: ^[A-Za-z0-9-_]+$
                                             type: string
                                           passt:
                                             description: Deprecated, please refer
@@ -25219,12 +25328,20 @@ var CRDsValidation map[string]string = map[string]string{
                                                     for the virtual machine. This
                                                     must be a valid port number, 0
                                                     < x < 65536.
+                                                  exclusiveMaximum: true
+                                                  exclusiveMinimum: true
                                                   format: int32
+                                                  maximum: 65536
+                                                  minimum: 0
                                                   type: integer
                                                 protocol:
+                                                  default: TCP
                                                   description: Protocol for port.
                                                     Must be UDP or TCP. Defaults to
                                                     "TCP".
+                                                  enum:
+                                                  - TCP
+                                                  - UDP
                                                   type: string
                                               required:
                                               - port
@@ -25245,6 +25362,8 @@ var CRDsValidation map[string]string = map[string]string{
                                               operational state of the interface.
                                               The (only) value supported is 'absent',
                                               expressing a request to remove the interface.
+                                            enum:
+                                            - absent
                                             type: string
                                           tag:
                                             description: If specified, the virtual
@@ -25257,6 +25376,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                       maxItems: 256
                                       type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
                                     logSerialConsole:
                                       description: Whether to log the auto-attached
                                         default serial console or not. Serial console
