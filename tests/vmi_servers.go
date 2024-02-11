@@ -72,25 +72,6 @@ EOL`, inetSuffix, port)
 	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
 }
 
-func StartExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port uint32) error {
-
-	serverArgs := fmt.Sprintf("--port %v", port)
-	if useTLS {
-		serverArgs = strings.Join([]string{serverArgs, "--use-tls"}, " ")
-	}
-
-	return console.ExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "chmod +x /usr/bin/example-guest-agent\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: EchoLastReturnValue},
-		&expect.BExp{R: console.ShellSuccess},
-		&expect.BSnd{S: fmt.Sprintf("/usr/bin/example-guest-agent %s 2>&1 &\n", serverArgs)},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: EchoLastReturnValue},
-		&expect.BExp{R: console.ShellSuccess},
-	}, 60*time.Second)
-}
-
 func (s server) Start(vmi *v1.VirtualMachineInstance, port int, extraArgs ...string) {
 	Expect(console.RunCommand(vmi, s.composeNetcatServerCommand(port, extraArgs...), 60*time.Second)).To(Succeed())
 }
