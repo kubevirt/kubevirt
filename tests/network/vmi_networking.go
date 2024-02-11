@@ -871,11 +871,14 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var err error
 
 				By("Create VMI")
-				vmi = masqueradeVMI(ports, "")
+				vmi = libvmi.NewAlpineWithTestTooling(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -895,8 +898,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Initiating DHCP client request after migration")
 
-				Expect(console.RunCommand(vmi, "sudo cirros-dhcpc down eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to release dhcp client")
-				Expect(console.RunCommand(vmi, "sudo cirros-dhcpc up eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to run dhcp client")
+				Expect(console.RunCommand(vmi, "udhcpc -i eth0\n", time.Second*time.Duration(15))).To(Succeed(),
+					"failed to start dhcp client")
 
 				Expect(ping(podIP)).To(Succeed())
 			},
