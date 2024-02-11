@@ -6053,12 +6053,17 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to emulate a sound device.
                           properties:
                             model:
+                              default: ich9
                               description: 'We only support ich9 or ac97. If SoundDevice
                                 is not set: No sound card is emulated. If SoundDevice
                                 is set but Model is not: ich9'
+                              enum:
+                              - ich9
+                              - ac97
                               type: string
                             name:
                               description: User's defined name for this sound device
+                              minLength: 1
                               type: string
                           required:
                           - name
@@ -10652,12 +10657,17 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to emulate a sound device.
                   properties:
                     model:
+                      default: ich9
                       description: 'We only support ich9 or ac97. If SoundDevice is
                         not set: No sound card is emulated. If SoundDevice is set
                         but Model is not: ich9'
+                      enum:
+                      - ich9
+                      - ac97
                       type: string
                     name:
                       description: User's defined name for this sound device
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -13452,12 +13462,17 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to emulate a sound device.
                   properties:
                     model:
+                      default: ich9
                       description: 'We only support ich9 or ac97. If SoundDevice is
                         not set: No sound card is emulated. If SoundDevice is set
                         but Model is not: ich9'
+                      enum:
+                      - ich9
+                      - ac97
                       type: string
                     name:
                       description: User's defined name for this sound device
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -15668,12 +15683,17 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to emulate a sound device.
                           properties:
                             model:
+                              default: ich9
                               description: 'We only support ich9 or ac97. If SoundDevice
                                 is not set: No sound card is emulated. If SoundDevice
                                 is set but Model is not: ich9'
+                              enum:
+                              - ich9
+                              - ac97
                               type: string
                             name:
                               description: User's defined name for this sound device
+                              minLength: 1
                               type: string
                           required:
                           - name
@@ -20070,14 +20090,19 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Whether to emulate a sound device.
                                   properties:
                                     model:
+                                      default: ich9
                                       description: 'We only support ich9 or ac97.
                                         If SoundDevice is not set: No sound card is
                                         emulated. If SoundDevice is set but Model
                                         is not: ich9'
+                                      enum:
+                                      - ich9
+                                      - ac97
                                       type: string
                                     name:
                                       description: User's defined name for this sound
                                         device
+                                      minLength: 1
                                       type: string
                                   required:
                                   - name
@@ -25256,14 +25281,19 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Whether to emulate a sound device.
                                       properties:
                                         model:
+                                          default: ich9
                                           description: 'We only support ich9 or ac97.
                                             If SoundDevice is not set: No sound card
                                             is emulated. If SoundDevice is set but
                                             Model is not: ich9'
+                                          enum:
+                                          - ich9
+                                          - ac97
                                           type: string
                                         name:
                                           description: User's defined name for this
                                             sound device
+                                          minLength: 1
                                           type: string
                                       required:
                                       - name

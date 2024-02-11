@@ -280,8 +280,8 @@ func (ClientPassthroughDevices) SwaggerDoc() map[string]string {
 func (SoundDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "Represents the user's configuration to emulate sound cards in the VMI.",
-		"name":  "User's defined name for this sound device",
-		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
+		"name":  "User's defined name for this sound device\n+kubebuilder:validation:MinLength=1",
+		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional\n+kubebuilder:validation:Enum:=ich9;ac97\n+kubebuilder:default:=ich9",
 	}
 }
 

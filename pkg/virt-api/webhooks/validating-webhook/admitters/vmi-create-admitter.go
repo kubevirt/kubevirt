@@ -210,7 +210,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
 	causes = append(causes, validateGPUsWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
-	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
@@ -790,28 +789,6 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 			Message: "Host Devices feature gate is not enabled in kubevirt-config",
 			Field:   field.Child("HostDevices").String(),
 		})
-	}
-	return causes
-}
-
-func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.Sound != nil {
-		model := spec.Domain.Devices.Sound.Model
-		if model != "" && model != "ich9" && model != "ac97" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Sound device type is not supported. Options: 'ich9' or 'ac97'",
-				Field:   field.Child("Sound").String(),
-			})
-		}
-		name := spec.Domain.Devices.Sound.Name
-		if name == "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Sound device requires a name field.",
-				Field:   field.Child("Sound").String(),
-			})
-		}
 	}
 	return causes
 }
