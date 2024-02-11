@@ -30671,7 +30671,7 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 					},
 					"dataVolumeTTLSeconds": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. The default is 0 sec. To disable GC use -1.",
+							Description: "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. Disabled by default.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -30694,6 +30694,13 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 									},
 								},
 							},
+						},
+					},
+					"logVerbosity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LogVerbosity overrides the default verbosity level used to initialize loggers",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
@@ -31307,6 +31314,13 @@ func schema_pkg_apis_core_v1beta1_DataImportCronStatus(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "LastImportTimestamp is the time of the last import",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"sourceFormat": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceFormat defines the format of the DataImportCron-created disk image sources",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"conditions": {
@@ -32865,6 +32879,20 @@ func schema_pkg_apis_core_v1beta1_StorageProfileSpec(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"dataImportCronSourceFormat": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"snapshotClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -32913,6 +32941,20 @@ func schema_pkg_apis_core_v1beta1_StorageProfileStatus(ref common.ReferenceCallb
 									},
 								},
 							},
+						},
+					},
+					"dataImportCronSourceFormat": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"snapshotClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -33335,11 +33377,39 @@ func schema_pkg_apis_core_v1beta1_VolumeImportSourceSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"targetClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetClaim the name of the specific claim to be populated with a multistage import.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"checkpoints": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeCheckpoint"),
+									},
+								},
+							},
+						},
+					},
+					"finalCheckpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType"},
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeCheckpoint", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType"},
 	}
 }
 

@@ -201,6 +201,11 @@ func (in *CDIConfigSpec) DeepCopyInto(out *CDIConfigSpec) {
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
+	if in.LogVerbosity != nil {
+		in, out := &in.LogVerbosity, &out.LogVerbosity
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 
@@ -548,6 +553,11 @@ func (in *DataImportCronStatus) DeepCopyInto(out *DataImportCronStatus) {
 	if in.LastImportTimestamp != nil {
 		in, out := &in.LastImportTimestamp, &out.LastImportTimestamp
 		*out = (*in).DeepCopy()
+	}
+	if in.SourceFormat != nil {
+		in, out := &in.SourceFormat, &out.SourceFormat
+		*out = new(DataImportCronSourceFormat)
+		**out = **in
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
@@ -1494,6 +1504,16 @@ func (in *StorageProfileSpec) DeepCopyInto(out *StorageProfileSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.DataImportCronSourceFormat != nil {
+		in, out := &in.DataImportCronSourceFormat, &out.DataImportCronSourceFormat
+		*out = new(DataImportCronSourceFormat)
+		**out = **in
+	}
+	if in.SnapshotClass != nil {
+		in, out := &in.SnapshotClass, &out.SnapshotClass
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -1531,6 +1551,16 @@ func (in *StorageProfileStatus) DeepCopyInto(out *StorageProfileStatus) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.DataImportCronSourceFormat != nil {
+		in, out := &in.DataImportCronSourceFormat, &out.DataImportCronSourceFormat
+		*out = new(DataImportCronSourceFormat)
+		**out = **in
+	}
+	if in.SnapshotClass != nil {
+		in, out := &in.SnapshotClass, &out.SnapshotClass
+		*out = new(string)
+		**out = **in
 	}
 	return
 }
@@ -1799,6 +1829,21 @@ func (in *VolumeImportSourceSpec) DeepCopyInto(out *VolumeImportSourceSpec) {
 	}
 	if in.Preallocation != nil {
 		in, out := &in.Preallocation, &out.Preallocation
+		*out = new(bool)
+		**out = **in
+	}
+	if in.TargetClaim != nil {
+		in, out := &in.TargetClaim, &out.TargetClaim
+		*out = new(string)
+		**out = **in
+	}
+	if in.Checkpoints != nil {
+		in, out := &in.Checkpoints, &out.Checkpoints
+		*out = make([]DataVolumeCheckpoint, len(*in))
+		copy(*out, *in)
+	}
+	if in.FinalCheckpoint != nil {
+		in, out := &in.FinalCheckpoint, &out.FinalCheckpoint
 		*out = new(bool)
 		**out = **in
 	}
