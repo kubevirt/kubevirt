@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -101,7 +103,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 		It("should successfully update node selector", func() {
 
 			By("Creating a running VM")
-			options := libvmi.WithMasqueradeNetworking()
+			options := libnet.WithMasqueradeNetworking()
 			options = append(options, libvmi.WithCPUCount(1, 2, 1))
 			vmi := libvmi.NewAlpineWithTestTooling(
 				options...,
@@ -161,7 +163,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 
 			By("Creating a running VM")
 			vmi := libvmi.NewAlpineWithTestTooling(
-				libvmi.WithMasqueradeNetworking()...,
+				libnet.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())

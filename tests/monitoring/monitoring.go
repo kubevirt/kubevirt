@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -89,7 +91,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 	Context("Migration Alerts", decorators.SigComputeMigrations, func() {
 		It("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
 			By("Starting the VirtualMachineInstance")
-			opts := append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
+			opts := append(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
 			vmi := libvmi.New(opts...)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 

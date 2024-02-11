@@ -356,7 +356,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:   "emptydisk1",

@@ -52,7 +52,7 @@ func newLabeledVMI(label string) (vmi *v1.VirtualMachineInstance) {
 		{Name: "udp", Port: 82, Protocol: "UDP"},
 		{Name: "test-port-udp", Port: 1500, Protocol: "UDP"}}
 	vmi = libvmi.NewAlpineWithTestTooling(
-		libvmi.WithMasqueradeNetworking(ports...)...,
+		libnet.WithMasqueradeNetworking(ports...)...,
 	)
 	vmi.Labels = map[string]string{"expose": label}
 	return

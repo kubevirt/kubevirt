@@ -71,7 +71,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 		virtClient = kubevirt.Client()
 		checks.SkipIfMissingRequiredImage(virtClient, libvmi.WindowsPVCName)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = libvmi.NewWindows(libvmi.WithMasqueradeNetworking()...)
+		windowsVMI = libvmi.NewWindows(libnet.WithMasqueradeNetworking()...)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 

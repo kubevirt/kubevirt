@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -64,7 +66,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 		}
 
 		vmiWithReEnlightenment := func() *v1.VirtualMachineInstance {
-			options := libvmi.WithMasqueradeNetworking()
+			options := libnet.WithMasqueradeNetworking()
 			options = append(options, withReEnlightenment)
 			return libvmi.NewAlpine(options...)
 		}
