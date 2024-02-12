@@ -1304,7 +1304,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Verify that the virt-launcher pod or its container is in the expected state")
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					launcherPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vm.Namespace)
+					launcherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vm.Namespace)
 					Expect(err).ToNot(HaveOccurred())
 
 					if toKeep, _ := strconv.ParseBool(keepLauncher); toKeep {
@@ -1985,7 +1985,7 @@ status:
 				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
 
-			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Simulating loss of the virt-launcher")

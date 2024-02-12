@@ -86,6 +86,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -2945,7 +2946,7 @@ spec:
 				}
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(BeInPhase(v1.Scheduled))
 
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				var podProfile *k8sv1.SeccompProfile
 				if pod.Spec.SecurityContext != nil {

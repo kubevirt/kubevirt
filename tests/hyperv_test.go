@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
@@ -268,7 +269,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 			Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS).ToNot(BeNil(), "evmcs should not be nil")
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil(), "cpu topology can't be nil")
-			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			if featureState.Enabled == nil || *featureState.Enabled == true {

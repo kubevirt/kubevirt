@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -177,7 +178,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying SELinux context contains custom type")
@@ -213,7 +214,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(err).ToNot(HaveOccurred())
 				emulator = "[/]" + strings.TrimPrefix(emulator, "/")
 
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
 				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
 					virtClient,
@@ -252,7 +253,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Fetching virt-launcher Pod")
-			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, containerSpec := range pod.Spec.Containers {
