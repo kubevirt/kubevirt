@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -528,7 +529,7 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	}
 
 	By("Waiting until the Migration Completes")
-	ip := libinfra.GetSupportedIP(metricsIPs, family)
+	ip := libnet.GetIP(metricsIPs, family)
 
 	_ = RunMigration(virtClient, migration)
 
@@ -538,6 +539,7 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 		keys := libinfra.GetKeysFromMetrics(metrics)
 		for _, key := range keys {
 			value := metrics[key]
+
 			if value == 0 {
 				return fmt.Errorf("metric value for %s is not expected to be zero", key)
 			}
