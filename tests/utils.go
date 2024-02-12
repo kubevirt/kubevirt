@@ -103,14 +103,7 @@ const (
 	DiskAlpineHostPath     = "disk-alpine-host-path"
 	DiskWindowsSysprep     = "disk-windows-sysprep"
 	DiskCustomHostPath     = "disk-custom-host-path"
-	defaultDiskSize        = "1Gi"
 )
-
-func SetupAlpineHostPath() {
-	const osAlpineHostPath = "alpine-host-path"
-	libstorage.CreateHostPathPv(osAlpineHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
-	libstorage.CreateHostPathPVC(osAlpineHostPath, testsuite.GetTestNamespace(nil), defaultDiskSize)
-}
 
 func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
 	var featureDenyList = map[string]bool{

@@ -96,7 +96,8 @@ var _ = SIGDescribe("Storage", func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		tests.SetupAlpineHostPath()
+		libstorage.CreateHostPathPv("alpine-host-path", testsuite.GetTestNamespace(nil), testsuite.HostPathAlpine)
+		libstorage.CreateHostPathPVC("alpine-host-path", testsuite.GetTestNamespace(nil), "1Gi")
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
