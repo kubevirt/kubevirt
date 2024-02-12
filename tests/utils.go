@@ -840,14 +840,6 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 	RunPodAndExpectCompletion(pod)
 }
 
-func RenameImgFile(pvc *k8sv1.PersistentVolumeClaim, newName string) {
-	args := []string{fmt.Sprintf("mv %s %s && ls -al %s", filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, newName), libstorage.DefaultPvcMountPath)}
-
-	By("renaming disk.img")
-	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
-	RunPodAndExpectCompletion(pod)
-}
-
 func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	dstPath = testsuite.HostPathAlpine + "-nopriv"
 	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
