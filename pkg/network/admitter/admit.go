@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitter
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func ValidateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		if iface.State != "" && iface.State != v1.InterfaceStateAbsent {
@@ -59,7 +59,7 @@ func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	return causes
 }
 
-func validateInterfaceBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func ValidateInterfaceBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		if iface.Binding != nil {

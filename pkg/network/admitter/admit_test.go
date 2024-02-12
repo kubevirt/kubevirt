@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitter_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +29,8 @@ import (
 	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
 var _ = Describe("Validating VMI network spec", func() {
@@ -40,7 +42,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			State:                  value,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 		}
-		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
+		Expect(admitter.ValidateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	},
 		Entry("is empty", v1.InterfaceState("")),
 		Entry("is absent when bridge binding is used", v1.InterfaceStateAbsent),
@@ -49,7 +51,7 @@ var _ = Describe("Validating VMI network spec", func() {
 	It("network interface state value is invalid", func() {
 		vm := api.NewMinimalVMI("testvm")
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: v1.InterfaceState("foo")}}
-		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
+		Expect(admitter.ValidateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface state value is unsupported: foo",
@@ -64,7 +66,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			State:                  v1.InterfaceStateAbsent,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 		}}
-		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
+		Expect(admitter.ValidateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "\"foo\" interface's state \"absent\" is supported only for bridge binding",
@@ -80,7 +82,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
+		Expect(admitter.ValidateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "\"foo\" interface's state \"absent\" is not supported on default networks",
@@ -95,7 +97,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			Binding:                &v1.PluginBinding{Name: "boo"},
 		}}
-		Expect(validateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(
+		Expect(admitter.ValidateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface cannot have both binding plugin and interface binding method",
@@ -109,7 +111,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			Name:    "foo",
 			Binding: &v1.PluginBinding{Name: "boo"},
 		}}
-		Expect(validateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
+		Expect(admitter.ValidateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	})
 
 	It("network interface has only binding method", func() {
@@ -118,6 +120,6 @@ var _ = Describe("Validating VMI network spec", func() {
 			Name:                   "foo",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 		}}
-		Expect(validateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
+		Expect(admitter.ValidateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	})
 })

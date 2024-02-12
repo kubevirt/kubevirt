@@ -45,6 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
@@ -191,8 +192,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
-	causes = append(causes, validateInterfaceStateValue(field, spec)...)
-	causes = append(causes, validateInterfaceBinding(field, spec)...)
+	causes = append(causes, netadmitter.ValidateInterfaceStateValue(field, spec)...)
+	causes = append(causes, netadmitter.ValidateInterfaceBinding(field, spec)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
