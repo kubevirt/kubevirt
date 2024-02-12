@@ -107,7 +107,8 @@ func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, ar
 	}
 }
 
-func RenderHostPathPod(podName string, dir string, hostPathType v1.HostPathType, mountPropagation v1.MountPropagationMode, cmd []string, args []string) *v1.Pod {
+func RenderHostPathPod(
+	podName string, dir string, hostPathType v1.HostPathType, mountPropagation v1.MountPropagationMode, cmd []string, args []string) *v1.Pod {
 	pod := RenderPrivilegedPod(podName, cmd, args)
 	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, v1.VolumeMount{
 		Name:             "hostpath-mount",

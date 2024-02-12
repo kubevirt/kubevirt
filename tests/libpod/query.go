@@ -30,13 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GetRunningPodByLabel(
-	virtCli kubecli.KubevirtClient,
-	label string,
-	labelType string,
-	namespace string,
-	node string) (*k8sv1.Pod, error) {
-
+func GetRunningPodByLabel(virtCli kubecli.KubevirtClient, label, labelType, namespace, node string) (*k8sv1.Pod, error) {
 	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
 	var fieldSelector string
 	if node != "" {

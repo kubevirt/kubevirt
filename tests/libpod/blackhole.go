@@ -13,19 +13,19 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 )
 
-func AddKubernetesApiBlackhole(pods *v1.PodList, containerName string) {
-	kubernetesApiServiceBlackhole(pods, containerName, true)
+func AddKubernetesAPIBlackhole(pods *v1.PodList, containerName string) {
+	kubernetesAPIServiceBlackhole(pods, containerName, true)
 }
 
-func DeleteKubernetesApiBlackhole(pods *v1.PodList, containerName string) {
-	kubernetesApiServiceBlackhole(pods, containerName, false)
+func DeleteKubernetesAPIBlackhole(pods *v1.PodList, containerName string) {
+	kubernetesAPIServiceBlackhole(pods, containerName, false)
 }
 
-func kubernetesApiServiceBlackhole(pods *v1.PodList, containerName string, present bool) {
+func kubernetesAPIServiceBlackhole(pods *v1.PodList, containerName string, present bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	Expect(err).NotTo(HaveOccurred())
 
-	serviceIp := getKubernetesApiServiceIp(virtCli)
+	serviceIP := getKubernetesAPIServiceIP(virtCli)
 
 	var addOrDel string
 	if present {
@@ -34,17 +34,17 @@ func kubernetesApiServiceBlackhole(pods *v1.PodList, containerName string, prese
 		addOrDel = "del"
 	}
 
-	for _, pod := range pods.Items {
-		_, err = exec.ExecuteCommandOnPod(virtCli, &pod, containerName, []string{"ip", "route", addOrDel, "blackhole", serviceIp})
+	for idx := range pods.Items {
+		_, err = exec.ExecuteCommandOnPod(virtCli, &pods.Items[idx], containerName, []string{"ip", "route", addOrDel, "blackhole", serviceIP})
 		Expect(err).NotTo(HaveOccurred())
 	}
 }
 
-func getKubernetesApiServiceIp(virtClient kubecli.KubevirtClient) string {
-	const kubernetesServiceName = "kubernetes"
-	const kubernetesServiceNamespace = "default"
+func getKubernetesAPIServiceIP(virtClient kubecli.KubevirtClient) string {
+	const serviceName = "kubernetes"
+	const serviceNamespace = "default"
 
-	kubernetesService, err := virtClient.CoreV1().Services(kubernetesServiceNamespace).Get(context.Background(), kubernetesServiceName, metav1.GetOptions{})
+	kubernetesService, err := virtClient.CoreV1().Services(serviceNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	return kubernetesService.Spec.ClusterIP
