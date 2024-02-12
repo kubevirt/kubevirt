@@ -317,10 +317,16 @@ type LiveMigrationConfigurations struct {
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
 	BandwidthPerMigration *string `json:"bandwidthPerMigration,omitempty"`
 
-	// The migration will be canceled if it has not completed in this time, in seconds per GiB
-	// of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed
-	// migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included
-	// in the calculation.
+	// If a migrating VM is big and busy, while the connection to the destination node
+	// is slow, migration may never converge. The completion timeout is calculated
+	// based on completionTimeoutPerGiB times the size of the guest (both RAM and
+	// migrated disks, if any). For example, with completionTimeoutPerGiB set to 800,
+	// a virtual machine instance with 6GiB memory will timeout if it has not
+	// completed migration in 1h20m. Use a lower completionTimeoutPerGiB to induce
+	// quicker failure, so that another destination or post-copy is attempted. Use a
+	// higher completionTimeoutPerGiB to let workload with spikes in its memory dirty
+	// rate to converge.
+	// The format is a number.
 	// +kubebuilder:default=800
 	// +default=800
 	// +optional
@@ -343,10 +349,14 @@ type LiveMigrationConfigurations struct {
 	// +default=false
 	AllowAutoConverge *bool `json:"allowAutoConverge,omitempty"`
 
-	// AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
-	// to successfully live-migrate. However, events like a network failure can cause a VMI crash.
-	// If set to true, migrations will still start in pre-copy, but switch to post-copy when
-	// CompletionTimeoutPerGiB triggers. Defaults to false
+	// When enabled, KubeVirt attempts to use post-copy live-migration in case it
+	// reaches its completion timeout while attempting pre-copy live-migration.
+	// Post-copy migrations allow even the busiest VMs to successfully live-migrate.
+	// However, events like a network failure or a failure in any of the source or
+	// destination nodes can cause the migrated VM to crash or reach inconsistency.
+	// Enable this option when evicting nodes is more important than keeping VMs
+	// alive.
+	// Defaults to false.
 	// +optional
 	// +kubebuilder:default=false
 	// +default=false
