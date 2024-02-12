@@ -211,61 +211,34 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	return kubecli.NewVirtHandlerClient(app.virtCli, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
-func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineStateChangeRequest) (string, error) {
+func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineStateChangeRequest) ([]byte, error) {
+	patches := patch.New()
 
-	var ops []string
-
-	verb := "add"
 	// Special case: if there's no status field at all, add one.
 	newStatus := v1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
 		newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, changes...)
-		statusJson, err := json.Marshal(newStatus)
-		if err != nil {
-			return "", err
-		}
-		ops = append(ops, fmt.Sprintf(`{ "op": "%s", "path": "/status", "value": %s}`, verb, string(statusJson)))
+		patches.Add("/status", newStatus)
 	} else {
 
-		failOnConflict := true
-		if len(changes) == 1 && changes[0].Action == v1.StopRequest {
-			// If this is a stopRequest, replace all existing StateChangeRequests.
-			failOnConflict = false
-		}
-
-		if len(vm.Status.StateChangeRequests) != 0 {
-			if failOnConflict {
-				return "", fmt.Errorf("unable to complete request: stop/start already underway")
-			} else {
-				verb = "replace"
-			}
+		stopRequest := len(changes) == 1 && changes[0].Action == v1.StopRequest
+		if len(vm.Status.StateChangeRequests) != 0 && !stopRequest {
+			return nil, fmt.Errorf("unable to complete request: stop/start already underway")
 		}
 
 		changeRequests := []v1.VirtualMachineStateChangeRequest{}
 		changeRequests = append(changeRequests, changes...)
 
-		oldChangeRequestsJson, err := json.Marshal(vm.Status.StateChangeRequests)
-		if err != nil {
-			return "", err
-		}
-
-		newChangeRequestsJson, err := json.Marshal(changeRequests)
-		if err != nil {
-			return "", err
-		}
-
-		test := fmt.Sprintf(`{ "op": "test", "path": "/status/stateChangeRequests", "value": %s}`, string(oldChangeRequestsJson))
-		update := fmt.Sprintf(`{ "op": "%s", "path": "/status/stateChangeRequests", "value": %s}`, verb, string(newChangeRequestsJson))
-
-		ops = append(ops, test)
-		ops = append(ops, update)
+		patches.Test("/status/stateChangeRequests", vm.Status.StateChangeRequests)
+		patches.AddOrReplace("/status/stateChangeRequests", changeRequests,
+			len(vm.Status.StateChangeRequests) == 0)
 	}
 
 	if vm.Status.StartFailure != nil {
-		ops = append(ops, `{ "op": "remove", "path": "/status/startFailure" }`)
+		patches.Remove("/status/startFailure")
 	}
 
-	return string(controller.GeneratePatchBytes(ops)), nil
+	return patches.GeneratePayload()
 }
 
 func getRunningJson(vm *v1.VirtualMachine, running bool) string {
@@ -568,21 +541,21 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 
-		var bodyString string
+		var body []byte
 		if needsRestart {
-			bodyString, err = getChangeRequestJson(vm,
+			body, err = getChangeRequestJson(vm,
 				v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
 				v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest, Data: startChangeRequestData})
 		} else {
-			bodyString, err = getChangeRequestJson(vm,
+			body, err = getChangeRequestJson(vm,
 				v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest, Data: startChangeRequestData})
 		}
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
 		}
-		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, bodyString)
-		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(body))
+		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, body, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", runStrategy)), response)
 		return
@@ -1099,51 +1072,19 @@ func verifyVolumeOption(volumes []v1.Volume, volumeRequest *v1.VirtualMachineVol
 	return nil
 }
 
-func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {
-
-	volumeVerb := "add"
-	diskVerb := "add"
-
-	if len(vmi.Spec.Volumes) > 0 {
-		volumeVerb = "replace"
-	}
-
-	if len(vmi.Spec.Domain.Devices.Disks) > 0 {
-		diskVerb = "replace"
-	}
-
+func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
+	patches := patch.New()
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmiCopy.Spec, volumeRequest)
 
-	oldVolumesJson, err := json.Marshal(vmi.Spec.Volumes)
-	if err != nil {
-		return "", err
-	}
+	patches.Test("/spec/volumes", vmi.Spec.Volumes)
+	patches.Test("/spec/domain/devices/disks", vmi.Spec.Domain.Devices.Disks)
+	patches.AddOrReplace("/spec/volumes", vmiCopy.Spec.Volumes,
+		len(vmi.Spec.Volumes) == 0)
+	patches.AddOrReplace("/spec/domain/devices/disks", vmiCopy.Spec.Domain.Devices.Disks,
+		len(vmi.Spec.Domain.Devices.Disks) == 0)
 
-	newVolumesJson, err := json.Marshal(vmiCopy.Spec.Volumes)
-	if err != nil {
-		return "", err
-	}
-
-	oldDisksJson, err := json.Marshal(vmi.Spec.Domain.Devices.Disks)
-	if err != nil {
-		return "", err
-	}
-
-	newDisksJson, err := json.Marshal(vmiCopy.Spec.Domain.Devices.Disks)
-	if err != nil {
-		return "", err
-	}
-
-	testVolumes := fmt.Sprintf(`{ "op": "test", "path": "/spec/volumes", "value": %s}`, string(oldVolumesJson))
-	updateVolumes := fmt.Sprintf(`{ "op": "%s", "path": "/spec/volumes", "value": %s}`, volumeVerb, string(newVolumesJson))
-
-	testDisks := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/devices/disks", "value": %s}`, string(oldDisksJson))
-	updateDisks := fmt.Sprintf(`{ "op": "%s", "path": "/spec/domain/devices/disks", "value": %s}`, diskVerb, string(newDisksJson))
-
-	patch := fmt.Sprintf("[%s, %s, %s, %s]", testVolumes, testDisks, updateVolumes, updateDisks)
-
-	return patch, nil
+	return patches.GeneratePayload()
 }
 
 func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
@@ -1281,7 +1222,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 
 	dryRunOption := app.getDryRunOption(volumeRequest)
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -1353,14 +1294,6 @@ func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Req
 	app.removeVolumeRequestHandler(request, response, true)
 }
 
-func getMemoryDumpPatchVerb(request *v1.VirtualMachineMemoryDumpRequest) string {
-	verb := "add"
-	if request != nil {
-		verb = "replace"
-	}
-	return verb
-}
-
 func addMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest) error {
 	claimName := memoryDumpReq.ClaimName
 	if vm.Status.MemoryDumpRequest != nil {
@@ -1389,34 +1322,25 @@ func removeMemoryDumpRequest(vm, vmCopy *v1.VirtualMachine, memoryDumpReq *v1.Vi
 	return nil
 }
 
-func generateVMMemoryDumpRequestPatch(vm *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) (string, error) {
-	verb := getMemoryDumpPatchVerb(vm.Status.MemoryDumpRequest)
+func generateVMMemoryDumpRequestPatch(vm *v1.VirtualMachine, memoryDumpReq *v1.VirtualMachineMemoryDumpRequest, removeRequest bool) ([]byte, error) {
 	vmCopy := vm.DeepCopy()
 
 	if !removeRequest {
 		if err := addMemoryDumpRequest(vm, vmCopy, memoryDumpReq); err != nil {
-			return "", err
+			return nil, err
 		}
 	} else {
 		if err := removeMemoryDumpRequest(vm, vmCopy, memoryDumpReq); err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	oldJson, err := json.Marshal(vm.Status.MemoryDumpRequest)
-	if err != nil {
-		return "", err
-	}
-	newJson, err := json.Marshal(vmCopy.Status.MemoryDumpRequest)
-	if err != nil {
-		return "", err
-	}
+	patches := patch.New()
+	patches.Test("/status/memoryDumpRequest", vm.Status.MemoryDumpRequest)
+	patches.AddOrReplace("/status/memoryDumpRequest", vmCopy.Status.MemoryDumpRequest,
+		vm.Status.MemoryDumpRequest == nil)
 
-	test := fmt.Sprintf(`{ "op": "test", "path": "/status/memoryDumpRequest", "value": %s}`, string(oldJson))
-	update := fmt.Sprintf(`{ "op": "%s", "path": "/status/memoryDumpRequest", "value": %s}`, verb, string(newJson))
-	patch := fmt.Sprintf("[%s, %s]", test, update)
-
-	return patch, nil
+	return patches.GeneratePayload()
 }
 
 func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace string) (*v12.PersistentVolumeClaim, *errors.StatusError) {
@@ -1526,7 +1450,7 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, patch)
-	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
+	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patch, &k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
