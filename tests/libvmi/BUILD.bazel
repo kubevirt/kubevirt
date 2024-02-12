@@ -11,7 +11,6 @@ go_library(
         "memory.go",
         "network.go",
         "selector.go",
-        "status.go",
         "storage.go",
         "vm.go",
         "vmi.go",

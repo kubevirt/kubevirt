@@ -469,7 +469,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Eventually(matcher.ThisVMI(vmiOne), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
-				vmiIfaceStatusByName := libvmi.IndexInterfaceStatusByName(vmiOne)
+				vmiIfaceStatusByName := indexInterfaceStatusByName(vmiOne)
 				Expect(vmiIfaceStatusByName).To(HaveKey(linuxBridgeInterfaceWithCustomMac.Name), "should set linux bridge interface with the custom MAC address at VMI Status")
 				Expect(vmiIfaceStatusByName[linuxBridgeInterfaceWithCustomMac.Name].MAC).To(Equal(customMacAddress), "should set linux bridge interface with the custom MAC address at VMI")
 
@@ -810,4 +810,12 @@ func activateDHCPOnVMInterfaces(vmi *v1.VirtualMachineInstance, ifacesNames ...s
 		&expect.BSnd{S: tests.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+func indexInterfaceStatusByName(vmi *v1.VirtualMachineInstance) map[string]v1.VirtualMachineInstanceNetworkInterface {
+	interfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+	for _, interfaceStatus := range vmi.Status.Interfaces {
+		interfaceStatusByName[interfaceStatus.Name] = interfaceStatus
+	}
+	return interfaceStatusByName
 }
