@@ -21,7 +21,6 @@ package watch
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -248,41 +247,28 @@ func ensureSelectorLabelPresent(migration *virtv1.VirtualMachineInstanceMigratio
 }
 
 func (c *MigrationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineInstance) error {
-	var ops []string
+	patches := patch.New()
 
 	if !equality.Semantic.DeepEqual(origVMI.Status.MigrationState, newVMI.Status.MigrationState) {
-		newState, err := json.Marshal(newVMI.Status.MigrationState)
-		if err != nil {
-			return err
-		}
 		if origVMI.Status.MigrationState == nil {
-			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/status/migrationState", "value": %s }`, string(newState)))
+			patches.Add("/status/migrationState", &newVMI.Status.MigrationState)
 
 		} else {
-			oldState, err := json.Marshal(origVMI.Status.MigrationState)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/status/migrationState", "value": %s }`, string(oldState)))
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/status/migrationState", "value": %s }`, string(newState)))
+			patches.TestAndReplace("/status/migrationState", &origVMI.Status.MigrationState,
+				&newVMI.Status.MigrationState)
 		}
 	}
 
 	if !equality.Semantic.DeepEqual(origVMI.Labels, newVMI.Labels) {
-		newLabels, err := json.Marshal(newVMI.Labels)
-		if err != nil {
-			return err
-		}
-		oldLabels, err := json.Marshal(origVMI.Labels)
-		if err != nil {
-			return err
-		}
-		ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabels)))
-		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabels)))
+		patches.TestAndReplace("/metadata/labels", &origVMI.Labels, &newVMI.Labels)
 	}
 
-	if len(ops) > 0 {
-		_, err := c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	if !patches.IsEmpty() {
+		p, err := patches.GeneratePayload()
+		if err != nil {
+			return err
+		}
+		_, err = c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, p, v1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -1281,9 +1267,12 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			}
 
 			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
-			patches := c.setupVMIRuntimeUser(vmi)
+			patches, err := c.setupVMIRuntimeUser(vmi)
+			if err != nil {
+				return err
+			}
 			if len(patches) != 0 {
-				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), v1.PatchOptions{})
+				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patches, v1.PatchOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
 				}
@@ -1345,35 +1334,37 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 	return nil
 }
 
-func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) []string {
-	var patches []string
+func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) ([]byte, error) {
+	patches := patch.New()
 	if !c.clusterConfig.RootEnabled() {
 		// The cluster is configured for non-root VMs, ensure the VMI is non-root.
 		// If the VMI is root, the migration will be a root -> non-root migration.
 		if vmi.Status.RuntimeUser != util.NonRootUID {
-			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
+			patches.Replace("/status/runtimeUser", util.NonRootUID)
 		}
 
 		// This is required in order to be able to update from v0.43-v0.51 to v0.52+
 		if vmi.Annotations == nil {
-			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
+			patches.Add("/metadata/annotations", virtv1.DeprecatedNonRootVMIAnnotation)
 		} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
-			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+			patches.Add(fmt.Sprintf("/metadata/annotations/%s",
+				patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)), "true")
 		}
 	} else {
 		// The cluster is configured for root VMs, ensure the VMI is root.
 		// If the VMI is non-root, the migration will be a non-root -> root migration.
 		if vmi.Status.RuntimeUser != util.RootUser {
-			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.RootUser))
+			patches.Replace("/status/runtimeUser", util.RootUser)
 		}
 
 		if vmi.Annotations != nil {
 			if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
-				patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+				patches.Remove(fmt.Sprintf("/metadata/annotations/%s",
+					patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
 			}
 		}
 	}
-	return patches
+	return patches.GeneratePayload()
 }
 
 func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
