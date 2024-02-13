@@ -920,6 +920,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(console.RunCommand(vmi, "sudo cirros-dhcpc up eth0\n", time.Second*time.Duration(15))).To(Succeed(), "failed to run dhcp client")
 
 				Expect(ping(podIP)).To(Succeed())
+
+				Expect(true).To(BeFalse(), "TEST PASSED, inject error to dump test artifacts")
 			},
 				Entry("without a specific port number", []v1.Port{}),
 				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
