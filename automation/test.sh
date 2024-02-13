@@ -274,6 +274,13 @@ export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
 build_images
 
+# Enforce using the k8s-1.28 provider, using k8s-1.28 node image that was created from kubevirt/kubevirtci latest main
+# quay.io/oshocal/k8s-1.28:latest
+export KUBEVIRTCI_CONTAINER_REGISTRY=quay.io
+export KUBEVIRTCI_CONTAINER_ORG=oshoval
+export KUBEVIRTCI_CONTAINER_SUFFIX=latest
+export KUBEVIRT_PROVIDER=k8s-1.28
+
 trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
 make cluster-up
 trap - ERR
