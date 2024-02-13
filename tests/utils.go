@@ -199,22 +199,6 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
 
-func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
-	pscmd := `ps -LC ` + emulator + ` -o lwp,comm | grep "CPU ` + cpu + `"  | cut -f1 -dC`
-	args := []string{BinBash, "-c", pscmd}
-	Eventually(func() error {
-		output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
-		return err
-	}).Should(Succeed())
-	vcpupid := strings.TrimSpace(strings.Trim(output, "\n"))
-	tasksetcmd := "taskset -c -p " + vcpupid + " | cut -f2 -d:"
-	args = []string{BinBash, "-c", tasksetcmd}
-	output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
-	Expect(err).ToNot(HaveOccurred())
-
-	return strings.TrimSpace(output), err
-}
-
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	const (
 		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
