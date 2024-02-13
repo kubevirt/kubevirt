@@ -259,20 +259,6 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 	return pods, nil
 }
 
-func GetProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
-	virtClient := kubevirt.Client()
-
-	fPath := "/proc/" + pid + "/comm"
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", fPath},
-	)
-
-	return
-}
-
 func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
 	virtClient := kubevirt.Client()
 
