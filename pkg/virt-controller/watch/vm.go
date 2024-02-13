@@ -31,9 +31,10 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
@@ -556,11 +557,6 @@ func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *virtv1.VirtualMachineInstanc
 }
 
 func (c *VMController) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachineInstance, request *virtv1.VirtualMachineMemoryDumpRequest, addVolume bool) error {
-	patchVerb := "add"
-	if len(vmi.Spec.Volumes) > 0 {
-		patchVerb = "replace"
-	}
-
 	foundRemoveVol := false
 	for _, volume := range vmi.Spec.Volumes {
 		if request.ClaimName == volume.Name {
@@ -583,21 +579,14 @@ func (c *VMController) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachi
 		vmiCopy.Spec = *removeMemoryDumpVolumeFromVMISpec(&vmiCopy.Spec, request.ClaimName)
 	}
 
-	oldJson, err := json.Marshal(vmi.Spec.Volumes)
+	patches := patch.New()
+	patches.Test("/spec/volumes", vmi.Spec.Volumes)
+	patches.AddOrReplace("/spec/volumes", vmiCopy.Spec.Volumes, len(vmi.Spec.Volumes) == 0)
+	patch, err := patches.GeneratePayload()
 	if err != nil {
 		return err
 	}
-
-	newJson, err := json.Marshal(vmiCopy.Spec.Volumes)
-	if err != nil {
-		return err
-	}
-
-	test := fmt.Sprintf(`{ "op": "test", "path": "/spec/volumes", "value": %s}`, string(oldJson))
-	update := fmt.Sprintf(`{ "op": "%s", "path": "/spec/volumes", "value": %s}`, patchVerb, string(newJson))
-	patch := fmt.Sprintf("[%s, %s]", test, update)
-
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 	return err
 }
 
@@ -639,11 +628,14 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) 
 }
 
 func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	test := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vmi.Spec.Domain.CPU.Sockets), 10))
-	update := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vm.Spec.Template.Spec.Domain.CPU.Sockets), 10))
-	patch := fmt.Sprintf("[%s, %s]", test, update)
-
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	patches := patch.New()
+	patches.TestAndReplace("/spec/domain/cpu/sockets", vmi.Spec.Domain.CPU.Sockets,
+		vm.Spec.Template.Spec.Domain.CPU.Sockets)
+	patch, err := patches.GeneratePayload()
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 
 	return err
 }
@@ -693,7 +685,7 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 }
 
 func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	var ops []string
+	patches := patch.New()
 
 	if vm.Spec.Template.Spec.NodeSelector != nil {
 		vmNodeSelector := maps.Clone(vm.Spec.Template.Spec.NodeSelector)
@@ -701,55 +693,44 @@ func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv
 			vmNodeSelector = make(map[string]string)
 		}
 
-		vmNodeSelectorJson, err := json.Marshal(vmNodeSelector)
-		if err != nil {
-			return err
-		}
-
 		if vmi.Spec.NodeSelector == nil {
-			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/spec/nodeSelector", "value": %s }`, string(vmNodeSelectorJson)))
+			patches.Add("/spec/nodeSelector", vmNodeSelector)
 		} else {
-			currentVMINodeSelector, err := json.Marshal(vmi.Spec.NodeSelector)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/spec/nodeSelector", "value": %s }`, string(currentVMINodeSelector)))
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec/nodeSelector", "value": %s }`, string(vmNodeSelectorJson)))
+			patches.TestAndReplace("/spec/nodeSelector", vmi.Spec.NodeSelector, vmNodeSelector)
 		}
 
 	} else {
-		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/nodeSelector" }`))
+		patches.Remove("/spec/nodeSelector")
 	}
-	generatedPatch := controller.GeneratePatchBytes(ops)
+	generatedPatch, err := patches.GeneratePayload()
+	if err != nil {
+		return err
+	}
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, v1.PatchOptions{})
 	return err
 }
 
 func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	var ops []string
+	patches := patch.New()
 
 	if vm.Spec.Template.Spec.Affinity != nil {
-		vmAffinityJson, err := json.Marshal(vm.Spec.Template.Spec.Affinity)
-		if err != nil {
-			return err
-		}
+		vmAffinity := vm.Spec.Template.Spec.Affinity.DeepCopy()
 		if vmi.Spec.Affinity == nil {
-			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/spec/affinity", "value": %s }`, string(vmAffinityJson)))
+			patches.Add("/spec/affinity", vmAffinity)
 		} else {
-			currentVMIAffinity, err := json.Marshal(vmi.Spec.Affinity)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/spec/affinity", "value": %s }`, string(currentVMIAffinity)))
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec/affinity", "value": %s }`, string(vmAffinityJson)))
+			patches.TestAndReplace("/spec/affinity", vmi.Spec.Affinity, vmAffinity)
 		}
 
 	} else {
-		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/affinity" }`))
+		patches.Remove("/spec/affinity")
+	}
+	generatedPatch, err := patches.GeneratePayload()
+	if err != nil {
+		return err
 	}
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, v1.PatchOptions{})
 	return err
 }
 
@@ -1226,18 +1207,12 @@ func (c *VMController) patchVmGenerationAnnotationOnVmi(generation int64, vmi *v
 
 	setGenerationAnnotationOnVmi(generation, vmi)
 
-	var ops []string
-	oldAnnotations, err := json.Marshal(origVmi.Annotations)
+	patch, err := patch.TestAndReplaceAnnotations(origVmi.Annotations, vmi.Annotations)
 	if err != nil {
 		return err
 	}
-	newAnnotations, err := json.Marshal(vmi.Annotations)
-	if err != nil {
-		return err
-	}
-	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-	_, err = c.clientset.VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+
+	_, err = c.clientset.VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -2232,23 +2207,6 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	c.Queue.Add(key)
 }
 
-func (c *VMController) getPatchFinalizerOps(oldFinalizers, newFinalizers []string) ([]string, error) {
-	joldFinalizers, err := json.Marshal(oldFinalizers)
-	if err != nil {
-		return nil, err
-	}
-
-	jnewFinalizers, err := json.Marshal(newFinalizers)
-	if err != nil {
-		return nil, err
-	}
-
-	return []string{
-		fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, joldFinalizers),
-		fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, jnewFinalizers),
-	}, nil
-}
-
 func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) error {
 	if !controller.HasFinalizer(vmi, virtv1.VirtualMachineControllerFinalizer) {
 		return nil
@@ -2264,12 +2222,12 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 		}
 	}
 
-	ops, err := c.getPatchFinalizerOps(vmi.Finalizers, newFinalizers)
+	ops, err := patch.TestAndReplaceFinalizers(vmi.Finalizers, newFinalizers)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, ops, v1.PatchOptions{})
 	return err
 }
 
@@ -2288,12 +2246,12 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Vir
 		}
 	}
 
-	ops, err := c.getPatchFinalizerOps(vm.Finalizers, newFinalizers)
+	ops, err := patch.TestAndReplaceFinalizers(vm.Finalizers, newFinalizers)
 	if err != nil {
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, ops, &v1.PatchOptions{})
 	return vm, err
 }
 
@@ -2308,12 +2266,12 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Virtua
 	copy(newFinalizers, vm.Finalizers)
 	newFinalizers = append(newFinalizers, virtv1.VirtualMachineControllerFinalizer)
 
-	ops, err := c.getPatchFinalizerOps(vm.Finalizers, newFinalizers)
+	ops, err := patch.TestAndReplaceFinalizers(vm.Finalizers, newFinalizers)
 	if err != nil {
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, ops, &v1.PatchOptions{})
 }
 
 // parseGeneration will parse for the last value after a '-'. It is assumed the
@@ -3236,25 +3194,21 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		// adjusting memoryDelta too for the new limits computation (if required)
 		memoryDelta = resource.NewQuantity(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()-newMemoryReq.Value(), resource.BinarySI)
 	}
-
-	patches := []string{
-		fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/memory/guest", "value": "%s"}`, vmi.Spec.Domain.Memory.Guest.String()),
-		fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/memory/guest", "value": "%s"}`, vm.Spec.Template.Spec.Domain.Memory.Guest.String()),
-		fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Requests.Memory().String()),
-		fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, newMemoryReq.String()),
-	}
+	patches := patch.New()
+	patches.TestAndReplace("/spec/domain/memory/guest", vmi.Spec.Domain.Memory.Guest,
+		vm.Spec.Template.Spec.Domain.Memory.Guest)
+	patches.TestAndReplace("/spec/domain/resources/requests/memory", vmi.Spec.Domain.Resources.Requests.Memory(), newMemoryReq)
 
 	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Memory().IsZero() {
 		newMemoryLimit := vmi.Spec.Domain.Resources.Limits.Memory().DeepCopy()
 		newMemoryLimit.Add(*memoryDelta)
-
-		patches = append(patches, fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/limits/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Limits.Memory().String()))
-		patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/limits/memory", "value": "%s"}`, newMemoryLimit.String()))
+		patches.TestAndReplace("/spec/domain/resources/limits/memory", vmi.Spec.Domain.Resources.Limits.Memory(), newMemoryLimit)
 	}
-
-	memoryPatch := controller.GeneratePatchBytes(patches)
-
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, memoryPatch, v1.PatchOptions{})
+	patch, err := patches.GeneratePayload()
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -3269,36 +3223,16 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 		return nil
 	}
 
-	oldIfacesJSON, err := json.Marshal(vmi.Spec.Domain.Devices.Interfaces)
+	patches := patch.New()
+	patches.TestAndAdd("/spec/networks", vmi.Spec.Networks, newVmiSpec.Networks)
+	patches.TestAndAdd("/spec/domain/devices/interfaces", vmi.Spec.Domain.Devices.Interfaces,
+		newVmiSpec.Domain.Devices.Interfaces)
+	patch, err := patches.GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	newIfacesJSON, err := json.Marshal(newVmiSpec.Domain.Devices.Interfaces)
-	if err != nil {
-		return err
-	}
-
-	oldNetworksJSON, err := json.Marshal(vmi.Spec.Networks)
-	if err != nil {
-		return err
-	}
-
-	newNetworksJSON, err := json.Marshal(newVmiSpec.Networks)
-	if err != nil {
-		return err
-	}
-
-	const verb = "add"
-	testNetworks := fmt.Sprintf(`{ "op": "test", "path": "/spec/networks", "value": %s}`, string(oldNetworksJSON))
-	updateNetworks := fmt.Sprintf(`{ "op": %q, "path": "/spec/networks", "value": %s}`, verb, string(newNetworksJSON))
-
-	testInterfaces := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/devices/interfaces", "value": %s}`, string(oldIfacesJSON))
-	updateInterfaces := fmt.Sprintf(`{ "op": %q, "path": "/spec/domain/devices/interfaces", "value": %s}`, verb, string(newIfacesJSON))
-
-	patch := fmt.Sprintf("[%s, %s, %s, %s]", testNetworks, testInterfaces, updateNetworks, updateInterfaces)
-
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 
 	return err
 }

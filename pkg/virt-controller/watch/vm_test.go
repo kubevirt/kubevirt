@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
@@ -204,20 +205,20 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
-
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+			patch, err := patch.TestAndReplaceFinalizers([]string{virtv1.VirtualMachineControllerFinalizer}, []string{})
+			Expect(err).ToNot(HaveOccurred())
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
 		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, virtv1.VirtualMachineControllerFinalizer)
-
+			patch, err := patch.TestAndReplaceFinalizers(nil, []string{virtv1.VirtualMachineControllerFinalizer})
+			Expect(err).ToNot(HaveOccurred())
 			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
 		}
 
 		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
-
+			patch, err := patch.TestAndReplaceFinalizers([]string{virtv1.VirtualMachineControllerFinalizer}, []string{})
+			Expect(err).ToNot(HaveOccurred())
 			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
 		}
 
@@ -1533,11 +1534,13 @@ var _ = Describe("VirtualMachine", func() {
 				vmi.ObjectMeta.Annotations = map[string]string{}
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
+				patch, err := patch.TestAndReplaceAnnotations(map[string]string{}, map[string]string{
+					"kubevirt.io/vm-generation": "4"})
+				Expect(err).ToNot(HaveOccurred())
 
-				patch := `[{ "op": "test", "path": "/metadata/annotations", "value": {} }, { "op": "replace", "path": "/metadata/annotations", "value": {"kubevirt.io/vm-generation":"4"} }]`
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 
-				err := controller.patchVmGenerationAnnotationOnVmi(4, vmi)
+				err = controller.patchVmGenerationAnnotationOnVmi(4, vmi)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -1609,15 +1612,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec = newVMSpec
 
 					if expectPatch {
-						oldAnnotations, err := json.Marshal(initialAnnotations)
+						patch, err := patch.TestAndReplaceAnnotations(initialAnnotations, desiredAnnotations)
 						Expect(err).ToNot(HaveOccurred())
-						newAnnotations, err := json.Marshal(desiredAnnotations)
-						Expect(err).ToNot(HaveOccurred())
-						var ops []string
-						ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
-						ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-
-						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Return(vmi, nil)
+						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 					} else {
 						// Should not be called
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -1811,15 +1808,9 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Generation = vmGeneration
 
 				if expectPatch {
-					var ops []string
-					oldAnnotations, err := json.Marshal(initialAnnotations)
+					patch, err := patch.TestAndReplaceAnnotations(initialAnnotations, desiredAnnotations)
 					Expect(err).ToNot(HaveOccurred())
-					newAnnotations, err := json.Marshal(desiredAnnotations)
-					Expect(err).ToNot(HaveOccurred())
-					ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
-					ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-
-					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Times(1).Return(vmi, nil)
+					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Times(1).Return(vmi, nil)
 				} else {
 					// Should not be called
 					vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -1918,15 +1909,9 @@ var _ = Describe("VirtualMachine", func() {
 					vmiFeeder.Add(vmi)
 
 					if expectPatch {
-						var ops []string
-						oldAnnotations, err := json.Marshal(initialAnnotations)
+						patch, err := patch.TestAndReplaceAnnotations(initialAnnotations, desiredAnnotations)
 						Expect(err).ToNot(HaveOccurred())
-						newAnnotations, err := json.Marshal(desiredAnnotations)
-						Expect(err).ToNot(HaveOccurred())
-						ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
-						ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-
-						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Times(1).Return(vmi, nil)
+						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Times(1).Return(vmi, nil)
 					} else {
 						// Should not be called
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -2638,21 +2623,38 @@ var _ = Describe("VirtualMachine", func() {
 				testPVCName    = "testPVC"
 				targetFileName = "memory.dump"
 			)
+			hotpluggableVolume := virtv1.Volume{
+				Name: testPVCName,
+				VolumeSource: virtv1.VolumeSource{
+					MemoryDump: &virtv1.MemoryDumpVolumeSource{
+						PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
+							Hotpluggable: true,
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: testPVCName,
+							},
+						},
+					},
+				},
+			}
 
 			shouldExpectVMIVolumesAddPatched := func(vmi *virtv1.VirtualMachineInstance) {
-				test := `{ "op": "test", "path": "/spec/volumes", "value": null}`
-				update := `{ "op": "add", "path": "/spec/volumes", "value": [{"name":"testPVC","memoryDump":{"claimName":"testPVC","hotpluggable":true}}]}`
-				patch := fmt.Sprintf("[%s, %s]", test, update)
+				patches := patch.New()
+				patches.Test("/spec/volumes", nil)
+				patches.Add("/spec/volumes", []virtv1.Volume{hotpluggableVolume})
+				patch, err := patches.GeneratePayload()
+				Expect(err).NotTo(HaveOccurred())
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 			}
 
 			shouldExpectVMIVolumesRemovePatched := func(vmi *virtv1.VirtualMachineInstance) {
-				test := `{ "op": "test", "path": "/spec/volumes", "value": [{"name":"testPVC","memoryDump":{"claimName":"testPVC","hotpluggable":true}}]}`
-				update := `{ "op": "replace", "path": "/spec/volumes", "value": []}`
-				patch := fmt.Sprintf("[%s, %s]", test, update)
+				patches := patch.New()
+				patches.TestAndReplace("/spec/volumes", []virtv1.Volume{hotpluggableVolume},
+					[]virtv1.Volume{})
+				patch, err := patches.GeneratePayload()
+				Expect(err).NotTo(HaveOccurred())
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 			}
 
 			applyVMIMemoryDumpVol := func(spec *virtv1.VirtualMachineInstanceSpec) *virtv1.VirtualMachineInstanceSpec {
