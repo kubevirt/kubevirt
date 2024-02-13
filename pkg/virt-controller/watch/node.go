@@ -33,28 +33,30 @@ const (
 
 // NodeController is the main NodeController struct.
 type NodeController struct {
-	clientset        kubecli.KubevirtClient
-	Queue            workqueue.RateLimitingInterface
-	nodeInformer     cache.SharedIndexInformer
-	vmiInformer      cache.SharedIndexInformer
-	recorder         record.EventRecorder
-	heartBeatTimeout time.Duration
-	recheckInterval  time.Duration
+	clientset          kubecli.KubevirtClient
+	Queue              workqueue.RateLimitingInterface
+	nodeInformer       cache.SharedIndexInformer
+	shadowNodeInformer cache.SharedIndexInformer
+	vmiInformer        cache.SharedIndexInformer
+	recorder           record.EventRecorder
+	heartBeatTimeout   time.Duration
+	recheckInterval    time.Duration
 }
 
 // NewNodeController creates a new instance of the NodeController struct.
-func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*NodeController, error) {
+func NewNodeController(clientset kubecli.KubevirtClient, shadowNodeInformer, nodeInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*NodeController, error) {
 	c := &NodeController{
-		clientset:        clientset,
-		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
-		nodeInformer:     nodeInformer,
-		vmiInformer:      vmiInformer,
-		recorder:         recorder,
-		heartBeatTimeout: 5 * time.Minute,
-		recheckInterval:  1 * time.Minute,
+		clientset:          clientset,
+		Queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
+		shadowNodeInformer: shadowNodeInformer,
+		nodeInformer:       nodeInformer,
+		vmiInformer:        vmiInformer,
+		recorder:           recorder,
+		heartBeatTimeout:   5 * time.Minute,
+		recheckInterval:    1 * time.Minute,
 	}
 
-	_, err := c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.shadowNodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addNode,
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
@@ -89,10 +91,10 @@ func (c *NodeController) updateNode(_, curr interface{}) {
 
 func (c *NodeController) enqueueNode(obj interface{}) {
 	logger := log.Log
-	node := obj.(*k8sv1.Node)
-	key, err := controller.KeyFunc(node)
+	shadowNode := obj.(*v1.ShadowNode)
+	key, err := controller.KeyFunc(shadowNode)
 	if err != nil {
-		logger.Object(node).Reason(err).Error("Failed to extract key from node.")
+		logger.Object(shadowNode).Reason(err).Error("Failed to extract key from shadowNode.")
 		return
 	}
 	c.Queue.Add(key)
@@ -119,7 +121,7 @@ func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting node controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.nodeInformer.HasSynced, c.vmiInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.shadowNodeInformer.HasSynced, c.nodeInformer.HasSynced, c.vmiInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -159,15 +161,15 @@ func (c *NodeController) Execute() bool {
 func (c *NodeController) execute(key string) error {
 	logger := log.DefaultLogger()
 
-	obj, nodeExists, err := c.nodeInformer.GetStore().GetByKey(key)
+	obj, shadowNodeExists, err := c.shadowNodeInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return err
 	}
 
-	var node *k8sv1.Node
-	if nodeExists {
-		node = obj.(*k8sv1.Node)
-		logger = logger.Object(node)
+	var shadowNode *v1.ShadowNode
+	if shadowNodeExists {
+		shadowNode = obj.(*v1.ShadowNode)
+		logger = logger.Object(shadowNode)
 	} else {
 		namespace, name, err := cache.SplitMetaNamespaceKey(key)
 		if err == nil {
@@ -180,42 +182,42 @@ func (c *NodeController) execute(key string) error {
 			params = append(params, "kind", "Node")
 			logger = logger.With(params)
 		}
-
 	}
 
-	unresponsive, err := isNodeUnresponsive(node, c.heartBeatTimeout)
+	unresponsive, err := isNodeUnresponsive(shadowNode, c.heartBeatTimeout)
 	if err != nil {
 		logger.Reason(err).Error("Failed to determine if node is responsive, will not reenqueue")
 		return nil
 	}
 
 	if unresponsive {
-		if nodeIsSchedulable(node) {
-			if err := c.markNodeAsUnresponsive(node, logger); err != nil {
+		if nodeIsSchedulable(shadowNode) {
+			c.createNodeEvent(shadowNode.Name, k8sv1.EventTypeNormal, NodeUnresponsiveReason, "virt-handler is not responsive, marking node as unresponsive")
+			if err := c.markNodeAsUnresponsive(shadowNode, logger); err != nil {
 				return err
 			}
 		}
 
-		err = c.checkNodeForOrphanedAndErroredVMIs(key, node, logger)
+		err = c.checkNodeForOrphanedAndErroredVMIs(key, shadowNode, logger)
 		if err != nil {
 			return err
 		}
 	}
 
-	c.requeueIfExists(key, node)
+	c.requeueIfExists(key, shadowNode)
 
 	return nil
 }
 
-func nodeIsSchedulable(node *k8sv1.Node) bool {
-	if node == nil {
+func nodeIsSchedulable(shadowNode *v1.ShadowNode) bool {
+	if shadowNode == nil {
 		return false
 	}
 
-	return node.Labels[v1.NodeSchedulable] == "true"
+	return shadowNode.Labels[v1.NodeSchedulable] == "true"
 }
 
-func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, node *k8sv1.Node, logger *log.FilteredLogger) error {
+func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, shadowNode *v1.ShadowNode, logger *log.FilteredLogger) error {
 	vmis, err := lookup.ActiveVirtualMachinesOnNode(c.clientset, nodeName)
 	if err != nil {
 		logger.Reason(err).Error("Failed fetching vmis for node")
@@ -223,11 +225,11 @@ func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, nod
 	}
 
 	if len(vmis) == 0 {
-		c.requeueIfExists(nodeName, node)
+		c.requeueIfExists(nodeName, shadowNode)
 		return nil
 	}
 
-	err = c.createEventIfNodeHasOrphanedVMIs(node, vmis)
+	err = c.createEventIfNodeHasOrphanedVMIs(shadowNode, vmis)
 	if err != nil {
 		logger.Reason(err).Error("checking virt-handler for node")
 		return err
@@ -282,6 +284,16 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *v1.Vi
 	return nil
 }
 
+func (c *NodeController) createNodeEvent(nodeName string, eventType, reason, message string) error {
+	obj, _, err := c.nodeInformer.GetStore().GetByKey(nodeName)
+	if err != nil {
+		return err
+	}
+	node := obj.(*k8sv1.Node)
+	c.recorder.Event(node, eventType, reason, message)
+	return nil
+}
+
 func generateFailedVMIPatch(reason string) ([]byte, error) {
 	reasonOp := "add"
 	if reason != "" {
@@ -302,36 +314,37 @@ func generateFailedVMIPatch(reason string) ([]byte, error) {
 	)
 }
 
-func (c *NodeController) requeueIfExists(key string, node *k8sv1.Node) {
-	if node == nil {
+func (c *NodeController) requeueIfExists(key string, shadowNode *v1.ShadowNode) {
+	if shadowNode == nil {
 		return
 	}
 
 	c.Queue.AddAfter(key, c.recheckInterval)
 }
 
-func (c *NodeController) markNodeAsUnresponsive(node *k8sv1.Node, logger *log.FilteredLogger) error {
-	c.recorder.Event(node, k8sv1.EventTypeNormal, NodeUnresponsiveReason, "virt-handler is not responsive, marking node as unresponsive")
-	logger.V(4).Infof("Marking node %s as unresponsive", node.Name)
+func (c *NodeController) markNodeAsUnresponsive(shadowNode *v1.ShadowNode, logger *log.FilteredLogger) error {
+	shadowNodeName := shadowNode.Name
+	logger.V(4).Infof("Marking node %s as unresponsive", shadowNodeName)
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
-	_, err := c.clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	sn, err := c.clientset.ShadowNodeClient().Patch(context.Background(), shadowNodeName, types.MergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
-		logger.Reason(err).Error("Failed to mark node as unschedulable")
-		return fmt.Errorf("failed to mark node %s as unschedulable: %v", node.Name, err)
+		logger.Reason(err).Error("Failed to mark node as unschedulable" + sn.Name)
+		return fmt.Errorf("failed to mark node %s as unschedulable: %v", shadowNodeName, err)
 	}
 
 	return nil
 }
 
-func (c *NodeController) createEventIfNodeHasOrphanedVMIs(node *k8sv1.Node, vmis []*v1.VirtualMachineInstance) error {
+func (c *NodeController) createEventIfNodeHasOrphanedVMIs(shadowNode *v1.ShadowNode, vmis []*v1.VirtualMachineInstance) error {
 	// node is not running any vmis so we don't need to check anything else
-	if len(vmis) == 0 || node == nil {
+	if len(vmis) == 0 || shadowNode == nil {
 		return nil
 	}
+	nodeName := shadowNode.Name
 
 	// query for a virt-handler pod on the node
-	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName())
+	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
 	virtHandlerSelector := fields.ParseSelectorOrDie("kubevirt.io=virt-handler")
 	pods, err := c.clientset.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
@@ -355,11 +368,11 @@ func (c *NodeController) createEventIfNodeHasOrphanedVMIs(node *k8sv1.Node, vmis
 	// the virt-handler DaemonsSet is not running as expect so we can't know for sure
 	// if a virt-handler pod will be ran on this node
 	if !running {
-		c.requeueIfExists(node.GetName(), node)
+		c.requeueIfExists(nodeName, shadowNode)
 		return nil
 	}
 
-	c.recorder.Event(node, k8sv1.EventTypeWarning, NodeUnresponsiveReason, "virt-handler is not present, there are orphaned vmis on this node. Run virt-handler on this node to migrate or remove them.")
+	c.createNodeEvent(nodeName, k8sv1.EventTypeWarning, NodeUnresponsiveReason, "virt-handler is not present, there are orphaned vmis on this node. Run virt-handler on this node to migrate or remove them.")
 
 	return nil
 }
@@ -459,11 +472,11 @@ func isControlledByVMI(controllerRef *metav1.OwnerReference) bool {
 	return controllerRef != nil && controllerRef.Kind == v1.VirtualMachineInstanceGroupVersionKind.Kind
 }
 
-func isNodeUnresponsive(node *k8sv1.Node, timeout time.Duration) (bool, error) {
-	if node == nil {
+func isNodeUnresponsive(shadowNode *v1.ShadowNode, timeout time.Duration) (bool, error) {
+	if shadowNode == nil {
 		return true, nil
 	}
-	if lastHeartBeat, exists := node.Annotations[v1.VirtHandlerHeartbeat]; exists {
+	if lastHeartBeat, exists := shadowNode.Annotations[v1.VirtHandlerHeartbeat]; exists {
 
 		timestamp := metav1.Time{}
 		if err := json.Unmarshal([]byte(`"`+lastHeartBeat+`"`), &timestamp); err != nil {

@@ -3143,11 +3143,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should clean up attachment pods, based on the number of volumes", func(readyVolumes []*virtv1.Volume, currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, expectDelete bool) {
-			vmi := NewRunningVirtualMachine("testvmi", &k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testnode",
-				},
-			})
+			vmi := NewRunningVirtualMachine("testvmi", "testnode")
 			if currentPod == nil && len(oldPods) > 0 {
 				currentPod = oldPods[0]
 			}
