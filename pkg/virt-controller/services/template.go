@@ -601,7 +601,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		},
 	}
 
-	alignPodMultiCategorySecurity(&pod, vmi, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled(), t.clusterConfig.CustomSELinuxPolicyDisabled())
+	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())
 
 	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
 	runtimeClassName := t.clusterConfig.GetDefaultRuntimeClass()
@@ -1276,14 +1276,7 @@ func wrapGuestAgentPingWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv
 	return
 }
 
-func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, selinuxType string, dockerSELinuxMCSWorkaround bool, customPolicyDisabled bool) {
-	if selinuxType == "" {
-		if !customPolicyDisabled && util.IsPasstVMI(&vmi.Spec) {
-			// If no SELinux type was specified, use our custom type for VMIs that need it
-			selinuxType = customSELinuxType
-		}
-	}
-
+func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string, dockerSELinuxMCSWorkaround bool) {
 	if selinuxType == "" && !dockerSELinuxMCSWorkaround {
 		// No SELinux type and no docker workaround, nothing to do
 		return

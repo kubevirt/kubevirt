@@ -3904,9 +3904,6 @@ var _ = Describe("Template", func() {
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: pointer.Bool(true),
 				FSGroup:      &nonRootUser,
-				SELinuxOptions: &k8sv1.SELinuxOptions{
-					Type: "virt_launcher.process",
-				},
 			}),
 			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
