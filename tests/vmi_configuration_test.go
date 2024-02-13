@@ -2706,7 +2706,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
 				Expect(err).ToNot(HaveOccurred())
 
-				output, err = tests.ListCgroupThreads(readyPod)
+				output, err = listCgroupThreads(readyPod)
 				Expect(err).ToNot(HaveOccurred())
 				pids := strings.Split(output, "\n")
 
@@ -3409,4 +3409,27 @@ func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
 	Expect(err).ToNot(HaveOccurred())
 
 	return strings.TrimSpace(output), err
+}
+
+func listCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
+	virtClient := kubevirt.Client()
+
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
+	)
+
+	if err == nil {
+		// Cgroup V1
+		return
+	}
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
+	)
+	return
 }
