@@ -1007,7 +1007,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				supportedCPU = supportedCPUs[0]
 
-				supportedFeatures = tests.GetSupportedCPUFeatures(*nodes)
+				supportedFeatures = libnode.GetSupportedCPUFeatures(*nodes)
 				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
 
 				for key := range node.Labels {
