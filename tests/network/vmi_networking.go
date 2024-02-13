@@ -22,7 +22,9 @@ package network
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -876,6 +878,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+
+				vmReadyTs := time.Now()
+				guestUptimeBeforeMigration, err := vmiUptime(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -890,6 +897,20 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+
+				vmMigratedTs := time.Now()
+				guestUptimeAfterMigration, err := vmiUptime(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				uptimeDelta := math.Abs(guestUptimeAfterMigration - guestUptimeBeforeMigration)
+				migrationTime := vmMigratedTs.Unix() - vmReadyTs.Unix()
+				Expect(uptimeDelta).To(BeNumerically(">=", migrationTime),
+					"the guest uptime diff before and after the migration should be less then the migration time."+
+						"guest uptime before migration [%v], guest uptime after migration [%v], migration time [%v]",
+					guestUptimeBeforeMigration, guestUptimeAfterMigration, migrationTime)
+
+				By(fmt.Sprintf("guest uptime before migration [%v], guest uptime after migration [%v], migration time [%v]",
+					guestUptimeBeforeMigration, guestUptimeAfterMigration, migrationTime))
 
 				Expect(ping(podIP)).To(Succeed())
 
@@ -1155,4 +1176,18 @@ func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmi.NewCirros(
 		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+}
+
+func vmiUptime(vmi *v1.VirtualMachineInstance) (float64, error) {
+	const uptimeCmd = "cat /proc/uptime | awk '{print $1}'\n"
+	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: uptimeCmd},
+		&expect.BExp{R: console.PromptExpression},
+	}, 15)
+	if err != nil {
+		return -1, err
+	}
+	re := regexp.MustCompile("\r\n[0-9]+\\.[0-9]+\r\n")
+	uptimeRaw := strings.TrimSpace(re.FindString(res[0].Match[0]))
+	return strconv.ParseFloat(uptimeRaw, 64)
 }
