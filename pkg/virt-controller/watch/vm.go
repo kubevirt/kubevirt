@@ -2100,22 +2100,21 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	c.Queue.Add(key)
 }
 
-func (c *VMController) getPatchFinalizerOps(oldObj, newObj v1.Object) ([]string, error) {
-	var ops []string
-
-	oldFinalizers, err := json.Marshal(oldObj.GetFinalizers())
+func (c *VMController) getPatchFinalizerOps(oldFinalizers, newFinalizers []string) ([]string, error) {
+	joldFinalizers, err := json.Marshal(oldFinalizers)
 	if err != nil {
-		return ops, err
+		return nil, err
 	}
 
-	newFinalizers, err := json.Marshal(newObj.GetFinalizers())
+	jnewFinalizers, err := json.Marshal(newFinalizers)
 	if err != nil {
-		return ops, err
+		return nil, err
 	}
 
-	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, string(oldFinalizers)))
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, string(newFinalizers)))
-	return ops, nil
+	return []string{
+		fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, joldFinalizers),
+		fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, jnewFinalizers),
+	}, nil
 }
 
 func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) error {
@@ -2126,7 +2125,7 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 	log.Log.V(3).Object(vmi).Infof("VMI is in a final state. Removing VM controller finalizer")
 	newVmi := vmi.DeepCopy()
 	controller.RemoveFinalizer(newVmi, virtv1.VirtualMachineControllerFinalizer)
-	ops, err := c.getPatchFinalizerOps(vmi, newVmi)
+	ops, err := c.getPatchFinalizerOps(vmi.Finalizers, newVmi.Finalizers)
 	if err != nil {
 		return err
 	}
@@ -2143,7 +2142,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine, finalizer st
 	log.Log.V(3).Object(vm).Infof("Removing VM controller finalizer: %s", finalizer)
 	newVm := vm.DeepCopy()
 	controller.RemoveFinalizer(newVm, finalizer)
-	ops, err := c.getPatchFinalizerOps(vm, newVm)
+	ops, err := c.getPatchFinalizerOps(vm.Finalizers, newVm.Finalizers)
 	if err != nil {
 		return vm, err
 	}
@@ -2160,7 +2159,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine, finalizer strin
 	log.Log.V(3).Object(vm).Infof("Adding VM controller finalizer: %s", finalizer)
 	newVm := vm.DeepCopy()
 	controller.AddFinalizer(newVm, finalizer)
-	ops, err := c.getPatchFinalizerOps(vm, newVm)
+	ops, err := c.getPatchFinalizerOps(vm.Finalizers, newVm.Finalizers)
 	if err != nil {
 		return vm, err
 	}
