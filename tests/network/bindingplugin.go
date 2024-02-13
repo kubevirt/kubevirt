@@ -63,7 +63,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
 		})
 
-		It("can be used by a VM as its primary network", func() {
+		It("can be used by a VMI as its primary network", func() {
 			const (
 				macAddress = "02:00:00:00:00:02"
 			)
@@ -73,14 +73,12 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 				libvmi.WithInterface(passtIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
 			var err error
 			namespace := testsuite.GetTestNamespace(nil)
-			vm, err = kubevirt.Client().VirtualMachine(namespace).Create(context.Background(), vm)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi.Namespace = vm.Namespace
 			vmi = libwait.WaitUntilVMIReady(
 				vmi,
 				console.LoginToAlpine,
