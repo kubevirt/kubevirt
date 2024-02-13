@@ -40,8 +40,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	v12 "k8s.io/api/apps/v1"
-
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	expect "github.com/google/goexpect"
@@ -76,7 +74,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -1585,20 +1582,4 @@ func dvSizeBySourceURL(url string) string {
 	}
 
 	return cd.CirrosVolumeSize
-}
-
-func GetDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
-	return components.NewApiServerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", "", config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
-}
-
-func GetDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
-	return components.NewControllerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
-}
-
-func GetDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.DaemonSet, error) {
-	return components.NewHandlerDaemonSet(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetPrHelperVersion(), config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), nil, config.GetVerbosity(), config.GetExtraEnv(), false)
-}
-
-func GetDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
-	return components.NewExportProxyDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 }

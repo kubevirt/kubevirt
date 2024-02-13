@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/tests"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
@@ -123,7 +121,19 @@ var _ = Describe("Apply Apps", func() {
 				Registry:        Registry,
 				KubeVirtVersion: Version,
 			}
-			deployment, err = tests.GetDefaultVirtApiDeployment(Namespace, virtApiConfig)
+			deployment, err = components.NewApiServerDeployment(
+				Namespace,
+				virtApiConfig.GetImageRegistry(),
+				virtApiConfig.GetImagePrefix(),
+				virtApiConfig.GetApiVersion(),
+				"",
+				"",
+				"",
+				virtApiConfig.VirtApiImage,
+				virtApiConfig.GetImagePullPolicy(),
+				virtApiConfig.GetImagePullSecrets(),
+				virtApiConfig.GetVerbosity(),
+				virtApiConfig.GetExtraEnv())
 			Expect(err).ToNot(HaveOccurred())
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
@@ -317,7 +327,25 @@ var _ = Describe("Apply Apps", func() {
 				Registry:        Registry,
 				KubeVirtVersion: Version,
 			}
-			daemonSet, err = tests.GetDefaultVirtHandlerDaemonSet(Namespace, virtHandlerConfig)
+			daemonSet, err = components.NewHandlerDaemonSet(
+				Namespace,
+				virtHandlerConfig.GetImageRegistry(),
+				virtHandlerConfig.GetImagePrefix(),
+				virtHandlerConfig.GetHandlerVersion(),
+				"",
+				"",
+				"",
+				virtHandlerConfig.GetLauncherVersion(),
+				virtHandlerConfig.GetPrHelperVersion(),
+				virtHandlerConfig.VirtHandlerImage,
+				virtHandlerConfig.VirtLauncherImage,
+				virtHandlerConfig.PrHelperImage,
+				virtHandlerConfig.GetImagePullPolicy(),
+				virtHandlerConfig.GetImagePullSecrets(),
+				nil,
+				virtHandlerConfig.GetVerbosity(),
+				virtHandlerConfig.GetExtraEnv(),
+				false)
 			Expect(err).ToNot(HaveOccurred())
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
