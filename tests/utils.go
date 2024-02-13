@@ -65,8 +65,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -1434,16 +1432,6 @@ func GetPodsCertIfSynced(labelSelector string, namespace string, port string) (c
 		}
 	}
 	return certs[0], true, nil
-}
-
-func GetCertFromSecret(secretName string) []byte {
-	virtClient := kubevirt.Client()
-	secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	if rawBundle, ok := secret.Data[bootstrap.CertBytesValue]; ok {
-		return rawBundle
-	}
-	return nil
 }
 
 func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) {

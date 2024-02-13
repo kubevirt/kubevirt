@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -89,7 +90,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		By("checking that the CA secret gets restored with a new ca bundle")
 		var newCA []byte
 		Eventually(func() []byte {
-			newCA = tests.GetCertFromSecret(components.KubeVirtCASecretName)
+			newCA = getCertFromSecret(components.KubeVirtCASecretName)
 			return newCA
 		}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 
@@ -175,7 +176,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("checking that the secret gets restored with a new certificate")
 		Eventually(func() []byte {
-			return tests.GetCertFromSecret(secretName)
+			return getCertFromSecret(secretName)
 		}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 	},
 		Entry("[test_id:4101] virt-operator", components.VirtOperatorCertSecretName),
@@ -185,3 +186,13 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		Entry("[test_id:4106] virt-handlers server side", components.VirtHandlerServerCertSecretName),
 	)
 })
+
+func getCertFromSecret(secretName string) []byte {
+	virtClient := kubevirt.Client()
+	secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	if rawBundle, ok := secret.Data[bootstrap.CertBytesValue]; ok {
+		return rawBundle
+	}
+	return nil
+}
