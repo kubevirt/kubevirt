@@ -171,7 +171,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			args := []string{fmt.Sprintf(`chown 107 %s`, pvhostpath)}
 			pod := libpod.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 			pod.Spec.NodeSelector = nodeSelector
-			tests.RunPodAndExpectCompletion(pod)
+			libpod.RunPodAndExpectCompletion(pod)
 		}
 
 		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {

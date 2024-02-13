@@ -3,6 +3,8 @@ package storage
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/libpod"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,7 +12,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -18,7 +19,7 @@ import (
 func InitNFS(targetImage, nodeName string) *k8sv1.Pod {
 	nfsPod := renderNFSServer("nfsserver", targetImage)
 	nfsPod.Spec.NodeName = nodeName
-	return tests.RunPodInNamespace(nfsPod, testsuite.NamespacePrivileged)
+	return libpod.RunPodInNamespace(nfsPod, testsuite.NamespacePrivileged)
 }
 
 func renderNFSServer(generateName string, hostPath string) *k8sv1.Pod {

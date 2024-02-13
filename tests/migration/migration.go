@@ -3210,7 +3210,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			var pods []*k8sv1.Pod
 			var pausedPod *k8sv1.Pod
 			libnode.AddLabelToNode(nodes[1].Name, testLabel2, "true")
-			for pausedPod = tests.RunPod(pausePod); !hasCommonCores(vmi, pausedPod); pausedPod = tests.RunPod(pausePod) {
+			for pausedPod = libpod.RunPod(pausePod); !hasCommonCores(vmi, pausedPod); pausedPod = libpod.RunPod(pausePod) {
 				pods = append(pods, pausedPod)
 				By("creating another paused pod since last didn't have common cores with the VMI")
 			}

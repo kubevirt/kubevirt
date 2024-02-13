@@ -28,6 +28,9 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libpod"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/client-go/log"
@@ -51,7 +54,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -725,7 +727,8 @@ func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) 
 			},
 		},
 	}
-	pod = tests.RunPod(pod)
+
+	pod = libpod.RunPod(pod)
 
 	Eventually(matcher.ThisPod(pod), 120).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 	pod, err = matcher.ThisPod(pod)()
