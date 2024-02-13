@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -1663,14 +1664,20 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			vmiPatch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }]`
+			patches := patch.New()
+			patches.Add("/status/launcherContainerImageVersion", "madeup")
+			patches.Add("/metadata/labels", map[string]string{"kubevirt.io/outdatedLauncherImage": ""})
+			vmiPatch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(vmiPatch), metav1.PatchOptions{}).Return(vmi, nil)
+			podPatch, err := patch.TestAndReplaceLabels(map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234"},
+				map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234", "kubevirt.io/outdatedLauncherImage": ""})
+			Expect(err).ToNot(HaveOccurred())
 
-			podPatch := `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234"} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/outdatedLauncherImage":""} }]`
 			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				p, _ := action.(testing.PatchAction)
-				Expect(podPatch).To(Equal(string(p.GetPatch())))
+				Expect(string(podPatch)).To(Equal(string(p.GetPatch())))
 				return true, nil, nil
 			})
 			controller.Execute()
@@ -1697,7 +1704,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "a" }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} }]`
+			patches := patch.New()
+			patches.Add("/status/launcherContainerImageVersion", "a")
+			patches.TestAndReplace("/metadata/labels", map[string]string{"kubevirt.io/outdatedLauncherImage": ""},
+				map[string]string{})
+			patch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 
@@ -1715,8 +1727,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			patch := `[{ "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+			patch, err := patch.TestAndReplaceConditions(nil, []virtv1.VirtualMachineInstanceCondition{{
+				Type:   virtv1.VirtualMachineInstanceReady,
+				Status: k8sv1.ConditionTrue,
+			}})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1764,8 +1781,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			patch := `[{ "op": "test", "path": "/status/activePods", "value": {} }, { "op": "replace", "path": "/status/activePods", "value": {"someUID":"someHost"} }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+			patches := patch.New()
+			patches.TestAndReplace("/status/activePods", map[types.UID]string{},
+				map[types.UID]string{"someUID": "someHost"})
+			patch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1792,8 +1814,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/phase", "value": "%s" }, { "op": "replace", "path": "/status/phase", "value": "Failed" }]`, phase)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+			patches := patch.New()
+			patches.TestAndReplace("/status/phase", phase, virtv1.Failed)
+			patch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		},
@@ -1910,11 +1936,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Context("should update pod labels", func() {
 
 			type testData struct {
-				vmiLabels     map[string]string
-				podLabels     map[string]string
-				expectedPatch string
+				vmiLabels map[string]string
+				podLabels map[string]string
 			}
-			DescribeTable("when VMI dynamic label set changes", func(td *testData) {
+			DescribeTable("when VMI dynamic label set changes", func(td *testData, expectOldLabels, expectNewLabels map[string]string) {
+				var expectedPatch []byte
+				var err error
 				vmi := NewPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
 
@@ -1928,21 +1955,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				addVirtualMachine(vmi)
 				addActivePods(vmi, pod.UID, "")
 				podFeeder.Add(pod)
+				if expectOldLabels != nil && expectNewLabels != nil {
+					expectedPatch, err = patch.TestAndReplaceLabels(expectOldLabels, expectNewLabels)
+				}
+				Expect(err).ToNot(HaveOccurred())
 
 				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 
-				patch := ""
+				var patch []byte
 				kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					p, _ := action.(testing.PatchAction)
-					patch = string(p.GetPatch())
+					patch = p.GetPatch()
 					return true, nil, nil
 				})
 
 				key := kvcontroller.VirtualMachineInstanceKey(vmi)
-				err := controller.execute(key)
+				err = controller.execute(key)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(patch).To(Equal(td.expectedPatch))
+				Expect(string(patch)).To(Equal(string(expectedPatch)))
 			},
 				Entry("when VMI and pod labels differ",
 					&testData{
@@ -1952,8 +1983,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						podLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
 						},
-						expectedPatch: `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/nodeName":"node1"} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/nodeName":"node2"} }]`,
-					},
+					}, map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234", "kubevirt.io/nodeName": "node1"},
+					map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234", "kubevirt.io/nodeName": "node2"},
 				),
 				Entry("when VMI and pod label are the same",
 					&testData{
@@ -1963,35 +1994,28 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						podLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
 						},
-						expectedPatch: "",
-					},
-				),
+					}, nil, nil),
 				Entry("when POD label doesn't exist",
-
 					&testData{
 						vmiLabels: map[string]string{
 							virtv1.NodeNameLabel: "node1",
 						},
-						podLabels:     map[string]string{},
-						expectedPatch: `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234"} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/nodeName":"node1"} }]`,
-					},
-				),
+						podLabels: map[string]string{},
+					}, map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234"},
+					map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234", "kubevirt.io/nodeName": "node1"}),
 				Entry("when neither POD or VMI label exists",
 					&testData{
-						vmiLabels:     map[string]string{},
-						podLabels:     map[string]string{},
-						expectedPatch: "",
-					},
-				),
+						vmiLabels: map[string]string{},
+						podLabels: map[string]string{},
+					}, nil, nil),
 				Entry("when POD label exists and VMI does not",
 					&testData{
 						vmiLabels: map[string]string{},
 						podLabels: map[string]string{
 							virtv1.OutdatedLauncherImageLabel: "",
 						},
-						expectedPatch: `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234"} }]`,
-					},
-				),
+					}, map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234", "kubevirt.io/outdatedLauncherImage": ""},
+					map[string]string{"kubevirt.io": "virt-launcher", "kubevirt.io/created-by": "1234"}),
 			)
 		})
 
@@ -3027,8 +3051,40 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+			percent := cdiv1.Percent("0.055")
+			patches := patch.New()
+			patches.TestAndReplace("/status/volumeStatus",
+				[]virtv1.VolumeStatus{
+					{Name: "existing", Target: ""},
+				},
+				[]virtv1.VolumeStatus{
+					{
+						Name: "existing",
+						PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+							FilesystemOverhead: &percent,
+						},
+					},
+					{
+						Name:    "hotplug",
+						Phase:   virtv1.VolumeBound,
+						Reason:  PVCNotReadyReason,
+						Message: "PVC is in phase Bound",
+						PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+							FilesystemOverhead: &percent,
+						},
+						HotplugVolume: &virtv1.HotplugVolumeStatus{},
+					},
+				})
+			vmiPatch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType,
+				gomock.Any(), metav1.PatchOptions{}).
+				DoAndReturn(func(ctx context.Context, _ string, _ interface{}, patchBytes []byte, options interface{}, _ ...string) (*virtv1.VirtualMachineInstance, error) {
+					Expect(string(vmiPatch)).To(Equal(string(patchBytes)))
+					return nil, nil
+
+				})
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
@@ -3038,6 +3094,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
 			volumes := make([]virtv1.Volume, 0)
+			percent := cdiv1.Percent("0.055")
 			volumes = append(volumes, virtv1.Volume{
 				Name: "existing",
 				VolumeSource: virtv1.VolumeSource{
@@ -3117,8 +3174,37 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+			patches := patch.New()
+			patches.TestAndReplace("/status/volumeStatus", []virtv1.VolumeStatus{
+				{Name: "existing"},
+				{
+					Name: "hotplug",
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "hp-volume-hotplug",
+						AttachPodUID:  types.UID("abcd"),
+					},
+				},
+			},
+				[]virtv1.VolumeStatus{
+					{
+						Name: "existing",
+						PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+							FilesystemOverhead: &percent,
+						},
+					},
+					{
+						Name:  "hotplug",
+						Phase: virtv1.HotplugVolumeDetaching,
+						HotplugVolume: &virtv1.HotplugVolumeStatus{
+							AttachPodName: "hp-volume-hotplug",
+							AttachPodUID:  types.UID("abcd"),
+						},
+					},
+				})
+			vmiPatch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, vmiPatch, metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
