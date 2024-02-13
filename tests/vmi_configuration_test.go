@@ -81,6 +81,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/storage"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
@@ -2160,11 +2161,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 
 			By("setting disk caches")
-			//ephemeral-disk1
+			// ephemeral-disk1
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-			//ephemeral-disk2
+			// ephemeral-disk2
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
-			//ephemeral-disk5
+			// ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -2357,7 +2358,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			tmpHostDiskDir := tests.RandTmpDir()
 			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewString()))
 
-			job := tests.CreateHostDiskImage(tmpHostDiskPath)
+			job := storage.CreateHostDiskImage(tmpHostDiskPath)
 			job, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(job), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
@@ -2638,7 +2639,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				podQos := readyPod.Status.QOSClass
 				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 
-				//-------------------------------------------------------------------
+				// -------------------------------------------------------------------
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
