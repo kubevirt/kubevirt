@@ -24,6 +24,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -53,6 +54,7 @@ const (
 	snapshotDeadlineExceeded = "snapshot deadline exceeded"
 	notReady                 = "Not ready"
 	operationComplete        = "Operation complete"
+	sourceFinalizer          = "snapshot.kubevirt.io/snapshot-source-protection"
 )
 
 var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
@@ -792,11 +794,23 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}, 20)).To(Succeed())
 
 				snapshot = newSnapshot()
+				// We want the snapshot to fail so we don't have to deal with finalizers
+				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 20 * time.Second}
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
 				objectEventWatcher.WaitFor(context.Background(), watcher.WarningEvent, "FreezeError")
+
+				// Wait for the snapshot to fail and the source protection finalizer to be removed
+				Eventually(func() bool {
+					_, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					snapshot, err := virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return !controller.HasFinalizer(vm, sourceFinalizer) &&
+						snapshot.Status != nil && snapshot.Status.Phase == snapshotv1.Failed
+				}, 2*time.Minute, 1*time.Second).Should(BeTrue())
 			})
 
 			It("Calling Velero hooks should freeze/unfreeze VM", func() {
