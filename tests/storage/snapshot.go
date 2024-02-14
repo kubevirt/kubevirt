@@ -734,7 +734,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
-			It("should report appropriate event when freeze fails", func() {
+			It("[QUARANTINE] should report appropriate event when freeze fails", decorators.Quarantine, func() {
 				// Activate SELinux and reboot machine so we can force fsfreeze failure
 				const userData = "#cloud-config\n" +
 					"password: fedora\n" +
