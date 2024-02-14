@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -13,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 func getSubresourcesForVersion(crd *extv1.CustomResourceDefinition, version string) *extv1.CustomResourceSubresources {
@@ -44,16 +45,15 @@ func needsSubresourceStatusDisable(crdTargetVersion *extv1.CustomResourceDefinit
 		(crdTargetVersion.Subresources != nil && crdTargetVersion.Subresources.Status != nil)
 }
 
-func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, ops []string) (*extv1.CustomResourceDefinition, error) {
+func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, patches patch.PatchSet) (*extv1.CustomResourceDefinition, error) {
 	name := crd.GetName()
-	newSpec, err := json.Marshal(crd.Spec)
+	patches.Replace("/spec", crd.Spec)
+	ops, err := patches.GeneratePayload()
 	if err != nil {
 		return nil, err
 	}
 
-	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
-
-	crd, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	crd, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to patch crd %+v: %v", crd, err)
 	}
@@ -113,13 +113,10 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		}
 	}
 	// Add Labels and Annotations Patches
-	var ops []string
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&crd.ObjectMeta)
-	if err != nil {
-		return err
-	}
-	ops = append(ops, labelAnnotationPatch...)
-	if crd, err = patchCRD(client, crd, ops); err != nil {
+	patches := patch.New()
+	addLabelsAndAnnotationsPatch(&crd.ObjectMeta, patches)
+	var err error
+	if crd, err = patchCRD(client, crd, patches); err != nil {
 		return err
 	}
 
@@ -158,7 +155,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 			return nil
 		}
 		// enable the status subresources now, in case that they were disabled before
-		if _, err := patchCRD(client, crd, []string{}); err != nil {
+		if _, err := patchCRD(client, crd, patch.New()); err != nil {
 			return err
 		}
 

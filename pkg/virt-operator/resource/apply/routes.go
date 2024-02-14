@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	routev1 "github.com/openshift/api/route/v1"
@@ -13,6 +12,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -77,17 +77,15 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return nil
 	}
 
-	spec, err := json.Marshal(route.Spec)
+	patches := patch.New()
+	addLabelsAndAnnotationsPatch(&route.ObjectMeta, patches)
+	patches.Replace("/spec", route.Spec)
+	ops, err := patches.GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &route.ObjectMeta, spec)
-	if err != nil {
-		return err
-	}
-
-	_, err = r.clientset.RouteClient().Routes(route.Namespace).Patch(context.Background(), route.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = r.clientset.RouteClient().Routes(route.Namespace).Patch(context.Background(), route.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch route %+v: %v", route, err)
 	}

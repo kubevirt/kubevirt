@@ -20,6 +20,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -134,7 +135,7 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 		return false, nil
 	}
 
-	_, err = core.Services(service.Namespace).Patch(context.Background(), service.Name, types.JSONPatchType, generatePatchBytes(patchOps), metav1.PatchOptions{})
+	_, err = core.Services(service.Namespace).Patch(context.Background(), service.Name, types.JSONPatchType, patchOps, metav1.PatchOptions{})
 	if err != nil {
 		return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
 	}
@@ -270,7 +271,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 		return nil, err
 	}
 
-	_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(context.Background(), secret.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(context.Background(), secret.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to patch secret %+v: %v", secret, err)
 	}
@@ -280,26 +281,13 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 	return crt, nil
 }
 
-func createSecretPatch(secret *corev1.Secret) ([]string, error) {
-	// Add Spec Patch
-	data, err := json.Marshal(secret.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Patch if old version
-	var ops []string
-
+func createSecretPatch(secret *corev1.Secret) ([]byte, error) {
 	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&secret.ObjectMeta)
-	if err != nil {
-		return nil, err
-	}
-	ops = append(ops, labelAnnotationPatch...)
+	patches := patch.New()
+	addLabelsAndAnnotationsPatch(&secret.ObjectMeta, patches)
+	patches.Replace("/data", secret.Data)
 
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
-
-	return ops, nil
+	return patches.GeneratePayload()
 }
 
 func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
@@ -392,23 +380,19 @@ func shouldEnforceClusterIP(desired, current string) bool {
 	return desired != current
 }
 
-func getObjectMetaPatch(desired, current metav1.ObjectMeta) ([]string, error) {
+func getObjectMetaPatch(desired, current metav1.ObjectMeta) patch.PatchSet {
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := current.DeepCopy()
 	resourcemerge.EnsureObjectMeta(modified, existingCopy, desired)
 
-	labelAnnotationPatch := []string{}
-	var err error
+	patches := patch.New()
 
 	if *modified {
 		// labels and/or annotations modified add patch
-		labelAnnotationPatch, err = createLabelsAndAnnotationsPatch(&desired)
-		if err != nil {
-			return labelAnnotationPatch, err
-		}
+		addLabelsAndAnnotationsPatch(&desired, patches)
 	}
 
-	return labelAnnotationPatch, nil
+	return patches
 }
 
 func hasImmutableFieldChanged(service, cachedService *corev1.Service) bool {
@@ -424,13 +408,9 @@ func hasImmutableFieldChanged(service, cachedService *corev1.Service) bool {
 
 func generateServicePatch(
 	cachedService *corev1.Service,
-	service *corev1.Service) ([]string, error) {
+	service *corev1.Service) ([]byte, error) {
 
-	patchOps, err := getObjectMetaPatch(service.ObjectMeta, cachedService.ObjectMeta)
-	if err != nil {
-		return patchOps, err
-	}
-
+	patches := getObjectMetaPatch(service.ObjectMeta, cachedService.ObjectMeta)
 	// set these values in the case they are empty
 	service.Spec.ClusterIP = cachedService.Spec.ClusterIP
 	service.Spec.Type = cachedService.Spec.Type
@@ -441,15 +421,10 @@ func generateServicePatch(
 	// If the Specs don't equal each other, replace it
 	if !equality.Semantic.DeepEqual(cachedService.Spec, service.Spec) {
 		// add Spec Patch
-		newSpec, err := json.Marshal(service.Spec)
-		if err != nil {
-			return patchOps, err
-		}
-
-		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+		patches.Replace("/spec", service.Spec)
 	}
 
-	return patchOps, nil
+	return patches.GeneratePayload()
 }
 
 func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) error {
@@ -481,12 +456,14 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 	}
 
 	// Patch Labels and Annotations
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&sa.ObjectMeta)
+	patches := patch.New()
+	addLabelsAndAnnotationsPatch(&sa.ObjectMeta, patches)
+	labelAnnotationPatch, err := patches.GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	_, err = core.ServiceAccounts(r.kv.Namespace).Patch(context.Background(), sa.Name, types.JSONPatchType, generatePatchBytes(labelAnnotationPatch), metav1.PatchOptions{})
+	_, err = core.ServiceAccounts(r.kv.Namespace).Patch(context.Background(), sa.Name, types.JSONPatchType, labelAnnotationPatch, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
 	}
@@ -626,7 +603,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 		return nil, err
 	}
 
-	_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
 	}
@@ -636,25 +613,13 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 	return []byte(configMap.Data[components.CABundleKey]), nil
 }
 
-func createConfigMapPatch(configMap *corev1.ConfigMap) ([]string, error) {
-	// Patch if old version
-	var ops []string
-
+func createConfigMapPatch(configMap *corev1.ConfigMap) ([]byte, error) {
 	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&configMap.ObjectMeta)
-	if err != nil {
-		return ops, err
-	}
-	ops = append(ops, labelAnnotationPatch...)
+	patches := patch.New()
+	addLabelsAndAnnotationsPatch(&configMap.ObjectMeta, patches)
+	patches.Replace("/data", configMap.Data)
 
-	// Add Spec Patch
-	data, err := json.Marshal(configMap.Data)
-	if err != nil {
-		return ops, err
-	}
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
-
-	return ops, nil
+	return patches.GeneratePayload()
 }
 
 func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimitingInterface, name string, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
