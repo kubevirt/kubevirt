@@ -463,10 +463,15 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisr
 
 func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
 	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable != nil && pdb.Spec.MinAvailable.IntValue() != 1 {
-		patchOps := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
-			patch.EscapeJSONPointer(virtv1.MigrationNameLabel)))
+		patches := patch.New()
+		patches.Replace("/spec/minAvailable", 1)
+		patches.Remove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.MigrationNameLabel)))
+		patch, err := patches.GeneratePayload()
+		if err != nil {
+			return err
+		}
 
-		_, err := c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patchOps, v1.PatchOptions{})
+		_, err = c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patch, v1.PatchOptions{})
 		if err != nil {
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedUpdatePodDisruptionBudgetReason, "Error updating the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
