@@ -190,6 +190,11 @@ func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 	if err != nil {
 		logger.Reason(err).Error("Unable to mark node as unschedulable")
 	}
+
+	_, err = app.virtCli.ShadowNodeClient().Patch(context.TODO(), app.HostOverride, types.MergePatchType, data, metav1.PatchOptions{})
+	if err != nil {
+		logger.Reason(err).Error("Unable to mark node as unschedulable using the shadowNode object")
+	}
 }
 
 func (app *virtHandlerApp) Run() {
