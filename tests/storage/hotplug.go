@@ -955,26 +955,31 @@ var _ = SIGDescribe("Hotplug", func() {
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(240),
 				)
-				testVolumes := make([]string, 0)
-				dvNames := make([]string, 0)
-				for i := 0; i < 75; i = i + 5 {
+
+				const howManyVolumes = 75
+
+				dvNames := make([]string, howManyVolumes)
+				testVolumes := make([]string, howManyVolumes)
+
+				for i := 0; i < howManyVolumes; i = i + 5 {
 					var wg sync.WaitGroup
 					for j := 0; j < 5; j++ {
-						volumeName := fmt.Sprintf("volume%d", i+j)
-						testVolumes = append(testVolumes, volumeName)
+						volumeNumber := i + j
+						volumeName := fmt.Sprintf("volume%d", volumeNumber)
+						testVolumes[volumeNumber] = volumeName
 						wg.Add(1)
 
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
 							dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeFilesystem)
-							dvNames = append(dvNames, dv.Name)
+							dvNames[volumeNumber] = dv.Name
 						}()
 					}
 					wg.Wait()
 				}
 
-				for i := 0; i < 75; i++ {
+				for i := 0; i < howManyVolumes; i++ {
 					By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
 					addDVVolumeVM(vm.Name, vm.Namespace, testVolumes[i], dvNames[i], v1.DiskBusSCSI, false, "")
 					if i > 0 && i%5 == 0 {
