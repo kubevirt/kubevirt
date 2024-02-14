@@ -21,7 +21,6 @@ package virt_operator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -41,6 +40,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -759,12 +759,13 @@ func (c *KubeVirtController) execute(key string) error {
 	// If we detect a change on KubeVirt finalizers we update them
 	// Note: we don't own the metadata section so we need to use Patch() and not Update()
 	if !equality.Semantic.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
-		finalizersJson, err := json.Marshal(kvCopy.Finalizers)
+		patches := patch.New()
+		patches.Replace("/metadata/finalizers", kvCopy.Finalizers)
+		patch, err := patches.GeneratePayload()
 		if err != nil {
 			return err
 		}
-		patch := fmt.Sprintf(`[{"op": "replace", "path": "/metadata/finalizers", "value": %s}]`, string(finalizersJson))
-		_, err = c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(kvCopy.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{})
+		_, err = c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(kvCopy.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not patch the KubeVirt finalizers.")
 			return err
