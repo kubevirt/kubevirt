@@ -1129,8 +1129,8 @@ var _ = Describe("Apply Apps", func() {
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		})
 
-		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
-			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
+		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch []byte) {
+			setupPrependReactor(scc.ObjectMeta.Name, expectedPatch)
 			stores.SCCCache.Add(scc)
 
 			r := &Reconciler{
@@ -1147,7 +1147,6 @@ var _ = Describe("Apply Apps", func() {
 		})
 
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
-			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
 			for key := range saMap {
@@ -1155,12 +1154,16 @@ var _ = Describe("Apply Apps", func() {
 			}
 			serviceAccounts = append(serviceAccounts, additionalUserlist...)
 			scc := generateSCC("privileged", serviceAccounts)
+			patches := patch.New()
+			patches.Test("/users", serviceAccounts)
 			if len(additionalUserlist) != 0 {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": ["%s"] } ]`, strings.Join(serviceAccounts, `","`), strings.Join(additionalUserlist, `","`))
+				patches.Replace("/users", additionalUserlist)
 			} else {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": null } ]`, strings.Join(serviceAccounts, `","`))
+				patches.Replace("/users", nil)
 			}
-			executeTest(scc, expectedJsonPatch)
+			patch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			executeTest(scc, patch)
 		},
 			Entry("Without custom users", []string{}),
 			Entry("With custom users", []string{"someuser"}),

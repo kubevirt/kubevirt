@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	secv1 "github.com/openshift/api/security/v1"
@@ -11,6 +10,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
@@ -85,19 +85,13 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 	}
 
 	if modified {
-		oldUserBytes, err := json.Marshal(SCC.Users)
+		patches := patch.New()
+		patches.TestAndReplace("/users", SCC.Users, remainedUsersList)
+		patch, err := patches.GeneratePayload()
 		if err != nil {
 			return err
 		}
-		userBytes, err := json.Marshal(remainedUsersList)
-		if err != nil {
-			return err
-		}
-
-		test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
-		patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
-
-		_, err = r.clientset.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)), metav1.PatchOptions{})
+		_, err = r.clientset.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch scc: %v", err)
 		}
