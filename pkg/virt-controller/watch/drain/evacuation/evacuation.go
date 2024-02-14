@@ -283,7 +283,13 @@ func (c *EvacuationController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting evacuation controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.vmiInformer.HasSynced)
+	cache.WaitForCacheSync(
+		stopCh,
+		c.vmiInformer.HasSynced,
+		c.vmiPodInformer.HasSynced,
+		c.migrationInformer.HasSynced,
+		c.nodeInformer.HasSynced,
+	)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
