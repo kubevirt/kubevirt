@@ -44,6 +44,7 @@ type PatchSet interface {
 	Replace(path string, value interface{})
 	TestAndReplace(path string, oldVal, newVal interface{})
 	AddOrReplace(path string, value interface{}, condition bool)
+	TestAndAdd(path string, oldVal, newVal interface{})
 	IsEmpty() bool
 	GeneratePayload() ([]byte, error)
 }
@@ -97,6 +98,11 @@ func (p *patchSet) AddOrReplace(path string, value interface{}, condition bool) 
 	}
 }
 
+func (p *patchSet) TestAndAdd(path string, oldVal, newVal interface{}) {
+	p.Test(path, oldVal)
+	p.Add(path, newVal)
+}
+
 func (p *patchSet) GeneratePayload() ([]byte, error) {
 	return GeneratePatchPayload(p.patches...)
 }
@@ -139,4 +145,32 @@ func UnmarshalPatch(patch []byte) ([]PatchOperation, error) {
 func EscapeJSONPointer(ptr string) string {
 	s := strings.ReplaceAll(ptr, "~", "~0")
 	return strings.ReplaceAll(s, "/", "~1")
+}
+
+func TestAndReplaceAnnotations(initialAnnotations, desiredAnnotations map[string]string) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/metadata/annotations", initialAnnotations, desiredAnnotations)
+
+	return patches.GeneratePayload()
+}
+
+func TestAndReplaceLabels(initialLabels, desiredLabels map[string]string) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/metadata/labels", initialLabels, desiredLabels)
+
+	return patches.GeneratePayload()
+}
+
+func TestAndReplaceFinalizers(oldFinalizers, newFinalizers []string) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/metadata/finalizers", oldFinalizers, newFinalizers)
+
+	return patches.GeneratePayload()
+}
+
+func TestAndReplaceConditions(oldConditions, newConditions interface{}) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/status/conditions", oldConditions, newConditions)
+
+	return patches.GeneratePayload()
 }
