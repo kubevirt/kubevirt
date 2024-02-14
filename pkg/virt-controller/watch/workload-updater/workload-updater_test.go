@@ -20,6 +20,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -196,7 +197,12 @@ var _ = Describe("Workload Updater", func() {
 
 			kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) {
 				str := string(data)
-				Expect(str).To(Equal("[{ \"op\": \"test\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 0}, { \"op\": \"replace\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 100}]"))
+				patches := patch.New()
+				patches.Test("/status/outdatedVirtualMachineInstanceWorkloads", 0)
+				patches.Replace("/status/outdatedVirtualMachineInstanceWorkloads", 100)
+				patch, err := patches.GeneratePayload()
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(str).To(Equal(string(patch)))
 
 			}).Return(nil, nil).Times(1)
 
