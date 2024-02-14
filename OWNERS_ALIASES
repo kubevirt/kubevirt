@@ -127,7 +127,8 @@ aliases:
   # having mertics, alters, and runbooks.
   #
   sig-observability-approvers: []
-  sig-observability-reviewers: []
+  sig-observability-reviewers:
+    - machadovilaca
 
   #
   # SIG Release
