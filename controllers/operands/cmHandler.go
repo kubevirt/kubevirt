@@ -49,14 +49,17 @@ func (h cmHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	}
 
 	if !reflect.DeepEqual(found.Data, h.required.Data) ||
-		!reflect.DeepEqual(found.Labels, h.required.Labels) {
+		!util.CompareLabels(found, h.required) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing Configmap to new opinionated values", "name", h.required.Name)
 		} else {
 			req.Logger.Info("Reconciling an externally updated Configmap to its opinionated values", "name", h.required.Name)
 		}
-		util.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
-		h.required.DeepCopyInto(found)
+		util.MergeLabels(&h.required.ObjectMeta, &found.ObjectMeta)
+		found.Data = make(map[string]string, len(h.required.Data))
+		for k, v := range h.required.Data {
+			found.Data[k] = v
+		}
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err

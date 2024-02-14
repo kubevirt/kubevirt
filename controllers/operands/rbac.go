@@ -47,8 +47,8 @@ func (h *roleHooks) updateCr(req *common.HcoRequest, Client client.Client, exist
 		return false, false, errors.New("can't convert to a Role")
 	}
 
-	if !reflect.DeepEqual(found.Labels, role.Labels) ||
-		!reflect.DeepEqual(found.Rules, role.Rules) {
+	if !util.CompareLabels(role, found) ||
+		!reflect.DeepEqual(role.Rules, found.Rules) {
 
 		req.Logger.Info("Updating existing Role to its default values", "name", found.Name)
 
@@ -56,7 +56,7 @@ func (h *roleHooks) updateCr(req *common.HcoRequest, Client client.Client, exist
 		for i := range role.Rules {
 			role.Rules[i].DeepCopyInto(&found.Rules[i])
 		}
-		util.DeepCopyLabels(&role.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&role.ObjectMeta, &found.ObjectMeta)
 
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -103,15 +103,15 @@ func (h roleBindingHooks) updateCr(req *common.HcoRequest, Client client.Client,
 		return false, false, errors.New("can't convert to a RoleBinding")
 	}
 
-	if !reflect.DeepEqual(found.Labels, configReaderRoleBinding.Labels) ||
-		!reflect.DeepEqual(found.Subjects, configReaderRoleBinding.Subjects) ||
-		!reflect.DeepEqual(found.RoleRef, configReaderRoleBinding.RoleRef) {
+	if !util.CompareLabels(configReaderRoleBinding, found) ||
+		!reflect.DeepEqual(configReaderRoleBinding.Subjects, found.Subjects) ||
+		!reflect.DeepEqual(configReaderRoleBinding.RoleRef, found.RoleRef) {
 		req.Logger.Info("Updating existing RoleBinding to its default values", "name", found.Name)
 
 		found.Subjects = make([]rbacv1.Subject, len(configReaderRoleBinding.Subjects))
 		copy(found.Subjects, configReaderRoleBinding.Subjects)
 		found.RoleRef = configReaderRoleBinding.RoleRef
-		util.DeepCopyLabels(&configReaderRoleBinding.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&configReaderRoleBinding.ObjectMeta, &found.ObjectMeta)
 
 		err := Client.Update(req.Ctx, found)
 		if err != nil {

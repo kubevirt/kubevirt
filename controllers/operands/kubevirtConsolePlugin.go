@@ -354,14 +354,14 @@ func (h consolePluginHooks) updateCr(req *common.HcoRequest, Client client.Clien
 		return false, false, errors.New("can't convert to ConsolePlugin")
 	}
 
-	if !reflect.DeepEqual(found.Spec, h.required.Spec) ||
-		!reflect.DeepEqual(found.Labels, h.required.Labels) {
+	if !reflect.DeepEqual(h.required.Spec, found.Spec) ||
+		!hcoutil.CompareLabels(h.required, found) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing ConsolePlugin to new opinionated values", "name", h.required.Name)
 		} else {
 			req.Logger.Info("Reconciling an externally updated ConsolePlugin to its opinionated values", "name", h.required.Name)
 		}
-		hcoutil.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
+		hcoutil.MergeLabels(&h.required.ObjectMeta, &found.ObjectMeta)
 		h.required.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {

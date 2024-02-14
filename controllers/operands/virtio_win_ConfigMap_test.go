@@ -130,6 +130,40 @@ var _ = Describe("VirtioWin", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
+		It("should reconcile managed labels to default without touching user added ones", func() {
+			const userLabelKey = "userLabelKey"
+			const userLabelValue = "userLabelValue"
+			outdatedResource, err := NewVirtioWinCm(hco)
+			Expect(err).ToNot(HaveOccurred())
+			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
+			for k, v := range outdatedResource.Labels {
+				expectedLabels[k] = v
+			}
+			for k, v := range expectedLabels {
+				outdatedResource.Labels[k] = "wrong_" + v
+			}
+			outdatedResource.Labels[userLabelKey] = userLabelValue
+
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
+			handler, _ := newVirtioWinCmHandler(logger, cl, commontestutils.GetScheme(), hco)
+			res := handler[0].ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &corev1.ConfigMap{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: outdatedResource.Name, Namespace: outdatedResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			for k, v := range expectedLabels {
+				Expect(foundResource.Labels).To(HaveKeyWithValue(k, v))
+			}
+			Expect(foundResource.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
+		})
+
 	})
 
 	Context("ConfigMap Reader Role", func() {

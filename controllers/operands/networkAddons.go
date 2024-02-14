@@ -94,8 +94,8 @@ func (*cnaHooks) updateCnaCr(req *common.HcoRequest, Client client.Client, found
 }
 
 func (*cnaHooks) updateLabels(found *networkaddonsv1.NetworkAddonsConfig, networkAddons *networkaddonsv1.NetworkAddonsConfig) bool {
-	if !reflect.DeepEqual(found.Labels, networkAddons.Labels) {
-		util.DeepCopyLabels(&networkAddons.ObjectMeta, &found.ObjectMeta)
+	if !util.CompareLabels(networkAddons, found) {
+		util.MergeLabels(&networkAddons.ObjectMeta, &found.ObjectMeta)
 		return true
 	}
 	return false

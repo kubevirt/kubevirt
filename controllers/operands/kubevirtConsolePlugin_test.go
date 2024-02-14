@@ -144,7 +144,8 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource := NewKVConsolePlugin(hco)
 			outdatedResource := NewKVConsolePlugin(hco)
 
-			outdatedResource.Labels["fake_label"] = "something"
+			outdatedResource.Labels["app.kubernetes.io/managed-by"] = "something"
+			// TODO: add another test for extra labels!
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
@@ -186,6 +187,40 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			).ToNot(HaveOccurred())
 
 			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels)).To(BeTrue())
+		})
+
+		It("should reconcile managed labels to default without touching user added ones", func() {
+			const userLabelKey = "userLabelKey"
+			const userLabelValue = "userLabelValue"
+			outdatedResource := NewKVConsolePlugin(hco)
+			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
+			for k, v := range outdatedResource.Labels {
+				expectedLabels[k] = v
+			}
+			for k, v := range expectedLabels {
+				outdatedResource.Labels[k] = "wrong_" + v
+			}
+			outdatedResource.Labels[userLabelKey] = userLabelValue
+
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
+			handler, _ := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
+
+			res := handler[0].ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &consolev1.ConsolePlugin{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: outdatedResource.Name, Namespace: outdatedResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			for k, v := range expectedLabels {
+				Expect(foundResource.Labels).To(HaveKeyWithValue(k, v))
+			}
+			Expect(foundResource.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
 		})
 	})
 

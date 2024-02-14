@@ -98,14 +98,14 @@ func (*sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists r
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to SSP")
 	}
-	if !reflect.DeepEqual(found.Spec, ssp.Spec) ||
-		!reflect.DeepEqual(found.Labels, ssp.Labels) {
+	if !reflect.DeepEqual(ssp.Spec, found.Spec) ||
+		!util.CompareLabels(ssp, found) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing SSP's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated SSP's Spec to its opinionated values")
 		}
-		util.DeepCopyLabels(&ssp.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&ssp.ObjectMeta, &found.ObjectMeta)
 		ssp.Spec.DeepCopyInto(&found.Spec)
 		err := client.Update(req.Ctx, found)
 		if err != nil {

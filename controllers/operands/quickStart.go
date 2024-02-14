@@ -65,14 +65,14 @@ func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 		return false, false, errors.New("can't convert to ConsoleQuickStart")
 	}
 
-	if !reflect.DeepEqual(found.Spec, h.required.Spec) ||
-		!reflect.DeepEqual(found.Labels, h.required.Labels) {
+	if !reflect.DeepEqual(h.required.Spec, found.Spec) ||
+		!util.CompareLabels(h.required, found) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing ConsoleQuickStart's Spec to new opinionated values", "name", h.required.Name)
 		} else {
 			req.Logger.Info("Reconciling an externally updated ConsoleQuickStart's Spec to its opinionated values", "name", h.required.Name)
 		}
-		util.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&h.required.ObjectMeta, &found.ObjectMeta)
 		h.required.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {

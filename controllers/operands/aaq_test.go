@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -278,6 +279,43 @@ var _ = Describe("AAQ tests", func() {
 			Expect(foundAAQ.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
 			Expect(foundAAQ.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
 		})
+
+		It("should reconcile managed labels to default without touching user added ones", func() {
+			const userLabelKey = "userLabelKey"
+			const userLabelValue = "userLabelValue"
+			hco.Spec.ApplicationAwareConfig = &v1beta1.ApplicationAwareConfigurations{}
+			hco.Spec.FeatureGates.EnableApplicationAwareQuota = ptr.To(true)
+			outdatedResource := NewAAQWithNameOnly(hco)
+			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
+			for k, v := range outdatedResource.Labels {
+				expectedLabels[k] = v
+			}
+			for k, v := range expectedLabels {
+				outdatedResource.Labels[k] = "wrong_" + v
+			}
+			outdatedResource.Labels[userLabelKey] = userLabelValue
+
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
+			handler := newAAQHandler(cl, commontestutils.GetScheme())
+
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &aaqv1alpha1.AAQ{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: outdatedResource.Name, Namespace: outdatedResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			for k, v := range expectedLabels {
+				Expect(foundResource.Labels).To(HaveKeyWithValue(k, v))
+			}
+			Expect(foundResource.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
+		})
+
 	})
 
 	Context("check cache", func() {

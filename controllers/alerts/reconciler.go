@@ -181,11 +181,11 @@ func getDeploymentReference(deployment *appsv1.Deployment) metav1.OwnerReference
 // return true if something was changed
 func updateCommonDetails(required, existing *metav1.ObjectMeta) bool {
 	if reflect.DeepEqual(required.OwnerReferences, existing.OwnerReferences) &&
-		reflect.DeepEqual(required.Labels, existing.Labels) {
+		hcoutil.CompareLabels(required, existing) {
 		return false
 	}
 
-	hcoutil.DeepCopyLabels(required, existing)
+	hcoutil.MergeLabels(required, existing)
 	if reqLen := len(required.OwnerReferences); reqLen > 0 {
 		refs := make([]metav1.OwnerReference, reqLen)
 		for i, ref := range required.OwnerReferences {

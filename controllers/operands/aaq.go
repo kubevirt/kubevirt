@@ -68,7 +68,7 @@ func (*aaqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	}
 
 	if !reflect.DeepEqual(found.Spec, aaq.Spec) ||
-		!reflect.DeepEqual(found.Labels, aaq.Labels) {
+		!hcoutil.CompareLabels(found, aaq) {
 		overwritten := false
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing AAQ's Spec to new opinionated values")
@@ -76,7 +76,7 @@ func (*aaqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 			req.Logger.Info("Reconciling an externally updated AAQ's Spec to its opinionated values")
 			overwritten = true
 		}
-		hcoutil.DeepCopyLabels(&aaq.ObjectMeta, &found.ObjectMeta)
+		hcoutil.MergeLabels(&aaq.ObjectMeta, &found.ObjectMeta)
 		aaq.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {

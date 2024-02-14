@@ -102,6 +102,42 @@ var _ = Describe("Deployment Handler", func() {
 			// let's check the object UID to ensure that the object get updated and not deleted and recreated
 			Expect(foundResource.GetUID()).To(Equal(types.UID("oldObjectUID")))
 		})
+
+		It("should reconcile managed labels to default without touching user added ones", func() {
+			const userLabelKey = "userLabelKey"
+			const userLabelValue = "userLabelValue"
+			outdatedResource := NewExpectedDeployment(hco)
+			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
+			for k, v := range outdatedResource.Labels {
+				expectedLabels[k] = v
+			}
+
+			for k, v := range expectedLabels {
+				outdatedResource.Labels[k] = "wrong_" + v
+			}
+			outdatedResource.Labels[userLabelKey] = userLabelValue
+
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
+			handler := newDeploymentHandler(cl, commontestutils.GetScheme(), NewExpectedDeployment, hco)
+
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+
+			foundResource := &appsv1.Deployment{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: outdatedResource.Name, Namespace: outdatedResource.Namespace},
+					foundResource),
+			).ToNot(HaveOccurred())
+
+			for k, v := range expectedLabels {
+				Expect(foundResource.Labels).To(HaveKeyWithValue(k, v))
+			}
+			Expect(foundResource.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
+		})
+
 	})
 
 })

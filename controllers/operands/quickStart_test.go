@@ -199,5 +199,72 @@ var _ = Describe("QuickStart tests", func() {
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 			})
 		})
+
+		It("should reconcile managed labels to default without touching user added ones", func() {
+			_ = os.Setenv(quickStartManifestLocationVarName, testFilesLocation)
+
+			const userLabelKey = "userLabelKey"
+			const userLabelValue = "userLabelValue"
+
+			cli := commontestutils.InitClient([]client.Object{qsCrd})
+			handlers, err := getQuickStartHandlers(logger, cli, schemeForTest, hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlers).To(HaveLen(1))
+
+			quickstartObjects := &consolev1.ConsoleQuickStartList{}
+
+			req := commontestutils.NewReq(hco)
+
+			By("apply the quickstart CRs", func() {
+				res := handlers[0].ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Created).To(BeTrue())
+
+				Expect(cli.List(context.TODO(), quickstartObjects)).To(Succeed())
+				Expect(quickstartObjects.Items).To(HaveLen(1))
+				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
+			})
+
+			expectedLabels := make(map[string]map[string]string)
+
+			By("getting opinionated labels", func() {
+				for _, quickstart := range quickstartObjects.Items {
+					expectedLabels[quickstart.Name] = make(map[string]string)
+					for k, v := range quickstart.Labels {
+						expectedLabels[quickstart.Name][k] = v
+					}
+				}
+			})
+
+			By("altering the quickstart objects", func() {
+				for _, foundResource := range quickstartObjects.Items {
+					for k, v := range expectedLabels[foundResource.Name] {
+						foundResource.Labels[k] = "wrong_" + v
+					}
+					foundResource.Labels[userLabelKey] = userLabelValue
+					err = cli.Update(context.TODO(), &foundResource)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
+			By("reconciling quickstart objects", func() {
+				for _, handler := range handlers {
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeTrue())
+					Expect(res.Err).ToNot(HaveOccurred())
+				}
+			})
+
+			foundResourcesList := &consolev1.ConsoleQuickStartList{}
+			Expect(cli.List(context.TODO(), foundResourcesList)).To(Succeed())
+
+			for _, foundResource := range foundResourcesList.Items {
+				for k, v := range expectedLabels[foundResource.Name] {
+					Expect(foundResource.Labels).To(HaveKeyWithValue(k, v))
+				}
+				Expect(foundResource.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
+			}
+		})
 	})
 })

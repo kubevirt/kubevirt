@@ -165,5 +165,71 @@ var _ = Describe("Dashboard tests", func() {
 				Expect(ok).Should(BeTrue())
 			})
 		})
+
+		It("should reconcile managed labels to default without touching user added ones", func() {
+			const userLabelKey = "userLabelKey"
+			const userLabelValue = "userLabelValue"
+
+			_ = os.Setenv(dashboardManifestLocationVarName, testFilesLocation)
+			cli := commontestutils.InitClient([]client.Object{})
+			handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlers).To(HaveLen(1))
+
+			cmList := &corev1.ConfigMapList{}
+
+			req := commontestutils.NewReq(hco)
+
+			By("apply the CMs", func() {
+				res := handlers[0].ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Created).To(BeTrue())
+
+				Expect(cli.List(context.TODO(), cmList)).To(Succeed())
+				Expect(cmList.Items).To(HaveLen(1))
+				Expect(cmList.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
+			})
+
+			expectedLabels := make(map[string]map[string]string)
+
+			By("getting opinionated labels", func() {
+				for _, cm := range cmList.Items {
+					expectedLabels[cm.Name] = make(map[string]string)
+					for k, v := range cm.Labels {
+						expectedLabels[cm.Name][k] = v
+					}
+				}
+			})
+
+			By("altering the cm objects", func() {
+				for _, foundResource := range cmList.Items {
+					for k, v := range expectedLabels[foundResource.Name] {
+						foundResource.Labels[k] = "wrong_" + v
+					}
+					foundResource.Labels[userLabelKey] = userLabelValue
+					err = cli.Update(context.TODO(), &foundResource)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
+			By("reconciling cm objects", func() {
+				for _, handler := range handlers {
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeTrue())
+					Expect(res.Err).ToNot(HaveOccurred())
+				}
+			})
+
+			foundResourcesList := &corev1.ConfigMapList{}
+			Expect(cli.List(context.TODO(), foundResourcesList)).To(Succeed())
+
+			for _, foundResource := range foundResourcesList.Items {
+				for k, v := range expectedLabels[foundResource.Name] {
+					Expect(foundResource.Labels).To(HaveKeyWithValue(k, v))
+				}
+				Expect(foundResource.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
+			}
+		})
 	})
 })

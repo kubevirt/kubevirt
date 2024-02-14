@@ -656,6 +656,9 @@ var _ = Describe("imageStream tests", func() {
 				return testFilesLocation
 			}
 
+			const userLabelKey = "userLabelKey"
+			const userLabelValue = "userLabelValue"
+
 			exists := &imagev1.ImageStream{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-image-stream",
@@ -675,7 +678,15 @@ var _ = Describe("imageStream tests", func() {
 				},
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
-			exists.ObjectMeta.Labels["to-be-removed"] = "test"
+			expectedLabels := make(map[string]string, len(exists.Labels))
+			for k, v := range exists.Labels {
+				expectedLabels[k] = v
+			}
+			exists.Labels[userLabelKey] = userLabelValue
+			for k, v := range expectedLabels {
+				exists.Labels[k] = "wrong_" + v
+			}
+			exists.Labels[util.AppLabelManagedBy] = expectedLabels[util.AppLabelManagedBy]
 
 			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
@@ -690,7 +701,9 @@ var _ = Describe("imageStream tests", func() {
 				req := commontestutils.NewReq(hco)
 				res := handlers[0].ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
@@ -714,7 +727,10 @@ var _ = Describe("imageStream tests", func() {
 				Expect(hco.Status.RelatedObjects).To(Not(ContainElement(*objectRefOutdated)))
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 
-				Expect(exists.ObjectMeta.Labels).ToNot(ContainElement("to-be-removed"))
+				for k, v := range expectedLabels {
+					Expect(is.Labels).To(HaveKeyWithValue(k, v))
+				}
+				Expect(is.Labels).To(HaveKeyWithValue(userLabelKey, userLabelValue))
 			})
 		})
 

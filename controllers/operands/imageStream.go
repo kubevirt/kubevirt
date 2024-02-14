@@ -176,8 +176,8 @@ func (isHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation *
 
 func (h isHooks) compareAndUpgradeImageStream(found *imagev1.ImageStream) bool {
 	modified := false
-	if !reflect.DeepEqual(h.required.Labels, found.Labels) {
-		util.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
+	if !util.CompareLabels(h.required, found) {
+		util.MergeLabels(&h.required.ObjectMeta, &found.ObjectMeta)
 		modified = true
 	}
 

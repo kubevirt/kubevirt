@@ -120,20 +120,28 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 		)
 
 		DescribeTable("check imagestream reconciliation", func(expectedIS tests.ImageStreamConfig) {
-			patchOp := []byte(`[{"op": "add", "path": "/metadata/labels/test-label", "value": "test"}]`)
+			is := &v1.ImageStream{}
+			unstructured, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, expectedIS.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, is)
+			Expect(err).ToNot(HaveOccurred())
+			expectedValue := is.GetLabels()["app.kubernetes.io/part-of"]
+			Expect(expectedValue).ToNot(Equal("wrongValue"))
+
+			patchOp := []byte(`[{"op": "replace", "path": "/metadata/labels/app.kubernetes.io~1part-of", "value": "wrong-value"}]`)
 			Eventually(func() error {
 				_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Patch(ctx, expectedIS.Name, types.JSONPatchType, patchOp, metav1.PatchOptions{})
 				return err
 			}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).Should(Succeed())
 
-			is := &v1.ImageStream{}
-			Eventually(func(g Gomega) map[string]string {
+			is = &v1.ImageStream{}
+			Eventually(func(g Gomega) string {
 				unstructured, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, expectedIS.Name, metav1.GetOptions{})
 				g.Expect(err).ShouldNot(HaveOccurred())
 				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, is)).To(Succeed())
 
-				return is.GetLabels()
-			}).WithTimeout(time.Second * 15).WithPolling(time.Millisecond * 100).ShouldNot(HaveKey("test-label"))
+				return is.GetLabels()["app.kubernetes.io/part-of"]
+			}).WithTimeout(time.Second * 15).WithPolling(time.Millisecond * 100).Should(Equal(expectedValue))
 		},
 			isEntries,
 		)

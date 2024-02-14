@@ -68,8 +68,8 @@ func (*mtqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 		return false, false, errors.New("can't convert to MTQ")
 	}
 
-	if !reflect.DeepEqual(found.Spec, mtq.Spec) ||
-		!reflect.DeepEqual(found.Labels, mtq.Labels) {
+	if !reflect.DeepEqual(mtq.Spec, found.Spec) ||
+		!hcoutil.CompareLabels(mtq, found) {
 		overwritten := false
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing MTQ's Spec to new opinionated values")
@@ -77,7 +77,7 @@ func (*mtqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 			req.Logger.Info("Reconciling an externally updated MTQ's Spec to its opinionated values")
 			overwritten = true
 		}
-		hcoutil.DeepCopyLabels(&mtq.ObjectMeta, &found.ObjectMeta)
+		hcoutil.MergeLabels(&mtq.ObjectMeta, &found.ObjectMeta)
 		mtq.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {

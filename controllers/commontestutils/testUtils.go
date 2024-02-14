@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2" //nolint dot-imports
 	. "github.com/onsi/gomega"    //nolint dot-imports
+	"github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -444,4 +445,12 @@ func (ClusterInfoSRCPHAIMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecu
 }
 func (ClusterInfoSRCPHAIMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
 	return nil
+}
+
+func KeysFromSSMap(ssmap map[string]string) gstruct.Keys {
+	keys := gstruct.Keys{}
+	for k, v := range ssmap {
+		keys[k] = Equal(v)
+	}
+	return keys
 }

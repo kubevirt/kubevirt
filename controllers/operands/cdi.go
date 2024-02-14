@@ -67,7 +67,7 @@ func (*cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	}
 
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) ||
-		!reflect.DeepEqual(found.Labels, cdi.Labels) {
+		!util.CompareLabels(found, cdi) {
 		overwritten := false
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing CDI's Spec to new opinionated values")
@@ -75,7 +75,7 @@ func (*cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 			req.Logger.Info("Reconciling an externally updated CDI's Spec to its opinionated values")
 			overwritten = true
 		}
-		util.DeepCopyLabels(&cdi.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&cdi.ObjectMeta, &found.ObjectMeta)
 		cdi.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {

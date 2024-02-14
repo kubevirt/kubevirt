@@ -57,13 +57,13 @@ func (*cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 		return false, false, errors.New("can't convert to ConsoleCLIDownload")
 	}
 	if !reflect.DeepEqual(found.Spec, ccd.Spec) ||
-		!reflect.DeepEqual(found.Labels, ccd.Labels) {
+		!util.CompareLabels(found, ccd) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing ConsoleCLIDownload's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated ConsoleCLIDownload's Spec to its opinionated values")
 		}
-		util.DeepCopyLabels(&ccd.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&ccd.ObjectMeta, &found.ObjectMeta)
 		ccd.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -180,7 +180,7 @@ func (*cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Cl
 		} else {
 			req.Logger.Info("Reconciling an externally updated Route Spec to its opinionated values")
 		}
-		util.DeepCopyLabels(&route.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&route.ObjectMeta, &found.ObjectMeta)
 		route.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {

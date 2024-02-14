@@ -56,7 +56,9 @@ var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 
 	It("should recreate the priorityClass on update", func() {
 		GinkgoWriter.Printf("oldPriorityClassUID: %q\n", oldPriorityClassUID)
-		patch := []byte(`[{"op": "add", "path": "/metadata/labels/test", "value": "test"}]`)
+		// `~1` is the jsonpatch escapoe sequence for `\`
+		patch := []byte(`[{"op": "replace", "path": "/metadata/labels/app.kubernetes.io~1managed-by", "value": "test"}]`)
+
 		Eventually(func() error {
 			_, err := cli.SchedulingV1().PriorityClasses().Patch(ctx, priorityClassName, types.JSONPatchType, patch, metav1.PatchOptions{})
 			return err

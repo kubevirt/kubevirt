@@ -249,14 +249,14 @@ func (*kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exi
 	}
 
 	if !reflect.DeepEqual(found.Spec, virt.Spec) ||
-		!reflect.DeepEqual(found.Labels, virt.Labels) ||
+		!hcoutil.CompareLabels(found, virt) ||
 		!isAnnotationStateMeetingRequirements(virt.Annotations, found.Annotations) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing KubeVirt's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
 		}
-		hcoutil.DeepCopyLabels(&virt.ObjectMeta, &found.ObjectMeta)
+		hcoutil.MergeLabels(&virt.ObjectMeta, &found.ObjectMeta)
 		setAnnotationsToReqState(req.Instance, found)
 		virt.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
@@ -804,7 +804,7 @@ func (kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Clien
 
 	// at this point we found the object in the cache and we check if something was changed
 	if (pc.Name == found.Name) && (pc.Value == found.Value) &&
-		(pc.Description == found.Description) && reflect.DeepEqual(pc.Labels, found.Labels) {
+		(pc.Description == found.Description) && hcoutil.CompareLabels(&pc.ObjectMeta, &found.ObjectMeta) {
 		return false, false, nil
 	}
 

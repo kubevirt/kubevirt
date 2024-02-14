@@ -58,7 +58,7 @@ func updateService(req *common.HcoRequest, Client client.Client, exists runtime.
 		} else {
 			req.Logger.Info("Reconciling an externally updated Service's Spec to its opinionated values")
 		}
-		util.DeepCopyLabels(&service.ObjectMeta, &found.ObjectMeta)
+		util.MergeLabels(&service.ObjectMeta, &found.ObjectMeta)
 		service.Spec.ClusterIP = found.Spec.ClusterIP
 		service.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
@@ -75,7 +75,7 @@ func updateService(req *common.HcoRequest, Client client.Client, exists runtime.
 // When we compare current spec with expected spec by using reflect.DeepEqual, it
 // never returns true.
 func hasServiceRightFields(found *corev1.Service, required *corev1.Service) bool {
-	return reflect.DeepEqual(found.Labels, required.Labels) &&
-		reflect.DeepEqual(found.Spec.Selector, required.Spec.Selector) &&
-		reflect.DeepEqual(found.Spec.Ports, required.Spec.Ports)
+	return util.CompareLabels(required, found) &&
+		reflect.DeepEqual(required.Spec.Selector, found.Spec.Selector) &&
+		reflect.DeepEqual(required.Spec.Ports, found.Spec.Ports)
 }
