@@ -18,14 +18,14 @@ import (
 
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	devicemanager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
 const failedSetCPUManagerLabelFmt = "failed to set a cpu manager label on host %s"
 
 type HeartBeat struct {
 	clientset                 k8scli.CoreV1Interface
-	deviceManagerController   device_manager.DeviceControllerInterface
+	deviceManagerController   devicemanager.DeviceControllerInterface
 	clusterConfig             *virtconfig.ClusterConfig
 	host                      string
 	cpuManagerPaths           []string
@@ -33,7 +33,7 @@ type HeartBeat struct {
 	devicePluginWaitTimeout   time.Duration
 }
 
-func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
+func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager devicemanager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
 	return &HeartBeat{
 		clientset:               clientset,
 		deviceManagerController: deviceManager,

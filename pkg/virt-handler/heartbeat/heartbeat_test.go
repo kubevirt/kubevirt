@@ -7,29 +7,29 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	virtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	devicemanager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
 const (
-	cpu_manager_static_path = "testdata/cpu_manager_state_static"
-	cpu_manager_none_path   = "testdata/cpu_manager_state_none"
+	cpuManagerStaticPath = "testdata/cpu_manager_state_static"
+	cpuManagerNonePath   = "testdata/cpu_manager_state_none"
 )
 
 var _ = Describe("Heartbeat", func() {
 
-	var node *v1.Node
+	var node *k8sv1.Node
 	var fakeClient *fake.Clientset
 
 	BeforeEach(func() {
-		node = &v1.Node{
+		node = &k8sv1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "mynode",
 			},
@@ -46,24 +46,24 @@ var _ = Describe("Heartbeat", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return node.Labels
 			}).Should(And(
-				HaveKeyWithValue(virtv1.NodeSchedulable, "true"),
+				HaveKeyWithValue(v1.NodeSchedulable, "true"),
 			))
 			close(stopChan)
 			<-done
 			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, "false"))
+			Expect(node.Labels).To(HaveKeyWithValue(v1.NodeSchedulable, "false"))
 		})
 	})
 
-	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
+	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController devicemanager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(virtconfig.CPUManager), "mynode")
 		heartbeat.cpuManagerPaths = cpuManagerPaths
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
-		Expect(node.Labels).To(HaveKeyWithValue(virtv1.CPUManager, cpumanager))
+		Expect(node.Labels).To(HaveKeyWithValue(v1.NodeSchedulable, schedulable))
+		Expect(node.Labels).To(HaveKeyWithValue(v1.CPUManager, cpumanager))
 	},
 		Entry("not schedulable and no cpu manager with no cpu manager file and device plugins are not initialized",
 			deviceController(false),
@@ -79,25 +79,25 @@ var _ = Describe("Heartbeat", func() {
 		),
 		Entry("schedulable and cpu manager with static cpu manager policy configured and device plugins are not initialized",
 			deviceController(true),
-			[]string{"non/existent/cpumanager/statefile", cpu_manager_static_path},
+			[]string{"non/existent/cpumanager/statefile", cpuManagerStaticPath},
 			"true",
 			"true",
 		),
 		Entry("schedulable and no cpu manager with no cpu manager policy configured and device plugins are not initialized",
 			deviceController(true),
-			[]string{cpu_manager_none_path, "non/existent/cpumanager/statefile"},
+			[]string{cpuManagerNonePath, "non/existent/cpumanager/statefile"},
 			"true",
 			"false",
 		),
 	)
 
-	DescribeTable("without cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, schedulable string) {
+	DescribeTable("without cpumanager featuregate should set the node to", func(deviceController devicemanager.DeviceControllerInterface, schedulable string) {
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
-		Expect(node.Labels).ToNot(HaveKeyWithValue(virtv1.CPUManager, false))
+		Expect(node.Labels).To(HaveKeyWithValue(v1.NodeSchedulable, schedulable))
+		Expect(node.Labels).ToNot(HaveKeyWithValue(v1.CPUManager, false))
 	},
 		Entry("not schedulable with no cpumanager label present",
 			deviceController(false),
@@ -109,7 +109,7 @@ var _ = Describe("Heartbeat", func() {
 		),
 	)
 
-	DescribeTable("without deviceplugin and", func(deviceController device_manager.DeviceControllerInterface, initiallySchedulable string, finallySchedulable string) {
+	DescribeTable("without deviceplugin and", func(deviceController devicemanager.DeviceControllerInterface, initiallySchedulable string, finallySchedulable string) {
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
 		heartbeat.devicePluginWaitTimeout = 2 * time.Second
 		heartbeat.devicePluginPollIntervall = 10 * time.Millisecond
@@ -124,28 +124,28 @@ var _ = Describe("Heartbeat", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return node.Labels
 		}).Should(And(
-			HaveKeyWithValue(virtv1.NodeSchedulable, initiallySchedulable),
+			HaveKeyWithValue(v1.NodeSchedulable, initiallySchedulable),
 		))
 		Consistently(func() map[string]string {
 			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return node.Labels
 		}, 500*time.Millisecond, 10*time.Millisecond).Should(And(
-			HaveKeyWithValue(virtv1.NodeSchedulable, initiallySchedulable),
+			HaveKeyWithValue(v1.NodeSchedulable, initiallySchedulable),
 		))
 		Eventually(func() map[string]string {
 			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return node.Labels
 		}).Should(And(
-			HaveKeyWithValue(virtv1.NodeSchedulable, finallySchedulable),
+			HaveKeyWithValue(v1.NodeSchedulable, finallySchedulable),
 		))
 		Consistently(func() map[string]string {
 			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return node.Labels
 		}, 500*time.Millisecond, 10*time.Millisecond).Should(And(
-			HaveKeyWithValue(virtv1.NodeSchedulable, finallySchedulable),
+			HaveKeyWithValue(v1.NodeSchedulable, finallySchedulable),
 		))
 	},
 		Entry("not becoming ready, node should be set to unschedulable immediately and stick to it",
@@ -174,8 +174,8 @@ func (f *fakeDeviceController) RefreshMediatedDeviceTypes() {
 }
 
 func config(featuregates ...string) *virtconfig.ClusterConfig {
-	cfg := &virtv1.KubeVirtConfiguration{
-		DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+	cfg := &v1.KubeVirtConfiguration{
+		DeveloperConfiguration: &v1.DeveloperConfiguration{
 			FeatureGates: featuregates,
 		},
 	}
@@ -183,7 +183,7 @@ func config(featuregates ...string) *virtconfig.ClusterConfig {
 	return clusterConfig
 }
 
-func deviceController(initialized bool) device_manager.DeviceControllerInterface {
+func deviceController(initialized bool) devicemanager.DeviceControllerInterface {
 	return &fakeDeviceController{initialized: initialized}
 }
 
@@ -204,7 +204,7 @@ func (f *probeCountingDeviceController) RefreshMediatedDeviceTypes() {
 	return
 }
 
-func newProbeCountingDeviceController(probes ...probe) device_manager.DeviceControllerInterface {
+func newProbeCountingDeviceController(probes ...probe) devicemanager.DeviceControllerInterface {
 	var probeArray []bool
 	for _, p := range probes {
 		for x := 0; x < p.repetitions; x++ {
