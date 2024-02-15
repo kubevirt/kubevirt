@@ -72,18 +72,6 @@ Now log in with `docker login`. You will get a warning message saying that no cr
 
 SELinux-enabled nodes need to have [Container-selinux](https://github.com/containers/container-selinux) version 2.170.0 or newer installed.
 
-#### Disabling the custom SELinux policy
-
-By default, a custom SELinux policy gets installed by virt-handler on every node, and it gets used for VMIs that need it.
-Currently, the only VMIs using it are the ones that enable passt-based networking.  
-However, having KubeVirt install and use a custom SELinux policy is a security concern. It also increases virt-handler boot time 20/30 seconds.  
-Therefore, a feature gate was introduced to disable the installation and usage of that custom SELinux policy: `DisableCustomSELinuxPolicy`.  
-The side effect is that passt-enabled VMIs will fail to start, but only on nodes that use container-selinux version 2.192.0 or lower.  
-container-selinux releases 2.193.0 and newer include the necessary permissions for passt-enabled VMIs to run successfully.
-
-**Note:** adding the `DisableCustomSELinuxPolicy` feature gate to an existing cluster will disable the use of the custom policy for new VMIs,
-but will **not** automatically uninstall the policy from the nodes. That can be done manually if needed, by running `semodule -r virt_launcher` on every node.
-
 ## Building
 
 The KubeVirt build system runs completely inside Docker. 
