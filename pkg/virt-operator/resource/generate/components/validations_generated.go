@@ -12282,6 +12282,8 @@ var CRDsValidation map[string]string = map[string]string{
             sourceNode:
               description: The source node that the VMI originated on
               type: string
+            sourcePod:
+              type: string
             startTimestamp:
               description: The time the migration action began
               format: date-time
@@ -12679,6 +12681,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             sourceNode:
               description: The source node that the VMI originated on
+              type: string
+            sourcePod:
               type: string
             startTimestamp:
               description: The time the migration action began

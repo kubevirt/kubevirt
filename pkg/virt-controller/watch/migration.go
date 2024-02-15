@@ -505,13 +505,13 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	}
 
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
+	controller.SetSourcePod(migrationCopy, vmi, c.podInformer)
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
 		if err != nil {
 			return err
 		}
-
 	} else if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
 		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
 		if err != nil {
@@ -874,6 +874,9 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		TargetNode:   pod.Spec.NodeName,
 		SourceNode:   vmi.Status.NodeName,
 		TargetPod:    pod.Name,
+	}
+	if migration.Status.MigrationState != nil {
+		vmiCopy.Status.MigrationState.SourcePod = migration.Status.MigrationState.SourcePod
 	}
 
 	// By setting this label, virt-handler on the target node will receive

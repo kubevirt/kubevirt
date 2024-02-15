@@ -20120,6 +20120,9 @@
       "description": "The source node that the VMI originated on",
       "type": "string"
      },
+     "sourcePod": {
+      "type": "string"
+     },
      "startTimestamp": {
       "description": "The time the migration action began",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
