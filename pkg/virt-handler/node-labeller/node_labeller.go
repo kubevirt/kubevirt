@@ -30,7 +30,7 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +38,7 @@ import (
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/workqueue"
 
-	kubevirtv1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -47,17 +47,17 @@ import (
 )
 
 var nodeLabellerLabels = []string{
-	kubevirtv1.CPUFeatureLabel,
-	kubevirtv1.CPUModelLabel,
-	kubevirtv1.SupportedHostModelMigrationCPU,
-	kubevirtv1.CPUTimerLabel,
-	kubevirtv1.HypervLabel,
-	kubevirtv1.RealtimeLabel,
-	kubevirtv1.SEVLabel,
-	kubevirtv1.SEVESLabel,
-	kubevirtv1.HostModelCPULabel,
-	kubevirtv1.HostModelRequiredFeaturesLabel,
-	kubevirtv1.NodeHostModelIsObsoleteLabel,
+	v1.CPUFeatureLabel,
+	v1.CPUModelLabel,
+	v1.SupportedHostModelMigrationCPU,
+	v1.CPUTimerLabel,
+	v1.HypervLabel,
+	v1.RealtimeLabel,
+	v1.SEVLabel,
+	v1.SEVESLabel,
+	v1.HostModelCPULabel,
+	v1.HostModelRequiredFeaturesLabel,
+	v1.NodeHostModelIsObsoleteLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -207,12 +207,12 @@ func (n *NodeLabeller) run() error {
 	return err
 }
 
-func skipNodeLabelling(node *v1.Node) bool {
-	_, exists := node.Annotations[kubevirtv1.LabellerSkipNodeAnnotation]
+func skipNodeLabelling(node *k8sv1.Node) bool {
+	_, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
 	return exists
 }
 
-func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
+func (n *NodeLabeller) patchNode(originalNode, node *k8sv1.Node) error {
 	p := make([]patch.PatchOperation, 0)
 	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
 		p = append(p, patch.PatchOperation{
@@ -247,10 +247,10 @@ func (n *NodeLabeller) loadHypervFeatures() {
 
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
-func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
+func (n *NodeLabeller) prepareLabels(node *k8sv1.Node, cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
 	newLabels := make(map[string]string)
 	for key := range cpuFeatures {
-		newLabels[kubevirtv1.CPUFeatureLabel+key] = "true"
+		newLabels[v1.CPUFeatureLabel+key] = "true"
 	}
 
 	for _, value := range cpuModels {
@@ -258,60 +258,60 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 			continue
 		}
 
-		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+		newLabels[v1.CPUModelLabel+value] = "true"
+		newLabels[v1.SupportedHostModelMigrationCPU+value] = "true"
 	}
 
 	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
-		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
+		newLabels[v1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
 	}
 
 	for _, key := range n.hypervFeatures.items {
-		newLabels[kubevirtv1.HypervLabel+key] = "true"
+		newLabels[v1.HypervLabel+key] = "true"
 	}
 
 	if c, err := n.capabilities.GetTSCCounter(); err == nil && c != nil {
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", c.Frequency)
-		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%v", c.Scaling)
+		newLabels[v1.CPUTimerLabel+"tsc-frequency"] = fmt.Sprintf("%d", c.Frequency)
+		newLabels[v1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%v", c.Scaling)
 	} else if err != nil {
 		n.logger.Reason(err).Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
 	}
 
 	for feature := range hostCpuModel.requiredFeatures {
-		newLabels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
+		newLabels[v1.HostModelRequiredFeaturesLabel+feature] = "true"
 	}
 	if _, obsolete := obsoleteCPUsx86[hostCpuModel.Name]; obsolete {
-		newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
+		newLabels[v1.NodeHostModelIsObsoleteLabel] = "true"
 		err := n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
 		if err != nil {
 			n.logger.Reason(err).Error(err.Error())
 		}
 	}
 
-	newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
-	newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.Name] = "true"
+	newLabels[v1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
+	newLabels[v1.HostModelCPULabel+hostCpuModel.Name] = "true"
 
 	capable, err := isNodeRealtimeCapable()
 	if err != nil {
 		n.logger.Reason(err).Error("failed to identify if a node is capable of running realtime workloads")
 	}
 	if capable {
-		newLabels[kubevirtv1.RealtimeLabel] = ""
+		newLabels[v1.RealtimeLabel] = ""
 	}
 
 	if n.SEV.Supported == "yes" {
-		newLabels[kubevirtv1.SEVLabel] = ""
+		newLabels[v1.SEVLabel] = ""
 	}
 
 	if n.SEV.SupportedES == "yes" {
-		newLabels[kubevirtv1.SEVESLabel] = ""
+		newLabels[v1.SEVESLabel] = ""
 	}
 
 	return newLabels
 }
 
 // addNodeLabels adds labels to node.
-func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string) {
+func (n *NodeLabeller) addLabellerLabels(node *k8sv1.Node, labels map[string]string) {
 	for key, value := range labels {
 		node.Labels[key] = value
 	}
@@ -322,7 +322,7 @@ func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
 }
 
 // removeLabellerLabels removes labels from node
-func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
+func (n *NodeLabeller) removeLabellerLabels(node *k8sv1.Node) {
 	for label := range node.Labels {
 		if isNodeLabellerLabel(label) {
 			delete(node.Labels, label)
@@ -356,9 +356,9 @@ func isNodeLabellerLabel(label string) bool {
 	return false
 }
 
-func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostModel string, ObsoleteCPUModels map[string]bool) error {
+func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *k8sv1.Node, hostModel string, ObsoleteCPUModels map[string]bool) error {
 	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
-	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
+	n.recorder.Eventf(originalNode, k8sv1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
 	return nil
 }
 
@@ -387,7 +387,7 @@ func (n *NodeLabeller) shouldAddCPUModelLabel(
 	}
 	missingFeatures := make([]string, 0)
 	for f := range requiredFeatures {
-		if _, isFeatureSupported := featureLabels[kubevirtv1.CPUFeatureLabel+f]; !isFeatureSupported {
+		if _, isFeatureSupported := featureLabels[v1.CPUFeatureLabel+f]; !isFeatureSupported {
 			missingFeatures = append(missingFeatures, f)
 		}
 	}
