@@ -10,10 +10,14 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	util2 "kubevirt.io/kubevirt/tests/util"
 
 	"time"
@@ -23,8 +27,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/tests/libvmi"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompute, Serial, func() {
@@ -63,6 +65,11 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() error {
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				return err
+			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 			By("Updating CPU sockets to a value that would be valid in LiveUpdate")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
