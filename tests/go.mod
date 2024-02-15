@@ -2,8 +2,6 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tests
 
 go 1.21
 
-toolchain go1.21.7
-
 require (
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
