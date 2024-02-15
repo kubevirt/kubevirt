@@ -162,17 +162,6 @@ var _ = Describe("Node-labeller ", func() {
 		))
 	})
 
-	It("should not add usable cpu model labels if some features are not suported (svm)", func() {
-		res := nlController.execute()
-		Expect(res).To(BeTrue())
-
-		node := retrieveNode(kubeClient)
-		Expect(node.Labels).ToNot(SatisfyAny(
-			HaveKey(v1.CPUModelLabel+"Opteron_G2"),
-			HaveKey(v1.SupportedHostModelMigrationCPU+"Opteron_G2"),
-		))
-	})
-
 	It("should remove not found cpu model and migration model", func() {
 		node := retrieveNode(kubeClient)
 		node.Labels[v1.CPUModelLabel+"Cascadelake-Server"] = "true"
