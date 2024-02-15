@@ -85,6 +85,8 @@ const (
 	// VolumeMigration enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
 	// Introduced in v1.3.0
 	VolumeMigration = "VolumeMigration" // GA
+
+	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy" // GA
 )
 
 type FeatureGate struct {
@@ -117,6 +119,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSGate, State: Deprecated, Message: VirtioFsFeatureGateDeprecationMessage})
 	RegisterFeatureGate(FeatureGate{Name: VolumesUpdateStrategy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
 }
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
