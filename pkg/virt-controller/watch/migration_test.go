@@ -444,6 +444,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(targetPod)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectAttachmentPodCreation(vmi.UID, migration.UID)
 
 			controller.Execute()
@@ -633,6 +634,7 @@ var _ = Describe("Migration watcher", func() {
 					return vmiReturn, nil
 				})
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
@@ -643,6 +645,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
@@ -661,6 +664,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 
 			controller.Execute()
 		})
@@ -693,6 +697,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -715,6 +720,8 @@ var _ = Describe("Migration watcher", func() {
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
 			}
+
+			shouldExpectGenericMigrationUpdate()
 
 			controller.Execute()
 		})
@@ -749,6 +756,8 @@ var _ = Describe("Migration watcher", func() {
 				Expect(podInformer.GetStore().Add(pod)).To(Succeed())
 			}
 
+			shouldExpectGenericMigrationUpdate()
+
 			controller.Execute()
 		})
 
@@ -769,6 +778,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -791,6 +801,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
+			shouldExpectGenericMigrationUpdate()
 			controller.Execute()
 		})
 
@@ -845,6 +856,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 2, 1, 1)
 
 			controller.Execute()
@@ -1550,6 +1562,8 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addNode(node)
 
+			shouldExpectGenericMigrationUpdate()
+
 			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
 				podHasCpuModeLabelSelector := false
 				for key, _ := range pod.Spec.NodeSelector {
@@ -1589,6 +1603,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPDB(pdb)
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPDBPatch(vmi, migration)
 			controller.Execute()
 
@@ -1611,6 +1626,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPDB(pdb)
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
@@ -1631,6 +1647,7 @@ var _ = Describe("Migration watcher", func() {
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
+				shouldExpectGenericMigrationUpdate()
 				addPDB(pdb)
 
 				shouldExpectPDBPatch(vmi, migration)
@@ -2016,6 +2033,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectTargetPodWithSELinuxLevel("s0:c1,c2")
 
 			controller.Execute()
@@ -2034,6 +2052,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectTargetPodWithSELinuxLevel("")
 
 			controller.Execute()

@@ -23547,6 +23547,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"sourcePod": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"completed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates the migration completed",

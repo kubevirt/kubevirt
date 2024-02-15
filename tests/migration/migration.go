@@ -316,10 +316,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration for iteration")
+			sourcePod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			By("Checking VMI, confirm migration state")
-			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			Expect(vmi.Status.MigrationState.SourcePod).To(Equal(sourcePod.Name))
 			confirmMigrationMode(vmi, mode)
 
 			By("Is agent connected after migration")
