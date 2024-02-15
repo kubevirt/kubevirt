@@ -30,7 +30,6 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libdv:go_default_library",
-        "//tests/libnet/cloudinit:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libpod:go_default_library",
         "//tests/libstorage:go_default_library",
