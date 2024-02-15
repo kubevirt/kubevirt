@@ -14,8 +14,11 @@ else
 fi
 
 function set_kind_params() {
-    export KIND_VERSION="${KIND_VERSION:-0.20.0}"
-    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-kindest/node:v1.28.0@sha256:b7a4cad12c197af3ba43202d3efe03246b3f0793f162afb40a33c923952d5b31}"
+    version=$(cat cluster-up/cluster/$KUBEVIRT_PROVIDER/version)
+    export KIND_VERSION="${KIND_VERSION:-$version}"
+
+    image=$(cat cluster-up/cluster/$KUBEVIRT_PROVIDER/image)
+    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-$image}"
 }
 
 function configure_registry_proxy() {

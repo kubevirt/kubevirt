@@ -17,22 +17,23 @@
 # Copyright 2024 Red Hat, Inc.
 
 
-# Usage ./hack/bump-kind-sriov.sh <kind_version> <k8s version>
-# if no parameters are provided, it will take latest kind version, with k8s version according latest kubevirtci vm based provider
-# if only kind_version provided, it will take k8s version according latest kubevirtci vm based provider
-# examples: ./hack/bump-kind-sriov.sh v0.19.0
-#           ./hack/bump-kind-sriov.sh v0.19.0 1.28
+# Usage ./hack/bump-kind.sh <provider> <kind_version> <k8s version>
+# If no parameters beside provider, are used, it will take latest kind version,
+# with k8s version according latest kubevirtci vm based provider.
+# If only kind_version is used, it will take k8s version according latest kubevirtci vm based provider
+# examples: ./hack/bump-kind.sh kind-sriov v0.19.0
+#           ./hack/bump-kind.sh kind-sriov v0.19.0 1.28
+#
 # Note: always takes the latest patch available
 #
 # https://github.com/kubernetes-sigs/kind/releases
 
-KIND_RELEASE=${1:-$(curl -s https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | jq -r .tag_name)}
-K8S_VERSION=${2:-$(find cluster-provision/k8s/* -maxdepth 0 -type d -printf '%f\n' | tail -1 | cut -d'-' -f1)}
-
-PROVIDER=kind-sriov
+PROVIDER=${1:?"Error: Argument <provider> is missing"}
+KIND_RELEASE=${2:-$(curl -s https://api.github.com/repos/kubernetes-sigs/kind/releases/latest | jq -r .tag_name)}
+K8S_VERSION=${3:-$(find cluster-provision/k8s/* -maxdepth 0 -type d -printf '%f\n' | tail -1 | cut -d'-' -f1)}
 
 function main() {
-    image=$(curl -sL https://api.github.com/repos/kubernetes-sigs/kind/releases/tags/$KIND_RELEASE | jq -r '.body' | grep $K8S_VERSION: | head -1 | awk '{print $3}' | tr -d \` | sed 's/\r//g')
+    image=$(curl -sL https://api.github.com/repos/kubernetes-sigs/kind/releases/tags/$KIND_RELEASE | jq -r '.body' | grep -E "$K8S_VERSION(\.[0-9])?:" | head -1 | awk '{print $3}' | tr -d \` | sed 's/\r//g')
     if [[ $image == "" ]]; then
         echo "ERROR: image not found for kind release $KIND_RELEASE, k8s version $K8S_VERSION"
         exit 1
