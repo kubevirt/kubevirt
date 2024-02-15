@@ -597,20 +597,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	return vmi
 }
 
-// NewRandomFedoraVMI
-//
-// Deprecated: Use libvmi directly
-func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
-	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
-
-	return libvmi.NewFedora(append([]libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData)},
-		opts...)...,
-	)
-}
-
 // NewRandomFedoraVMIWithBlacklistGuestAgent
 //
 // Deprecated: Use libvmi directly

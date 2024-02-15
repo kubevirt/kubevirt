@@ -42,6 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libnet/service"
 
@@ -864,7 +865,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("should automatically cancel unschedulable migration after a timeout period", func() {
 				// Add node affinity to ensure VMI affinity rules block target pod from being created
-				vmi := tests.NewRandomFedoraVMI(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
@@ -919,7 +925,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 
 			It("should automatically cancel pending target pod after a catch all timeout period", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
@@ -983,7 +993,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 
 			It("[test_id:3237]should complete a migration", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
@@ -1008,7 +1022,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 		Context("with setting guest time", func() {
 			It("[test_id:4114]should set an updated time after a migration", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
@@ -1116,7 +1134,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 			It("[test_id:6974]should reject additional migrations on the same VMI if the first one is not finished", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
@@ -1511,7 +1533,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
-					vmi := tests.NewRandomFedoraVMI()
+					vmi := libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+					)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 					By("Starting the VirtualMachineInstance")
@@ -1589,7 +1615,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				})
 
 				It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
-					vmi := tests.NewRandomFedoraVMI()
+					vmi := libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+					)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 					By("Limiting the bandwidth of migrations in the test namespace")
@@ -1738,7 +1768,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
-					vmi := tests.NewRandomFedoraVMI()
+					vmi := libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+					)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 					vmi.Namespace = testsuite.NamespacePrivileged
@@ -1808,7 +1842,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				})
 
 				It("[test_id:2227] should abort a vmi migration", func() {
-					vmi := tests.NewRandomFedoraVMI()
+					vmi := libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+					)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 					By("Starting the VirtualMachineInstance")
@@ -1833,7 +1871,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			})
 			It("[test_id:6978] Should detect a failed migration", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				By("Starting the VirtualMachineInstance")
@@ -1915,7 +1957,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 
 			It("old finalized migrations should get garbage collected", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				// this annotation causes virt launcher to immediately fail a migration
@@ -1955,7 +2001,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 
 			It("[test_id:6979]Target pod should exit after failed migration", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				// this annotation causes virt launcher to immediately fail a migration
@@ -1988,7 +2038,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 
 			It("[test_id:6980]Migration should fail if target pod fails during target preparation", func() {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				// this annotation causes virt launcher to immediately fail a migration
@@ -2160,10 +2214,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Context("live migration cancelation", func() {
 			type vmiBuilder func() *v1.VirtualMachineInstance
 
-			newVirtualMachineInstanceWithFedoraContainerDisk := func() *v1.VirtualMachineInstance {
-				return tests.NewRandomFedoraVMI()
-			}
-
 			newVirtualMachineInstanceWithFedoraRWXBlockDisk := func() *v1.VirtualMachineInstance {
 				if !libstorage.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
@@ -2213,13 +2263,35 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Waiting for the migration object to disappear")
 				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
 			},
-				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk, false),
-				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk, false),
-				Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl", newVirtualMachineInstanceWithFedoraContainerDisk, true),
-				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk, true))
+				Entry("[sig-storage][test_id:2226] with ContainerDisk",
+					libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+					),
+					false),
+				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC",
+					decorators.StorageReq,
+					newVirtualMachineInstanceWithFedoraRWXBlockDisk,
+					false),
+				Entry("[sig-storage][test_id:2228] with ContainerDisk and virtctl",
+					libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+					),
+					true),
+				Entry("[sig-storage][storage-req][test_id:2732] with RWX block disk and virtctl",
+					decorators.StorageReq,
+					newVirtualMachineInstanceWithFedoraRWXBlockDisk,
+					true))
 
 			DescribeTable("Immediate migration cancellation after migration starts running", func(with_virtctl bool) {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
@@ -2277,7 +2349,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			)
 
 			DescribeTable("Immediate migration cancellation before migration starts running", func(with_virtctl bool) {
-				vmi := tests.NewRandomFedoraVMI()
+				vmi := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+				)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Limiting the bandwidth of migrations in the test namespace")
@@ -2787,7 +2863,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 	Context("[test_id:8482] Migration Metrics", func() {
 		It("exposed to prometheus during VM migration", func() {
-			vmi := tests.NewRandomFedoraVMI()
+			vmi := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+			)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 			By("Limiting the bandwidth of migrations in the test namespace")

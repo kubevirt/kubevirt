@@ -25,7 +25,10 @@ import (
 	"io"
 	"time"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,7 +49,11 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 	})
 
 	It("should successfully open connection to guest", func() {
-		vmi := tests.NewRandomFedoraVMI()
+		vmi := libvmi.NewFedora(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
+		)
 		vmi.Namespace = util.NamespaceTestDefault
 		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
