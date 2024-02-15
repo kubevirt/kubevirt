@@ -17,6 +17,7 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -333,6 +334,12 @@ var _ = Describe("VirtualMachine", func() {
 			mockQueue.Wait()
 		}
 
+		sanityExecute := func(vm *virtv1.VirtualMachine) {
+			added := vm.DeepCopy()
+			controller.Execute()
+			Expect(equality.Semantic.DeepEqual(vm, added)).To(BeTrue(), "A cached VM was modified")
+		}
+
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
@@ -362,7 +369,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond.Message).To(ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"))
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, FailedDataVolumeCreateReason)
 		})
 
@@ -413,7 +420,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 			})
 
-			controller.Execute()
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
@@ -450,7 +457,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		},
 
 			Entry("that is running", true),
@@ -499,7 +506,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		},
 
 			Entry("that is running", true),
@@ -544,7 +551,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		},
 
 			Entry("that is running", true),
@@ -576,7 +583,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		},
 
 			Entry("that is running", true),
@@ -630,7 +637,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			Expect(deletionCount).To(Equal(0))
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
@@ -680,7 +687,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
@@ -732,7 +739,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
@@ -769,7 +776,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
-			controller.Execute()
+			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
@@ -807,7 +814,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
-			controller.Execute()
+			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
@@ -844,7 +851,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
-			controller.Execute()
+			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
@@ -875,7 +882,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
-			controller.Execute()
+			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
@@ -915,7 +922,7 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
-			controller.Execute()
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
@@ -946,7 +953,7 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreationPriorityClass(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, expectedPriorityClass, &createCount)
 
-			controller.Execute()
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		},
@@ -977,7 +984,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIFinalizerRemoval(vmi)
 
-				controller.Execute()
+				sanityExecute(vm)
 
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			})
@@ -1011,7 +1018,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIFinalizerRemoval(vmi)
 
-				controller.Execute()
+				sanityExecute(vm)
 
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			})
@@ -1045,7 +1052,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).To(BeNil())
 				}).Return(nil, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 
 			})
 
@@ -1088,7 +1095,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIFinalizerRemoval(vmi)
 
-				controller.Execute()
+				sanityExecute(vm)
 
 				if runStrategy != virtv1.RunStrategyManual && runStrategy != virtv1.RunStrategyOnce {
 					testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
@@ -1334,7 +1341,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					return true, "", nil
 				}
-				controller.Execute()
+				sanityExecute(vm)
 				if fail {
 					Expect(createCount).To(Equal(0))
 					testutils.ExpectEvent(recorder, UnauthorizedDataVolumeCreateReason)
@@ -1374,7 +1381,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
@@ -1402,7 +1409,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
@@ -1447,7 +1454,7 @@ var _ = Describe("VirtualMachine", func() {
 						}).Return(vm, nil).Times(1)
 				}
 
-				controller.Execute()
+				sanityExecute(vm)
 
 				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			},
@@ -1866,7 +1873,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(arg.(*virtv1.VirtualMachine).Status.DesiredGeneration).To(Equal(desiredDesiredGeneration))
 					}).Return(nil, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 				},
 					Entry(
 						// Expect no patch on vmi annotations, and vm status to be correct
@@ -1986,7 +1993,7 @@ var _ = Describe("VirtualMachine", func() {
 					}).Return(vm, nil).Times(1)
 			}
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		},
@@ -2013,7 +2020,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
@@ -2031,7 +2038,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should update status to created and ready when vmi is running and running", func() {
@@ -2047,7 +2054,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeTrue())
 			}).Return(nil, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should have stable firmware UUIDs", func() {
@@ -2085,7 +2092,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
@@ -2099,7 +2106,7 @@ var _ = Describe("VirtualMachine", func() {
 			shouldExpectVMFinalizerAddition(vm)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should add controller finalizer only once", func() {
@@ -2112,7 +2119,7 @@ var _ = Describe("VirtualMachine", func() {
 			//Expect only update status, not Patch on vmInterface
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
@@ -2128,7 +2135,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 			shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds, vmi)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
@@ -2143,7 +2150,7 @@ var _ = Describe("VirtualMachine", func() {
 			shouldExpectVMFinalizerRemoval(vm)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy virtv1.VirtualMachineRunStrategy) {
@@ -2160,7 +2167,7 @@ var _ = Describe("VirtualMachine", func() {
 			shouldExpectVMIFinalizerRemoval(vmi)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 		},
 
@@ -2177,7 +2184,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should ignore non-matching VMIs", func() {
@@ -2194,7 +2201,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(2).Return(vm, nil).AnyTimes()
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
@@ -2210,7 +2217,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), &metav1.PatchOptions{})
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should detect that a DataVolume already exists and adopt it", func() {
@@ -2253,7 +2260,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Get(context.Background(), vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should detect that it has nothing to do beside updating the status", func() {
@@ -2264,7 +2271,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should add a fail condition if start up fails", func() {
@@ -2286,7 +2293,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 		})
@@ -2309,7 +2316,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
-			controller.Execute()
+			sanityExecute(vm)
 
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
@@ -2330,7 +2337,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond.Status).To(Equal(status))
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		},
 			Entry("VMI Ready condition is True", markAsReady, k8sv1.ConditionTrue),
 			Entry("VMI Ready condition is False", markAsNonReady, k8sv1.ConditionFalse),
@@ -2429,7 +2436,7 @@ var _ = Describe("VirtualMachine", func() {
 				}
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should add ready condition when VMI doesn't exists", func() {
@@ -2447,7 +2454,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should add paused condition", func() {
@@ -2469,7 +2476,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should remove paused condition", func() {
@@ -2490,7 +2497,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond).To(BeNil())
 			}).Return(vm, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should back off if a sync error occurs", func() {
@@ -2511,7 +2518,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
-			controller.Execute()
+			sanityExecute(vm)
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
@@ -2529,7 +2536,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should copy kubevirt ignitiondata annotation from spec.template to vmi", func() {
@@ -2544,7 +2551,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		It("should copy kubernetes annotations from spec.template to vmi", func() {
@@ -2559,7 +2566,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
-			controller.Execute()
+			sanityExecute(vm)
 		})
 
 		Context("VM memory dump", func() {
@@ -2642,7 +2649,7 @@ var _ = Describe("VirtualMachine", func() {
 				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			It("should update memory dump phase to InProgress when memory dump in vm volumes", func() {
@@ -2670,7 +2677,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			It("should change status to unmounting when memory dump timestamp updated", func() {
@@ -2713,7 +2720,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			It("should update status to failed when memory dump failed", func() {
@@ -2754,7 +2761,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase virtv1.MemoryDumpPhase, expectedAnnotation string) {
@@ -2797,7 +2804,7 @@ var _ = Describe("VirtualMachine", func() {
 				shouldExpectVMIVolumesRemovePatched(vmi)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 				Eventually(func() bool {
 					select {
 					case updated := <-pvcAnnotationUpdated:
@@ -2838,7 +2845,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			It("should remove memory dump volume from vm volumes list when status is Dissociating", func() {
@@ -2857,7 +2864,7 @@ var _ = Describe("VirtualMachine", func() {
 				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			It("should dissociate memory dump request when status is Dissociating and not in vm volumes", func() {
@@ -2875,7 +2882,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(BeNil())
 				}).Return(nil, nil)
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			DescribeTable("should not setup vmi with memory dump if memory dump", func(phase virtv1.MemoryDumpPhase) {
@@ -2907,7 +2914,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopped))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			DescribeTable("should set a Stopped status when VMI exists but stopped", func(phase virtv1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
@@ -2933,7 +2940,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIFinalizerRemoval(vmi)
 
-				controller.Execute()
+				sanityExecute(vm)
 			},
 
 				Entry("in Succeeded state", virtv1.Succeeded, nil),
@@ -2953,7 +2960,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStarting))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			DescribeTable("Should set a Starting status when VMI is in a startup phase", func(phase virtv1.VirtualMachineInstancePhase) {
@@ -2969,7 +2976,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStarting))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			},
 
 				Entry("VMI has no phase set", virtv1.VmPhaseUnset),
@@ -3006,7 +3013,7 @@ var _ = Describe("VirtualMachine", func() {
 						}).Return(vm, nil).Times(1)
 				}
 
-				controller.Execute()
+				sanityExecute(vm)
 			},
 
 				Entry("vm with runStrategy always and crash loop",
@@ -3133,7 +3140,7 @@ var _ = Describe("VirtualMachine", func() {
 						vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
 					}
 
-					controller.Execute()
+					sanityExecute(vm)
 				},
 					Entry("Started VM PendingPopulation", true, cdiv1.PendingPopulation, virtv1.VirtualMachineStatusWaitingForVolumeBinding),
 					Entry("Started VM WFFC", true, cdiv1.WaitForFirstConsumer, virtv1.VirtualMachineStatusWaitingForVolumeBinding),
@@ -3161,7 +3168,7 @@ var _ = Describe("VirtualMachine", func() {
 							Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 						})
 
-						controller.Execute()
+						sanityExecute(vm)
 					},
 
 					Entry("DataVolume is in ImportScheduled phase", cdiv1.ImportScheduled),
@@ -3181,7 +3188,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusDataVolumeError))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				},
 
 					Entry(
@@ -3219,7 +3226,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 
 				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
@@ -3262,7 +3269,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 			})
 
@@ -3303,7 +3310,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusWaitingForVolumeBinding))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				},
 
 					Entry("PersistentVolumeClaim is in Pending phase", k8sv1.ClaimPending),
@@ -3325,7 +3332,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusRunning))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			It("should set a Paused status when VMI is running but is paused", func() {
@@ -3345,7 +3352,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusPaused))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			DescribeTable("should set a Stopping status when VMI has a deletion timestamp set", func(phase virtv1.VirtualMachineInstancePhase, condType virtv1.VirtualMachineInstanceConditionType) {
@@ -3368,7 +3375,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopping))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			},
 
 				Entry("when VMI is pending", virtv1.Pending, virtv1.VirtualMachineInstanceConditionType("")),
@@ -3403,7 +3410,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				},
 
 					Entry("when VMI is pending", virtv1.Pending, virtv1.VirtualMachineInstanceConditionType("")),
@@ -3429,7 +3436,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 
 				DescribeTable("when VMI does not exist", func(running bool) {
@@ -3445,7 +3452,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				},
 
 					Entry("with running: true", true),
@@ -3469,7 +3476,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusMigrating))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			It("should set an Unknown status when VMI is in unknown phase", func() {
@@ -3485,7 +3492,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusUnknown))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			})
 
 			DescribeTable("should set a failure status in accordance to VMI condition",
@@ -3503,7 +3510,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(status))
 					})
 
-					controller.Execute()
+					sanityExecute(vm)
 				},
 
 				Entry("FailedUnschedulable", virtv1.VirtualMachineStatusUnschedulable,
@@ -3541,7 +3548,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachinePrintableStatus(reason)))
 				})
 
-				controller.Execute()
+				sanityExecute(vm)
 			},
 				Entry("Reason: ErrImagePull", ErrImagePullReason),
 				Entry("Reason: ImagePullBackOff", ImagePullBackOffReason),
@@ -3696,7 +3703,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -3740,7 +3747,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 				},
 					Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision with APIVersion", func() []byte {
@@ -3873,7 +3880,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
 
@@ -3908,7 +3915,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -3946,7 +3953,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 				})
 
@@ -3982,7 +3989,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
 
@@ -4006,7 +4013,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Message).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4029,7 +4036,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Reason).To(Equal("FailedCreate"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4052,7 +4059,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Reason).To(Equal("FailedCreate"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4083,7 +4090,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Message).To(ContainSubstring("spec.template.spec.domain.cpu"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 				})
@@ -4114,7 +4121,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4203,7 +4210,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -4246,7 +4253,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 				},
 					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision with APIVersion", func() []byte {
@@ -4391,7 +4398,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
 
@@ -4428,7 +4435,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -4465,7 +4472,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 				})
 
@@ -4501,7 +4508,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
 
@@ -4525,7 +4532,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4548,7 +4555,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Reason).To(Equal("FailedCreate"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4571,7 +4578,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Reason).To(Equal("FailedCreate"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4605,7 +4612,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
 					}).Return(vm, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4639,7 +4646,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 
 				It("should apply preferredAutoattachPodInterface and skip adding default network interface", func() {
@@ -4688,7 +4695,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 
 				It("should apply preferences to default volume disk", func() {
@@ -4742,7 +4749,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 
 				It("should apply preferences to AutoattachInputDevice attached input device", func() {
@@ -4774,7 +4781,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 
 				It("should apply preferences to preferredAutoattachInputDevice attached input device", func() {
@@ -4822,7 +4829,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 
 				It("should apply preferredAutoattachInputDevice and skip adding default input device", func() {
@@ -4867,7 +4874,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-					controller.Execute()
+					sanityExecute(vm)
 				})
 			})
 		})
@@ -4913,7 +4920,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-				controller.Execute()
+				sanityExecute(vm)
 
 			},
 			Entry("as bridge", "bridge"),
@@ -4936,7 +4943,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 		},
 			Entry("interfaces and networks are non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{{Name: "b"}}),
@@ -4973,7 +4980,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 		})
 
@@ -4998,7 +5005,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
-			controller.Execute()
+			sanityExecute(vm)
 
 		},
 			Entry("add default input device when enabled in VirtualMachine", pointer.Bool(true), []v1.Input{}, &v1.Input{Name: "default-0"}),
@@ -5358,7 +5365,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 					}).Return(nil, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 				})
@@ -5392,7 +5399,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 					}).Return(nil, nil)
 
-					controller.Execute()
+					sanityExecute(vm)
 
 					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 				})
@@ -5538,7 +5545,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMStatusUpdate()
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
@@ -5552,7 +5559,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Executing the controller again expecting the RestartRequired condition to appear")
 				expectControllerRevisionDelete()
 				expectVMUpdate()
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
@@ -5574,7 +5581,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMStatusUpdate()
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
@@ -5588,7 +5595,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Executing the controller again expecting the RestartRequired condition to appear")
 				expectVMUpdate()
 				expectControllerRevisionDelete()
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
@@ -5610,7 +5617,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMStatusUpdate()
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
@@ -5629,7 +5636,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Executing the controller again expecting the RestartRequired condition to appear")
 				expectVMUpdate()
 				expectControllerRevisionDelete()
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
@@ -5649,7 +5656,7 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMStatusUpdate()
 				expectControllerRevisionList()
 				expectControllerRevisionCreation()
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
@@ -5667,7 +5674,7 @@ var _ = Describe("VirtualMachine", func() {
 				if !expectCond {
 					expectVMIPatch()
 				}
-				controller.Execute()
+				sanityExecute(vm)
 				syncCaches()
 				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
 				Eventually(restartRequired, 10*time.Second).Should(Equal(expectCond), "restart required")
