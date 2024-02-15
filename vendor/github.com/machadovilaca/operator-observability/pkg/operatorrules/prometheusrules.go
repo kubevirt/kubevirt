@@ -1,7 +1,9 @@
 package operatorrules
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -42,7 +44,7 @@ func buildPrometheusRuleSpec() (*promv1.PrometheusRuleSpec, error) {
 	if len(operatorRegistry.registeredAlerts) != 0 {
 		groups = append(groups, promv1.RuleGroup{
 			Name:  "alerts.rules",
-			Rules: buildAlertsRules(),
+			Rules: ListAlerts(),
 		})
 	}
 
@@ -63,11 +65,9 @@ func buildRecordingRulesRules() []promv1.Rule {
 		})
 	}
 
-	return rules
-}
+	slices.SortFunc(rules, func(a, b promv1.Rule) int {
+		return cmp.Compare(a.Record, b.Record)
+	})
 
-func buildAlertsRules() []promv1.Rule {
-	var rules []promv1.Rule
-	rules = append(rules, operatorRegistry.registeredAlerts...)
 	return rules
 }
