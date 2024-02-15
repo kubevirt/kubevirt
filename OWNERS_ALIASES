@@ -33,7 +33,6 @@ aliases:
     - jean-edouard
     - AlonaKaplan
     - mhenriks
-    - maiqueb
     - EdDev
     - acardace
     - xpivarc
@@ -65,11 +64,7 @@ aliases:
     - AlonaKaplan
     - EdDev
     - RamLavi
-    - maiqueb
     - ormergi
-    - oshoval
-    - phoracek
-    - qinqon
   sig-network-approvers:
     - AlonaKaplan
 
