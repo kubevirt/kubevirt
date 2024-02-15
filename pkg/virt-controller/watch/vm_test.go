@@ -251,6 +251,12 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
+		shouldFailDataVolumeCreationClaimAlreadyExists := func() {
+			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("PVC already exists")
+			})
+		}
+
 		shouldExpectDataVolumeDeletion := func(uid types.UID, idx *int) {
 			cdiClient.Fake.PrependReactor("delete", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				_, ok := action.(testing.DeleteAction)
@@ -933,7 +939,7 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
 
-		DescribeTable("should properly handle PVC existing before DV created", func(annotations map[string]string, expectedCreations int) {
+		DescribeTable("should properly handle PVC existing before DV created", func(annotations map[string]string, expectedCreations int, initFunc func()) {
 			vm, _ := DefaultVirtualMachine(false)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
 				Name: "test1",
@@ -970,6 +976,10 @@ var _ = Describe("VirtualMachine", func() {
 				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 			}
 
+			if initFunc != nil {
+				initFunc()
+			}
+
 			controller.Execute()
 			Expect(createCount).To(Equal(expectedCreations))
 			if expectedCreations > 0 {
@@ -978,6 +988,7 @@ var _ = Describe("VirtualMachine", func() {
 		},
 			Entry("when PVC has no annotation", map[string]string{}, 1, nil),
 			Entry("when PVC was garbage collected", map[string]string{"cdi.kubevirt.io/garbageCollected": "true"}, 0, nil),
+			Entry("when PVC has owned by annotation and CDI does not support adoption", map[string]string{}, 0, shouldFailDataVolumeCreationClaimAlreadyExists),
 		)
 
 		DescribeTable("should properly set priority class", func(dvPriorityClass, vmPriorityClass, expectedPriorityClass string) {

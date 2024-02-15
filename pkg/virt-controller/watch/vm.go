@@ -486,8 +486,14 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
 			curDataVolume, err = c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume, v1.CreateOptions{})
 			if err != nil {
-				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeCreateReason, "Error creating DataVolume %s: %v", newDataVolume.Name, err)
 				c.dataVolumeExpectations.CreationObserved(vmKey)
+				if pvc != nil && strings.Contains(err.Error(), "already exists") {
+					// If the PVC already exists, we can ignore the error and continue
+					// probably old version of CDI
+					log.Log.Object(vm).Reason(err).Warning("Appear to be running a version of CDI that does not support claim adoption annotation")
+					continue
+				}
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeCreateReason, "Error creating DataVolume %s: %v", newDataVolume.Name, err)
 				return ready, fmt.Errorf("failed to create DataVolume: %v", err)
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
