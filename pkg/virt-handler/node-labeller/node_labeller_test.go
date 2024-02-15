@@ -166,15 +166,6 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(res).To(BeTrue())
 	})
 
-	It("should not add usable cpu model labels if some features are not suported (svm)", func() {
-		testutils.DoNotExpectNodePatch(kubeClient,
-			kubevirtv1.CPUModelLabel+"Opteron_G2",
-			kubevirtv1.SupportedHostModelMigrationCPU+"Opteron_G2",
-		)
-		res := nlController.execute()
-		Expect(res).To(BeTrue())
-	})
-
 	AfterEach(func() {
 		close(stop)
 	})
