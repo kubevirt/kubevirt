@@ -165,7 +165,6 @@ go_test(
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
-        "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virtctl/pause:go_default_library",
         "//pkg/virtctl/softreboot:go_default_library",
         "//pkg/virtctl/vm:go_default_library",

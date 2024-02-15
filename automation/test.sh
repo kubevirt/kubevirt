@@ -446,9 +446,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   fi
 fi
 
-# No lane currently supports loading a custom policy
-add_to_label_filter '(!CustomSELinux)' '&&'
-
 # We do not want to run tests which exclude native SSH functionality
 add_to_label_filter '(!exclude-native-ssh)' '&&'
 

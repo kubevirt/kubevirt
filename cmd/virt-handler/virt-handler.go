@@ -29,7 +29,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"syscall"
 	"time"
 
@@ -140,10 +139,6 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 	gracefulShutdownSeconds   int
-
-	// Remember whether we have already installed the custom SELinux policy or not
-	customSELinuxPolicyInstalled bool
-	semoduleLock                 sync.Mutex
 
 	caConfigMapName    string
 	clientCertFilePath string
@@ -409,10 +404,6 @@ func (app *virtHandlerApp) Run() {
 
 	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
 
-	// This callback can only be called only after the KubeVirt CR has synced,
-	// to avoid installing the SELinux policy when the feature gate is set
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallSELinuxPolicy)
-
 	go vmController.Run(10, stop)
 
 	doneCh := make(chan string)
@@ -471,15 +462,6 @@ func (app *virtHandlerApp) Run() {
 	}
 }
 
-func (app *virtHandlerApp) installCustomSELinuxPolicy(se selinux.SELinux) {
-	// Install KubeVirt's virt-launcher policy
-	err := se.InstallPolicy("/var/run/kubevirt")
-	if err != nil {
-		panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
-	}
-	app.customSELinuxPolicyInstalled = true
-}
-
 // Update virt-handler log verbosity on relevant config changes
 func (app *virtHandlerApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
@@ -494,21 +476,6 @@ func (app *virtHandlerApp) shouldChangeRateLimiter() {
 	burst := config.HandlerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
 	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
 	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
-}
-
-// Install the SELinux policy when the feature gate that disables it gets removed
-func (app *virtHandlerApp) shouldInstallSELinuxPolicy() {
-	app.semoduleLock.Lock()
-	defer app.semoduleLock.Unlock()
-	if app.customSELinuxPolicyInstalled {
-		return
-	}
-	if !app.clusterConfig.CustomSELinuxPolicyDisabled() {
-		se, exists, err := selinux.NewSELinux()
-		if err == nil && exists {
-			app.installCustomSELinuxPolicy(se)
-		}
-	}
 }
 
 // Update virt-handler rate limiter
