@@ -11,7 +11,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
-func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
+func CreateDiskOnHost(diskPath string) *k8sv1.Pod {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 	dir := filepath.Dir(diskPath)
 
