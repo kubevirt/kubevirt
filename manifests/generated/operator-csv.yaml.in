@@ -770,7 +770,6 @@ spec:
           resources:
           - nodes
           verbs:
-          - patch
           - list
           - watch
           - get

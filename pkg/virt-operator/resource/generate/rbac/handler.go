@@ -89,7 +89,6 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"nodes",
 				},
 				Verbs: []string{
-					"patch",
 					"list",
 					"watch",
 					"get",
