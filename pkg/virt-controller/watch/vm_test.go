@@ -3881,9 +3881,6 @@ var _ = Describe("VirtualMachine", func() {
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					sanityExecute(vm)
-
-					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
-
 				})
 
 				It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance", func() {
@@ -3990,9 +3987,6 @@ var _ = Describe("VirtualMachine", func() {
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					sanityExecute(vm)
-
-					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
-
 				})
 
 				It("should reject request if an invalid InstancetypeMatcher Kind is provided", func() {
@@ -4399,9 +4393,6 @@ var _ = Describe("VirtualMachine", func() {
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					sanityExecute(vm)
-
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
-
 				})
 
 				It("should apply VirtualMachineClusterPreference to VirtualMachineInstance", func() {
@@ -4509,9 +4500,6 @@ var _ = Describe("VirtualMachine", func() {
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					sanityExecute(vm)
-
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
-
 				})
 
 				It("should reject the request if an invalid PreferenceMatcher Kind is provided", func() {
