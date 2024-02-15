@@ -46,6 +46,8 @@ const (
 	NUMAFeatureGate        = "NUMA"               // GA
 	PasstGate              = "Passt"              // Deprecated
 	MacvtapGate            = "Macvtap"            // Deprecated
+
+	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy" // GA
 )
 
 type FeatureGate struct {
@@ -67,6 +69,8 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+
+	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
 }
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
