@@ -17,7 +17,7 @@
  *
  */
 
-package libnet
+package dns
 
 import (
 	"context"

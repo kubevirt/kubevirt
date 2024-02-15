@@ -64,7 +64,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy = policy
 		vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 		Expect(vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy).To(Equal(expectedPolicy))
-		pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).ToNot(HaveOccurred())
 		container := getContainerDiskContainerOfPod(pod, vmi.Spec.Volumes[0].Name)
 		Expect(container.ImagePullPolicy).To(Equal(expectedPolicy))
@@ -223,7 +223,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 
 				writableImagePath := fmt.Sprintf("/var/run/kubevirt-ephemeral-disks/disk-data/%v/disk.qcow2", vmi.Spec.Domain.Devices.Disks[0].Name)

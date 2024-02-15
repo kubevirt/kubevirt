@@ -394,7 +394,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:6968]should apply them and result in different migration durations", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -407,7 +407,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Context("with a Alpine disk", func() {
 			It("[test_id:6969]should be successfully migrate with a tablet device", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -432,7 +432,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			It("should be successfully migrate with a WriteBack disk cache", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
 
@@ -460,7 +460,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:6970]should migrate vmi with cdroms on various bus types", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					append(libvmi.WithMasqueradeNetworking(),
+					append(libnet.WithMasqueradeNetworking(),
 						libvmi.WithEphemeralCDRom("cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 						libvmi.WithEphemeralCDRom("cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 					)...,
@@ -483,7 +483,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("should migrate vmi with LiveMigrateIfPossible eviction strategy", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 				strategy := v1.EvictionStrategyLiveMigrateIfPossible
 				vmi.Spec.EvictionStrategy = &strategy
@@ -642,7 +642,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:4113]should be successfully migrate with cloud-init disk with devices on the root bus", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 				vmi.Annotations = map[string]string{
 					v1.PlacePCIDevicesOnRootComplex: "true",
@@ -699,7 +699,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 
 				By("Starting the VirtualMachineInstance")
@@ -738,7 +738,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			// resetting virtqemud
 			It("[test_id:4746]should migrate even if virtqemud has restarted at some point.", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 
 				By("Starting the VirtualMachineInstance")
@@ -785,7 +785,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:6972]should migrate to a persistent (non-transient) libvirt domain.", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 
 				By("Starting the VirtualMachineInstance")
@@ -810,7 +810,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			It("[test_id:6973]should be able to successfully migrate with a paused vmi", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 
 				By("Starting the VirtualMachineInstance")
@@ -1489,7 +1489,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					vmi := libvmi.NewAlpineWithTestTooling(
-						libvmi.WithMasqueradeNetworking()...,
+						libnet.WithMasqueradeNetworking()...,
 					)
 
 					By("Starting the VirtualMachineInstance")
@@ -2734,7 +2734,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("should be able to migrate", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 
 				By("Starting the VirtualMachineInstance")

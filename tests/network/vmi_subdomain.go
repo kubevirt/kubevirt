@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/libnet/dns"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -98,7 +100,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, util.NamespaceTestDefault)
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
-			dnsServerIP, err := libnet.ClusterDNSServiceIP()
+			dnsServerIP, err := dns.ClusterDNSServiceIP()
 			Expect(err).ToNot(HaveOccurred())
 
 			vmiSpec.Spec.DNSPolicy = "None"
@@ -122,7 +124,7 @@ var _ = SIGDescribe("Subdomain", func() {
 		expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, util.NamespaceTestDefault)
 		vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
-		dnsServerIP, err := libnet.ClusterDNSServiceIP()
+		dnsServerIP, err := dns.ClusterDNSServiceIP()
 		Expect(err).ToNot(HaveOccurred())
 
 		vmiSpec.Spec.DNSPolicy = "None"

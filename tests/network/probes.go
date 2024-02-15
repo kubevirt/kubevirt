@@ -373,7 +373,7 @@ func pointIpv6ProbeToSupportPod(pod *corev1.Pod, probe *v1.Probe) (*v1.Probe, er
 }
 
 func withMasqueradeNetworkingAndFurtherUserConfig(opts ...libvmi.Option) []libvmi.Option {
-	return append(libvmi.WithMasqueradeNetworking(), opts...)
+	return append(libnet.WithMasqueradeNetworking(), opts...)
 }
 
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {

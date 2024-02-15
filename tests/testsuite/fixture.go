@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -134,6 +135,8 @@ func BeforeTestSuiteSetup(_ []byte) {
 
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
+
+	libvmi.RegisterArchitecture(Arch)
 }
 
 func EnsureKubevirtReady() {

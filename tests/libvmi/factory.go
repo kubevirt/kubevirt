@@ -24,8 +24,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -88,7 +86,7 @@ func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 }
 
 func cirrosMemory() string {
-	if checks.IsARM64(testsuite.Arch) {
+	if isARM64() {
 		return "256Mi"
 	}
 	return "128Mi"

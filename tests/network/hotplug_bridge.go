@@ -258,7 +258,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 
 			By("running a VM")
 			opts := append(
-				libvmi.WithMasqueradeNetworking(),
+				libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
@@ -317,7 +317,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 		BeforeEach(func() {
 			By("create stopped VM")
 			opts := append(
-				libvmi.WithMasqueradeNetworking(),
+				libnet.WithMasqueradeNetworking(),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, nadName)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),

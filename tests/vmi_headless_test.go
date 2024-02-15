@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
@@ -92,7 +91,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				computeContainer := libpod.LookupComputeContainer(readyPod)
 
@@ -107,7 +106,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				computeContainer := libpod.LookupComputeContainer(readyPod)
 
@@ -120,11 +119,11 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)
 
-				readyPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				computeContainer := libpod.LookupComputeContainer(readyPod)
 
-				normalReadyPod, err := libvmi.GetPodByVirtualMachineInstance(normalVmi, testsuite.GetTestNamespace(vmi))
+				normalReadyPod, err := libpod.GetPodByVirtualMachineInstance(normalVmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				normalComputeContainer := libpod.LookupComputeContainer(normalReadyPod)
 

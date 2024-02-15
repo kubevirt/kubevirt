@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -89,7 +91,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			)
 
 			vmi := libvmi.NewAlpineWithTestTooling(
-				libvmi.WithMasqueradeNetworking()...,
+				libnet.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
@@ -187,7 +189,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			vmi := libvmi.NewAlpineWithTestTooling(
-				libvmi.WithMasqueradeNetworking()...,
+				libnet.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{

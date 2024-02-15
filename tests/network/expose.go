@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -52,7 +53,7 @@ func newLabeledVMI(label string) (vmi *v1.VirtualMachineInstance) {
 		{Name: "udp", Port: 82, Protocol: "UDP"},
 		{Name: "test-port-udp", Port: 1500, Protocol: "UDP"}}
 	vmi = libvmi.NewAlpineWithTestTooling(
-		libvmi.WithMasqueradeNetworking(ports...)...,
+		libnet.WithMasqueradeNetworking(ports...)...,
 	)
 	vmi.Labels = map[string]string{"expose": label}
 	return
@@ -366,7 +367,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						Expect(createAndWaitForJobToSucceed(job.NewHelloWorldJobTCP, tcpVM.Namespace, nodeIP, strconv.Itoa(int(nodePort)), fmt.Sprintf("NodePort using %s node ip", ipFamily))).To(Succeed())
 					}
 					if inlcudesIpv6(ipFamily) {
-						launcher, err := libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace())
+						launcher, err := libpod.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace())
 						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,
@@ -481,7 +482,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					nodeIP := node.Status.Addresses[0].Address
 					var ipv6NodeIP string
 					if inlcudesIpv6(ipFamily) {
-						launcher, err := libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace())
+						launcher, err := libpod.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace())
 						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,

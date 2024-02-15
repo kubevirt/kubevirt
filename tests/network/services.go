@@ -241,7 +241,7 @@ var _ = SIGDescribe("Services", func() {
 
 		createReadyVMIWithMasqueradeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
 			vmi := libvmi.NewFedora(
-				libvmi.WithMasqueradeNetworking()...,
+				libnet.WithMasqueradeNetworking()...,
 			)
 			return readyVMI(
 				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue),

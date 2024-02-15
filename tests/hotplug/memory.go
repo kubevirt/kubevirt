@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/migration"
@@ -57,7 +59,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 		createHotplugVM := func(guest, maxGuest *resource.Quantity, sockets *uint32, maxSockets uint32) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 			vmi := libvmi.NewAlpineWithTestTooling(
-				libvmi.WithMasqueradeNetworking()...,
+				libnet.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{

@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -50,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -175,7 +178,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying SELinux context contains custom type")
@@ -211,7 +214,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(err).ToNot(HaveOccurred())
 				emulator = "[/]" + strings.TrimPrefix(emulator, "/")
 
-				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
 				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
 					virtClient,
@@ -250,7 +253,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Fetching virt-launcher Pod")
-			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, containerSpec := range pod.Spec.Containers {
@@ -314,7 +317,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 	})
 	Context("The VMI SELinux context status", func() {
 		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
-			vmi := libvmi.NewAlpine(libvmi.WithMasqueradeNetworking()...)
+			vmi := libvmi.NewAlpine(libnet.WithMasqueradeNetworking()...)
 
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)

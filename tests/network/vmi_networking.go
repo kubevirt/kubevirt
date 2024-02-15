@@ -509,7 +509,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		It("[test_id:1776]should configure custom Pci address", func() {
 			By("checking eth0 Pci address")
-			testVMI := libvmi.NewAlpine(libvmi.WithMasqueradeNetworking()...)
+			testVMI := libvmi.NewAlpine(libnet.WithMasqueradeNetworking()...)
 			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:01:00.0"
 			testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -559,7 +559,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	Context("VirtualMachineInstance with dhcp options", func() {
 		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			dhcpVMI := libvmi.NewFedora(append(libvmi.WithMasqueradeNetworking(),
+			dhcpVMI := libvmi.NewFedora(append(libnet.WithMasqueradeNetworking(),
 				libvmi.WithResourceMemory("1024M"))...)
 
 			// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
@@ -997,7 +997,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Create another VMI")
 				anotherVmi = libvmi.NewAlpineWithTestTooling(
-					libvmi.WithMasqueradeNetworking()...,
+					libnet.WithMasqueradeNetworking()...,
 				)
 				anotherVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), anotherVmi)
 				Expect(err).ToNot(HaveOccurred())
