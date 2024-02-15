@@ -60,8 +60,8 @@ func WithCloudInitNoCloudNetworkData(data string) Option {
 	}
 }
 
-// WithCloudInitConfigDriveData adds cloud-init config-drive user data.
-func WithCloudInitConfigDriveData(data string) Option {
+// WithCloudInitConfigDriveUserData adds cloud-init config-drive user data.
+func WithCloudInitConfigDriveUserData(data string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
 

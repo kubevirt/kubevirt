@@ -778,6 +778,7 @@ type ConsoleSource struct {
 // BEGIN Inteface -----------------------------
 
 type Interface struct {
+	XMLName             xml.Name               `xml:"interface"`
 	Address             *Address               `xml:"address,omitempty"`
 	Type                string                 `xml:"type,attr"`
 	TrustGuestRxFilters string                 `xml:"trustGuestRxFilters,attr,omitempty"`

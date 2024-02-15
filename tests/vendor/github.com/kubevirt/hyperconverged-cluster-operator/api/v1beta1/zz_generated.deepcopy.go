@@ -489,7 +489,7 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		in, out := &in.NetworkBinding, &out.NetworkBinding
 		*out = make(map[string]corev1.InterfaceBindingPlugin, len(*in))
 		for key, val := range *in {
-			(*out)[key] = val
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 	if in.ApplicationAwareConfig != nil {

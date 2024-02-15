@@ -85,28 +85,20 @@ const (
 	DefaultVirtWebhookClientQPS           = 200
 	DefaultVirtWebhookClientBurst         = 400
 
-	DefaultMaxHotplugRatio = 4
+	DefaultMaxHotplugRatio   = 4
+	DefaultVMRolloutStrategy = v1.VMRolloutStrategyStage
 )
 
 func IsAMD64(arch string) bool {
-	if arch == "amd64" {
-		return true
-	}
-	return false
+	return arch == "amd64"
 }
 
 func IsARM64(arch string) bool {
-	if arch == "arm64" {
-		return true
-	}
-	return false
+	return arch == "arm64"
 }
 
 func IsPPC64(arch string) bool {
-	if arch == "ppc64le" {
-		return true
-	}
-	return false
+	return arch == "ppc64le"
 }
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
@@ -466,6 +458,15 @@ func (c *ClusterConfig) GetMaxHotplugRatio() uint32 {
 	}
 
 	return liveConfig.MaxHotplugRatio
+}
+
+func (c *ClusterConfig) IsVMRolloutStrategyLiveUpdate() bool {
+	if !c.VMLiveUpdateFeaturesEnabled() {
+		return false
+	}
+	liveConfig := c.GetConfig().VMRolloutStrategy
+
+	return liveConfig != nil && *liveConfig == v1.VMRolloutStrategyLiveUpdate
 }
 
 func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {

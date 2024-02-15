@@ -39,6 +39,25 @@ func CreatePasstNetworkAttachmentDefinition(namespace string) error {
 	)
 }
 
+func CreateMacvtapNetworkAttachmentDefinition(namespace, networkName, macvtapLowerDevice string) error {
+	const macvtapNADFmt = `{
+		"apiVersion":"k8s.cni.cncf.io/v1",
+		"kind":"NetworkAttachmentDefinition",
+		"metadata":{
+			"name":"%s",
+			"namespace":"%s", 
+			"annotations": {
+				"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"
+			}
+		},
+		"spec":{
+			"config":"{\"cniVersion\": \"0.3.1\",\"name\": \"%s\",\"type\": \"macvtap\"}"
+		}
+	}`
+	macvtapNad := fmt.Sprintf(macvtapNADFmt, networkName, namespace, macvtapLowerDevice, networkName)
+	return CreateNetworkAttachmentDefinition(networkName, namespace, macvtapNad)
+}
+
 func CreateNetworkAttachmentDefinition(name, namespace, netConf string) error {
 	const postURL = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	return kubevirt.Client().RestClient().
