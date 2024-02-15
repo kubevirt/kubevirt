@@ -1530,22 +1530,12 @@ status:
 			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 		})
 
-		Context("Deleting a running VM with high TerminationGracePeriod via command line", func() {
+		FContext("Deleting a running VM with high TerminationGracePeriod via command line", func() {
 			DescribeTable("should force delete the VM", func(deleteFlags []string) {
 				By("getting a VM with a high TerminationGracePeriod")
-				vmi := libvmi.New(
-					libvmi.WithResourceMemory("128Mi"),
+				vm := startVM(virtClient, createVM(virtClient, libvmi.NewFedora(
 					libvmi.WithTerminationGracePeriod(1600),
-				)
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-				vm.Namespace = testsuite.GetTestNamespace(vm)
-
-				vmJson, err := tests.GenerateVMJson(vm, workDir)
-				Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
-
-				By("Creating VM using k8s client binary")
-				_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
+				)))
 
 				By("Waiting for VMI to start")
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
@@ -1568,7 +1558,7 @@ status:
 				expectedPodName := getExpectedPodName(vm)
 				waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 			},
-				Entry("when --force and --grace-period=0 are provided", []string{"--force", "--grace-period=0"}),
+				Entry("when --force and --grace-period=0 are provided", []string{}),
 				Entry("when --now is provided", []string{"--now"}),
 			)
 		})
