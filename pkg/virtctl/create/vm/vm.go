@@ -235,7 +235,7 @@ type dataVolumeSourceSnapshot struct {
 	Type   string             `param:"type"`
 }
 
-type volumeImportFn func(string, *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error)
+type volumeImportFn func(string) (*cdiv1.DataVolumeSource, error)
 
 var volumeImportOptions = map[string]volumeImportFn{
 	blank:    withVolumeSourceBlank,
@@ -1024,7 +1024,7 @@ func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
 			return params.FlagErr(VolumeImportFlag, fmt.Sprintf("unknown source type used - %s", volumeSourceType))
 		}
 
-		source, err := sourceFn(volume, vm)
+		source, err := sourceFn(volume)
 		if err != nil {
 			return err
 		}
@@ -1048,7 +1048,7 @@ func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withVolumeSourceBlank(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourceBlank(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourceBlank{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
@@ -1061,7 +1061,7 @@ func withVolumeSourceBlank(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataV
 	return &source, nil
 }
 
-func withVolumeSourceHttp(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourceHttp(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourceHttp{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
@@ -1084,7 +1084,7 @@ func withVolumeSourceHttp(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVo
 	return &source, nil
 }
 
-func withVolumeSourceImageIO(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourceImageIO(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourceImageIO{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
@@ -1106,7 +1106,7 @@ func withVolumeSourceImageIO(paramStr string, vm *v1.VirtualMachine) (*cdiv1.Dat
 	return &source, nil
 }
 
-func withVolumeSourcePVC(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourcePVC(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourcePVC{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
@@ -1135,7 +1135,7 @@ func withVolumeSourcePVC(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVol
 	return &source, nil
 }
 
-func withVolumeSourceRegistry(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourceRegistry(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourceRegistry{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
@@ -1176,7 +1176,7 @@ func withVolumeSourceRegistry(paramStr string, vm *v1.VirtualMachine) (*cdiv1.Da
 	return &source, nil
 }
 
-func withVolumeSourceS3(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourceS3(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourceS3{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
@@ -1197,10 +1197,30 @@ func withVolumeSourceS3(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolu
 	return &source, nil
 }
 
-func withVolumeSourceVDDK(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourceVDDK(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourceVDDK{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
+	}
+
+	if sourceStruct.URL == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "URL is required with VDDK volume source")
+	}
+
+	if sourceStruct.UUID == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "UUID is required with VDDK volume source")
+	}
+
+	if sourceStruct.ThumbPrint == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "ThumbPrint is required with VDDK volume source")
+	}
+
+	if sourceStruct.SecretRef == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "SecretRef is required with VDDK volume source")
+	}
+
+	if sourceStruct.BackingFile == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "BackingFile is required with VDDK volume source")
 	}
 
 	source := cdiv1.DataVolumeSource{
@@ -1217,7 +1237,7 @@ func withVolumeSourceVDDK(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVo
 	return &source, nil
 }
 
-func withVolumeSourceSnapshot(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+func withVolumeSourceSnapshot(paramStr string) (*cdiv1.DataVolumeSource, error) {
 	sourceStruct := dataVolumeSourceSnapshot{}
 	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
 		return nil, err
