@@ -40,7 +40,8 @@ requires a `--version` parameter (e.g: v1alpha2)
 ## Example
 
 Using the current [smbios sidecar](../example-hook-sidecar/) as example. The `smbios.go` is compiled
-and installed in `/usr/bin/onDefineDomain` in a container that uses `sidecar-shim-image` as base.
+as a binary named `onDefineDomain` and installed under `/usr/bin` in a container that uses
+`sidecar-shim-image` as base with an entrypoint of `/sidecar-shim`.
 
 ```go
 const (
