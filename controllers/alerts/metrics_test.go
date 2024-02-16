@@ -52,7 +52,8 @@ var _ = Describe("alert tests", func() {
 
 		req = commontestutils.NewReq(nil)
 
-		operatorrules.CleanRegistry()
+		err := operatorrules.CleanRegistry()
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("test reconciler", func() {
@@ -347,12 +348,13 @@ var _ = Describe("alert tests", func() {
 		})
 
 		It("should use the desired runbook URL template when its ENV Variable is set", func() {
-			operatorrules.CleanRegistry()
+			err := operatorrules.CleanRegistry()
+			Expect(err).ToNot(HaveOccurred())
 
 			desiredRunbookURLTemplate := "desired/runbookURL/template/%s"
 			os.Setenv(runbookURLTemplateEnv, desiredRunbookURLTemplate)
 
-			err := rules.SetupRules()
+			err = rules.SetupRules()
 			Expect(err).ToNot(HaveOccurred())
 
 			owner := getDeploymentReference(ci.GetDeployment())
