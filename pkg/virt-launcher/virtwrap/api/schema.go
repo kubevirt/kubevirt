@@ -668,13 +668,21 @@ type DiskSecret struct {
 type ReadOnly struct{}
 
 type DiskSource struct {
-	Dev           string          `xml:"dev,attr,omitempty"`
-	File          string          `xml:"file,attr,omitempty"`
-	StartupPolicy string          `xml:"startupPolicy,attr,omitempty"`
-	Protocol      string          `xml:"protocol,attr,omitempty"`
-	Name          string          `xml:"name,attr,omitempty"`
-	Host          *DiskSourceHost `xml:"host,omitempty"`
-	Reservations  *Reservations   `xml:"reservations,omitempty"`
+	Dev           string               `xml:"dev,attr,omitempty"`
+	File          string               `xml:"file,attr,omitempty"`
+	StartupPolicy string               `xml:"startupPolicy,attr,omitempty"`
+	Protocol      string               `xml:"protocol,attr,omitempty"`
+	Path          string               `xml:"path,attr,omitempty"`
+	Name          string               `xml:"name,attr,omitempty"`
+	Type          string               `xml:"type,attr,omitempty"`
+	Reconnect     *DiskSourceReconnect `xml:"reconnect,omitempty"`
+	Host          *DiskSourceHost      `xml:"host,omitempty"`
+	Reservations  *Reservations        `xml:"reservations,omitempty"`
+}
+
+type DiskSourceReconnect struct {
+	Enabled string `xml:"enabled,attr,omitempty"`
+	Timeout *uint  `xml:"timeout,attr,omitempty"`
 }
 
 type DiskTarget struct {
