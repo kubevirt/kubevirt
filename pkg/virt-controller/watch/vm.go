@@ -297,6 +297,7 @@ func (c *VMController) execute(key string) error {
 		return nil
 	}
 	vm := obj.(*virtv1.VirtualMachine)
+	vm = vm.DeepCopy()
 
 	logger := log.Log.Object(vm)
 
