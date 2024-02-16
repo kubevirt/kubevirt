@@ -65,6 +65,45 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
 	if vm.DeletionTimestamp != nil {
+		// if a force delete has been requested on a VM already scheduled for deletion,
+		// add an annotation to inform kubevirt to attempt a force VMI shut down if
+		// there is a running VMI
+		if ar.Request.Operation == admissionv1.Delete {
+			deleteOpts := metav1.DeleteOptions{}
+			err = json.Unmarshal(ar.Request.Options.Raw, &deleteOpts)
+			if deleteOpts.GracePeriodSeconds != nil && *deleteOpts.GracePeriodSeconds == 0 {
+				//patchForceDeleteVMAnnotation
+				if vm.ObjectMeta.Annotations == nil {
+					vm.ObjectMeta.Annotations = map[string]string{}
+				}
+				vm.ObjectMeta.Annotations[v1.ForceDeleteVM] = ""
+
+				patchBytes, err := patch.GeneratePatchPayload(
+					patch.PatchOperation{
+						Op:    patch.PatchReplaceOp,
+						Path:  "/metadata",
+						Value: vm.ObjectMeta,
+					},
+				)
+
+				if err != nil {
+					log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
+					return &admissionv1.AdmissionResponse{
+						Result: &metav1.Status{
+							Message: err.Error(),
+							Code:    http.StatusInternalServerError,
+						},
+					}
+				}
+
+				jsonPatchType := admissionv1.PatchTypeJSONPatch
+				return &admissionv1.AdmissionResponse{
+					Allowed:   true,
+					Patch:     patchBytes,
+					PatchType: &jsonPatchType,
+				}
+			}
+		}
 		return &admissionv1.AdmissionResponse{
 			Allowed: true,
 		}

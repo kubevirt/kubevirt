@@ -1046,6 +1046,9 @@ const (
 
 	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
 	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
+
+	// ForceDeleteVM annotation indicates that a force deletion has been requested on a VM that has already been scheduled for deletion
+	ForceDeleteVM string = "kubevirt.io/force-delete-vm"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
