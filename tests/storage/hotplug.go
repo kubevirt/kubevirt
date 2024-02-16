@@ -1743,7 +1743,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		AfterEach(func() {
-			tests.DeletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", tests.CustomHostPath))
+			deletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", tests.CustomHostPath))
 			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 

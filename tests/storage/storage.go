@@ -39,8 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -68,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
@@ -418,7 +417,7 @@ var _ = SIGDescribe("Storage", func() {
 					if pvName != "" && pvName != tests.DiskAlpineHostPath {
 						// PVs can't be reused
 						By("Deleting PV and PVC")
-						tests.DeletePvAndPvc(pvName)
+						deletePvAndPvc(pvName)
 					}
 				})
 
@@ -1437,4 +1436,18 @@ func checkResultShellCommandOnVmi(vmi *v1.VirtualMachineInstance, cmd, output st
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, res).ToNot(BeEmpty())
 	ExpectWithOffset(1, res[0].Output).To(ContainSubstring(output))
+}
+
+func deletePvAndPvc(name string) {
+	virtCli := kubevirt.Client()
+
+	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
+	if !errors.IsNotFound(err) {
+		util.PanicOnError(err)
+	}
+
+	err = virtCli.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
+	if !errors.IsNotFound(err) {
+		util.PanicOnError(err)
+	}
 }
