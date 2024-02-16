@@ -37,6 +37,16 @@ import (
 
 var Arch = runtime.GOARCH
 
+var componentApiServiceAccountName string
+var componentHandlerServiceAccountName string
+var componentControllerServiceAccountName string
+
+func init() {
+	componentApiServiceAccountName = components.ApiServiceAccountName
+	componentHandlerServiceAccountName = components.HandlerServiceAccountName
+	componentControllerServiceAccountName = components.ControllerServiceAccountName
+}
+
 var VirtualMachineInstanceGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
 	Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
@@ -90,9 +100,9 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
 	}
 
 	prefix := fmt.Sprintf("system:serviceaccount:%s", ns)
-	return serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ApiServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName)
+	return serviceAccount == fmt.Sprintf("%s:%s", prefix, componentApiServiceAccountName) ||
+		serviceAccount == fmt.Sprintf("%s:%s", prefix, componentHandlerServiceAccountName) ||
+		serviceAccount == fmt.Sprintf("%s:%s", prefix, componentControllerServiceAccountName)
 }
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
