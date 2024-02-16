@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -397,6 +398,40 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
 		})
+
+		FIt("[test_id:CNV-10328] should apply preference with PreferredStorageClassName to VM", func() {
+
+			StorageClassName := getAvailableStorageClass(virtClient)
+
+			clusterPreference := newVirtualMachineClusterPreference()
+			clusterPreference.Spec.Volumes = &instancetypev1beta1.VolumePreferences{
+				PreferredStorageClassName: StorageClassName,
+			}
+			clusterPreference, err := virtClient.VirtualMachineClusterPreference().
+				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithPVC(libdv.PVCWithStorageClass(StorageClassName)),
+			)
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("100M"),
+				),
+				libvmi.WithDataVolumeTemplate(dataVolume),
+			)
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: clusterPreference.Name,
+			}
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+			_ = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName).To(Equal(clusterPreference.Spec.Volumes.PreferredStorageClassName))
+		})
+
 		It("should apply memory overcommit instancetype to VMI", func() {
 			vmi := libvmi.NewCirros()
 
@@ -2512,4 +2547,11 @@ func removeResourcesAndPreferencesFromVMI(vmi *v1.VirtualMachineInstance) {
 			vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus = ""
 		}
 	}
+}
+
+func getAvailableStorageClass(client kubecli.KubevirtClient) string {
+	scList, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(scList.Items).ToNot(BeEmpty())
+	return scList.Items[0].Name
 }
