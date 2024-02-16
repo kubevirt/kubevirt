@@ -215,6 +215,7 @@ lint:
 	  pkg/network/sriov/... \
 	  tests/console/... \
 	  tests/libnet/... \
+	  tests/libnode/... \
 	  tests/libpod/... \
 	  tests/libvmi/... \
 	  && \
