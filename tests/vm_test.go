@@ -933,7 +933,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 			})
 
-			Context("Using RunStrategyRerunOnFailure", func() {
+			Context("Using RerunOnFailure run strategy", func() {
 				It("[test_id:2186] should stop a running VM", func() {
 					By("creating a VM with RunStrategyRerunOnFailure")
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
