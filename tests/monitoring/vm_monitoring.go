@@ -28,6 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/types"
 
 	corev1 "k8s.io/api/core/v1"
@@ -242,6 +243,25 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 	})
 
+	Context("VM metrics that are based on the guest agent", func() {
+		It("should have kubevirt_vmi_phase_count correctly configured with guest OS labels", func() {
+			agentVMI := createAgentVMI()
+			Expect(agentVMI.Status.GuestOSInfo.KernelRelease).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.Name).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.VersionID).ToNot(BeEmpty())
+
+			labels := map[string]string{
+				"guest_os_kernel_release": agentVMI.Status.GuestOSInfo.KernelRelease,
+				"guest_os_machine":        agentVMI.Status.GuestOSInfo.Machine,
+				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
+				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
+			}
+
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_phase_count", 1, labels, 1)
+		})
+	})
+
 	Context("VM alerts", func() {
 		var scales *Scaling
 
@@ -300,3 +320,21 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 	})
 })
+
+func createAgentVMI() *v1.VirtualMachineInstance {
+	virtClient := kubevirt.Client()
+	vmiAgentConnectedConditionMatcher := MatchFields(IgnoreExtras, Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})
+	vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...), 180)
+
+	var err error
+	var agentVMI *v1.VirtualMachineInstance
+
+	By("VMI has the guest agent connected condition")
+	Eventually(func() []v1.VirtualMachineInstanceCondition {
+		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return agentVMI.Status.Conditions
+	}, 240*time.Second, 1*time.Second).Should(ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition")
+
+	return agentVMI
+}
