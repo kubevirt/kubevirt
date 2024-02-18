@@ -152,6 +152,12 @@ var _ = Describe("Utility functions", func() {
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
 						Phase: "Pending",
+						GuestOSInfo: k6tv1.VirtualMachineInstanceGuestOSInfo{
+							KernelRelease: "6.5.6-300.fc39.x86_64",
+							Machine:       "x86_64",
+							Name:          "Fedora Linux",
+							VersionID:     "39",
+						},
 					},
 				},
 				{
@@ -197,12 +203,16 @@ var _ = Describe("Utility functions", func() {
 				Preference:   "<none>",
 			}
 			pending := vmiCountMetric{
-				Phase:        "pending",
-				OS:           "fedora33",
-				Workload:     "workstation",
-				Flavor:       "large",
-				InstanceType: "<none>",
-				Preference:   "<none>",
+				Phase:                "pending",
+				OS:                   "fedora33",
+				Workload:             "workstation",
+				Flavor:               "large",
+				InstanceType:         "<none>",
+				Preference:           "<none>",
+				GuestOSKernelRelease: "6.5.6-300.fc39.x86_64",
+				GuestOSMachine:       "x86_64",
+				GuestOSName:          "Fedora Linux",
+				GuestOSVersionID:     "39",
 			}
 			scheduling := vmiCountMetric{
 				Phase:        "scheduling",
@@ -243,7 +253,7 @@ var _ = Describe("Utility functions", func() {
 			Expect(phaseResultMetric).ToNot(BeNil())
 			Expect(phaseResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_phase_count"))
 			Expect(phaseResultMetric.Value).To(BeEquivalentTo(1))
-			Expect(phaseResultMetric.Labels).To(HaveLen(7))
+			Expect(phaseResultMetric.Labels).To(HaveLen(11))
 			Expect(phaseResultMetric.Labels[5]).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
@@ -276,7 +286,7 @@ var _ = Describe("Utility functions", func() {
 
 			Expect(phaseResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_phase_count"))
 			Expect(phaseResultMetric.Value).To(BeEquivalentTo(1))
-			Expect(phaseResultMetric.Labels).To(HaveLen(7))
+			Expect(phaseResultMetric.Labels).To(HaveLen(11))
 			Expect(phaseResultMetric.Labels[6]).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
