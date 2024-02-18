@@ -1827,12 +1827,54 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		// Set VM CPU features
+		existingFeatures := make(map[string]struct{})
 		if vmi.Spec.Domain.CPU.Features != nil {
 			for _, feature := range vmi.Spec.Domain.CPU.Features {
+				existingFeatures[feature.Name] = struct{}{}
 				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 					Name:   feature.Name,
 					Policy: feature.Policy,
 				})
+			}
+		}
+
+		/*
+						Libvirt validation fails when a CPU model is usable
+						by QEMU but lacks features listed in
+						`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
+
+						To avoid the validation error mentioned above we will disable
+						some of the features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files
+						for some of the cpu models.
+						Examples of validation error:
+			    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283
+						https://gitlab.com/libvirt/libvirt/-/issues/304
+
+						This is temporary solution pending a permanent fix from Libvirt.
+		*/
+		cpuModelToFeaturesToDisable := map[string][]string{
+			"Opteron_G2":                {"svm"},
+			"Cascadelake-Server-noTSX":  {"mpx"},
+			"Cascadelake-Server":        {"mpx"},
+			"Icelake-Client-noTSX":      {"mpx"},
+			"Icelake-Client":            {"mpx"},
+			"Icelake-Server-noTSX":      {"mpx"},
+			"Icelake-Server":            {"mpx"},
+			"Skylake-Client-IBRS":       {"mpx"},
+			"Skylake-Client-noTSX-IBRS": {"mpx"},
+			"Skylake-Client":            {"mpx"},
+			"Skylake-Server-IBRS":       {"mpx"},
+			"Skylake-Server-noTSX-IBRS": {"mpx"},
+			"Skylake-Server":            {"mpx"},
+		}
+		if featuresToDisable, ok := cpuModelToFeaturesToDisable[vmi.Spec.Domain.CPU.Model]; ok {
+			for _, feature := range featuresToDisable {
+				if _, exists := existingFeatures[feature]; !exists {
+					domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
+						Name:   feature,
+						Policy: "disable",
+					})
+				}
 			}
 		}
 
