@@ -39,6 +39,7 @@ go_library(
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
