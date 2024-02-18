@@ -61,17 +61,6 @@ const (
 var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
-	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-		By("Deleting the VMI")
-		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
-
-		By("Waiting for the VMI to be gone")
-		Eventually(func() error {
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.GetName(), &k8smetav1.GetOptions{})
-			return err
-		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
-	}
-
 	cleanupService := func(namespace string, serviceName string) error {
 		return virtClient.CoreV1().Services(namespace).Delete(context.Background(), serviceName, k8smetav1.DeleteOptions{})
 	}
@@ -109,7 +98,6 @@ var _ = SIGDescribe("Services", func() {
 
 		AfterEach(func() {
 			Expect(inboundVMI).NotTo(BeNil(), "the VMI object must exist in order to be deleted.")
-			cleanupVMI(virtClient, inboundVMI)
 		})
 
 		Context("with a service matching the vmi exposed", func() {
@@ -212,7 +200,6 @@ var _ = SIGDescribe("Services", func() {
 
 		AfterEach(func() {
 			Expect(inboundVMI).NotTo(BeNil(), "the VMI object must exist in order to be deleted.")
-			cleanupVMI(virtClient, inboundVMI)
 		})
 
 		Context("with a service matching the vmi exposed", func() {
