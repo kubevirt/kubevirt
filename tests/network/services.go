@@ -34,7 +34,6 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -92,13 +91,11 @@ var _ = SIGDescribe("Services", func() {
 				var err error
 				service, err = virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				deferServiceCleanup(service.Namespace, service.Name)
 			})
 
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
 				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
-				deferJobCleanup(tcpJob.Namespace, tcpJob.Name)
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
 			})
@@ -106,7 +103,6 @@ var _ = SIGDescribe("Services", func() {
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
 				tcpJob, err := createServiceConnectivityJob("wrongservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
-				deferJobCleanup(tcpJob.Namespace, tcpJob.Name)
 
 				err = job.WaitForJobToFail(tcpJob, 90*time.Second)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is *not* expected, since there isn't an exposed service")
@@ -121,8 +117,6 @@ var _ = SIGDescribe("Services", func() {
 				virtClient := kubevirt.Client()
 				service, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				deferServiceCleanup(service.Namespace, service.Name)
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
@@ -131,7 +125,6 @@ var _ = SIGDescribe("Services", func() {
 
 				tcpJob, err := createServiceConnectivityJob(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
-				deferJobCleanup(tcpJob.Namespace, tcpJob.Name)
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
 			})
@@ -182,12 +175,9 @@ var _ = SIGDescribe("Services", func() {
 				service, err = virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 
-				deferServiceCleanup(service.Namespace, service.Name)
-
 				By("checking connectivity the exposed service")
 				tcpJob, err := createServiceConnectivityJob(serviceName, inboundVMI.Namespace, servicePort, jobSuccessRetry)
 				Expect(err).NotTo(HaveOccurred())
-				deferJobCleanup(tcpJob.Namespace, tcpJob.Name)
 
 				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed(), expectConnectivityToExposedService)
 			},
@@ -200,7 +190,6 @@ var _ = SIGDescribe("Services", func() {
 			It("should fail to reach the vmi", func() {
 				tcpJob, err := createServiceConnectivityJob("missingservice", inboundVMI.Namespace, servicePort, jobFailureRetry)
 				Expect(err).NotTo(HaveOccurred())
-				deferJobCleanup(tcpJob.Namespace, tcpJob.Name)
 
 				err = job.WaitForJobToFail(tcpJob, 90*time.Second)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is *not* expected, since there isn't an exposed service")
@@ -208,26 +197,6 @@ var _ = SIGDescribe("Services", func() {
 		})
 	})
 })
-
-func deferServiceCleanup(namespace, name string) {
-	DeferCleanup(func() {
-		err := kubevirt.Client().CoreV1().Services(namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{})
-		Expect(err).To(SatisfyAny(
-			Not(HaveOccurred()),
-			MatchError(errors.IsNotFound, "does not exist"),
-		), "cleaning up the Service entity should have succeeded.")
-	})
-}
-
-func deferJobCleanup(namespace, name string) {
-	DeferCleanup(func() {
-		err := kubevirt.Client().BatchV1().Jobs(namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{})
-		Expect(err).To(SatisfyAny(
-			Not(HaveOccurred()),
-			MatchError(errors.IsNotFound, "does not exist"),
-		), "cleaning up the Job entity should have succeeded.")
-	})
-}
 
 func createServiceConnectivityJob(serviceName, namespace string, servicePort int, retries int32) (*batchv1.Job, error) {
 	serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
