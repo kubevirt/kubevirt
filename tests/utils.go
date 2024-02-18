@@ -610,20 +610,6 @@ func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	)
 }
 
-// NewRandomFedoraVMIWithBlacklistGuestAgent
-//
-// Deprecated: Use libvmi directly
-func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
-	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
-
-	return libvmi.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands)),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
-	)
-}
-
 func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
 	return fmt.Sprintf(`#!/bin/bash
             echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga

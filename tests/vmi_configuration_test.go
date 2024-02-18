@@ -75,6 +75,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -1341,7 +1342,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				})
 
 				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-shutdown")
+					opts := append(libnet.WithMasqueradeNetworking(), libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")))
+					agentVMI := libvmi.NewFedora(opts...)
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI)
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -1351,7 +1353,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				})
 
 				It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
-					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec,guest-set-password")
+					opts := append(libnet.WithMasqueradeNetworking(), libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")))
+					agentVMI := libvmi.NewFedora(opts...)
 					By("Starting a VirtualMachineInstance")
 					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI)
 					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
