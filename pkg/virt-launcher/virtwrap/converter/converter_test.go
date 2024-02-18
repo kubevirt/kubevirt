@@ -730,6 +730,33 @@ var _ = Describe("Converter", func() {
 		})
 
 		Context("when CPU spec defined", func() {
+			DescribeTable("disable features on certain models if they are not required to prevent validation errors when they are unsupported on the node,", func(model string, feature string, policy string) {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Model: model,
+				}
+				if policy == "require" {
+					vmi.Spec.Domain.CPU.Features = []v1.CPUFeature{
+						{
+							Name:   feature,
+							Policy: policy,
+						},
+					}
+				}
+
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Features[0].Name).To(Equal(feature), "Expect cpu feature name")
+				Expect(domainSpec.CPU.Features[0].Policy).To(Equal(policy), "Expect cpu feature policy")
+			},
+				Entry(" mpx should be disabled with Skylake", "Skylake-Server-noTSX-IBRS", "mpx", "disable"),
+				Entry(" mpx should be disabled with Icelake", "Icelake-Server", "mpx", "disable"),
+				Entry(" mpx should be disabled with Cascadelake", "Cascadelake-Server", "mpx", "disable"),
+				Entry(" svm should be disabled with Opteron_G2", "Opteron_G2", "svm", "disable"),
+				Entry("require mpx with Cascadelake", "Cascadelake-Server", "mpx", "require"),
+				Entry("require svm with Opteron_G2", "Opteron_G2", "svm", "require"),
+			)
+
 			It("should convert CPU cores, model and features", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
