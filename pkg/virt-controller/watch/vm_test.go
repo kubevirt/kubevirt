@@ -2086,7 +2086,6 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			// vmInterface.EXPECT().Update(gomock.Any()).Return(vm, nil)
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
@@ -2136,6 +2135,25 @@ var _ = Describe("VirtualMachine", func() {
 
 			controller.Execute()
 
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+		})
+
+		It("should delete VirtualMachineInstance when VirtualMachine has ForceDeleteVM annotation", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.DeletionTimestamp = now()
+			vm.DeletionGracePeriodSeconds = kvpointer.P(int64(0))
+			annotations := vm.GetAnnotations()
+			annotations[v1.ForceDeleteVM] = ""
+			vm.SetAnnotations(annotations)
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
+			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
+			shouldExpectGracePeriodPatched(int64(0), vmi)
+
+			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 

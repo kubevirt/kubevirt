@@ -50,6 +50,7 @@ import (
 	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -127,6 +128,35 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		return mutator.Mutate(ar)
 	}
 
+	getResponseFromVMDelete := func(vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+		vmBytes, err := json.Marshal(vm)
+		Expect(err).ToNot(HaveOccurred())
+		deleteOpts := &k8smetav1.DeleteOptions{
+			GracePeriodSeconds: kvpointer.P(int64(0)),
+		}
+		deleteOptsBytes, err := json.Marshal(deleteOpts)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating the test admissions review from the VM")
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Delete,
+				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
+				Object: runtime.RawExtension{
+					Raw: vmBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: vmBytes,
+				},
+				Options: runtime.RawExtension{
+					Raw: deleteOptsBytes,
+				},
+			},
+		}
+		By("Mutating the VM")
+		return mutator.Mutate(ar)
+	}
+
 	BeforeEach(func() {
 		vm = &v1.VirtualMachine{
 			ObjectMeta: k8smetav1.ObjectMeta{
@@ -162,6 +192,41 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		resp := admitVM(rt.GOARCH)
 		Expect(resp.Allowed).To(BeTrue())
 		Expect(resp.Patch).To(BeEmpty())
+	})
+
+	Context("On force delete", func() {
+		It("should update VM TerminationGracePeriodSeconds to 0", func() {
+			resp := getResponseFromVMDelete(vm)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Patch).NotTo(BeEmpty())
+
+			By("Getting the VM spec from the response")
+			vmSpec := &v1.VirtualMachineSpec{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patchOps).NotTo(BeEmpty())
+			Expect(*vmSpec.Template.Spec.TerminationGracePeriodSeconds).To(BeNumerically("==", 0))
+		})
+
+		It("should add ForceDeleteVM annotation to VM when in process of being deleted", func() {
+			vm.ObjectMeta.DeletionTimestamp = kvpointer.P(k8smetav1.Now())
+			resp := getResponseFromVMDelete(vm)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Patch).NotTo(BeEmpty())
+
+			By("Getting the VM meta from the response")
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patchOps).NotTo(BeEmpty())
+			Expect(vmMeta.GetAnnotations()).To(HaveKey(v1.ForceDeleteVM))
+		})
 	})
 
 	It("should apply defaults on VM create", func() {
