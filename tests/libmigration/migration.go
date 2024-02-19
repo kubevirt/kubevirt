@@ -355,7 +355,7 @@ func CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.
 		},
 	}, nil
 }
-func ConfirmVMIPostMigrationFailed(vmi *v1.VirtualMachineInstance, migrationUID string) {
+func ConfirmVMIPostMigrationFailed(vmi *v1.VirtualMachineInstance, migrationUID string) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 	By("Retrieving the VMI post migration")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -374,6 +374,8 @@ func ConfirmVMIPostMigrationFailed(vmi *v1.VirtualMachineInstance, migrationUID 
 
 	By("Verifying the VMI's is in the running state")
 	Expect(vmi.Status.Phase).To(Equal(v1.Running))
+
+	return vmi
 }
 
 func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID string, timeout int) *v1.VirtualMachineInstance {

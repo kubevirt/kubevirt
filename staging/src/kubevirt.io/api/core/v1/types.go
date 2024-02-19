@@ -718,6 +718,8 @@ type VirtualMachineInstanceMigrationState struct {
 	AbortRequested bool `json:"abortRequested,omitempty"`
 	// Indicates the final status of the live migration abortion
 	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
+	// Contains the reason why the migration failed
+	FailureReason string `json:"failureReason,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration

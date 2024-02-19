@@ -594,7 +594,6 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 }
 
 func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
 		vmi.Status.MigrationState == nil ||
@@ -609,6 +608,7 @@ func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMac
 
 	if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
 		if migrationMetadata.Failed {
+			vmi.Status.MigrationState.FailureReason = migrationMetadata.FailureReason
 			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
 		}
 	}

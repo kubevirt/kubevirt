@@ -837,7 +837,12 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 		return err
 	}
 	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
-	c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: target pod is down", string(migration.UID)))
+	failureReason := "Target pod is down"
+	c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
+	if vmiCopy.Status.MigrationState.FailureReason == "" {
+		// Only set the failure reason if empty, as virt-handler may already have provided a better one
+		vmiCopy.Status.MigrationState.FailureReason = failureReason
+	}
 
 	return nil
 }

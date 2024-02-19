@@ -23581,6 +23581,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"failureReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Contains the reason why the migration failed",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"migrationUid": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The VirtualMachineInstanceMigration object associated with this migration",
