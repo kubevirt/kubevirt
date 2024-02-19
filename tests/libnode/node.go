@@ -386,3 +386,26 @@ func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8
 	Expect(nodeList).ToNot(BeNil())
 	return nodeList.Items
 }
+
+func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
+	var featureDenyList = map[string]bool{
+		"svm": true,
+	}
+	featuresMap := make(map[string]bool)
+	for _, node := range nodesList.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+				feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+				if _, ok := featureDenyList[feature]; !ok {
+					featuresMap[feature] = true
+				}
+			}
+		}
+	}
+
+	features := make([]string, 0)
+	for feature := range featuresMap {
+		features = append(features, feature)
+	}
+	return features
+}

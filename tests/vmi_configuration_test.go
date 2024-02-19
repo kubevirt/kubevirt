@@ -1833,7 +1833,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		Context("when CPU features defined", func() {
 			It("[test_id:3123]should start a Virtual Machine with matching features", func() {
-				supportedCPUFeatures := tests.GetSupportedCPUFeatures(*nodes)
+				supportedCPUFeatures := libnode.GetSupportedCPUFeatures(*nodes)
 				Expect(supportedCPUFeatures).ToNot(BeEmpty())
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
