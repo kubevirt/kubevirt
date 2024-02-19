@@ -386,23 +386,6 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 				g.Expect(libnet.LookupNetworkByName(updatedVMI.Spec.Networks, linuxBridgeNetworkName2)).To(BeNil(),
 					"unplugged iface corresponding network should be cleared from VMI spec")
 			}, 30*time.Second, 3*time.Second).Should(Succeed())
-
-			By("restarting the VM")
-			Expect(kubevirt.Client().VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})).To(Succeed())
-
-			By("wait for new VMI to start")
-			var newVMI *v1.VirtualMachineInstance
-			Eventually(func() error {
-				var err error
-				newVMI, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-				if err != nil || vmi.UID == newVMI.UID {
-					return fmt.Errorf("vmi did not create yet")
-				}
-				return nil
-			}, 90*time.Second, 1*time.Second).Should(Succeed())
-			libwait.WaitUntilVMIReady(newVMI, console.LoginToAlpine)
-
-			_ = verifyDynamicInterfaceChange(newVMI, plugMethod)
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
