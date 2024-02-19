@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -90,7 +91,7 @@ var (
 var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorators.SigMonitoring, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var scales *Scaling
+	var scales *libmonitoring.Scaling
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -115,10 +116,10 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 	Context("Up metrics", func() {
 		BeforeEach(func() {
-			scales = NewScaling(virtClient, []string{virtOperator.deploymentName, virtController.deploymentName, virtApi.deploymentName})
+			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName, virtController.deploymentName, virtApi.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
-			reduceAlertPendingTime(virtClient)
+			libmonitoring.ReduceAlertPendingTime(virtClient)
 		})
 
 		AfterEach(func() {
@@ -130,37 +131,37 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 				virtController.downAlert, virtController.noReadyAlert, virtController.lowCountAlert,
 				virtApi.downAlert, virtApi.noReadyAlert, virtApi.lowCountAlert,
 			}
-			waitUntilAlertDoesNotExist(virtClient, alerts...)
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, alerts...)
 		})
 
 		It("VirtOperatorDown and NoReadyVirtOperator should be triggered when virt-operator is down", func() {
-			verifyAlertExist(virtClient, virtOperator.downAlert)
-			verifyAlertExist(virtClient, virtOperator.noReadyAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtOperator.downAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtOperator.noReadyAlert)
 		})
 
 		It("LowVirtOperatorCount should be triggered when virt-operator count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			verifyAlertExist(virtClient, virtOperator.lowCountAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtOperator.lowCountAlert)
 		})
 
 		It("VirtControllerDown and NoReadyVirtController should be triggered when virt-controller is down", func() {
 			scales.UpdateScale(virtController.deploymentName, int32(0))
-			verifyAlertExist(virtClient, virtController.downAlert)
-			verifyAlertExist(virtClient, virtController.noReadyAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtController.downAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
 		})
 
 		It("LowVirtControllersCount should be triggered when virt-controller count is low", decorators.RequiresTwoSchedulableNodes, func() {
 			scales.UpdateScale(virtController.deploymentName, int32(0))
-			verifyAlertExist(virtClient, virtController.lowCountAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtController.lowCountAlert)
 		})
 
 		It("VirtApiDown should be triggered when virt-api is down", func() {
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
-			verifyAlertExist(virtClient, virtApi.downAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtApi.downAlert)
 		})
 
 		It("LowVirtAPICount should be triggered when virt-api count is low", decorators.RequiresTwoSchedulableNodes, func() {
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
-			verifyAlertExist(virtClient, virtApi.lowCountAlert)
+			libmonitoring.VerifyAlertExist(virtClient, virtApi.lowCountAlert)
 		})
 	})
 
@@ -175,10 +176,10 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 			increaseRateLimit()
 
-			scales = NewScaling(virtClient, []string{virtOperator.deploymentName})
+			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
-			reduceAlertPendingTime(virtClient)
+			libmonitoring.ReduceAlertPendingTime(virtClient)
 		})
 
 		AfterEach(func() {
@@ -192,7 +193,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			scales.RestoreAllScales()
 
 			time.Sleep(10 * time.Second)
-			waitUntilAlertDoesNotExist(virtClient, virtOperator.downAlert, virtApi.downAlert, virtController.downAlert, virtHandler.downAlert)
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.downAlert, virtApi.downAlert, virtController.downAlert, virtHandler.downAlert)
 		})
 
 		It("VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
@@ -203,8 +204,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 				err := cmd.Execute()
 				Expect(err).To(HaveOccurred())
 
-				g.Expect(checkAlertExists(virtClient, virtApi.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(checkAlertExists(virtClient, virtApi.restErrorsHighAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
@@ -214,8 +215,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega) {
-				g.Expect(checkAlertExists(virtClient, virtOperator.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(checkAlertExists(virtClient, virtOperator.restErrorsHighAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
@@ -229,8 +230,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 
-				g.Expect(checkAlertExists(virtClient, virtController.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(checkAlertExists(virtClient, virtController.restErrorsHighAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
@@ -244,8 +245,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 
-				g.Expect(checkAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(checkAlertExists(virtClient, virtHandler.restErrorsHighAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
+				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 	})
@@ -258,15 +259,15 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
-			scales = NewScaling(virtClient, []string{virtOperator.deploymentName})
+			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
-			reduceAlertPendingTime(virtClient)
+			libmonitoring.ReduceAlertPendingTime(virtClient)
 		})
 
 		AfterEach(func() {
 			scales.RestoreAllScales()
 			time.Sleep(10 * time.Second)
-			waitUntilAlertDoesNotExist(virtClient, resourceAlerts...)
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, resourceAlerts...)
 		})
 
 		It("KubeVirtComponentExceedsRequestedCPU should be triggered when virt-api exceeds requested CPU", func() {
@@ -274,8 +275,8 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			updateDeploymentResourcesRequest(virtClient, virtApi.deploymentName, resource.MustParse("0m"), resource.MustParse("0Mi"))
 
 			By("waiting for KubeVirtComponentExceedsRequestedCPU and KubeVirtComponentExceedsRequestedMemory alerts")
-			verifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedCPU")
-			verifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedMemory")
+			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedCPU")
+			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedMemory")
 		})
 	})
 })

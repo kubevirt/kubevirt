@@ -1,4 +1,4 @@
-package monitoring
+package libmonitoring
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -26,8 +27,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 type AlertRequestResult struct {
@@ -50,7 +53,7 @@ type promResult struct {
 	Value  []interface{}     `json:"value"`
 }
 
-func getAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
+func GetAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 	bodyBytes := DoPrometheusHTTPRequest(cli, "/alerts")
 
 	var result AlertRequestResult
@@ -66,13 +69,13 @@ func getAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 	return result.Alerts.Alerts, nil
 }
 
-func waitForMetricValue(client kubecli.KubevirtClient, metric string, expectedValue float64) {
-	waitForMetricValueWithLabels(client, metric, expectedValue, nil, 2)
+func WaitForMetricValue(client kubecli.KubevirtClient, metric string, expectedValue float64) {
+	WaitForMetricValueWithLabels(client, metric, expectedValue, nil, 2)
 }
 
-func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue float64, labels map[string]string, offset int) {
+func WaitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue float64, labels map[string]string, offset int) {
 	EventuallyWithOffset(offset, func() float64 {
-		i, err := getMetricValueWithLabels(client, metric, labels)
+		i, err := GetMetricValueWithLabels(client, metric, labels)
 		if err != nil {
 			return -1
 		}
@@ -80,7 +83,7 @@ func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, 
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
 }
 
-func getMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
+func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
 	result, err := fetchMetric(cli, query)
 	if err != nil {
 		return -1, err
@@ -288,8 +291,8 @@ func KillPortForwardCommand(portForwardCmd *exec.Cmd) error {
 	return err
 }
 
-func checkAlertExists(virtClient kubecli.KubevirtClient, alertName string) bool {
-	currentAlerts, err := getAlerts(virtClient)
+func CheckAlertExists(virtClient kubecli.KubevirtClient, alertName string) bool {
+	currentAlerts, err := GetAlerts(virtClient)
 	if err != nil {
 		return false
 	}
@@ -301,20 +304,20 @@ func checkAlertExists(virtClient kubecli.KubevirtClient, alertName string) bool 
 	return false
 }
 
-func verifyAlertExistWithCustomTime(virtClient kubecli.KubevirtClient, alertName string, timeout time.Duration) {
+func VerifyAlertExistWithCustomTime(virtClient kubecli.KubevirtClient, alertName string, timeout time.Duration) {
 	EventuallyWithOffset(1, func() bool {
-		return checkAlertExists(virtClient, alertName)
+		return CheckAlertExists(virtClient, alertName)
 	}, timeout, 10*time.Second).Should(BeTrue(), "Alert %s should exist", alertName)
 }
 
-func verifyAlertExist(virtClient kubecli.KubevirtClient, alertName string) {
-	verifyAlertExistWithCustomTime(virtClient, alertName, 120*time.Second)
+func VerifyAlertExist(virtClient kubecli.KubevirtClient, alertName string) {
+	VerifyAlertExistWithCustomTime(virtClient, alertName, 120*time.Second)
 }
 
-func waitUntilAlertDoesNotExistWithCustomTime(virtClient kubecli.KubevirtClient, timeout time.Duration, alertNames ...string) {
+func WaitUntilAlertDoesNotExistWithCustomTime(virtClient kubecli.KubevirtClient, timeout time.Duration, alertNames ...string) {
 	presentAlert := EventuallyWithOffset(1, func() string {
 		for _, name := range alertNames {
-			if checkAlertExists(virtClient, name) {
+			if CheckAlertExists(virtClient, name) {
 				return name
 			}
 		}
@@ -324,11 +327,11 @@ func waitUntilAlertDoesNotExistWithCustomTime(virtClient kubecli.KubevirtClient,
 	presentAlert.Should(BeEmpty(), "Alert %v should not exist", presentAlert)
 }
 
-func waitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ...string) {
-	waitUntilAlertDoesNotExistWithCustomTime(virtClient, 5*time.Minute, alertNames...)
+func WaitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ...string) {
+	WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 5*time.Minute, alertNames...)
 }
 
-func reduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
+func ReduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
 	newRules := getPrometheusAlerts(virtClient)
 	var re = regexp.MustCompile("\\[\\d+m\\]")
 
@@ -388,4 +391,23 @@ func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRul
 	newRules.ObjectMeta.UID = ""
 
 	return newRules
+}
+
+func GetKubevirtVMMetrics(pod *k8sv1.Pod, ip string) string {
+	metricsURL := PrepareMetricsURL(ip, 8443)
+	stdout, _, err := execute.ExecuteCommandOnPodWithResults(kubevirt.Client(),
+		pod,
+		"virt-handler",
+		[]string{
+			"curl",
+			"-L",
+			"-k",
+			metricsURL,
+		})
+	Expect(err).ToNot(HaveOccurred())
+	return stdout
+}
+
+func PrepareMetricsURL(ip string, port int) string {
+	return fmt.Sprintf("https://%s/metrics", net.JoinHostPort(ip, strconv.Itoa(port)))
 }

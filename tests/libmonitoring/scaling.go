@@ -1,4 +1,4 @@
-package monitoring
+package libmonitoring
 
 import (
 	"context"
