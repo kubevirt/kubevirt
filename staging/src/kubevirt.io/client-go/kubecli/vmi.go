@@ -38,11 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
-
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
 )
@@ -51,15 +50,17 @@ const vmiSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtu
 
 func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
 	return &vmis{
-		restClient: k.restClient,
-		config:     k.config,
-		clientSet:  k.Clientset,
-		namespace:  namespace,
-		resource:   "virtualmachineinstances",
+		VirtualMachineInstanceInterface: k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachineInstances(namespace),
+		restClient:                      k.restClient,
+		config:                          k.config,
+		clientSet:                       k.Clientset,
+		namespace:                       namespace,
+		resource:                        "virtualmachineinstances",
 	}
 }
 
 type vmis struct {
+	kvcorev1.VirtualMachineInstanceInterface
 	restClient *rest.RESTClient
 	config     *rest.Config
 	clientSet  *kubernetes.Clientset
@@ -289,26 +290,21 @@ func (v *vmis) Unpause(ctx context.Context, name string, unpauseOptions *v1.Unpa
 }
 
 func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
-	vmi = &v1.VirtualMachineInstance{}
-	err = v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		Name(name).
-		VersionedParams(options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(vmi)
+	opts := k8smetav1.GetOptions{}
+	if options != nil {
+		opts = *options
+	}
+	vmi, err = v.VirtualMachineInstanceInterface.Get(ctx, name, opts)
 	vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
 func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
-	vmiList = &v1.VirtualMachineInstanceList{}
-	err = v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		VersionedParams(options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(vmiList)
+	opts := k8smetav1.ListOptions{}
+	if options != nil {
+		opts = *options
+	}
+	vmiList, err = v.VirtualMachineInstanceInterface.List(ctx, opts)
 	for i := range vmiList.Items {
 		vmiList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	}
@@ -317,61 +313,36 @@ func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiLis
 }
 
 func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
-	result = &v1.VirtualMachineInstance{}
-	err = v.restClient.Post().
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Body(vmi).
-		Do(ctx).
-		Into(result)
+	result, err = v.VirtualMachineInstanceInterface.Create(ctx, vmi, metav1.CreateOptions{})
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
 func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
-	result = &v1.VirtualMachineInstance{}
-	err = v.restClient.Put().
-		Name(vmi.ObjectMeta.Name).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Body(vmi).
-		Do(ctx).
-		Into(result)
+	result, err = v.VirtualMachineInstanceInterface.Update(ctx, vmi, metav1.UpdateOptions{})
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
 func (v *vmis) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
-	return v.restClient.Delete().
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Name(name).
-		Body(options).
-		Do(ctx).
-		Error()
+	opts := k8smetav1.DeleteOptions{}
+	if options != nil {
+		opts = *options
+	}
+	return v.VirtualMachineInstanceInterface.Delete(ctx, name, opts)
 }
 
 func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
-	result = &v1.VirtualMachineInstance{}
-	err = v.restClient.Patch(pt).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource(subresources...).
-		Name(name).
-		VersionedParams(patchOptions, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
+	opts := k8smetav1.PatchOptions{}
+	if patchOptions != nil {
+		opts = *patchOptions
+	}
+	return v.VirtualMachineInstanceInterface.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
 func (v *vmis) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	opts.Watch = true
-	return v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Watch(ctx)
+	return v.VirtualMachineInstanceInterface.Watch(ctx, opts)
 }
 
 // enrichError checks the response body for a k8s Status object and extracts the error from it.
