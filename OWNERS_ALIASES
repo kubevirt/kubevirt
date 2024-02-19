@@ -152,3 +152,10 @@ aliases:
   #
   sig-architecture-approvers: []
   sig-architecture-reviewers: []
+  
+#
+# SIG Cluster
+# Owns the cluster level application code related to Kubevirt i.e.
+# API, CRD controllers, cert-rotation, operator, etc.
+sig-cluster-approvers: []
+sig-cluster-reviewers: []
