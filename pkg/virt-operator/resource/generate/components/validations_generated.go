@@ -12196,6 +12196,9 @@ var CRDsValidation map[string]string = map[string]string{
             failed:
               description: Indicates that the migration failed
               type: boolean
+            failureReason:
+              description: Contains the reason why the migration failed
+              type: string
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
@@ -12596,6 +12599,9 @@ var CRDsValidation map[string]string = map[string]string{
             failed:
               description: Indicates that the migration failed
               type: boolean
+            failureReason:
+              description: Contains the reason why the migration failed
+              type: string
             migrationConfiguration:
               description: Migration configurations to apply
               properties:

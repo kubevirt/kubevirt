@@ -1831,7 +1831,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
 					// check VMI, confirm migration state
-					libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+					vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+					Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("has been aborted"))
 				})
 
 			})
@@ -1878,7 +1879,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
 				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+				vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+				// Not sure how consistent the entire error is, so just making sure the failure happened in libvirt. Example string:
+				// Live migration failed error encountered during MigrateToURI3 libvirt api call: virError(Code=1, Domain=7, Message='internal error: client socket is closed'
+				Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("libvirt api call"))
 
 				By("Removing our migration killer pods")
 				for _, podName := range createdPods {
@@ -1935,7 +1939,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
 					// check VMI, confirm migration state
-					libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+					vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+					Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
 
 					Eventually(func() error {
 						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -1973,7 +1978,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migrationUID := libmigration.RunMigrationAndExpectFailure(migration, 180)
 
 				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+				vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
+				Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
 
 				Eventually(func() error {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
