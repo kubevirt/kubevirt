@@ -40,11 +40,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
+	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -157,7 +157,7 @@ var _ = SIGDescribe("Services", func() {
 			hostname := "inbound"
 
 			inboundVMI = createReadyVMIWithBridgeBindingAndExposedService(hostname, subdomain)
-			tests.StartTCPServer(inboundVMI, servicePort, console.LoginToCirros)
+			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToCirros)
 		})
 
 		AfterEach(func() {
@@ -253,7 +253,7 @@ var _ = SIGDescribe("Services", func() {
 			hostname := "inbound"
 
 			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
-			tests.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
+			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
 		})
 
 		AfterEach(func() {

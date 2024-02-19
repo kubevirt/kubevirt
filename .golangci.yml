@@ -42,6 +42,8 @@ linters-settings:
         ignored-functions:
           - '^Eventually$'
           - '^EventuallyWithOffset$'
+          - '^console\.ExpectBatch$'
+          - '^console\.RunCommand$'
   govet:
     check-shadowing: true
   lll:

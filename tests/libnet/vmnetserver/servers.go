@@ -1,12 +1,32 @@
-package tests
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2020 Red Hat, Inc.
+ *
+ */
+
+package vmnetserver
 
 import (
 	"fmt"
 	"strings"
 	"time"
 
-	expect "github.com/google/goexpect"
 	. "github.com/onsi/gomega"
+
+	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -35,12 +55,12 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.L
 	HTTPServer.Start(vmi, port)
 }
 
-func StartHTTPServerWithSourceIp(vmi *v1.VirtualMachineInstance, port int, sourceIP string, loginTo console.LoginToFunction) {
+func StartHTTPServerWithSourceIP(vmi *v1.VirtualMachineInstance, port int, sourceIP string, loginTo console.LoginToFunction) {
 	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
 	HTTPServer.Start(vmi, port, fmt.Sprintf("-s %s", sourceIP))
 }
 
-func StartPythonHttpServer(vmi *v1.VirtualMachineInstance, port int) {
+func StartPythonHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(console.RunCommand(vmi, "echo 'Hello World!' > index.html", 60*time.Second)).To(Succeed())
 
 	serverCommand := fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
@@ -64,31 +84,12 @@ EOL`, inetSuffix, port)
 	Expect(console.ExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("%s\n", serverCommand)},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: EchoLastReturnValue},
+		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.ShellSuccess},
 	}, 60*time.Second)).To(Succeed())
 
 	serverCommand = "python3 udp_server.py &"
 	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
-}
-
-func StartExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port uint32) error {
-
-	serverArgs := fmt.Sprintf("--port %v", port)
-	if useTLS {
-		serverArgs = strings.Join([]string{serverArgs, "--use-tls"}, " ")
-	}
-
-	return console.ExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "chmod +x /usr/bin/example-guest-agent\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: EchoLastReturnValue},
-		&expect.BExp{R: console.ShellSuccess},
-		&expect.BSnd{S: fmt.Sprintf("/usr/bin/example-guest-agent %s 2>&1 &\n", serverArgs)},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: EchoLastReturnValue},
-		&expect.BExp{R: console.ShellSuccess},
-	}, 60*time.Second)
 }
 
 func (s server) Start(vmi *v1.VirtualMachineInstance, port int, extraArgs ...string) {

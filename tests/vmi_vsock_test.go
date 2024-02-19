@@ -21,8 +21,10 @@ package tests_test
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -189,7 +191,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		Expect(libssh.SCPToVMI(vmi, privateKeyPath, flags.KubeVirtExampleGuestAgentPath, "/usr/bin/")).To(Succeed())
 
 		By("starting the guest agent binary")
-		Expect(tests.StartExampleGuestAgent(vmi, useTLS, 1234)).To(Succeed())
+		Expect(startExampleGuestAgent(vmi, useTLS, 1234)).To(Succeed())
 		time.Sleep(2 * time.Second)
 
 		virtClient := kubevirt.Client()
@@ -272,3 +274,22 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		})).NotTo(Succeed())
 	})
 })
+
+func startExampleGuestAgent(vmi *v1.VirtualMachineInstance, useTLS bool, port uint32) error {
+
+	serverArgs := fmt.Sprintf("--port %v", port)
+	if useTLS {
+		serverArgs = strings.Join([]string{serverArgs, "--use-tls"}, " ")
+	}
+
+	return console.ExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "chmod +x /usr/bin/example-guest-agent\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
+		&expect.BExp{R: console.ShellSuccess},
+		&expect.BSnd{S: fmt.Sprintf("/usr/bin/example-guest-agent %s 2>&1 &\n", serverArgs)},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
+		&expect.BExp{R: console.ShellSuccess},
+	}, 60*time.Second)
+}

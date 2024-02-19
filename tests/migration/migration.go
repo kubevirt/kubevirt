@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libnet/service"
+	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
@@ -234,7 +235,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Starting hello world in the VM")
-			tests.StartTCPServer(vmi, port, console.LoginToCirros)
+			vmnetserver.StartTCPServer(vmi, port, console.LoginToCirros)
 
 			By("Exposing headless service matching subdomain")
 			service := service.BuildHeadlessSpec(subdomain, port, port, labelKey, labelValue)
