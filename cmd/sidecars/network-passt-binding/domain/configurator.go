@@ -192,5 +192,9 @@ func (p PasstNetworkConfigurator) generatePortForward() []domainschema.Interface
 		portsFwd = append(portsFwd, domainschema.InterfacePortForward{Proto: protoUDP, Ranges: udpPortsRange})
 	}
 
+	for idx := range portsFwd {
+		portsFwd[idx].Dev = namescheme.PrimaryPodInterfaceName
+	}
+
 	return portsFwd
 }
