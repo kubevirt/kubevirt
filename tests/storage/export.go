@@ -2103,6 +2103,17 @@ var _ = SIGDescribe("Export", func() {
 			waitForReadyExport(vmexport)
 		}
 
+		checkForDeletedExport := func(vmeName string) {
+			Eventually(func() bool {
+				_, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmeName, metav1.GetOptions{})
+				if err != nil {
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+					return true
+				}
+				return false
+			}, 180*time.Second, 1*time.Second).Should(BeTrue())
+		}
+
 		BeforeEach(func() {
 			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
@@ -2277,6 +2288,9 @@ var _ = SIGDescribe("Export", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err := os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
+
+				// Check VMExport has been deleted
+				checkForDeletedExport(vmeName)
 			})
 
 			It("Download succeeds creating and downloading a vmexport using Snapshot source", func() {
@@ -2331,6 +2345,9 @@ var _ = SIGDescribe("Export", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err = os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
+
+				// Check VMExport has been deleted
+				checkForDeletedExport(vmeName)
 			})
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
@@ -2376,6 +2393,9 @@ var _ = SIGDescribe("Export", func() {
 				Expect(err).ToNot(HaveOccurred())
 				_, err := os.Stat(outputFile)
 				Expect(err).ToNot(HaveOccurred())
+
+				// Check VMExport has been deleted
+				checkForDeletedExport(vmeName)
 			})
 
 			It("Download succeeds with an already existing vmexport", func() {
@@ -2443,7 +2463,42 @@ var _ = SIGDescribe("Export", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Download succeeds and keeps the vmexport after finishing the download", func() {
+			It("Download retains the vmexport resource when it's been created in advance", func() {
+				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
+				vmeName = vmExport.Name
+				vme, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				By("Making sure the export becomes ready")
+				waitForReadyExport(vmExport)
+
+				// Run vmexport
+				cmdArgs := []string{
+					commandName,
+					"download",
+					vmeName,
+					"--output", outputFile,
+					"--insecure",
+					"--namespace", testsuite.GetTestNamespace(vmExport),
+				}
+				if vme.Status.Links.External == nil {
+					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort)
+				} else {
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
+				}
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
+				Eventually(func() error {
+					return virtctlCmd()
+				}, 30*time.Second, time.Second).Should(BeNil())
+
+				// Check VMExport hasn't been deleted
+				checkForReadyExport(vmeName)
+				_, err = os.Stat(outputFile)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Download deletes the vmexport resource when explicitely specified", func() {
 				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 				vmeName = vmExport.Name
 				vme, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
@@ -2454,7 +2509,7 @@ var _ = SIGDescribe("Export", func() {
 					vmeName,
 					"--output", outputFile,
 					"--insecure",
-					"--keep-vme",
+					"--delete-vme",
 					"--namespace", testsuite.GetTestNamespace(vmExport),
 				}
 				Expect(err).ToNot(HaveOccurred())
@@ -2470,10 +2525,8 @@ var _ = SIGDescribe("Export", func() {
 					return virtctlCmd()
 				}, 30*time.Second, time.Second).Should(BeNil())
 
-				Expect(err).ToNot(HaveOccurred())
-				checkForReadyExport(vmeName)
-				_, err = os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
+				// Check VMExport has been deleted
+				checkForDeletedExport(vmeName)
 			})
 		})
 

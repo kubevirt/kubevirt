@@ -368,6 +368,7 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
+	vmeInfo.DeleteVme = deleteVme
 	vmeInfo.VolumeName = volumeName
 	vmeInfo.ServiceURL = serviceUrl
 	vmeInfo.OutputFormat = manifestOutputFormat
@@ -583,7 +584,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 // shouldDeleteVMExport decides wether we should retain or delete a VMExport after a download. If delete/retain are not explicitly specified,
 // the vmexport will be deleted when is created in the same instance as the download, retained otherwise.
 func shouldDeleteVMExport(vmeInfo *VMExportInfo) bool {
-	return vmeInfo.DeleteVme || (vmeInfo.ShouldCreate && !vmeInfo.KeepVme && !vmeInfo.ExportManifest)
+	return !vmeInfo.ExportManifest && (vmeInfo.DeleteVme || (vmeInfo.ShouldCreate && !vmeInfo.KeepVme))
 }
 
 func replaceUrlWithServiceUrl(manifestUrl string, vmeInfo *VMExportInfo) (string, error) {
