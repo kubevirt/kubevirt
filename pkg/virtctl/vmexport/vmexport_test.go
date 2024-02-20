@@ -261,15 +261,17 @@ var _ = Describe("vmexport", func() {
 			Expect(err.Error()).Should(Equal("bad status: 500 Internal Server Error"))
 		})
 
-		It("Bad flag combination", func() {
+		DescribeTable("Bad flag combination", func(errString string, args ...string) {
 			testInit(http.StatusOK)
-			args := []string{virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), setflag(virtctlvmexport.VM_FLAG, "test2"), setflag(virtctlvmexport.SNAPSHOT_FLAG, "test3")}
 			args = append([]string{commandName}, args...)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal("if any flags in the group [vm snapshot pvc] are set none of the others can be; [pvc snapshot vm] were all set"))
-		})
+			Expect(err.Error()).Should(Equal(errString))
+		},
+			Entry("Multiple target types", "if any flags in the group [vm snapshot pvc] are set none of the others can be; [pvc snapshot vm] were all set", virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), setflag(virtctlvmexport.VM_FLAG, "test2"), setflag(virtctlvmexport.SNAPSHOT_FLAG, "test3")),
+			Entry("Retain and delte vmexport", "if any flags in the group [keep-vme delete-vme] are set none of the others can be; [delete-vme keep-vme] were all set", virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.DELETE_FLAG, virtctlvmexport.KEEP_FLAG),
+		)
 
 		DescribeTable("Invalid arguments/flags", func(errString string, args ...string) {
 			testInit(http.StatusOK)
