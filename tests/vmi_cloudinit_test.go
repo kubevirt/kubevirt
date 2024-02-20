@@ -180,7 +180,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with cloudInitConfigDrive userDataBase64 source", func() {
 			It("[test_id:3178]should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
+				vmi := libvmifact.NewCirros(
+					libvmi.WithCloudInitNoCloudEncodedUserData(""),
+					libvmi.WithCloudInitConfigDriveUserData(userData),
+				)
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -300,9 +303,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				runTest(vmi, cloudinit.DataSourceNoCloud)
 			})
 			It("[test_id:3180] with cloudInitConfigDrive userData source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					userData)
+				vmi := libvmifact.NewCirros(
+					libvmi.WithCloudInitNoCloudEncodedUserData(""),
+					libvmi.WithCloudInitConfigDriveUserData(userData),
+				)
 				runTest(vmi, cloudinit.DataSourceConfigDrive)
 			})
 		})
