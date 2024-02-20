@@ -196,7 +196,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.downAlert, virtApi.downAlert, virtController.downAlert, virtHandler.downAlert)
 		})
 
-		It("VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
+		It("[test_id:10846] VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
 			randVmName := rand.String(6)
 
 			Eventually(func(g Gomega) {
@@ -209,7 +209,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtOperatorRESTErrorsBurst and VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
+		It("[test_id:10847] VirtOperatorRESTErrorsBurst and VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
 			scales.RestoreScale(virtOperator.deploymentName)
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -220,7 +220,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
+		It("[test_id:10844] VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -235,7 +235,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
+		It("[test_id:10845] VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
