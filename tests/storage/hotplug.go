@@ -955,31 +955,37 @@ var _ = SIGDescribe("Hotplug", func() {
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(240),
 				)
-				testVolumes := make([]string, 0)
-				dvNames := make([]string, 0)
-				for i := 0; i < 75; i = i + 5 {
-					var wg sync.WaitGroup
-					for j := 0; j < 5; j++ {
-						volumeName := fmt.Sprintf("volume%d", i+j)
-						testVolumes = append(testVolumes, volumeName)
-						wg.Add(1)
 
-						go func() {
-							defer GinkgoRecover()
-							defer wg.Done()
-							dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeFilesystem)
-							dvNames = append(dvNames, dv.Name)
-						}()
-					}
-					wg.Wait()
+				const howManyVolumes = 75
+				var wg sync.WaitGroup
+
+				dvNames := make([]string, howManyVolumes)
+				testVolumes := make([]string, howManyVolumes)
+				dvReadyChannel := make(chan int, howManyVolumes)
+
+				wg.Add(howManyVolumes)
+				for i := 0; i < howManyVolumes; i++ {
+					testVolumes[i] = fmt.Sprintf("volume%d", i)
+
+					By("Creating Volume" + testVolumes[i])
+					go func(volumeNo int) {
+						defer GinkgoRecover()
+						defer wg.Done()
+
+						dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeFilesystem)
+						dvNames[volumeNo] = dv.Name
+						dvReadyChannel <- volumeNo
+					}(i)
 				}
 
-				for i := 0; i < 75; i++ {
+				go func() {
+					wg.Wait()
+					close(dvReadyChannel)
+				}()
+
+				for i := range dvReadyChannel {
 					By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
 					addDVVolumeVM(vm.Name, vm.Namespace, testVolumes[i], dvNames[i], v1.DiskBusSCSI, false, "")
-					if i > 0 && i%5 == 0 {
-						verifyVolumeStatus(vmi, v1.VolumeReady, "", testVolumes[i-5:i]...)
-					}
 				}
 
 				By(verifyingVolumeDiskInVM)
