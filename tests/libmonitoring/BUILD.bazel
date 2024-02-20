@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "metric_matcher.go",
         "prometheus.go",
         "scaling.go",
     ],
@@ -14,8 +15,10 @@ go_library(
         "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/format:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/prometheus/client_golang/api/prometheus/v1:go_default_library",
         "//vendor/k8s.io/api/autoscaling/v1:go_default_library",
