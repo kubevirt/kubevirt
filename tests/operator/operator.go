@@ -1520,7 +1520,7 @@ spec:
 			checkVirtComponents(nil)
 
 			By("Starting a VMI")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -1569,7 +1569,7 @@ spec:
 			checkVirtComponents(imagePullSecrets)
 
 			By("Starting a VMI")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
