@@ -28,6 +28,9 @@ import (
 	"strconv"
 
 	gomegatypes "github.com/onsi/gomega/types"
+	authorizationv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -129,8 +132,13 @@ var _ = Describe("KSM", func() {
 				},
 			})
 
+			fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+				review.Status.Allowed = true
+				return true, review, nil
+			})
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController(true), config(virtconfig.CPUManager), "mynode")
+			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
 
 			heartbeat.do()
 			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
@@ -198,8 +206,13 @@ var _ = Describe("KSM", func() {
 					Name: "mynode",
 				},
 			})
+			fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+				review.Status.Allowed = true
+				return true, review, nil
+			})
 
-			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController(true), clusterConfig, "mynode")
 
 			heartbeat.do()
 
@@ -235,8 +248,13 @@ var _ = Describe("KSM", func() {
 			})
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
+			fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+				review.Status.Allowed = true
+				return true, review, nil
+			})
 			createCustomMemInfo(true)
-			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController(true), clusterConfig, "mynode")
 
 			heartbeat.do()
 			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
@@ -295,7 +313,7 @@ var _ = Describe("KSM", func() {
 				},
 			})
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController(true), clusterConfig, "mynode")
 
 			By("running a first heartbeat and expecting no change")
 			heartbeat.do()
@@ -366,8 +384,13 @@ var _ = Describe("KSM", func() {
 					Name: "mynode",
 				},
 			})
+			fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+				review.Status.Allowed = true
+				return true, review, nil
+			})
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController(true), clusterConfig, "mynode")
 
 			By("running a first heartbeat and expecting the right values")
 			heartbeat.do()

@@ -7,10 +7,12 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
+	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -19,6 +21,7 @@ import (
 
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virthandlerauth "kubevirt.io/kubevirt/pkg/virt-handler/authorization"
 	devicemanager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
@@ -27,6 +30,7 @@ const failedSetCPUManagerLabelFmt = "failed to set a cpu manager label on host %
 type HeartBeat struct {
 	nodeClientSet             k8scli.NodeInterface
 	shadowNodeClient          kubecli.ShadowNodeInterface
+	authClient                authorizationv1.AuthorizationV1Interface
 	deviceManagerController   devicemanager.DeviceControllerInterface
 	clusterConfig             *virtconfig.ClusterConfig
 	host                      string
@@ -35,10 +39,11 @@ type HeartBeat struct {
 	devicePluginWaitTimeout   time.Duration
 }
 
-func NewHeartBeat(nodeClient k8scli.NodeInterface, shadowClient kubecli.ShadowNodeInterface, deviceManager devicemanager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
+func NewHeartBeat(nodeClient k8scli.NodeInterface, shadowClient kubecli.ShadowNodeInterface, authClient authorizationv1.AuthorizationV1Interface, deviceManager devicemanager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
 	return &HeartBeat{
 		shadowNodeClient:        shadowClient,
 		nodeClientSet:           nodeClient,
+		authClient:              authClient,
 		deviceManagerController: deviceManager,
 		clusterConfig:           clusterConfig,
 		host:                    host,
@@ -96,10 +101,22 @@ func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {
 			v1.CPUManager, cpuManagerEnabled,
 			v1.VirtHandlerHeartbeat, string(now),
 		))
-		_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		// TODO: Patching the node can be safely removed once we do not support upgrade from a version that does not have Shadow Node
+		nodePatchAllowed, err := virthandlerauth.CanPatchNode(h.authClient, h.host)
 		if err != nil {
-			log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
-			return
+			log.DefaultLogger().Reason(err).Error("failed to perform SelfSubjectAccessReview")
+		}
+		if nodePatchAllowed {
+			_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			if err != nil {
+				if errors.IsForbidden(err) {
+					// there is a small window where patching the node RBAC just got removed.
+					log.DefaultLogger().Reason(err).Info("if this error occurred once during upgrade, please disregard")
+				} else {
+					log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
+				}
+				return
+			}
 		}
 		_, err = h.shadowNodeClient.Patch(context.TODO(), h.host, types.MergePatchType, data, metav1.PatchOptions{})
 		if err != nil {
@@ -158,10 +175,23 @@ func (h *HeartBeat) do() {
 		v1.VirtHandlerHeartbeat, string(now),
 		v1.KSMHandlerManagedAnnotation, ksmEnabledByUs,
 	))
-	_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+
+	// TODO: Patching the node can be safely removed once we do not support upgrade from a version that does not have Shadow Node
+	nodePatchAllowed, err := virthandlerauth.CanPatchNode(h.authClient, h.host)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
-		return
+		log.DefaultLogger().Reason(err).Error("failed to perform SelfSubjectAccessReview")
+	}
+	if nodePatchAllowed {
+		_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		if err != nil {
+			if errors.IsForbidden(err) {
+				// there is a small window where patching the node RBAC just got removed.
+				log.DefaultLogger().Reason(err).Info("if this error occurred once during upgrade, please disregard")
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
+			}
+			return
+		}
 	}
 	_, err = h.shadowNodeClient.Patch(context.TODO(), h.host, types.MergePatchType, data, metav1.PatchOptions{})
 	if err != nil {

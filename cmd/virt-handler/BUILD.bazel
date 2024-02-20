@@ -23,6 +23,7 @@ go_library(
         "//pkg/util/tls:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler:go_default_library",
+        "//pkg/virt-handler/authorization:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/dmetrics-manager:go_default_library",

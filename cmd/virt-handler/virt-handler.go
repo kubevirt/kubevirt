@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	virthandlerauth "kubevirt.io/kubevirt/pkg/virt-handler/authorization"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -185,10 +186,24 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 }
 
 func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
+	var err error
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
-	_, err := app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+
+	// TODO: Patching the node can be safely removed once we do not support upgrade from a version that does not have Shadow Node
+	nodePatchAllowed, err := virthandlerauth.CanPatchNode(app.virtCli.AuthorizationV1(), app.HostOverride)
 	if err != nil {
-		logger.Reason(err).Error("Unable to mark node as unschedulable")
+		logger.Reason(err).Error("failed to perform SelfSubjectAccessReview")
+	}
+	if nodePatchAllowed {
+		_, err = app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		if err != nil {
+			if errors.IsForbidden(err) {
+				// there is a small window where patching the node RBAC just got removed.
+				logger.Reason(err).Info("if this error occurred once during upgrade, please disregard")
+			} else {
+				logger.Reason(err).Error("Unable to mark node as unschedulable")
+			}
+		}
 	}
 
 	_, err = app.virtCli.ShadowNodeClient().Patch(context.TODO(), app.HostOverride, types.MergePatchType, data, metav1.PatchOptions{})
@@ -348,7 +363,7 @@ func (app *virtHandlerApp) Run() {
 	var capabilities *api.Capabilities
 	var hostCpuModel string
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli.CoreV1().Nodes(), app.virtCli.ShadowNodeClient(), app.HostOverride, nodeLabellerrecorder)
+	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli.CoreV1().Nodes(), app.virtCli.ShadowNodeClient(), app.virtCli.AuthorizationV1(), app.HostOverride, nodeLabellerrecorder)
 	if err != nil {
 		panic(err)
 	}

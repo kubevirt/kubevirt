@@ -763,6 +763,12 @@ rules:
   - patch
   - update
 - apiGroups:
+  - authorization.k8s.io
+  resources:
+  - selfsubjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
   - ""
   resources:
   - configmaps

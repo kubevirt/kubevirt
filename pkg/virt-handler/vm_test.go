@@ -32,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -186,6 +187,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().ShadowNodeClient().Return(kubecli.NewMockShadowNodeInterface(ctrl))
 		virtClient.EXPECT().CoreV1().Return(clientTest.CoreV1()).AnyTimes()
+		virtClient.EXPECT().AuthorizationV1().Return(clientTest.AuthorizationV1()).AnyTimes()
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		mockWatchdog = &MockWatchdog{shareDir}
@@ -3680,3 +3682,18 @@ func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
 	return nil
 }
 func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
+
+func newNodePatchAccessReview(name string) *authorizationv1.SelfSubjectAccessReview {
+	return &authorizationv1.SelfSubjectAccessReview{
+		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Resource: "nodes",
+				Verb:     "patch",
+				Name:     name,
+			},
+		},
+		Status: authorizationv1.SubjectAccessReviewStatus{
+			Allowed: true,
+		},
+	}
+}

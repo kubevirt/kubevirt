@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["selfSubjectAccessReview.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/authorization",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/api/authorization/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1:go_default_library",
+    ],
+)

@@ -7,9 +7,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
@@ -34,15 +37,22 @@ var _ = Describe("Heartbeat", func() {
 				Name: "mynode",
 			},
 		})
+
 		fakeK8sClient = fake.NewSimpleClientset(&k8sv1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "mynode",
 			},
 		})
+
+		fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+			review.Status.Allowed = true
+			return true, review, nil
+		})
 	})
 	Context("upon finishing", func() {
 		It("should set the node to not schedulable", func() {
-			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController(true), config(), "mynode")
+			heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController(true), config(), "mynode")
 			stopChan := make(chan struct{})
 			done := heartbeat.Run(30*time.Second, stopChan)
 			Eventually(func() map[string]string {
@@ -65,7 +75,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 
 	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController devicemanager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
-		heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController, config(virtconfig.CPUManager), "mynode")
+		heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController, config(virtconfig.CPUManager), "mynode")
 		heartbeat.cpuManagerPaths = cpuManagerPaths
 		heartbeat.do()
 
@@ -106,7 +116,7 @@ var _ = Describe("Heartbeat", func() {
 	)
 
 	DescribeTable("without cpumanager featuregate should set the node to", func(deviceController devicemanager.DeviceControllerInterface, schedulable string) {
-		heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController, config(), "mynode")
 		heartbeat.do()
 
 		node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
@@ -130,7 +140,7 @@ var _ = Describe("Heartbeat", func() {
 	)
 
 	DescribeTable("without deviceplugin and", func(deviceController devicemanager.DeviceControllerInterface, initiallySchedulable string, finallySchedulable string) {
-		heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController, config(), "mynode")
 		heartbeat.devicePluginWaitTimeout = 2 * time.Second
 		heartbeat.devicePluginPollIntervall = 10 * time.Millisecond
 		stopChan := make(chan struct{})
@@ -191,6 +201,27 @@ var _ = Describe("Heartbeat", func() {
 			"true",
 		),
 	)
+	It("should not patch the node after patch node RBAC is removed", func() {
+		fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+			review.Status.Allowed = false
+			return true, review, nil
+		})
+		deviceController := deviceController(false)
+		cpuManagerPaths := []string{"non/existent/cpumanager/statefile"}
+		schedulable := "false"
+		cpumanager := "false"
+
+		heartbeat := NewHeartBeat(fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), deviceController, config(virtconfig.CPUManager), "mynode")
+		heartbeat.cpuManagerPaths = cpuManagerPaths
+		heartbeat.do()
+
+		node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(node.Labels).ToNot(HaveKeyWithValue(v1.NodeSchedulable, schedulable))
+		Expect(node.Labels).ToNot(HaveKeyWithValue(v1.CPUManager, cpumanager))
+	})
+
 })
 
 type fakeDeviceController struct {

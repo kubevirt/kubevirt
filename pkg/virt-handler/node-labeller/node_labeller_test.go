@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/time/rate"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,6 +75,12 @@ var _ = Describe("Node-labeller ", func() {
 					},
 				},
 			}
+
+			fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+				review.Status.Allowed = true
+				return true, review, nil
+			})
 
 			nlController = initNodeLabeller(kubevirt, fakeClient, fakeK8sClient)
 			mockQueue := testutils.NewMockWorkQueue(nlController.queue)
@@ -248,6 +255,20 @@ var _ = Describe("Node-labeller ", func() {
 			Expect(node.Labels).To(HaveKey("test"))
 		})
 
+		It("should not update the node after patch node RBAC is removed", func() {
+			fakeK8sClient.Fake.PrependReactor("create", "selfsubjectaccessreviews", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				review := action.(testing.CreateAction).GetObject().(*authorizationv1.SelfSubjectAccessReview)
+				review.Status.Allowed = false
+				return true, review, nil
+			})
+
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+
+			node := retrieveNode(fakeK8sClient)
+			Expect(node.Labels).ToNot(HaveKey(v1.SEVESLabel))
+		})
+
 	})
 	Context("with shadow node", func() {
 		someRandomLabels := map[string]string{
@@ -278,6 +299,7 @@ var _ = Describe("Node-labeller ", func() {
 			Eventually(nlController.queue.Len, time.Second).Should(Equal(1))
 			virtClient.EXPECT().CoreV1().Return(fakeK8sClient.CoreV1()).AnyTimes()
 			virtClient.EXPECT().ShadowNodeClient().Return(fakeClient.KubevirtV1().ShadowNodes()).AnyTimes()
+			virtClient.EXPECT().AuthorizationV1().Return(fakeK8sClient.AuthorizationV1()).AnyTimes()
 		}
 
 		It("should keep cpu-model labels", func() {
@@ -425,7 +447,7 @@ func initNodeLabeller(kubevirt *v1.KubeVirt, fakeClient *fakeclientset.Clientset
 	recorder.IncludeObject = true
 
 	var err error
-	nlController, err := newNodeLabeller(config, fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), nodeName, "testdata", recorder)
+	nlController, err := newNodeLabeller(config, fakeK8sClient.CoreV1().Nodes(), fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.AuthorizationV1(), nodeName, "testdata", recorder)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Override queue to have no rate limiting because we only execute "execute" once
@@ -433,4 +455,19 @@ func initNodeLabeller(kubevirt *v1.KubeVirt, fakeClient *fakeclientset.Clientset
 	nlController.queue = workqueue.NewRateLimitingQueue(&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)})
 
 	return nlController
+}
+
+func newNodePatchAccessReview(name string) *authorizationv1.SelfSubjectAccessReview {
+	return &authorizationv1.SelfSubjectAccessReview{
+		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Resource: "nodes",
+				Verb:     "patch",
+				Name:     name,
+			},
+		},
+		Status: authorizationv1.SubjectAccessReviewStatus{
+			Allowed: true,
+		},
+	}
 }

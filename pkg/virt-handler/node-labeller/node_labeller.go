@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/record"
 	"kubevirt.io/client-go/kubecli"
 
@@ -44,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virthandlerauth "kubevirt.io/kubevirt/pkg/virt-handler/authorization"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 )
 
@@ -66,6 +69,7 @@ type NodeLabeller struct {
 	recorder                record.EventRecorder
 	nodeClient              k8scli.NodeInterface
 	shadowNodeClient        kubecli.ShadowNodeInterface
+	authClient              authorizationv1.AuthorizationV1Interface
 	host                    string
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
@@ -82,15 +86,16 @@ type NodeLabeller struct {
 	SEV                     SEVConfiguration
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, shadowNodeClient kubecli.ShadowNodeInterface, host string, recorder record.EventRecorder) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, shadowNodeClient, host, nodeLabellerVolumePath, recorder)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, shadowNodeClient kubecli.ShadowNodeInterface, authClient authorizationv1.AuthorizationV1Interface, host string, recorder record.EventRecorder) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, shadowNodeClient, authClient, host, nodeLabellerVolumePath, recorder)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, shadowNodeClient kubecli.ShadowNodeInterface, host, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, shadowNodeClient kubecli.ShadowNodeInterface, authClient authorizationv1.AuthorizationV1Interface, host, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:                recorder,
 		nodeClient:              nodeClient,
 		shadowNodeClient:        shadowNodeClient,
+		authClient:              authClient,
 		host:                    host,
 		logger:                  log.DefaultLogger(),
 		clusterConfig:           clusterConfig,
@@ -217,9 +222,20 @@ func (n *NodeLabeller) run() error {
 	}
 
 	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
-		err = n.patchNode(originalNode, node)
+		// TODO: Patching the node can be safely removed once we do not support upgrade from a version that does not have Shadow Node
+		nodePatchAllowed, err := virthandlerauth.CanPatchNode(n.authClient, node.Name)
 		if err != nil {
-			return err
+			n.logger.Reason(err).Error("failed to perform SelfSubjectAccessReview")
+		}
+		if nodePatchAllowed {
+			err = n.patchNode(originalNode, node)
+			if err != nil {
+				if errors.IsForbidden(err) {
+					// there is a small window where patching the node RBAC just got removed.
+					n.logger.Reason(err).Info("if this error occurred once during upgrade, please disregard")
+				}
+				return err
+			}
 		}
 
 		err = n.patchShadowNode(shadowNodePatchData, node.Name)
