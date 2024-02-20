@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
+// NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
 var NamespaceTestDefault = "kubevirt-test-default"
 
 func PanicOnError(err error) {

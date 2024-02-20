@@ -21,11 +21,11 @@ package instancetype
 
 import (
 	"fmt"
+	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -35,8 +35,8 @@ import (
 )
 
 const (
-	Instancetype = "instancetype"
-
+	Instancetype        = "instancetype"
+	ClusterInstancetype = "clusterinstancetype"
 	CPUFlag             = "cpu"
 	MemoryFlag          = "memory"
 	GPUFlag             = "gpu"
@@ -128,9 +128,9 @@ func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
 	}
 
 	if c.namespaced {
-		c.name = "instancetype-" + rand.String(5)
+		c.name = common.RandomWithPrefix(Instancetype+"-", 5)
 	} else {
-		c.name = "clusterinstancetype-" + rand.String(5)
+		c.name = common.RandomWithPrefix(ClusterInstancetype+"-", 5)
 	}
 
 	return nil

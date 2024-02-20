@@ -56,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
@@ -305,8 +304,7 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 }
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
-
-	config, err := util.GetConfigFromEnv()
+	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
@@ -603,7 +601,7 @@ func getManifests(configMap *corev1.ConfigMap) (string, error) {
 	return manifests, nil
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*Strategy, error) {
+func LoadInstallStrategyFromCache(stores operatorutil.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*Strategy, error) {
 	var matchingConfigMaps []*corev1.ConfigMap
 
 	for _, obj := range stores.InstallStrategyConfigMapCache.List() {
@@ -617,10 +615,10 @@ func LoadInstallStrategyFromCache(stores util.Stores, config *operatorutil.KubeV
 		}
 
 		// deprecated, keep it for backwards compatibility
-		version, _ := cm.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+		version := cm.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 		// deprecated, keep it for backwards compatibility
-		registry, _ := cm.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-		id, _ := cm.ObjectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+		registry := cm.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
+		id := cm.ObjectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
 
 		if id == config.GetDeploymentID() ||
 			(id == "" && version == config.GetKubeVirtVersion() && registry == config.GetImageRegistry()) {

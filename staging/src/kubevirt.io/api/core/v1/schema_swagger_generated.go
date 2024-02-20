@@ -287,7 +287,7 @@ func (SoundDevice) SwaggerDoc() map[string]string {
 
 func (TPMDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"persistent": "Persistent indicates the state of the TPM device should be kept accross reboots\nDefaults to false",
+		"persistent": "Persistent indicates the state of the TPM device should be kept across reboots\nDefaults to false",
 	}
 }
 

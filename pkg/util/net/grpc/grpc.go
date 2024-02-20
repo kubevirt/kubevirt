@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	CONNECT_TIMEOUT_SECONDS = 2
+	ConnectTimeoutSeconds = 2
 )
 
 func DialSocket(socketPath string) (*grpc.ClientConn, error) {
@@ -53,13 +53,13 @@ func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, er
 
 	if timeout > 0 {
 		options = append(options,
-			grpc.WithTimeout(time.Duration(timeout+CONNECT_TIMEOUT_SECONDS)*time.Second),
+			grpc.WithTimeout(time.Duration(timeout+ConnectTimeoutSeconds)*time.Second),
 		)
 	}
 
 	// Combined with the Block option, this context controls how long to wait for establishing the connection.
 	// The dial timeout used above, controls the overall duration of the connection (including RCP calls).
-	ctx, cancel := context.WithTimeout(context.Background(), CONNECT_TIMEOUT_SECONDS*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeoutSeconds*time.Second)
 	defer cancel()
 
 	return grpc.DialContext(ctx, socketPath, options...)

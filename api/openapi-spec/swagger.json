@@ -19363,7 +19363,7 @@
     "type": "object",
     "properties": {
      "persistent": {
-      "description": "Persistent indicates the state of the TPM device should be kept accross reboots Defaults to false",
+      "description": "Persistent indicates the state of the TPM device should be kept across reboots Defaults to false",
       "type": "boolean"
      }
     }

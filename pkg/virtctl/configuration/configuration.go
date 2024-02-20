@@ -41,7 +41,6 @@ type command struct {
 }
 
 func (c *command) run() error {
-
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err
@@ -58,7 +57,7 @@ func (c *command) run() error {
 	}
 
 	if len(kvList.Items) == 0 {
-		return fmt.Errorf("No KubeVirt resource in %q namespace", namespace)
+		return fmt.Errorf("no KubeVirt resource in %q namespace", namespace)
 	}
 
 	kv := kvList.Items[0]

@@ -9,6 +9,11 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+const (
+	bufSize        = 1024
+	escapeSequence = 29
+)
+
 // AttachConsole attaches stdin and stdout to the console
 // in -> stdinWriter | stdinReader -> console
 // out <- stdoutReader | stdoutWriter <- console
@@ -42,7 +47,7 @@ func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdout
 
 	go func() {
 		defer close(writeStop)
-		buf := make([]byte, 1024, 1024)
+		buf := make([]byte, bufSize)
 		for {
 			// reading from stdin
 			n, err := in.Read(buf)
@@ -54,8 +59,7 @@ func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdout
 				return
 			}
 
-			// the escape sequence
-			if buf[0] == 29 {
+			if buf[0] == escapeSequence {
 				return
 			}
 			// Writing out to the console connection

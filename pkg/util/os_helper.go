@@ -30,7 +30,7 @@ import (
 // CloseIOAndCheckErr closes the file and check the returned error.
 // If there was an error a log messages will be printed.
 // If a valid address (not nil) is passed in  err the function will also update the error
-// Note: to update the error the calling funtion need to use named returned variable (If called as defer function)
+// Note: to update the error the calling function need to use named returned variable (If called as defer function)
 func CloseIOAndCheckErr(c io.Closer, err *error) {
 	if ferr := c.Close(); ferr != nil {
 		log.DefaultLogger().Reason(ferr).Error("Error when closing file")

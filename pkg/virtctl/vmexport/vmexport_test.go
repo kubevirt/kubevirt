@@ -306,7 +306,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		// Create tests
-		It("VirtualMachineExport is created succesfully", func() {
+		It("VirtualMachineExport is created successfully", func() {
 			utils.HandleVMExportCreate(vmExportClient, nil)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"))
 			err := cmd()
@@ -314,7 +314,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		// Delete tests
-		It("VirtualMachineExport is deleted succesfully", func() {
+		It("VirtualMachineExport is deleted successfully", func() {
 			utils.HandleVMExportDelete(vmExportClient, vmexportName)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DELETE, vmexportName)
 			err := cmd()
@@ -329,7 +329,7 @@ var _ = Describe("vmexport", func() {
 		})
 
 		// Download tests
-		It("Succesfully download from an already existing VirtualMachineExport", func() {
+		It("Successfully download from an already existing VirtualMachineExport", func() {
 			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -345,7 +345,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Succesfully create and download a VirtualMachineExport", func() {
+		It("Successfully create and download a VirtualMachineExport", func() {
 			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -361,7 +361,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Succesfully create and download a VirtualMachineExport with raw format", func() {
+		It("Successfully create and download a VirtualMachineExport with raw format", func() {
 			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 				resp := http.Response{
 					StatusCode: http.StatusOK,
@@ -397,7 +397,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Succesfully download a VirtualMachineExport without decompressing is url is already raw", func() {
+		It("Successfully download a VirtualMachineExport without decompressing is url is already raw", func() {
 			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -413,7 +413,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Succesfully download a VirtualMachineExport with just 'raw' links", func() {
+		It("Successfully download a VirtualMachineExport with just 'raw' links", func() {
 			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
@@ -463,7 +463,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Succesfully create VirtualMachineExport with TTL", func() {
+		It("Successfully create VirtualMachineExport with TTL", func() {
 			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{

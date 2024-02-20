@@ -22,7 +22,7 @@ func NewVMExposeArgs(vm *v1.VirtualMachine, opts ...Option) []string {
 
 func NewExposeArgs(resource, namespace, name string, opts ...Option) []string {
 	vmiExposeArgs := []string{
-		expose.COMMAND_EXPOSE,
+		expose.CommandExpose,
 		resource, "--namespace", namespace, name,
 	}
 

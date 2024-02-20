@@ -204,7 +204,6 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, _ dhcp.
 	}
 
 	switch msgType {
-
 	case dhcp.Discover:
 		log.Log.V(4).Info("The request has message type DISCOVER")
 		return dhcp.ReplyPacket(p, dhcp.Offer, h.serverIP, h.clientIP, h.leaseDuration,
@@ -218,7 +217,6 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, _ dhcp.
 	default:
 		log.Log.V(4).Info("The request has unhandled message type")
 		return nil // Ignored message type
-
 	}
 }
 
@@ -234,9 +232,7 @@ func sortRoutes(routes []netlink.Route) []netlink.Route {
 		}
 		sortedRoutes = append(sortedRoutes, route)
 	}
-	for _, defaultRoute := range defaultRoutes {
-		sortedRoutes = append(sortedRoutes, defaultRoute)
-	}
+	sortedRoutes = append(sortedRoutes, defaultRoutes...)
 
 	return sortedRoutes
 }

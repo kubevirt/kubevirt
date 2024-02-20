@@ -119,7 +119,7 @@ func readDisk(filePath string) (*Disk, error) {
 			return nil, fmt.Errorf("Invalid metrics file. Expected a maximum body length of %v, got %v", maxBodyLength, d.Header.Length)
 		}
 
-		d.Raw = make([]byte, d.Header.Length, d.Header.Length)
+		d.Raw = make([]byte, d.Header.Length)
 
 		if _, err = io.ReadFull(f, d.Raw); err != nil {
 			return nil, err

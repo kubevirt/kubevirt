@@ -78,7 +78,6 @@ type MetricClient struct {
 }
 
 func NewMetricClient(cfg *audit_api.InputConfig) (*MetricClient, error) {
-
 	url := cfg.PrometheusURL
 	token := cfg.PrometheusBearerToken
 	userName := cfg.PrometheusUserName
@@ -142,7 +141,7 @@ func calculateRangeVector(scrapeInterval time.Duration, testDuration time.Durati
 	// We're going to use a range vector that's 10x as long as the scrape interval.
 	// E.g. 30s scrapeInterval means [5m] range vector.  This will give the most
 	// reasonable results from interpolation.
-	rv = time.Duration(10 * scrapeInterval)
+	rv = 10 * scrapeInterval
 
 	// When the range vector is shorter than the testDuration, use the testDuration
 	// for the range vector to improve test accuracy.
@@ -160,7 +159,7 @@ func calculateRangeVector(scrapeInterval time.Duration, testDuration time.Durati
 		wt, err := time.ParseDuration(fmt.Sprintf("%vs", waitTime))
 		if err != nil {
 			// Sleep for the default range vector if we have a problem
-			time.Sleep(time.Duration(360 * time.Second))
+			time.Sleep(360 * time.Second)
 		}
 		time.Sleep(wt)
 	}
@@ -272,7 +271,6 @@ func (m *MetricClient) getTimePercentilesFromQuery(r *audit_api.Result, rangeVec
 				Value: results[0].value,
 			}
 		}
-
 	}
 	return nil
 }
@@ -392,7 +390,6 @@ func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
 }
 
 func (m *MetricClient) calculateThresholds(r *audit_api.Result) error {
-
 	inputCfg := m.cfg
 
 	if len(inputCfg.ThresholdExpectations) == 0 {
@@ -425,7 +422,6 @@ func (m *MetricClient) calculateThresholds(r *audit_api.Result) error {
 			}
 			result.ThresholdResult = &thresholdResult
 			r.Values[key] = result
-
 		} else {
 			if result.Value > v.Value {
 				thresholdResult.ThresholdExceeded = true

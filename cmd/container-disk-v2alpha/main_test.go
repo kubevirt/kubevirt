@@ -16,8 +16,10 @@ import (
 var containerDiskBinary string
 
 func init() {
-	flag.StringVar(&containerDiskBinary, "container-disk-binary", "_out/cmd/container-disk-v2alpha/container-disk", "path to container disk binary")
-
+	flag.StringVar(&containerDiskBinary,
+		"container-disk-binary",
+		"_out/cmd/container-disk-v2alpha/container-disk",
+		"path to container disk binary")
 }
 
 var _ = Describe("the containerDisk binary", func() {

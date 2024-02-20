@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -241,7 +241,7 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 	}
 
 	if blockVolume {
-		volMode := v1.PersistentVolumeBlock
+		volMode := k8sv1.PersistentVolumeBlock
 		pvc.Spec.VolumeMode = &volMode
 	}
 

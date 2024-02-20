@@ -287,7 +287,7 @@ func validateInstancetypeMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
 	if vm.Spec.Instancetype.Name == "" && vm.Spec.Instancetype.InferFromVolume == "" {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Either Name or InferFromVolume should be provided within the InstancetypeMatcher"),
+			Message: "Either Name or InferFromVolume should be provided within the InstancetypeMatcher",
 			Field:   k8sfield.NewPath("spec", "instancetype").String(),
 		})
 	}
@@ -295,14 +295,14 @@ func validateInstancetypeMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
 		if vm.Spec.Instancetype.Name != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Name should not be provided when InferFromVolume is used within the InstancetypeMatcher"),
+				Message: "Name should not be provided when InferFromVolume is used within the InstancetypeMatcher",
 				Field:   k8sfield.NewPath("spec", "instancetype", "name").String(),
 			})
 		}
 		if vm.Spec.Instancetype.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Kind should not be provided when InferFromVolume is used within the InstancetypeMatcher"),
+				Message: "Kind should not be provided when InferFromVolume is used within the InstancetypeMatcher",
 				Field:   k8sfield.NewPath("spec", "instancetype", "kind").String(),
 			})
 		}
@@ -329,7 +329,7 @@ func validatePreferenceMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
 	if vm.Spec.Preference.Name == "" && vm.Spec.Preference.InferFromVolume == "" {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Either Name or InferFromVolume should be provided within the PreferenceMatcher"),
+			Message: "Either Name or InferFromVolume should be provided within the PreferenceMatcher",
 			Field:   k8sfield.NewPath("spec", "preference").String(),
 		})
 	}
@@ -337,14 +337,14 @@ func validatePreferenceMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
 		if vm.Spec.Preference.Name != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Name should not be provided when InferFromVolume is used within the PreferenceMatcher"),
+				Message: "Name should not be provided when InferFromVolume is used within the PreferenceMatcher",
 				Field:   k8sfield.NewPath("spec", "preference", "name").String(),
 			})
 		}
 		if vm.Spec.Preference.Kind != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Kind should not be provided when InferFromVolume is used within the PreferenceMatcher"),
+				Message: "Kind should not be provided when InferFromVolume is used within the PreferenceMatcher",
 				Field:   k8sfield.NewPath("spec", "preference", "kind").String(),
 			})
 		}

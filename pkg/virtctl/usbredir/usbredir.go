@@ -97,7 +97,7 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 		})
 	}()
 
-	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("localhost:0"))
+	lnAddr, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
 		return fmt.Errorf("Can't resolve the address: %s", err.Error())
 	}
@@ -152,10 +152,10 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 
 		bin := usbredirClient
 		args := []string{}
-		port_arg := fmt.Sprintf("localhost:%v", port)
-		args = append(args, "--device", usbdeviceArg, "--to", port_arg)
+		portArg := fmt.Sprintf("localhost:%v", port)
+		args = append(args, "--device", usbdeviceArg, "--to", portArg)
 
-		log.Log.Infof("port_arg: '%s'", port_arg)
+		log.Log.Infof("portArg: '%s'", portArg)
 		log.Log.Infof("args: '%v'", args)
 		log.Log.Infof("Executing commandline: '%s %v'", bin, args)
 

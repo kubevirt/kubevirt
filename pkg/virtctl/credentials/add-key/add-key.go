@@ -19,6 +19,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
+const (
+	SshKey = "ssh-key"
+)
+
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmdFlags := &addSshKeyFlags{}
 	cmd := &cobra.Command{
@@ -168,7 +172,7 @@ func updateSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdF
 		}
 	}
 
-	addKeyPatch := common.AddKeyToSecretPatchOp(common.RandomWithPrefix("ssh-key-"), []byte(sshKey))
+	addKeyPatch := common.AddKeyToSecretPatchOp(common.RandomWithPrefix(SshKey+"-", 6), []byte(sshKey))
 
 	// First, try patch to add a new key
 	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(), secretName, types.JSONPatchType, common.MustMarshalPatch(addKeyPatch), metav1.PatchOptions{})
@@ -212,7 +216,7 @@ func newSecretWithKey(vm *v1.VirtualMachine, sshKey string) *core.Secret {
 			}},
 		},
 		Data: map[string][]byte{
-			common.RandomWithPrefix("ssh-key-"): []byte(sshKey),
+			common.RandomWithPrefix("ssh-key-", 6): []byte(sshKey),
 		},
 	}
 }

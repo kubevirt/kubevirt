@@ -9,8 +9,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
+const (
+	Day  = time.Hour * 24
+	Week = Day * 7
+)
+
 func GenerateSelfSignedCert(certsDirectory string, name string, namespace string) (certificate.FileStore, error) {
-	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
+	caKeyPair, _ := triple.NewCA("kubevirt.io", Week)
 	keyPair, _ := triple.NewServerKeyPair(
 		caKeyPair,
 		name+"."+namespace+".pod.cluster.local",
@@ -19,7 +24,7 @@ func GenerateSelfSignedCert(certsDirectory string, name string, namespace string
 		"cluster.local",
 		nil,
 		nil,
-		time.Hour*24,
+		Day,
 	)
 
 	store, err := certificate.NewFileStore(name, certsDirectory, certsDirectory, "", "")

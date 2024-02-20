@@ -113,7 +113,7 @@ func (b *BurstJob) DeleteWorkloads() {
 	log.Log.V(2).Infof("Deleting %d objects for job %s", b.Workload.Count, jobUUID)
 	objUtil.DeleteNObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadUUIDLabel, jobUUID), b.Workload.Count)
 
-	// Wait all objects be Deleted. In the case of VMI, deleted means the succeded phase.
+	// Wait all objects be Deleted. In the case of VMI, deleted means the succeeded phase.
 	for objType, objWatcher := range b.watchers {
 		log.Log.Infof("Wait for obj(s) %s to be deleted", objType)
 		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
@@ -137,7 +137,6 @@ func (b *BurstJob) createWatcherIfNotExist(obj *unstructured.Unstructured) {
 
 func (b *BurstJob) Wait() {
 	log.Log.V(1).Infof("Burst Load Generator Wait")
-	return
 }
 
 func (b *BurstJob) stopAllWatchers() {

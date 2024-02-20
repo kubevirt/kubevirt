@@ -174,7 +174,7 @@ func ReadInputFile(filePath string) (*InputConfig, error) {
 	}
 
 	if cfg.PrometheusScrapeInterval.Seconds() <= 0 {
-		cfg.PrometheusScrapeInterval = time.Duration(30 * time.Second)
+		cfg.PrometheusScrapeInterval = 30 * time.Second
 	}
 
 	if cfg.EndTime == nil {

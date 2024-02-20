@@ -236,7 +236,7 @@ func parseArgs(args []string) error {
 		}
 	}
 	if volumeMode != "block" && volumeMode != "filesystem" && volumeMode != "" {
-		return fmt.Errorf("Invalid volume mode '%s'. Valid values are 'block' and 'filesystem'.", volumeMode)
+		return fmt.Errorf("invalid volume mode '%s'. Valid values are 'block' and 'filesystem'", volumeMode)
 	}
 
 	archiveUpload = false
@@ -248,7 +248,7 @@ func parseArgs(args []string) error {
 		archiveUpload = true
 		imagePath = archivePath
 		if volumeMode == "block" {
-			return fmt.Errorf("In archive upload the volume mode should always be filesystem")
+			return fmt.Errorf("in archive upload the volume mode should always be filesystem")
 		}
 	}
 

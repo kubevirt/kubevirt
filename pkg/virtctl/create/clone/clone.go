@@ -21,11 +21,11 @@ package clone
 
 import (
 	"fmt"
+	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"strings"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/clientcmd"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -246,7 +246,7 @@ func (c *createClone) run(cmd *cobra.Command) error {
 	}
 
 	if clone.Name == "" {
-		clone.Name = "clone-" + rand.String(5)
+		clone.Name = common.RandomWithPrefix(Clone+"-", 5)
 	}
 
 	cloneBytes, err := yaml.Marshal(clone)
@@ -308,7 +308,7 @@ func (c *createClone) setDefaults() error {
 	}
 
 	if c.name == "" {
-		c.name = "clone-" + rand.String(5)
+		c.name = common.RandomWithPrefix(Clone+"-", 5)
 	}
 
 	const defaultType = "vm"

@@ -16,8 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v12 "kubevirt.io/api/core/v1"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -25,7 +23,7 @@ import (
 )
 
 const (
-	COMMAND_EXPOSE = "expose"
+	CommandExpose = "expose"
 )
 
 type Command struct {
@@ -62,7 +60,7 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 		Example: usage(),
 		Args:    templates.ExactArgs("expose", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_EXPOSE, clientConfig: clientConfig}
+			c := Command{command: CommandExpose, clientConfig: clientConfig}
 			return c.RunE(args)
 		},
 	}
@@ -316,7 +314,7 @@ func convertIPFamilyPolicy(strIPFamilyPolicy string, ipFamilies []v1.IPFamily) (
 	}
 }
 
-func podNetworkPorts(vmiSpec *v12.VirtualMachineInstanceSpec) []v1.ServicePort {
+func podNetworkPorts(vmiSpec *virtv1.VirtualMachineInstanceSpec) []v1.ServicePort {
 	podNetworkName := ""
 	for _, network := range vmiSpec.Networks {
 		if network.Pod != nil {
