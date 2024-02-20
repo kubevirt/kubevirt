@@ -16,22 +16,22 @@
  *
  */
 
-package watch
+package network_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
-
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("Network interface hot{un}plug", func() {
@@ -49,7 +49,7 @@ var _ = Describe("Network interface hot{un}plug", func() {
 	DescribeTable("calculate if changes are required",
 
 		func(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, expIfaces []v1.Interface, expNets []v1.Network, expToChange bool) {
-			ifaces, nets, exists := calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi)
+			ifaces, nets, exists := network.CalculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi)
 			Expect(ifaces).To(Equal(expIfaces))
 			Expect(nets).To(Equal(expNets))
 			Expect(exists).To(Equal(expToChange))
@@ -160,8 +160,8 @@ var _ = Describe("Network interface hot{un}plug", func() {
 	)
 	DescribeTable("apply dynamic interface request on VMI",
 		func(vmiForVM, currentVMI, expectedVMI *v1.VirtualMachineInstance, hasOrdinalIfaces bool) {
-			vm := VirtualMachineFromVMI(currentVMI.Name, vmiForVM, true)
-			updatedVMI := applyDynamicIfaceRequestOnVMI(vm, currentVMI, hasOrdinalIfaces)
+			vm := virtualMachineFromVMI(currentVMI.Name, vmiForVM)
+			updatedVMI := network.ApplyDynamicIfaceRequestOnVMI(vm, currentVMI, hasOrdinalIfaces)
 			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
 			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
 		},
@@ -275,7 +275,7 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			testStatusIfaces := vmispec.IndexInterfaceStatusByName(statusIfaces,
 				func(i v1.VirtualMachineInstanceNetworkInterface) bool { return true })
 
-			ifaces, networks := clearDetachedInterfaces(specIfaces, testNetworks, testStatusIfaces)
+			ifaces, networks := network.ClearDetachedInterfaces(specIfaces, testNetworks, testStatusIfaces)
 
 			Expect(ifaces).To(Equal(expectedInterfaces))
 			Expect(networks).To(Equal(expectedNetworks))
@@ -333,4 +333,22 @@ func withInterfaceStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) 
 			vmi.Status.Interfaces, ifaceStatus,
 		)
 	}
+}
+
+func virtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance) *v1.VirtualMachine {
+	started := true
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: "vm-uid"},
+		Spec: v1.VirtualMachineSpec{
+			Running: &started,
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   vmi.ObjectMeta.Name,
+					Labels: vmi.ObjectMeta.Labels,
+				},
+				Spec: vmi.Spec,
+			},
+		},
+	}
+	return vm
 }

@@ -30,9 +30,9 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
@@ -3004,18 +3004,18 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
 				func(ifaceStatus virtv1.VirtualMachineInstanceNetworkInterface) bool { return true })
 
-			ifaces, networks := clearDetachedInterfaces(vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces, vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces)
+			ifaces, networks := network.ClearDetachedInterfaces(vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces, vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces)
 			vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
 			vmCopy.Spec.Template.Spec.Networks = networks
 
-			ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+			ifaces, networks = network.ClearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
 			vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 			vmiCopy.Spec.Networks = networks
 
 			if hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi); err != nil {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}
 			} else {
-				updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
+				updatedVmiSpec := network.ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
 				vmiCopy.Spec = *updatedVmiSpec
 			}
 
@@ -3133,7 +3133,7 @@ func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineIns
 		log.Log.Object(vmi).Reason(err).Error("Failed to find VMI pod in cache.")
 		return false, err
 	}
-	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(services.NonDefaultMultusNetworksIndexedByIfaceName(pod))
+	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod))
 	return hasOrdinalIfaces, nil
 }
 

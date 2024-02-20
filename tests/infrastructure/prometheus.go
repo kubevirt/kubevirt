@@ -348,7 +348,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		if netutils.IsIPv6String(ip) {
 			Skip("Skip testing with IPv6 until https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
@@ -395,7 +395,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		By("Scraping the Prometheus endpoint")
 		Eventually(func() string {
@@ -411,7 +411,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		metrics := collectMetrics(ip, metricSubstring)
 		By("Checking the collected metrics")
@@ -450,7 +450,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		metrics := collectMetrics(ip, metricSubstring)
 		By("Checking the collected metrics")
@@ -477,7 +477,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		metrics := collectMetrics(ip, "kubevirt_vmi_")
 		By("Checking the collected metrics")
@@ -514,7 +514,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		metrics := collectMetrics(ip, "kubevirt_vmi_")
 		By("Checking the collected metrics")
@@ -533,7 +533,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(controllerMetricIPs, family)
+		ip := libnet.GetIP(controllerMetricIPs, family)
 
 		metrics := collectMetrics(ip, "kubevirt_vmi_non_evictable")
 		By("Checking the collected metrics")
@@ -552,7 +552,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
 		// be enough to its metrics to contain a kubernetes label
@@ -575,7 +575,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libinfra.GetSupportedIP(handlerMetricIPs, family)
+		ip := libnet.GetIP(handlerMetricIPs, family)
 
 		metrics := collectMetrics(ip, "kubevirt_vmi_memory_swap_")
 		var in, out bool

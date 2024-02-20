@@ -17,7 +17,7 @@
  *
  */
 
-package services
+package network
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -125,7 +125,7 @@ var _ = Describe("Multus annotations", func() {
 
 				Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)).To(MatchJSON(
 					`[
-						{"name": "test-binding-net","namespace": "default", "cni-args": {"logicNetworkName": "default"}},						
+						{"name": "test-binding-net","namespace": "default", "cni-args": {"logicNetworkName": "default"}},
 						{"name": "test1","namespace": "default","interface": "pod16477688c0e"},
 						{"name": "test1","namespace": "other-namespace","interface": "podb1f51a511f1"}
 					]`,
