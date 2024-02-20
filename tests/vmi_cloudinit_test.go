@@ -287,9 +287,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			}
 
 			It("[test_id:1617] with cloudInitNoCloud userData source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					userData)
+				vmi := libvmi.NewCirros(
+					libvmi.WithCloudInitNoCloudUserData(userData),
+				)
+
 				runTest(vmi, cloudinit.DataSourceNoCloud)
 			})
 			It("[test_id:3180] with cloudInitConfigDrive userData source", func() {
