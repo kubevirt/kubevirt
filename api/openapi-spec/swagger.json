@@ -19322,6 +19322,28 @@
      }
     }
    },
+   "v1.StorageMigratedVolumeInfo": {
+    "description": "StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration",
+    "type": "object",
+    "required": [
+     "volumeName"
+    ],
+    "properties": {
+     "destinationPVCInfo": {
+      "description": "DestinationPVCInfo contains the information about the destination PVC",
+      "$ref": "#/definitions/v1.PersistentVolumeClaimInfo"
+     },
+     "sourcePVCInfo": {
+      "description": "SourcePVCInfo contains the information about the source PVC",
+      "$ref": "#/definitions/v1.PersistentVolumeClaimInfo"
+     },
+     "volumeName": {
+      "description": "VolumeName is the name of the volume that is being migrated",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.SupportContainerResources": {
     "description": "SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.",
     "type": "object",
@@ -20708,6 +20730,15 @@
      "memory": {
       "description": "Memory shows various informations about the VirtualMachine memory.",
       "$ref": "#/definitions/v1.MemoryStatus"
+     },
+     "migratedVolumes": {
+      "description": "MigratedVolumes lists the source and destination volumes during the volume migration",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.StorageMigratedVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "migrationMethod": {
       "description": "Represents the method using which the vmi can be migrated: live migration or block migration",
