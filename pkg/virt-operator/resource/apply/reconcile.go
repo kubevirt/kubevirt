@@ -372,6 +372,9 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 			// apiserver is active
 			continue
 		}
+		if strings.Contains(crd.Name, "shadownodes") {
+			continue
+		}
 		path := fmt.Sprintf("/fake-path/%s", crd.Name)
 		webhooks = append(webhooks, admissionregistrationv1.ValidatingWebhook{
 			Name:                    fmt.Sprintf("%s-tmp-validator", crd.Name),
