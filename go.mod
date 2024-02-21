@@ -27,7 +27,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/imdario/mergo v0.3.16
 	github.com/insomniacslk/dhcp v0.0.0-20230908212754-65c27093e38a
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.6.0
 	github.com/kisielk/errcheck v1.6.2
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
@@ -65,13 +65,13 @@ require (
 	golang.org/x/tools v0.16.1
 	google.golang.org/grpc v1.56.3
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
-	k8s.io/api v0.28.1
+	k8s.io/api v0.29.0
 	k8s.io/apiextensions-apiserver v0.28.1
-	k8s.io/apimachinery v0.28.1
+	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/klog/v2 v2.100.1
+	k8s.io/klog/v2 v2.110.1
 	k8s.io/kube-aggregator v0.26.4
-	k8s.io/kube-openapi v0.0.0-20230905202853-d090da108d2f
+	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
@@ -157,7 +157,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
 require (
