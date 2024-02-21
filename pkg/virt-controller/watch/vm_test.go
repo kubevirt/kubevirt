@@ -212,13 +212,23 @@ var _ = Describe("VirtualMachine", func() {
 		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).DoAndReturn(
+				func(_, _, _, _, _ any, _ ...any) (*virtv1.VirtualMachine, error) {
+					vm := vm.DeepCopy()
+					vm.Finalizers = append(vm.Finalizers, virtv1.VirtualMachineControllerFinalizer)
+					return vm, nil
+				})
 		}
 
 		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).DoAndReturn(
+				func(_, _, _, _, _ any, _ ...any) (*virtv1.VirtualMachine, error) {
+					vm := vm.DeepCopy()
+					vm.Finalizers = []string{}
+					return vm, nil
+				})
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -460,9 +470,10 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
-			}).Return(vm, nil)
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+				return vm, nil
+			})
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change
@@ -509,9 +520,10 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-			}).Return(vm, nil)
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+				return vm, nil
+			})
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change occured
@@ -2708,9 +2720,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIVolumesAddPatched(vmi)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-				}).Return(vm, nil)
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(
+					func(_ any, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+						Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
+						return vm, nil
+					})
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 				sanityExecute(vm)
@@ -2923,10 +2937,13 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-				}).Return(vm, nil)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					return vm, nil
+				})
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).DoAndReturn(func(_ any, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					return vm, nil
+				})
 
 				sanityExecute(vm)
 			})
