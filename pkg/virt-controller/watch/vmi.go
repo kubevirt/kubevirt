@@ -1097,8 +1097,14 @@ func isPodReady(pod *k8sv1.Pod) bool {
 			return false
 		}
 	}
-
-	return pod.Status.Phase == k8sv1.PodRunning
+	podReadyConditionIsTrue := false
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == k8sv1.PodReady && condition.Status == k8sv1.ConditionTrue {
+			podReadyConditionIsTrue = true
+			break
+		}
+	}
+	return pod.Status.Phase == k8sv1.PodRunning && podReadyConditionIsTrue
 }
 
 func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
