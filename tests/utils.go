@@ -295,21 +295,6 @@ func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error
 	return strings.TrimSpace(output), err
 }
 
-func GetKvmPitMask(qemupid, nodeName string) (output string, err error) {
-	kvmpitcomm := "kvm-pit/" + qemupid
-	args := []string{"pgrep", "-f", kvmpitcomm}
-	output, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
-	Expect(err).ToNot(HaveOccurred())
-
-	kvmpitpid := strings.TrimSpace(output)
-	tasksetcmd := "taskset -c -p " + kvmpitpid + " | cut -f2 -d:"
-	args = []string{BinBash, "-c", tasksetcmd}
-	output, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
-	Expect(err).ToNot(HaveOccurred())
-
-	return strings.TrimSpace(output), err
-}
-
 func ListCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
 	virtClient := kubevirt.Client()
 
@@ -756,14 +741,6 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 		RunAsNonRoot: pointer.P(false),
 	}
 
-	RunPodAndExpectCompletion(pod)
-}
-
-func RenameImgFile(pvc *k8sv1.PersistentVolumeClaim, newName string) {
-	args := []string{fmt.Sprintf("mv %s %s && ls -al %s", filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, newName), libstorage.DefaultPvcMountPath)}
-
-	By("renaming disk.img")
-	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
 	RunPodAndExpectCompletion(pod)
 }
 

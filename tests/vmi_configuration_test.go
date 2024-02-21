@@ -2748,7 +2748,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				if err != nil {
 					return
 				}
-				kvmpitmask, err := tests.GetKvmPitMask(strings.TrimSpace(qemuPid), node)
+				kvmpitmask, err := getKvmPitMask(strings.TrimSpace(qemuPid), node)
 				Expect(err).ToNot(HaveOccurred())
 
 				vcpuzeromask, err := tests.GetVcpuMask(readyPod, emulator, "0")
@@ -3393,4 +3393,19 @@ func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume
 	)
 
 	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+}
+
+func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
+	kvmpitcomm := "kvm-pit/" + qemupid
+	args := []string{"pgrep", "-f", kvmpitcomm}
+	output, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	Expect(err).ToNot(HaveOccurred())
+
+	kvmpitpid := strings.TrimSpace(output)
+	tasksetcmd := "taskset -c -p " + kvmpitpid + " | cut -f2 -d:"
+	args = []string{tests.BinBash, "-c", tasksetcmd}
+	output, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	Expect(err).ToNot(HaveOccurred())
+
+	return strings.TrimSpace(output), err
 }
