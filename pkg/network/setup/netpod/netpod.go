@@ -506,7 +506,7 @@ func hasIP4GlobalUnicast(iface nmstate.Interface) bool {
 }
 
 func hasIP6GlobalUnicast(iface nmstate.Interface) bool {
-	return hasIPGlobalUnicast(iface.IPv4)
+	return hasIPGlobalUnicast(iface.IPv6)
 }
 
 func hasIPGlobalUnicast(ip nmstate.IP) bool {
