@@ -3013,6 +3013,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmi.Status.Phase = virtv1.Running
 					vmiFeeder.Add(vmi)
 				}
+				vmiInterface.EXPECT().Create(gomock.Any(), gomock.Any()).AnyTimes()
 
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
