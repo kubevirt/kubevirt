@@ -26,6 +26,7 @@ import (
 	"encoding/pem"
 	goerrors "errors"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +53,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	routev1 "github.com/openshift/api/route/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -315,7 +315,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(md5sum).To(HaveLen(32))
 
 		err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: pointer.Int64(0),
+			GracePeriodSeconds: ptr.To(int64(0)),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		return pvc, md5sum
@@ -638,7 +638,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: pointer.String(token.Name),
+				TokenSecretRef: ptr.To(token.Name),
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachineSnapshot",
@@ -1001,7 +1001,7 @@ var _ = SIGDescribe("Export", func() {
 					Namespace: flags.KubeVirtInstallNamespace,
 				},
 				Spec: networkingv1.IngressSpec{
-					IngressClassName: pointer.String("ingress-class-name"),
+					IngressClassName: ptr.To("ingress-class-name"),
 					DefaultBackend: &networkingv1.IngressBackend{
 						Service: &networkingv1.IngressServiceBackend{
 							Name: "virt-exportproxy",
@@ -1167,7 +1167,7 @@ var _ = SIGDescribe("Export", func() {
 			if err != nil {
 				return err
 			}
-			vm.Spec.Running = pointer.Bool(false)
+			vm.Spec.Running = ptr.To(false)
 			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm)
 			return err
 		}, 15*time.Second, time.Second).Should(BeNil())
@@ -1185,7 +1185,7 @@ var _ = SIGDescribe("Export", func() {
 		Eventually(func() error {
 			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.Running = ptr.To(true)
 			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm)
 			return err
 		}, 15*time.Second, time.Second).Should(Succeed())
@@ -1440,7 +1440,7 @@ var _ = SIGDescribe("Export", func() {
 			testsuite.GetTestNamespace(nil),
 			sc,
 			k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = ptr.To(true)
 		vm = createVM(vm)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
@@ -1768,7 +1768,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when Filesystem storage is not present")
 		}
 		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = ptr.To(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
@@ -1803,7 +1803,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = ptr.To(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
@@ -1871,7 +1871,7 @@ var _ = SIGDescribe("Export", func() {
 		tests.AddUserData(vmi, "cloud-init", bashHelloScript)
 		vm := libvmi.NewVirtualMachine(vmi)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = ptr.To(true)
 		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 			Name: clusterInstancetype.Name,
 		}
@@ -1935,13 +1935,13 @@ var _ = SIGDescribe("Export", func() {
 		err = yaml.Unmarshal([]byte(split[2]), diskDV)
 		Expect(err).ToNot(HaveOccurred())
 		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
-		diskDV.Spec.PVC.StorageClassName = pointer.String(sc)
+		diskDV.Spec.PVC.StorageClassName = ptr.To(sc)
 		Expect(diskDV.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
 		blankDv = &cdiv1.DataVolume{}
 		err = yaml.Unmarshal([]byte(split[3]), blankDv)
 		Expect(err).ToNot(HaveOccurred())
 		blankDv.Name = fmt.Sprintf("%s-clone", blankDv.Name)
-		blankDv.Spec.PVC.StorageClassName = pointer.String(sc)
+		blankDv.Spec.PVC.StorageClassName = ptr.To(sc)
 		Expect(blankDv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
 
 		By("Getting token secret header")
@@ -2171,7 +2171,7 @@ var _ = SIGDescribe("Export", func() {
 				testsuite.GetTestNamespace(nil),
 				sc,
 				k8sv1.ReadWriteOnce)
-			vm.Spec.Running = pointer.Bool(true)
+			vm.Spec.Running = ptr.To(true)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
@@ -2340,7 +2340,7 @@ var _ = SIGDescribe("Export", func() {
 					testsuite.GetTestNamespace(nil),
 					sc,
 					k8sv1.ReadWriteOnce)
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.Running = ptr.To(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
@@ -2485,7 +2485,7 @@ var _ = SIGDescribe("Export", func() {
 					testsuite.GetTestNamespace(nil),
 					sc,
 					k8sv1.ReadWriteOnce)
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.Running = ptr.To(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})

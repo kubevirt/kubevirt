@@ -20,6 +20,7 @@ package grpc
 
 import (
 	"context"
+	"google.golang.org/grpc/credentials/insecure"
 	"net"
 	"os"
 	"path/filepath"
@@ -44,22 +45,21 @@ func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, er
 
 	options := []grpc.DialOption{
 		grpc.WithAuthority("localhost"),
-		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", addr)
 		}),
 		grpc.WithBlock(), // dial sync in order to catch errors early
 	}
 
+	ctxTimeout := time.Duration(timeout+CONNECT_TIMEOUT_SECONDS) * time.Second
 	if timeout > 0 {
-		options = append(options,
-			grpc.WithTimeout(time.Duration(timeout+CONNECT_TIMEOUT_SECONDS)*time.Second),
-		)
+		ctxTimeout = time.Duration(timeout) * time.Second
 	}
 
 	// Combined with the Block option, this context controls how long to wait for establishing the connection.
 	// The dial timeout used above, controls the overall duration of the connection (including RCP calls).
-	ctx, cancel := context.WithTimeout(context.Background(), CONNECT_TIMEOUT_SECONDS*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
 	defer cancel()
 
 	return grpc.DialContext(ctx, socketPath, options...)

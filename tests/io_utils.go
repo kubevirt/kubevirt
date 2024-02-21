@@ -21,6 +21,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"path/filepath"
 	"strings"
 	"time"
@@ -34,8 +35,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -161,8 +160,8 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 					Image:   image,
 					Command: cmd,
 					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: pointer.BoolPtr(true),
-						RunAsUser:  pointer.Int64Ptr(0),
+						Privileged: ptr.To(true),
+						RunAsUser:  ptr.To(int64(0)),
 					},
 				},
 			},

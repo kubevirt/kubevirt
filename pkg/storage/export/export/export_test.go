@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -44,11 +46,8 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
-
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	framework "k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
@@ -534,7 +533,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Status: &snapshotv1.VirtualMachineSnapshotStatus{
-				ReadyToUse: pointer.BoolPtr(false),
+				ReadyToUse: ptr.To(false),
 			},
 		}
 		syncCaches(stop)
@@ -590,7 +589,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: ptr.To(true),
 					},
 				},
 			},
@@ -627,7 +626,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: ptr.To(true),
 					},
 				},
 			},
@@ -830,7 +829,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.StringPtr(string(k8sv1.PersistentVolumeBlock))),
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(ptr.To(string(k8sv1.PersistentVolumeBlock))),
 			},
 		}
 		testVMExport := populateExportFunc()
@@ -1495,7 +1494,7 @@ func createPVCVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "PersistentVolumeClaim",
 				Name:     testPVCName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: ptr.To("token"),
 		},
 	}
 }
@@ -1530,7 +1529,7 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachineSnapshot",
 				Name:     testVmsnapshotName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: ptr.To("token"),
 		},
 	}
 }
@@ -1549,7 +1548,7 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachine",
 				Name:     testVmName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: ptr.To("token"),
 		},
 	}
 }

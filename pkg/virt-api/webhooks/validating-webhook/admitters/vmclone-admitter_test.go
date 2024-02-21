@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,8 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
-
 	"kubevirt.io/api/clone"
 	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/api/core"
@@ -175,7 +174,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 					Namespace: util.NamespaceTestDefault,
 				},
 				Status: &v1alpha1.VirtualMachineSnapshotStatus{
-					VirtualMachineSnapshotContentName: pointer.String("snapshot-contents"),
+					VirtualMachineSnapshotContentName: ptr.To("snapshot-contents"),
 				},
 			}
 			return true, snapshot, nil
@@ -190,7 +189,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 			contents := &v1alpha1.VirtualMachineSnapshotContent{
 				Spec: v1alpha1.VirtualMachineSnapshotContentSpec{
-					VirtualMachineSnapshotName: pointer.String("test-vm"),
+					VirtualMachineSnapshotName: ptr.To("test-vm"),
 					Source: v1alpha1.SourceSpec{
 						VirtualMachine: &v1alpha1.VirtualMachine{
 							Spec: vm.Spec,
@@ -234,7 +233,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		}),
 		Entry("Source with empty APIGroup", func() *k8sv1.TypedLocalObjectReference {
 			source := newValidObjReference()
-			source.APIGroup = pointer.String("")
+			source.APIGroup = ptr.To("")
 			return source
 		}),
 		Entry("Source with bad kind", func() *k8sv1.TypedLocalObjectReference {
@@ -335,7 +334,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				contents := &v1alpha1.VirtualMachineSnapshotContent{
 					Spec: v1alpha1.VirtualMachineSnapshotContentSpec{
-						VirtualMachineSnapshotName: pointer.String("test-vm"),
+						VirtualMachineSnapshotName: ptr.To("test-vm"),
 						Source: v1alpha1.SourceSpec{
 							VirtualMachine: &v1alpha1.VirtualMachine{
 								Spec: vm.Spec,
@@ -443,7 +442,7 @@ func newValidClone() *clonev1lpha1.VirtualMachineClone {
 
 func newValidObjReference() *k8sv1.TypedLocalObjectReference {
 	return &k8sv1.TypedLocalObjectReference{
-		APIGroup: pointer.String(core.GroupName),
+		APIGroup: ptr.To(core.GroupName),
 		Kind:     virtualMachineKind,
 		Name:     "clone-source-vm",
 	}

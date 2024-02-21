@@ -24,11 +24,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/client-go/util/keyutil"
 	"net"
 	"os"
 	"time"
-
-	"k8s.io/client-go/util/keyutil"
 
 	"github.com/mdlayher/vsock"
 	"github.com/spf13/pflag"
@@ -147,7 +147,7 @@ func SetupTLSForVirtHandlerServer(cert *tls.Certificate) *tls.Config {
 			dialOpt := grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
 				return vsock.Dial(vsock.Host, 1, &vsock.Config{})
 			})
-			conn, err := grpc.Dial("something", dialOpt, grpc.WithInsecure())
+			conn, err := grpc.Dial("something", dialOpt, grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				return nil, fmt.Errorf("failed to connect to the system service: %v", err)
 			}

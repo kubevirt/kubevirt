@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -34,8 +35,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -72,7 +71,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			)
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = ptr.To(true)
 
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
@@ -97,7 +96,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = ptr.To(true)
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 
@@ -138,7 +137,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			vmi := libvmi.NewCirros()
 
 			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = ptr.To(true)
 
 			By("Creating and starting the VMI")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)

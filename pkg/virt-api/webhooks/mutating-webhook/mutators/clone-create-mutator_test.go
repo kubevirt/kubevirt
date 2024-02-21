@@ -2,6 +2,7 @@ package mutators
 
 import (
 	"encoding/json"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
@@ -13,8 +14,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
-
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -27,7 +26,7 @@ var _ = Describe("Clone mutating webhook", func() {
 	BeforeEach(func() {
 		vmClone = kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
 		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(clone.GroupName),
+			APIGroup: ptr.To(clone.GroupName),
 			Kind:     "VirtualMachine",
 			Name:     "test-source-vm",
 		}
@@ -41,7 +40,7 @@ var _ = Describe("Clone mutating webhook", func() {
 
 	It("Target name should be auto generated if missing", func() {
 		vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(clone.GroupName),
+			APIGroup: ptr.To(clone.GroupName),
 			Kind:     "VirtualMachine",
 			Name:     "",
 		}

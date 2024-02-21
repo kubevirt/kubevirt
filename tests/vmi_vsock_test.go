@@ -22,6 +22,7 @@ package tests_test
 import (
 	"encoding/xml"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"net"
 	"os"
 	"strings"
@@ -35,7 +36,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/libssh"
@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := tests.NewRandomFedoraVMI()
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = ptr.To(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
@@ -125,7 +125,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		It("should retain the CID for migration target", func() {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := tests.NewRandomFedoraVMI()
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = ptr.To(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
@@ -140,7 +140,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			By("Creating a new VMI with VSOCK enabled on the same node")
 			node := vmi.Status.NodeName
 			vmi2 := tests.NewRandomFedoraVMI()
-			vmi2.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi2.Spec.Domain.Devices.AutoattachVSOCK = ptr.To(true)
 			vmi2.Spec.Affinity = affinity(node)
 			vmi2 = tests.RunVMIAndExpectLaunch(vmi2, 60)
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
@@ -179,7 +179,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithCloudInitNoCloudUserData(userData),
 		)
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = ptr.To(true)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Logging in as root")
@@ -205,7 +205,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		stopChan := make(chan error)
 		go func() {
 			defer GinkgoRecover()
-			vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(1234), UseTLS: pointer.Bool(useTLS)})
+			vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(1234), UseTLS: ptr.To(useTLS)})
 			if err != nil {
 				stopChan <- err
 				return
@@ -244,7 +244,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 		By("Creating a VMI with VSOCK enabled")
 		vmi := tests.NewRandomFedoraVMI()
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = ptr.To(true)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Connect to the guest on invalide port")
@@ -257,7 +257,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 		By("Creating a VMI with VSOCK enabled")
 		vmi := tests.NewRandomFedoraVMI()
-		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = ptr.To(true)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Connect to the guest on the unused port")

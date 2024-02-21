@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"strings"
 	"sync"
 	"time"
@@ -27,8 +28,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -4131,7 +4130,7 @@ var _ = Describe("VirtualMachine", func() {
 				BeforeEach(func() {
 					preferenceSpec := instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							PreferredUseEfi: pointer.Bool(true),
+							PreferredUseEfi: ptr.To(true),
 						},
 						Devices: &instancetypev1beta1.DevicePreferences{
 							PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -4253,7 +4252,7 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision with APIVersion", func() []byte {
 						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1alpha1.FirmwarePreferences{
-								PreferredUseEfi: pointer.Bool(true),
+								PreferredUseEfi: ptr.To(true),
 							},
 							Devices: &instancetypev1alpha1.DevicePreferences{
 								PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -4278,7 +4277,7 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision without APIVersion", func() []byte {
 						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1alpha1.FirmwarePreferences{
-								PreferredUseEfi: pointer.Bool(true),
+								PreferredUseEfi: ptr.To(true),
 							},
 							Devices: &instancetypev1alpha1.DevicePreferences{
 								PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -4311,7 +4310,7 @@ var _ = Describe("VirtualMachine", func() {
 							},
 							Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
 								Firmware: &instancetypev1alpha1.FirmwarePreferences{
-									PreferredUseEfi: pointer.Bool(true),
+									PreferredUseEfi: ptr.To(true),
 								},
 								Devices: &instancetypev1alpha1.DevicePreferences{
 									PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -4337,7 +4336,7 @@ var _ = Describe("VirtualMachine", func() {
 							},
 							Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
 								Firmware: &instancetypev1alpha2.FirmwarePreferences{
-									PreferredUseEfi: pointer.Bool(true),
+									PreferredUseEfi: ptr.To(true),
 								},
 								Devices: &instancetypev1alpha2.DevicePreferences{
 									PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -4575,7 +4574,7 @@ var _ = Describe("VirtualMachine", func() {
 				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
 					unexpectedPreference := preference.DeepCopy()
 					unexpectedPreference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios: pointer.Bool(true),
+						PreferredUseBios: ptr.To(true),
 					}
 
 					preferenceRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
@@ -4648,7 +4647,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachPodInterface: pointer.Bool(false),
+								PreferredAutoattachPodInterface: ptr.To(false),
 							},
 						},
 					}
@@ -4747,7 +4746,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
-					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.Bool(true)
+					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = ptr.To(true)
 
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
@@ -4783,7 +4782,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.Bool(true),
+								PreferredAutoattachInputDevice: ptr.To(true),
 								PreferredInputBus:              virtv1.InputBusVirtio,
 								PreferredInputType:             virtv1.InputTypeTablet,
 							},
@@ -4831,7 +4830,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.Bool(false),
+								PreferredAutoattachInputDevice: ptr.To(false),
 							},
 						},
 					}
@@ -4996,10 +4995,10 @@ var _ = Describe("VirtualMachine", func() {
 			sanityExecute(vm)
 
 		},
-			Entry("add default input device when enabled in VirtualMachine", pointer.Bool(true), []v1.Input{}, &v1.Input{Name: "default-0"}),
-			Entry("not add default input device when disabled by VirtualMachine", pointer.Bool(false), []v1.Input{}, nil),
+			Entry("add default input device when enabled in VirtualMachine", ptr.To(true), []v1.Input{}, &v1.Input{Name: "default-0"}),
+			Entry("not add default input device when disabled by VirtualMachine", ptr.To(false), []v1.Input{}, nil),
 			Entry("not add default input device by default", nil, []v1.Input{}, nil),
-			Entry("not add default input device when devices already present in VirtualMachine", pointer.Bool(true), []v1.Input{{Name: "existing-0"}}, &v1.Input{Name: "existing-0"}),
+			Entry("not add default input device when devices already present in VirtualMachine", ptr.To(true), []v1.Input{{Name: "existing-0"}}, &v1.Input{Name: "existing-0"}),
 		)
 
 		Context("Live update features", func() {

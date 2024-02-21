@@ -66,7 +66,7 @@ go_library(
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
         "//vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )
 

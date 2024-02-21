@@ -2,6 +2,7 @@ package add_key_test
 
 import (
 	"context"
+	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 
@@ -21,7 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -90,7 +90,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				}},
 			},
 		}
@@ -314,7 +314,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				}},
 			},
 		}

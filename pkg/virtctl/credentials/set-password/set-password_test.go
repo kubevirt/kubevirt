@@ -2,16 +2,15 @@ package set_password_test
 
 import (
 	"context"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
@@ -68,7 +67,7 @@ var _ = Describe("Credentials set-password", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				}},
 			},
 		}
@@ -178,7 +177,7 @@ var _ = Describe("Credentials set-password", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: ptr.To(true),
 				}},
 			},
 		}

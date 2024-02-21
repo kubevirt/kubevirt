@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"strings"
 	"time"
 
@@ -31,8 +32,6 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/pointer"
-
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
@@ -1777,7 +1776,7 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		},
 			Entry("allow auto coverage",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.BoolPtr(true) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = ptr.To(true) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
 					Expect(*c.AllowAutoConverge).To(BeTrue())
@@ -1785,7 +1784,7 @@ var _ = Describe("Migration watcher", func() {
 				true,
 			),
 			Entry("deny auto coverage",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.BoolPtr(false) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = ptr.ToPtr(false) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
 					Expect(*c.AllowAutoConverge).To(BeFalse())
@@ -1809,7 +1808,7 @@ var _ = Describe("Migration watcher", func() {
 				true,
 			),
 			Entry("deny post copy",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.BoolPtr(false) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = ptr.To(false) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowPostCopy).ToNot(BeNil())
 					Expect(*c.AllowPostCopy).To(BeFalse())
@@ -2025,7 +2024,7 @@ var _ = Describe("Migration watcher", func() {
 		It("should not be forced to the SELinux level of the source if the CR option is set to false", func() {
 			initController(&virtv1.KubeVirtConfiguration{
 				MigrationConfiguration: &virtv1.MigrationConfiguration{
-					MatchSELinuxLevelOnMigration: pointer.BoolPtr(false),
+					MatchSELinuxLevelOnMigration: ptr.To(false),
 				},
 			})
 			vmi := newVirtualMachine("testvmi", virtv1.Running)

@@ -23,13 +23,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"text/template"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
-
 	v12 "kubevirt.io/api/core/v1"
 )
 
@@ -245,7 +244,7 @@ var _ = Describe("Schema", func() {
 	BeforeEach(func() {
 		exampleVMI = NewMinimalVMI("testvmi")
 
-		pointer.BoolPtr(true)
+		ptr.To(true)
 		exampleVMI.Spec.Domain.Devices.Disks = []v12.Disk{
 			{
 				Name: "disk0",
@@ -255,14 +254,14 @@ var _ = Describe("Schema", func() {
 						ReadOnly: false,
 					},
 				},
-				DedicatedIOThread: pointer.BoolPtr(true),
+				DedicatedIOThread: ptr.To(true),
 			},
 			{
 				Name: "cdrom0",
 				DiskDevice: v12.DiskDevice{
 					CDRom: &v12.CDRomTarget{
 						Bus:      v12.VirtIO,
-						ReadOnly: pointer.BoolPtr(true),
+						ReadOnly: ptr.To(true),
 						Tray:     "open",
 					},
 				},
@@ -296,7 +295,7 @@ var _ = Describe("Schema", func() {
 				Name: "tablet0",
 			},
 		}
-		exampleVMI.Spec.Domain.Devices.BlockMultiQueue = pointer.BoolPtr(true)
+		exampleVMI.Spec.Domain.Devices.BlockMultiQueue = ptr.To(true)
 
 		exampleVMI.Spec.Volumes = []v12.Volume{
 			{
@@ -323,24 +322,24 @@ var _ = Describe("Schema", func() {
 			},
 		}
 		exampleVMI.Spec.Domain.Features = &v12.Features{
-			ACPI:       v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-			SMM:        &v12.FeatureState{Enabled: pointer.BoolPtr(true)},
-			APIC:       &v12.FeatureAPIC{Enabled: pointer.BoolPtr(true)},
+			ACPI:       v12.FeatureState{Enabled: ptr.To(false)},
+			SMM:        &v12.FeatureState{Enabled: ptr.To(true)},
+			APIC:       &v12.FeatureAPIC{Enabled: ptr.To(true)},
 			KVM:        &v12.FeatureKVM{Hidden: true},
-			Pvspinlock: &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
+			Pvspinlock: &v12.FeatureState{Enabled: ptr.To(false)},
 			Hyperv: &v12.FeatureHyperv{
-				Relaxed:         &v12.FeatureState{Enabled: pointer.BoolPtr(true)},
-				VAPIC:           &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Spinlocks:       &v12.FeatureSpinlocks{Enabled: pointer.BoolPtr(true)},
-				VPIndex:         &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Runtime:         &v12.FeatureState{Enabled: pointer.BoolPtr(true)},
-				SyNIC:           &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-				SyNICTimer:      &v12.SyNICTimer{Enabled: pointer.BoolPtr(true), Direct: &v12.FeatureState{Enabled: pointer.BoolPtr(true)}},
-				Reset:           &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-				VendorID:        &v12.FeatureVendorID{Enabled: pointer.BoolPtr(true), VendorID: "vendor"},
-				Frequencies:     &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Reenlightenment: &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v12.FeatureState{Enabled: pointer.BoolPtr(true)},
+				Relaxed:         &v12.FeatureState{Enabled: ptr.To(true)},
+				VAPIC:           &v12.FeatureState{Enabled: ptr.To(false)},
+				Spinlocks:       &v12.FeatureSpinlocks{Enabled: ptr.To(true)},
+				VPIndex:         &v12.FeatureState{Enabled: ptr.To(false)},
+				Runtime:         &v12.FeatureState{Enabled: ptr.To(true)},
+				SyNIC:           &v12.FeatureState{Enabled: ptr.To(false)},
+				SyNICTimer:      &v12.SyNICTimer{Enabled: ptr.To(true), Direct: &v12.FeatureState{Enabled: ptr.To(true)}},
+				Reset:           &v12.FeatureState{Enabled: ptr.To(false)},
+				VendorID:        &v12.FeatureVendorID{Enabled: ptr.To(true), VendorID: "vendor"},
+				Frequencies:     &v12.FeatureState{Enabled: ptr.To(false)},
+				Reenlightenment: &v12.FeatureState{Enabled: ptr.To(false)},
+				TLBFlush:        &v12.FeatureState{Enabled: ptr.To(true)},
 			},
 		}
 		exampleVMI.Spec.Domain.Clock = &v12.Clock{

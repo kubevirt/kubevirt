@@ -2,6 +2,7 @@ package topology
 
 import (
 	"fmt"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	g "github.com/onsi/gomega"
@@ -9,8 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
-
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -55,7 +54,7 @@ var _ = Describe("Hinter", func() {
 		g.Expect(GetTscFrequencyRequirement(vmi).Type).ToNot(g.Equal(NotRequired))
 		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
 			&virtv1.TopologyHints{
-				TSCFrequency: pointer.Int64Ptr(12),
+				TSCFrequency: ptr.To(int64(12)),
 			},
 		))
 	})

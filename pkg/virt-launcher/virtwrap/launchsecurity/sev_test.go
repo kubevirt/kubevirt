@@ -22,8 +22,7 @@ package launchsecurity_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -43,12 +42,12 @@ var _ = Describe("LaunchSecurity: AMD Secure Encrypted Virtualization (SEV)", fu
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
 
 			policy = v1.SEVPolicy{
-				EncryptedState: pointer.Bool(false),
+				EncryptedState: ptr.To(false),
 			}
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
 
 			policy = v1.SEVPolicy{
-				EncryptedState: pointer.Bool(true),
+				EncryptedState: ptr.To(true),
 			}
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).ToNot(Equal(launchsecurity.SEVPolicyNoDebug))
 			Expect(launchsecurity.SEVPolicyToBits(&policy) & launchsecurity.SEVPolicyNoDebug).To(Equal(launchsecurity.SEVPolicyNoDebug))
@@ -58,9 +57,9 @@ var _ = Describe("LaunchSecurity: AMD Secure Encrypted Virtualization (SEV)", fu
 			Expect(field).ToNot(BeNil())
 			*field = nil
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
-			*field = pointer.Bool(true)
+			*field = ptr.To(true)
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug | expectedBit))
-			*field = pointer.Bool(false)
+			*field = ptr.To(false)
 			Expect(launchsecurity.SEVPolicyToBits(&policy)).To(Equal(launchsecurity.SEVPolicyNoDebug))
 		},
 			Entry("EncryptedState", launchsecurity.SEVPolicyEncryptedState, &policy.EncryptedState),

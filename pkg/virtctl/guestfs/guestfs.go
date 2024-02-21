@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"k8s.io/utils/ptr"
 	"os"
 	"os/signal"
 	"strconv"
@@ -21,8 +22,6 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"kubevirt.io/client-go/kubecli"
-
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
@@ -470,7 +469,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 		},
 	}
 	securityContext := &corev1.PodSecurityContext{
-		RunAsNonRoot: pointer.Bool(!root),
+		RunAsNonRoot: ptr.To(!root),
 		RunAsUser:    u,
 		RunAsGroup:   g,
 		FSGroup:      f,

@@ -22,6 +22,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"os"
 	"strings"
 
@@ -36,8 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -1413,7 +1412,7 @@ func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePre
 			Clock: &instancetypev1beta1.ClockPreferences{
 				PreferredClockOffset: &v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				PreferredTimer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: pointer.Bool(false)},
+					HPET:   &v1.HPETTimer{Enabled: ptr.To(false)},
 					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
 					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
 					Hyperv: &v1.HypervTimer{},
@@ -1435,8 +1434,8 @@ func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePre
 				PreferredSmm: &v1.FeatureState{},
 			},
 			Firmware: &instancetypev1beta1.FirmwarePreferences{
-				PreferredUseEfi:        pointer.Bool(true),
-				PreferredUseSecureBoot: pointer.Bool(true),
+				PreferredUseEfi:        ptr.To(true),
+				PreferredUseSecureBoot: ptr.To(true),
 			},
 		},
 	}
@@ -1501,9 +1500,9 @@ func GetVmWindowsInstancetypeComputeLargePreferencesWindows() *v1.VirtualMachine
 	addPVCDisk(&vm.Spec.Template.Spec, "disk-windows", "", "pvcdisk")
 
 	// Copy the same remaining defaults as the vmi-windows example
-	vm.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.Int64(0)
+	vm.Spec.Template.Spec.TerminationGracePeriodSeconds = ptr.To(int64(0))
 	vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
-		UUID: types.UID(windowsFirmware),
+		UUID: windowsFirmware,
 	}
 
 	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}

@@ -21,6 +21,7 @@ package exec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -85,5 +86,5 @@ func ExecuteCommandOnPodWithOptions(virtCli kubecli.KubevirtClient, pod *k8sv1.P
 		return err
 	}
 
-	return executor.Stream(options)
+	return executor.StreamWithContext(context.TODO(), options)
 }

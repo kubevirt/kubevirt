@@ -22,6 +22,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"strings"
 	"time"
 
@@ -32,8 +33,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/pointer"
-
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -64,7 +63,7 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
 		}
 
-		currentConfiguration.NetworkConfiguration.PermitSlirpInterface = pointer.BoolPtr(enable)
+		currentConfiguration.NetworkConfiguration.PermitSlirpInterface = ptr.To(enable)
 		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
 		currentConfiguration = kv.Spec.Configuration
 	}

@@ -2,11 +2,12 @@ package utils
 
 import (
 	"fmt"
+
 	"io"
 	"os"
 	"os/signal"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // AttachConsole attaches stdin and stdout to the console
@@ -16,12 +17,12 @@ func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdout
 	stopChan := make(chan struct{}, 1)
 	writeStop := make(chan error)
 	readStop := make(chan error)
-	if terminal.IsTerminal(int(os.Stdin.Fd())) {
-		state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		state, err := term.MakeRaw(int(os.Stdin.Fd()))
 		if err != nil {
-			return fmt.Errorf("Make raw terminal failed: %s", err)
+			return fmt.Errorf("make raw terminal failed: %s", err)
 		}
-		defer terminal.Restore(int(os.Stdin.Fd()), state)
+		defer term.Restore(int(os.Stdin.Fd()), state)
 	}
 	fmt.Fprint(os.Stderr, message)
 

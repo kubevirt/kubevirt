@@ -22,6 +22,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"time"
@@ -43,8 +44,6 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -240,8 +239,8 @@ var _ = Describe("VMSnapshot source", func() {
 			},
 			Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 			Status: &snapshotv1.VirtualMachineSnapshotStatus{
-				VirtualMachineSnapshotContentName: pointer.StringPtr("snapshot-content"),
-				ReadyToUse:                        pointer.BoolPtr(ready),
+				VirtualMachineSnapshotContentName: ptr.To("snapshot-content"),
+				ReadyToUse:                        ptr.To(ready),
 			},
 		}
 	}
@@ -266,7 +265,7 @@ var _ = Describe("VMSnapshot source", func() {
 								},
 							},
 						},
-						VolumeSnapshotName: pointer.StringPtr(testVolumesnapshotName),
+						VolumeSnapshotName: ptr.To(testVolumesnapshotName),
 					},
 				},
 				Source: snapshotv1.SourceSpec{
@@ -292,7 +291,7 @@ var _ = Describe("VMSnapshot source", func() {
 				VolumeSnapshotStatus: []snapshotv1.VolumeSnapshotStatus{
 					{
 						VolumeSnapshotName: testVolumesnapshotName,
-						ReadyToUse:         pointer.BoolPtr(true),
+						ReadyToUse:         ptr.To(true),
 					},
 				},
 			},
@@ -359,7 +358,7 @@ var _ = Describe("VMSnapshot source", func() {
 					},
 				},
 				DataSource: &k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.StringPtr(vsv1.GroupName),
+					APIGroup: ptr.To(vsv1.GroupName),
 					Kind:     "VolumeSnapshot",
 					Name:     testVolumesnapshotName,
 				},
@@ -474,7 +473,7 @@ var _ = Describe("VMSnapshot source", func() {
 			Expect(pvc.Spec.Resources.Requests).ToNot(BeEmpty())
 			Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse("1Gi")))
 			Expect(pvc.Spec.DataSource).To(Equal(&k8sv1.TypedLocalObjectReference{
-				APIGroup: pointer.StringPtr(vsv1.GroupName),
+				APIGroup: ptr.To(vsv1.GroupName),
 				Kind:     "VolumeSnapshot",
 				Name:     testVolumesnapshotName,
 			}))
@@ -485,8 +484,8 @@ var _ = Describe("VMSnapshot source", func() {
 				Kind:               "VirtualMachineExport",
 				Name:               testVMExport.Name,
 				UID:                testVMExport.UID,
-				Controller:         pointer.BoolPtr(true),
-				BlockOwnerDeletion: pointer.BoolPtr(true),
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
 			}))
 			return true, pvc, nil
 		})
@@ -566,7 +565,7 @@ var _ = Describe("VMSnapshot source", func() {
 			Expect(pvc.Spec.Resources.Requests).ToNot(BeEmpty())
 			Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse("1Gi")))
 			Expect(pvc.Spec.DataSource).To(Equal(&k8sv1.TypedLocalObjectReference{
-				APIGroup: pointer.StringPtr(vsv1.GroupName),
+				APIGroup: ptr.To(vsv1.GroupName),
 				Kind:     "VolumeSnapshot",
 				Name:     testVolumesnapshotName,
 			}))
@@ -577,8 +576,8 @@ var _ = Describe("VMSnapshot source", func() {
 				Kind:               "VirtualMachineExport",
 				Name:               testVMExport.Name,
 				UID:                testVMExport.UID,
-				Controller:         pointer.BoolPtr(true),
-				BlockOwnerDeletion: pointer.BoolPtr(true),
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
 			}))
 			Expect(pvc.GetAnnotations()).ToNot(BeEmpty())
 			Expect(pvc.GetAnnotations()[annContentType]).To(BeEquivalentTo(cdiv1.DataVolumeKubeVirt))
@@ -617,7 +616,7 @@ var _ = Describe("VMSnapshot source", func() {
 			Expect(pvc.Spec.Resources.Requests).ToNot(BeEmpty())
 			Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse("1Gi")))
 			Expect(pvc.Spec.DataSource).To(Equal(&k8sv1.TypedLocalObjectReference{
-				APIGroup: pointer.StringPtr(vsv1.GroupName),
+				APIGroup: ptr.To(vsv1.GroupName),
 				Kind:     "VolumeSnapshot",
 				Name:     testVolumesnapshotName,
 			}))
@@ -628,8 +627,8 @@ var _ = Describe("VMSnapshot source", func() {
 				Kind:               "VirtualMachineExport",
 				Name:               testVMExport.Name,
 				UID:                testVMExport.UID,
-				Controller:         pointer.BoolPtr(true),
-				BlockOwnerDeletion: pointer.BoolPtr(true),
+				Controller:         ptr.To(true),
+				BlockOwnerDeletion: ptr.To(true),
 			}))
 			Expect(pvc.GetAnnotations()[annContentType]).To(BeEmpty())
 			return true, pvc, nil

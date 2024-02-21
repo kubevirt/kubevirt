@@ -251,7 +251,7 @@ func (m *MetricClient) getTimePercentilesFromQuery(r *audit_api.Result, rangeVec
 	for _, percentile := range percentiles {
 		lookBack := calculateOffset(*m.cfg.EndTime, rangeVector, m.cfg.PrometheusScrapeInterval)
 		query := fmt.Sprintf(query, percentile.p, int(rangeVector.Seconds()), lookBack)
-		log.Printf(query)
+		log.Println(query)
 
 		val, err := m.query(query)
 		if err != nil {
@@ -317,7 +317,7 @@ func (m *MetricClient) getPhaseBreakdown(r *audit_api.Result) error {
 func (m *MetricClient) getResourceRequestCountsByOperation(r *audit_api.Result, rangeVector time.Duration) error {
 	lookBack := calculateOffset(*m.cfg.EndTime, rangeVector, m.cfg.PrometheusScrapeInterval)
 	query := fmt.Sprintf(resourceRequestCountsByOperation, int(rangeVector.Seconds()), lookBack)
-	log.Printf(query)
+	log.Println(query)
 	val, err := m.query(query)
 	if err != nil {
 		return err

@@ -23,8 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/pointer"
-
 	"kubevirt.io/api/core"
 )
 
@@ -46,7 +44,7 @@ var (
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("kubevirt.io/v1alpha3 is now deprecated and will be removed in a future release."),
+			DeprecationWarning: ptr.To("kubevirt.io/v1alpha3 is now deprecated and will be removed in a future release."),
 		},
 	}
 )

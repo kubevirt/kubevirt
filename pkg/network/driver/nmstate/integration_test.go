@@ -22,6 +22,7 @@ package nmstate_test
 import (
 	"flag"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +32,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var runIntegrationTests bool
@@ -63,7 +63,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 			bridgeMac  = "02:ff:ff:ff:ff:01"
 			bridgeMTU  = 1000
 		)
-		ethtoolWithTxChecksumOff := nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}}
+		ethtoolWithTxChecksumOff := nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: ptr.To(false)}}
 		spec := nmstate.Spec{Interfaces: []nmstate.Interface{
 			{
 				Name:       bridgeName,
@@ -93,11 +93,11 @@ var _ = Describe("NMState", integrationLabel, func() {
 			MacAddress: bridgeMac,
 			MTU:        bridgeMTU,
 			Ethtool:    ethtoolWithTxChecksumOff,
-			IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-			IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+			IPv4:       nmstate.IP{Enabled: ptr.To(false)},
+			IPv6:       nmstate.IP{Enabled: ptr.To(false)},
 			LinuxStack: nmstate.LinuxIfaceStack{
-				IP4RouteLocalNet: pointer.P(false),
-				PortLearning:     pointer.P(false),
+				IP4RouteLocalNet: ptr.To(false),
+				PortLearning:     ptr.To(false),
 			},
 		}))
 	})
@@ -114,7 +114,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 		)
 
 		BeforeEach(func() {
-			ethtoolWithTxChecksumOff = nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}}
+			ethtoolWithTxChecksumOff = nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: ptr.To(false)}}
 			spec = nmstate.Spec{Interfaces: []nmstate.Interface{
 				{
 					Name:       bridgeName,
@@ -135,7 +135,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 
 		It("add IP to the bridge", func() {
 			spec.Interfaces[0].IPv4 = nmstate.IP{
-				Enabled: pointer.P(true),
+				Enabled: ptr.To(true),
 				Address: []nmstate.IPAddress{primaryIP4Address()},
 			}
 			Expect(nmState.Apply(&spec)).To(Succeed())
@@ -152,20 +152,20 @@ var _ = Describe("NMState", integrationLabel, func() {
 				MTU:        bridgeMTU,
 				Ethtool:    ethtoolWithTxChecksumOff,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: ptr.To(true),
 					Address: []nmstate.IPAddress{primaryIP4Address()},
 				},
-				IPv6: nmstate.IP{Enabled: pointer.P(false)},
+				IPv6: nmstate.IP{Enabled: ptr.To(false)},
 				LinuxStack: nmstate.LinuxIfaceStack{
-					IP4RouteLocalNet: pointer.P(false),
-					PortLearning:     pointer.P(false),
+					IP4RouteLocalNet: ptr.To(false),
+					PortLearning:     ptr.To(false),
 				},
 			}))
 		})
 
 		It("add a secondary IP to the bridge", func() {
 			spec.Interfaces[0].IPv4 = nmstate.IP{
-				Enabled: pointer.P(true),
+				Enabled: ptr.To(true),
 				Address: []nmstate.IPAddress{primaryIP4Address()},
 			}
 			Expect(nmState.Apply(&spec)).To(Succeed())
@@ -185,20 +185,20 @@ var _ = Describe("NMState", integrationLabel, func() {
 				MTU:        bridgeMTU,
 				Ethtool:    ethtoolWithTxChecksumOff,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: ptr.To(true),
 					Address: []nmstate.IPAddress{primaryIP4Address(), secondaryIP4Address()},
 				},
-				IPv6: nmstate.IP{Enabled: pointer.P(false)},
+				IPv6: nmstate.IP{Enabled: ptr.To(false)},
 				LinuxStack: nmstate.LinuxIfaceStack{
-					IP4RouteLocalNet: pointer.P(false),
-					PortLearning:     pointer.P(false),
+					IP4RouteLocalNet: ptr.To(false),
+					PortLearning:     ptr.To(false),
 				},
 			}))
 		})
 
 		It("remove a secondary IP from the bridge", func() {
 			spec.Interfaces[0].IPv4 = nmstate.IP{
-				Enabled: pointer.P(true),
+				Enabled: ptr.To(true),
 				Address: []nmstate.IPAddress{primaryIP4Address(), secondaryIP4Address()},
 			}
 			Expect(nmState.Apply(&spec)).To(Succeed())
@@ -218,13 +218,13 @@ var _ = Describe("NMState", integrationLabel, func() {
 				MTU:        bridgeMTU,
 				Ethtool:    ethtoolWithTxChecksumOff,
 				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
+					Enabled: ptr.To(true),
 					Address: []nmstate.IPAddress{primaryIP4Address()},
 				},
-				IPv6: nmstate.IP{Enabled: pointer.P(false)},
+				IPv6: nmstate.IP{Enabled: ptr.To(false)},
 				LinuxStack: nmstate.LinuxIfaceStack{
-					IP4RouteLocalNet: pointer.P(false),
-					PortLearning:     pointer.P(false),
+					IP4RouteLocalNet: ptr.To(false),
+					PortLearning:     ptr.To(false),
 				},
 			}))
 		})
@@ -263,8 +263,8 @@ var _ = Describe("NMState", integrationLabel, func() {
 			vethIface := lookupIface(status.Interfaces, vethName)
 			Expect(vethIface.Controller).To(Equal(bridgeIface.Name))
 			Expect(vethIface.LinuxStack).To(Equal(nmstate.LinuxIfaceStack{
-				IP4RouteLocalNet: pointer.P(false),
-				PortLearning:     pointer.P(true),
+				IP4RouteLocalNet: ptr.To(false),
+				PortLearning:     ptr.To(true),
 			}))
 		})
 
@@ -289,7 +289,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 						GID:    ownerID,
 					},
 					LinuxStack: nmstate.LinuxIfaceStack{
-						PortLearning: pointer.P(false),
+						PortLearning: ptr.To(false),
 					},
 				},
 			}})
@@ -308,8 +308,8 @@ var _ = Describe("NMState", integrationLabel, func() {
 			Expect(tapIface.TypeName).To(Equal(nmstate.TypeTap))
 			Expect(tapIface.Controller).To(Equal(bridgeIface.Name))
 			Expect(tapIface.LinuxStack).To(Equal(nmstate.LinuxIfaceStack{
-				IP4RouteLocalNet: pointer.P(false),
-				PortLearning:     pointer.P(false),
+				IP4RouteLocalNet: ptr.To(false),
+				PortLearning:     ptr.To(false),
 			}))
 		})
 	})
@@ -374,19 +374,19 @@ var _ = Describe("NMState", integrationLabel, func() {
 					State:      nmstate.IfaceStateUp,
 					Controller: bridgeName,
 					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(true),
-						PortLearning:     pointer.P(false),
+						IP4RouteLocalNet: ptr.To(true),
+						PortLearning:     ptr.To(false),
 					},
 				},
 			},
 			LinuxStack: nmstate.LinuxStack{
 				IPv4: nmstate.LinuxStackIP4{
-					ArpIgnore:             pointer.P(procsys.ARPReplyMode1),
-					Forwarding:            pointer.P(true),
+					ArpIgnore:             ptr.To(procsys.ARPReplyMode1),
+					Forwarding:            ptr.To(true),
 					PingGroupRange:        []int{pingGroupRangeFrom, pingGroupRangeTo},
-					UnprivilegedPortStart: pointer.P(unprivilegedPortStart),
+					UnprivilegedPortStart: ptr.To(unprivilegedPortStart),
 				},
-				IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+				IPv6: nmstate.LinuxStackIP6{Forwarding: ptr.To(true)},
 			},
 		}
 
@@ -410,17 +410,17 @@ var _ = Describe("NMState", integrationLabel, func() {
 
 		dummyIface := lookupIface(status.Interfaces, dummyName)
 		Expect(dummyIface.LinuxStack).To(Equal(nmstate.LinuxIfaceStack{
-			IP4RouteLocalNet: pointer.P(true),
-			PortLearning:     pointer.P(false),
+			IP4RouteLocalNet: ptr.To(true),
+			PortLearning:     ptr.To(false),
 		}))
 		Expect(status.LinuxStack).To(Equal(nmstate.LinuxStack{
 			IPv4: nmstate.LinuxStackIP4{
-				ArpIgnore:             pointer.P(procsys.ARPReplyMode1),
-				Forwarding:            pointer.P(true),
+				ArpIgnore:             ptr.To(procsys.ARPReplyMode1),
+				Forwarding:            ptr.To(true),
 				PingGroupRange:        []int{pingGroupRangeFrom, pingGroupRangeTo},
-				UnprivilegedPortStart: pointer.P(unprivilegedPortStart),
+				UnprivilegedPortStart: ptr.To(unprivilegedPortStart),
 			},
-			IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
+			IPv6: nmstate.LinuxStackIP6{Forwarding: ptr.To(true)},
 		}))
 	})
 

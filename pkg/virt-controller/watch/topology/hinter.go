@@ -4,10 +4,9 @@ package topology
 
 import (
 	"fmt"
+	"k8s.io/utils/ptr"
 
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
-
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -41,7 +40,7 @@ func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) 
 		return nil, requirement, fmt.Errorf("failed to determine the lowest tsc frequency on the cluster: %v", err)
 	}
 
-	hints = &k6tv1.TopologyHints{TSCFrequency: pointer.Int64Ptr(freq)}
+	hints = &k6tv1.TopologyHints{TSCFrequency: ptr.To(freq)}
 	return
 }
 
