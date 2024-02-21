@@ -88,6 +88,14 @@ func WithEphemeralCDRom(cdRomName string, bus v1.DiskBus, claimName string) Opti
 	}
 }
 
+// WithEphemeralDisk specifies a Disk drive to be used.
+func WithEphemeralDisk(name string, bus v1.DiskBus, image string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(name, bus))
+		addVolume(vmi, newContainerVolume(name, image))
+	}
+}
+
 // WithFilesystemPVC specifies a filesystem backed by a PVC to be used.
 func WithFilesystemPVC(claimName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
