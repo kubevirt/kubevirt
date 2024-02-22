@@ -42,7 +42,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 		tests.EnableFeatureGate(deprecation.PasstGate)
 	})
 
-	It("can be used by a VM as its primary network", func() {
+	It("can be used by a VMI as its primary network", func() {
 		const (
 			macAddress = "02:00:00:00:00:02"
 		)
@@ -56,14 +56,12 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 			}),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
-		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
 		var err error
 		namespace := testsuite.GetTestNamespace(nil)
-		vm, err = kubevirt.Client().VirtualMachine(namespace).Create(context.Background(), vm)
+		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi.Namespace = vm.Namespace
 		vmi = libwait.WaitUntilVMIReady(
 			vmi,
 			console.LoginToAlpine,
