@@ -119,7 +119,7 @@ var _ = Describe("Add volume command", func() {
 		err := cmdAdd()
 
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("Invalid disk type"))
+		Expect(err.Error()).To(ContainSubstring("invalid disk type"))
 	})
 
 	DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {

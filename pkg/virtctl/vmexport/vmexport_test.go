@@ -750,7 +750,7 @@ var _ = Describe("vmexport", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.LOCAL_PORT_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal("No pods found for the service virt-export-test-vme"))
+			Expect(err.Error()).Should(Equal("no pods found for the service virt-export-test-vme"))
 		})
 
 		It("VirtualMachineExport download with port-forward succeeds", func() {
