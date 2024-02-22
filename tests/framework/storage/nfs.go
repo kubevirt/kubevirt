@@ -6,7 +6,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -55,7 +55,7 @@ func renderNFSServer(generateName string, hostPath string) *k8sv1.Pod {
 					ImagePullPolicy: k8sv1.PullIfNotPresent,
 					Resources:       resources,
 					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: pointer.BoolPtr(true),
+						Privileged: ptr.To(true),
 					},
 					VolumeMounts: []k8sv1.VolumeMount{
 						{

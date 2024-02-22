@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 // AttachConsole attaches stdin and stdout to the console

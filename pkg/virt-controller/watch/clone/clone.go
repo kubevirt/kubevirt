@@ -31,7 +31,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -293,7 +293,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 	}
 	if isInPhase(vmClone, clonev1alpha1.SnapshotInProgress) {
 		if snapshotName := syncInfo.snapshotName; snapshotName != "" {
-			vmClone.Status.SnapshotName = pointer.String(snapshotName)
+			vmClone.Status.SnapshotName = ptr.To(snapshotName)
 		}
 
 		if syncInfo.snapshotReady {
@@ -302,7 +302,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 	}
 	if isInPhase(vmClone, clonev1alpha1.RestoreInProgress) {
 		if restoreName := syncInfo.restoreName; restoreName != "" {
-			vmClone.Status.RestoreName = pointer.String(restoreName)
+			vmClone.Status.RestoreName = ptr.To(restoreName)
 		}
 
 		if syncInfo.restoreReady {
@@ -311,7 +311,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 	}
 	if isInPhase(vmClone, clonev1alpha1.CreatingTargetVM) {
 		if targetVMName := syncInfo.targetVMName; targetVMName != "" {
-			vmClone.Status.TargetName = pointer.String(targetVMName)
+			vmClone.Status.TargetName = ptr.To(targetVMName)
 		}
 
 		if syncInfo.targetVMCreated {

@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
@@ -1385,8 +1385,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					Expect(found).To(BeTrue())
 				}
 			},
-				Entry("[test_id:4611] without DV garbage collection", pointer.Int32(-1)),
-				Entry("[test_id:8668] with DV garbage collection", pointer.Int32(0)),
+				Entry("[test_id:4611] without DV garbage collection", ptr.To(int32(-1))),
+				Entry("[test_id:8668] with DV garbage collection", ptr.To(int32(0))),
 			)
 		})
 

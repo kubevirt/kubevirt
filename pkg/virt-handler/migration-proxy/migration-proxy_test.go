@@ -28,7 +28,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -209,8 +209,8 @@ var _ = Describe("MigrationProxy", func() {
 					}
 				}
 			},
-				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: pointer.BoolPtr(false)}),
-				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: pointer.BoolPtr(true)}),
+				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: ptr.To(false)}),
+				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: ptr.To(true)}),
 			)
 
 			DescribeTable("by ensuring no new listeners can be created after shutdown", func(migrationConfig *v1.MigrationConfiguration) {
@@ -255,8 +255,8 @@ var _ = Describe("MigrationProxy", func() {
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 
 			},
-				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: pointer.BoolPtr(false)}),
-				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: pointer.BoolPtr(true)}),
+				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: ptr.To(false)}),
+				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: ptr.To(true)}),
 			)
 		})
 	})

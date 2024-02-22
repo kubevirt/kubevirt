@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/api/migrations"
 
@@ -60,7 +60,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 
 		Entry("negative CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(-1)},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: ptr.To(int64(-1))},
 		),
 	)
 
@@ -77,11 +77,11 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 
 		Entry("greater than zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(1)},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: ptr.To(int64(1))},
 		),
 
 		Entry("zero CompletionTimeoutPerGiB",
-			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(0)},
+			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: ptr.To(int64(0))},
 		),
 
 		Entry("zero BandwidthPerMigration",

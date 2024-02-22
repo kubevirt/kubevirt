@@ -3,7 +3,7 @@ package topology_test
 import (
 	"fmt"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -87,7 +87,7 @@ var _ = Describe("TSC", func() {
 
 		newVmi := func(options ...libvmi.Option) *v1.VirtualMachineInstance {
 			vmi := libvmi.New(options...)
-			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(12345)}
+			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: ptr.To(int64(12345))}
 
 			return vmi
 		}
@@ -104,7 +104,7 @@ var _ = Describe("TSC", func() {
 			vmi := newVmi()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
-					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+					Reenlightenment: &v1.FeatureState{Enabled: ptr.To(true)},
 				},
 			}
 

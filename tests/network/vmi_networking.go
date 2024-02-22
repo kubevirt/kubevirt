@@ -47,7 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/util"
@@ -124,7 +124,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
 		}
 
-		currentConfiguration.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = pointer.BoolPtr(enable)
+		currentConfiguration.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = ptr.To(enable)
 		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
 		currentConfiguration = kv.Spec.Configuration
 	}

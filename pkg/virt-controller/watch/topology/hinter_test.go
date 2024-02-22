@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -55,7 +55,7 @@ var _ = Describe("Hinter", func() {
 		g.Expect(GetTscFrequencyRequirement(vmi).Type).ToNot(g.Equal(NotRequired))
 		g.Expect(hinter.TopologyHintsForVMI(vmi)).To(g.Equal(
 			&virtv1.TopologyHints{
-				TSCFrequency: pointer.Int64Ptr(12),
+				TSCFrequency: ptr.To(int64(12)),
 			},
 		))
 	})

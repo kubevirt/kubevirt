@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -127,14 +127,14 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			if withTPM {
 				By("with persistent TPM enabled")
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-					Persistent: pointer.BoolPtr(true),
+					Persistent: ptr.To(true),
 				}
 			}
 			if withEFI {
 				By("with persistent EFI enabled")
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
-						EFI: &v1.EFI{SecureBoot: pointer.BoolPtr(false), Persistent: pointer.BoolPtr(true)},
+						EFI: &v1.EFI{SecureBoot: ptr.To(false), Persistent: ptr.To(true)},
 					},
 				}
 			}
@@ -183,7 +183,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			By("Creating a VMI with persistent TPM enabled")
 			vmi := tests.NewRandomFedoraVMI()
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-				Persistent: pointer.BoolPtr(true),
+				Persistent: ptr.To(true),
 			}
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())

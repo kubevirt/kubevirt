@@ -38,7 +38,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -105,8 +105,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			kv := util.GetCurrentKv(virtClient)
 			oldMigrationConfiguration := kv.Spec.Configuration.MigrationConfiguration
 			kv.Spec.Configuration.MigrationConfiguration = &virtv1.MigrationConfiguration{
-				AllowPostCopy:           pointer.BoolPtr(true),
-				CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
+				AllowPostCopy:           ptr.To(true),
+				CompletionTimeoutPerGiB: ptr.To(int64(1)),
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 

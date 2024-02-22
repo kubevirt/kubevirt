@@ -23,7 +23,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -274,7 +274,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								TPM: &v1.TPMDevice{
-									Persistent: pointer.BoolPtr(true),
+									Persistent: ptr.To(true),
 								},
 							},
 						},

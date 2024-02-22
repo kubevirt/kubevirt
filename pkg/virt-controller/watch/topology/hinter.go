@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -41,7 +41,7 @@ func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) 
 		return nil, requirement, fmt.Errorf("failed to determine the lowest tsc frequency on the cluster: %v", err)
 	}
 
-	hints = &k6tv1.TopologyHints{TSCFrequency: pointer.Int64Ptr(freq)}
+	hints = &k6tv1.TopologyHints{TSCFrequency: ptr.To(int64(freq))}
 	return
 }
 

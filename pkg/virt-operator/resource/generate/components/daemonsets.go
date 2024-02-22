@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -42,8 +42,8 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(util.RootUser),
-			Privileged: pointer.Bool(true),
+			RunAsUser:  ptr.To(int64(util.RootUser)),
+			Privileged: ptr.To(true),
 		},
 	}
 }
@@ -123,7 +123,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				"node-labeller.sh",
 			},
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: pointer.Bool(true),
+				Privileged: ptr.To(true),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -193,7 +193,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{
-		Privileged: pointer.Bool(true),
+		Privileged: ptr.To(true),
 		SELinuxOptions: &corev1.SELinuxOptions{
 			Level: "s0",
 		},

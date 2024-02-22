@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -261,7 +261,7 @@ func newBaseDeployment(deploymentName, imageName, namespace, repository, version
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32(2),
+			Replicas: ptr.To(int32(2)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					kubevirtLabelKey: deploymentName,
@@ -327,7 +327,7 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ApiServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.Bool(true),
+		RunAsNonRoot:   ptr.To(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -379,7 +379,7 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	}
 
 	container.SecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.Bool(false),
+		AllowPrivilegeEscalation: ptr.To(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -408,7 +408,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ControllerServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot:   pointer.Bool(true),
+		RunAsNonRoot:   ptr.To(true),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
@@ -476,7 +476,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	}
 
 	container.SecurityContext = &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.Bool(false),
+		AllowPrivilegeEscalation: ptr.To(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -510,7 +510,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: pointer.Int32(2),
+			Replicas: ptr.To(int32(2)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					virtv1.AppLabel: VirtOperatorName,
@@ -597,7 +597,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: pointer.Bool(false),
+								AllowPrivilegeEscalation: ptr.To(false),
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{"ALL"},
 								},
@@ -606,7 +606,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 						},
 					},
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot:   pointer.Bool(true),
+						RunAsNonRoot:   ptr.To(true),
 						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
 				},
@@ -646,7 +646,7 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = ExportProxyServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
-		RunAsNonRoot: pointer.Bool(true),
+		RunAsNonRoot: ptr.To(true),
 	}
 
 	const shortName = "exportproxy"

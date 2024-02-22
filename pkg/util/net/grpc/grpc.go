@@ -43,14 +43,13 @@ func DialSocket(socketPath string) (*grpc.ClientConn, error) {
 }
 
 func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, error) {
-	dialer := func(ctx context.Context, addr string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, unixProtocol, addr)
-	}
 
 	options := []grpc.DialOption{
 		grpc.WithAuthority("localhost"),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(dialer),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, unixProtocol, addr)
+		}),
 		grpc.WithBlock(), // dial sync in order to catch errors early
 	}
 

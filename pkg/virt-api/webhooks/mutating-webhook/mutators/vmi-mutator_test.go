@@ -24,7 +24,7 @@ import (
 	"fmt"
 	rt "runtime"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -673,7 +673,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 			},
 		}
@@ -713,13 +713,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 				Runtime: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 				Reset: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 			},
 		}
@@ -728,13 +728,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			Runtime: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			Reset: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 		}
 
@@ -752,10 +752,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 			},
 		}
@@ -764,16 +764,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			VPIndex: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 		}
 
@@ -791,14 +791,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				VPIndex: &v1.FeatureState{
-					Enabled: pointer.Bool(false),
+					Enabled: ptr.To(false),
 				},
 				// should enable SyNIC
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 			},
 		}
@@ -810,19 +810,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			VPIndex: &v1.FeatureState{
-				Enabled: pointer.Bool(false),
+				Enabled: ptr.To(false),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			EVMCS: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 			VAPIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: ptr.To(true),
 			},
 		}
 
@@ -949,13 +949,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: ptr.To(true),
 				},
 			}, nil),
 
 		Entry("if EVMCS is explicitly false ", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
-				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
+				EVMCS: &v1.FeatureState{Enabled: ptr.To(false)},
 			},
 			nil,
 		),
@@ -969,7 +969,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		Entry("if EVMCS is explicitly true ", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
-				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				EVMCS: &v1.FeatureState{Enabled: ptr.To(true)},
 			}, &v1.CPU{
 				Features: cpuFeatures,
 			}),
@@ -1145,7 +1145,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			&v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(true),
+						EncryptedState: ptr.To(true),
 					},
 				},
 			}),
@@ -1182,7 +1182,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			&v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(false),
+						EncryptedState: ptr.To(false),
 					},
 				},
 			}),
@@ -1196,7 +1196,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			&v1.LaunchSecurity{
 				SEV: &v1.SEV{
 					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(true),
+						EncryptedState: ptr.To(true),
 					},
 				},
 			}),

@@ -23,7 +23,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -83,7 +83,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 			},
 			Spec: v1alpha1.VirtualMachineSnapshotSpec{
 				Source: k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.String(vmAPIGroup),
+					APIGroup: ptr.To(vmAPIGroup),
 					Kind:     "VirtualMachine",
 					Name:     vm.Name,
 				},
@@ -138,7 +138,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(vmAPIGroup),
+			APIGroup: ptr.To(vmAPIGroup),
 			Kind:     "VirtualMachine",
 			Name:     sourceVM.Name,
 		}
@@ -156,13 +156,13 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshot.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(virtsnapshot.GroupName),
+			APIGroup: ptr.To(virtsnapshot.GroupName),
 			Kind:     "VirtualMachineSnapshot",
 			Name:     snapshot.Name,
 		}
 
 		cloneTargetRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(vmAPIGroup),
+			APIGroup: ptr.To(vmAPIGroup),
 			Kind:     "VirtualMachine",
 			Name:     targetVMName,
 		}
@@ -468,7 +468,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					)
 
 					vmClone = generateCloneFromVM()
-					vmClone.Spec.NewSMBiosSerial = pointer.String(targetSerial)
+					vmClone.Spec.NewSMBiosSerial = ptr.To(targetSerial)
 
 					createCloneAndWaitForFinish(vmClone)
 
@@ -531,7 +531,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					storageClass,
 					k8sv1.ReadWriteOnce,
 				)
-				vm.Spec.Running = pointer.Bool(running)
+				vm.Spec.Running = ptr.To(running)
 
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())

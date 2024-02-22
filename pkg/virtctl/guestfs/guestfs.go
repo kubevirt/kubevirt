@@ -22,7 +22,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
@@ -470,7 +470,7 @@ func createLibguestfsPod(pvc, image, cmd string, args []string, kvm, isBlock boo
 		},
 	}
 	securityContext := &corev1.PodSecurityContext{
-		RunAsNonRoot: pointer.Bool(!root),
+		RunAsNonRoot: ptr.To(!root),
 		RunAsUser:    u,
 		RunAsGroup:   g,
 		FSGroup:      f,
@@ -605,7 +605,7 @@ func createAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 	resChan := make(chan error)
 
 	go func() {
-		resChan <- exec.Stream(remotecommand.StreamOptions{
+		resChan <- exec.StreamWithContext(context.TODO(), remotecommand.StreamOptions{
 			Stdin:  stdinReader,
 			Stdout: stdoutWriter,
 			Stderr: stdoutWriter,

@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/api/core"
@@ -1054,7 +1054,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				By("Creating VM clone")
 				vmClone := kubecli.NewMinimalCloneWithNS("testclone", testsuite.GetTestNamespace(nil))
 				cloneSourceRef := &corev1.TypedLocalObjectReference{
-					APIGroup: pointer.String(groupName),
+					APIGroup: ptr.To(groupName),
 					Kind:     "VirtualMachine",
 					Name:     sourceVMName,
 				}

@@ -3,7 +3,7 @@ package services
 import (
 	"fmt"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,9 +35,9 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 			},
 			Resources: resources,
 			SecurityContext: &k8sv1.SecurityContext{
-				RunAsUser:                pointer.Int64(util.NonRootUID),
-				RunAsNonRoot:             pointer.Bool(true),
-				AllowPrivilegeEscalation: pointer.Bool(false),
+				RunAsUser:                ptr.To(int64(util.NonRootUID)),
+				RunAsNonRoot:             ptr.To(true),
+				AllowPrivilegeEscalation: ptr.To(false),
 				Capabilities: &k8sv1.Capabilities{
 					Drop: []k8sv1.Capability{"ALL"},
 				},
