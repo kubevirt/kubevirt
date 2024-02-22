@@ -29,9 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sres "k8s.io/apimachinery/pkg/api/resource"
@@ -67,9 +64,9 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var vmi *v1.VirtualMachineInstance
 		resource := "virtualmachineinstances"
 
-		BeforeEach(func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		})
+		vmi = libvmi.NewAlpine()
+		vmi.ObjectMeta.Namespace = testsuite.GetTestNamespace(vmi)
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 
 		It("[test_id:7627]create a VirtualMachineInstance", func() {
 			By("Make a Dry-Run request to create a Virtual Machine")
