@@ -182,7 +182,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(
 					libvmi.WithCloudInitNoCloudEncodedUserData(""),
-					libvmi.WithCloudInitConfigDriveUserData(userData),
+					libvmi.WithCloudInitConfigDriveEncodedUserData(userData),
 				)
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)

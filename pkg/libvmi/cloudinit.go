@@ -99,6 +99,17 @@ func WithCloudInitConfigDriveUserData(data string) Option {
 	}
 }
 
+// WithCloudInitConfigDriveEncodedUserData adds cloud-init config-drive with encoded user data.
+func WithCloudInitConfigDriveEncodedUserData(data string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitConfigDrive.UserData = ""
+		volume.CloudInitConfigDrive.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
+	}
+}
+
 func addDiskVolumeWithCloudInitConfigDrive(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus) {
 	addDisk(vmi, newDisk(diskName, bus))
 	v := newVolume(diskName)
