@@ -254,7 +254,6 @@ API rule violation: names_match,kubevirt.io/api/core/v1,LunTarget,ReadOnly
 API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,NetworkInterface
 API rule violation: names_match,kubevirt.io/api/core/v1,PITTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,RTCTimer,Enabled
-API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemDisk,BusType
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemInfo,Filesystems
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestAgentInfo,GAVersion
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestOSInfo,VersionID
