@@ -65,10 +65,12 @@ spec:
   instancetype:
     kind: VirtualMachineInstancetype
     name: small
+    revisionName: vm1-small-XXXXX-1
 ...
 ```
 
 - ("instancetype.kubevirt.io", "VirtualMachineInstancetype", "ns1", "small")
+- ("apps", "controllerrevisions", "ns1", "vm1-small-XXXXX-1")
 
 #### spec.preference
 
@@ -78,10 +80,12 @@ spec:
   preference:
     kind: VirtualMachinePreference
     name: windows
+    revisionName: vm1-windows-XXXXX-1
 ...
 ```
 
 - ("instancetype.kubevirt.io", "VirtualMachinePreference", "ns1", "windows")
+- ("apps", "controllerrevisions", "ns1", "vm1-windows-XXXXX-1")
 
 #### spec.template
 
