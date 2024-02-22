@@ -21,8 +21,9 @@ package clone
 
 import (
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"

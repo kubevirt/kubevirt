@@ -6059,8 +6059,7 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             persistent:
                               description: Persistent indicates the state of the TPM
-                                device should be kept across reboots Defaults to
-                                false
+                                device should be kept across reboots Defaults to false
                               type: boolean
                           type: object
                         useVirtioTransitional:
@@ -15625,8 +15624,7 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             persistent:
                               description: Persistent indicates the state of the TPM
-                                device should be kept across reboots Defaults to
-                                false
+                                device should be kept across reboots Defaults to false
                               type: boolean
                           type: object
                         useVirtioTransitional:

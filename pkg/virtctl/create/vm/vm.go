@@ -22,9 +22,10 @@ package vm
 import (
 	"errors"
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"sort"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"

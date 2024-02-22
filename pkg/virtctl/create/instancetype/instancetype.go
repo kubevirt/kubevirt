@@ -21,6 +21,7 @@ package instancetype
 
 import (
 	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 
 	"github.com/spf13/cobra"
