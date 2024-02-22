@@ -2328,24 +2328,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 
 		// Verify pci address
-		if disk.Disk != nil && disk.Disk.PciAddress != "" {
-			if disk.Disk.Bus != v1.DiskBusVirtio {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("disk %s - setting a PCI address is only possible with bus type virtio.", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String()),
-					Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
-				})
-			}
-
-			_, err := hwutil.ParsePciAddress(disk.Disk.PciAddress)
-			if err != nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("disk %s has malformed PCI address (%s).", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String(), disk.Disk.PciAddress),
-					Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
-				})
-			}
-		}
+		causes = append(causes, validatePciAddress(disk, field, idx)...)
 
 		// Verify boot order is greater than 0, if provided
 		if disk.BootOrder != nil && *disk.BootOrder < 1 {
@@ -2357,106 +2340,19 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 
 		// Verify bus is supported, if provided
-		if len(bus) > 0 {
-			if bus == "ide" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "IDE bus is not supported",
-					Field:   field.Index(idx).Child(diskType, "bus").String(),
-				})
-			} else {
-				buses := []v1.DiskBus{v1.DiskBusVirtio, v1.DiskBusSCSI, v1.DiskBusSATA, v1.DiskBusUSB}
-				validBus := false
-				for _, b := range buses {
-					if b == bus {
-						validBus = true
-					}
-				}
-				if !validBus {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("%s is set with an unrecognized bus %s, must be one of: %v", field.Index(idx).String(), bus, buses),
-						Field:   field.Index(idx).Child(diskType, "bus").String(),
-					})
-				}
+		causes = append(causes, validateBusSupported(disk, bus, diskType, field, idx)...)
 
-				// special case. virtio is incompatible with CD-ROM for q35 machine types
-				if diskType == "cdrom" && bus == v1.DiskBusVirtio {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("Bus type %s is invalid for CD-ROM device", bus),
-						Field:   field.Index(idx).Child("cdrom", "bus").String(),
-					})
-
-				}
-				// sata disks (in contrast to sata cdroms) don't support readOnly
-				if disk.Disk != nil && bus == v1.DiskBusSATA && disk.Disk.ReadOnly {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("%s hard-disks do not support read-only.", bus),
-						Field:   field.Index(idx).Child("disk", "bus").String(),
-					})
-				}
-			}
-
-			// Reject defining DedicatedIOThread to a disk with SATA bus since this configuration
-			// is not supported in libvirt.
-			isIOThreadsWithSataBus := disk.DedicatedIOThread != nil && *disk.DedicatedIOThread &&
-				(disk.DiskDevice.Disk != nil) && (disk.DiskDevice.Disk.Bus == v1.DiskBusSATA)
-			if isIOThreadsWithSataBus {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: "IOThreads are not supported for disks on a SATA bus",
-					Field:   field.Child("domain", "devices", "disks").Index(idx).String(),
-				})
-			}
-		}
-
-		// Verify serial number is made up of valid characters for libvirt, if provided
-		isValid := regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
-		if disk.Serial != "" && !isValid(disk.Serial) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Index(idx).String()),
-				Field:   field.Index(idx).Child("serial").String(),
-			})
-		}
-
-		// Verify serial number is within valid length, if provided
-		if disk.Serial != "" && len([]rune(disk.Serial)) > maxStrLen {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified", field.Index(idx).String(), maxStrLen),
-				Field:   field.Index(idx).Child("serial").String(),
-			})
-		}
+		// Verify serial number is valid in terms of both characters and length, if provided
+		causes = append(causes, validateSerialNumber(disk, field, idx)...)
 
 		// Verify if cache mode is valid
-		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),
-				Field:   field.Index(idx).Child("cache").String(),
-			})
-		}
+		causes = append(causes, validateCacheMode(disk, field, idx)...)
 
-		if disk.IO != "" && disk.IO != v1.IONative && disk.IO != v1.IOThreads {
-			field := field.Child("domain", "devices", "disks").Index(idx).Child("io").String()
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("Disk IO mode for %s is not supported. Supported modes are: native, threads.", field),
-				Field:   field,
-			})
-		}
+		// Verify if disk IO mode is valid
+		causes = append(causes, validateDiskIOMode(disk, field, idx)...)
 
 		// Verify if error_policy is valid
-		if disk.ErrorPolicy != nil && *disk.ErrorPolicy != v1.DiskErrorPolicyStop && *disk.ErrorPolicy != v1.DiskErrorPolicyIgnore && *disk.ErrorPolicy != v1.DiskErrorPolicyReport && *disk.ErrorPolicy != v1.DiskErrorPolicyEnospace {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s has invalid value \"%s\"", field.Index(idx).Child("errorPolicy").String(), *disk.ErrorPolicy),
-				Field:   field.Index(idx).Child("errorPolicy").String(),
-			})
-		}
+		causes = append(causes, validatePolicyError(disk, field, idx)...)
 
 		// Verify disk and volume name can be a valid container name since disk
 		// name can become a container name which will fail to schedule if invalid
@@ -2481,40 +2377,202 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				})
 			} else if hasCustomBlockSize {
 				customSize := disk.BlockSize.Custom
-				if customSize.Logical > customSize.Physical {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("Logical size %d must be the same or less than the physical size of %d", customSize.Logical, customSize.Physical),
-						Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
-					})
-				} else {
-					checkSize := func(size uint) (bool, string) {
-						if size < 512 {
-							return false, fmt.Sprintf("Provided size of %d is less than the supported minimum size of 512", size)
-						} else if size > 2097152 {
-							return false, fmt.Sprintf("Provided size of %d is greater than the supported maximum size of 2 MiB", size)
-						} else if size&(size-1) != 0 {
-							return false, fmt.Sprintf("Provided size of %d is not a power of 2", size)
-						}
-						return true, ""
-					}
-					if sizeOk, reason := checkSize(customSize.Logical); !sizeOk {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: reason,
-							Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
-						})
-					}
-					if sizeOk, reason := checkSize(customSize.Physical); !sizeOk {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: reason,
-							Field:   field.Index(idx).Child("blockSize").Child("custom").Child("physical").String(),
-						})
-					}
-				}
+				causes = append(causes, validateCustomBlockSize(customSize, field, idx)...)
 			}
 		}
+	}
+
+	return causes
+}
+
+func validatePciAddress(disk v1.Disk, field *k8sfield.Path, idx int) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.Disk == nil || disk.Disk.PciAddress == "" {
+		return causes
+	}
+
+	if disk.Disk.Bus != v1.DiskBusVirtio {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("disk %s - setting a PCI address is only possible with bus type virtio.", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String()),
+			Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
+		})
+	}
+
+	if _, err := hwutil.ParsePciAddress(disk.Disk.PciAddress); err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("disk %s has malformed PCI address (%s).", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String(), disk.Disk.PciAddress),
+			Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateBusSupported(disk v1.Disk, bus v1.DiskBus, diskType string, field *k8sfield.Path, idx int) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if len(bus) == 0 {
+		return causes
+	}
+
+	if bus == "ide" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "IDE bus is not supported",
+			Field:   field.Index(idx).Child(diskType, "bus").String(),
+		})
+	} else {
+		buses := []v1.DiskBus{v1.DiskBusVirtio, v1.DiskBusSCSI, v1.DiskBusSATA, v1.DiskBusUSB}
+		if bus != v1.DiskBusVirtio &&
+			bus != v1.DiskBusSCSI &&
+			bus != v1.DiskBusSATA &&
+			bus != v1.DiskBusUSB {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is set with an unrecognized bus %s, must be one of: %v", field.Index(idx).String(), bus, buses),
+				Field:   field.Index(idx).Child(diskType, "bus").String(),
+			})
+		}
+
+		// special case. virtio is incompatible with CD-ROM for q35 machine types
+		if diskType == "cdrom" && bus == v1.DiskBusVirtio {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Bus type %s is invalid for CD-ROM device", bus),
+				Field:   field.Index(idx).Child("cdrom", "bus").String(),
+			})
+
+		}
+		// sata disks (in contrast to sata cdroms) don't support readOnly
+		if disk.Disk != nil && bus == v1.DiskBusSATA && disk.Disk.ReadOnly {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s hard-disks do not support read-only.", bus),
+				Field:   field.Index(idx).Child("disk", "bus").String(),
+			})
+		}
+	}
+
+	// Reject defining DedicatedIOThread to a disk with SATA bus since this configuration
+	// is not supported in libvirt.
+	isIOThreadsWithSataBus := disk.DedicatedIOThread != nil && *disk.DedicatedIOThread &&
+		(disk.DiskDevice.Disk != nil) && (disk.DiskDevice.Disk.Bus == v1.DiskBusSATA)
+	if isIOThreadsWithSataBus {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "IOThreads are not supported for disks on a SATA bus",
+			Field:   field.Child("domain", "devices", "disks").Index(idx).String(),
+		})
+	}
+
+	return causes
+}
+
+func validateSerialNumber(disk v1.Disk, field *k8sfield.Path, idx int) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.Serial == "" {
+		return causes
+	}
+
+	isValid := regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
+	// Verify serial number is made up of valid characters for libvirt, if provided
+	if !isValid(disk.Serial) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Index(idx).String()),
+			Field:   field.Index(idx).Child("serial").String(),
+		})
+	}
+
+	// Verify serial number is within valid length, if provided
+	if len([]rune(disk.Serial)) > maxStrLen {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified", field.Index(idx).String(), maxStrLen),
+			Field:   field.Index(idx).Child("serial").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateCacheMode(disk v1.Disk, field *k8sfield.Path, idx int) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),
+			Field:   field.Index(idx).Child("cache").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateDiskIOMode(disk v1.Disk, field *k8sfield.Path, idx int) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.IO != "" && disk.IO != v1.IONative && disk.IO != v1.IOThreads {
+		field := field.Child("domain", "devices", "disks").Index(idx).Child("io").String()
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("Disk IO mode for %s is not supported. Supported modes are: native, threads.", field),
+			Field:   field,
+		})
+	}
+
+	return causes
+}
+
+func validatePolicyError(disk v1.Disk, field *k8sfield.Path, idx int) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.ErrorPolicy != nil && *disk.ErrorPolicy != v1.DiskErrorPolicyStop && *disk.ErrorPolicy != v1.DiskErrorPolicyIgnore && *disk.ErrorPolicy != v1.DiskErrorPolicyReport && *disk.ErrorPolicy != v1.DiskErrorPolicyEnospace {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s has invalid value \"%s\"", field.Index(idx).Child("errorPolicy").String(), *disk.ErrorPolicy),
+			Field:   field.Index(idx).Child("errorPolicy").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateCustomBlockSize(customSize *v1.CustomBlockSize, field *k8sfield.Path, idx int) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if customSize.Logical > customSize.Physical {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Logical size %d must be the same or less than the physical size of %d", customSize.Logical, customSize.Physical),
+			Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
+		})
+
+		return causes
+	}
+
+	checkSize := func(size uint) (bool, string) {
+		switch {
+		case size < 512:
+			return false, fmt.Sprintf("Provided size of %d is less than the supported minimum size of 512", size)
+		case size > 2097152:
+			return false, fmt.Sprintf("Provided size of %d is greater than the supported maximum size of 2 MiB", size)
+		case size&(size-1) != 0:
+			return false, fmt.Sprintf("Provided size of %d is not a power of 2", size)
+		}
+		return true, ""
+	}
+	if sizeOk, reason := checkSize(customSize.Logical); !sizeOk {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: reason,
+			Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
+		})
+	}
+	if sizeOk, reason := checkSize(customSize.Physical); !sizeOk {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: reason,
+			Field:   field.Index(idx).Child("blockSize").Child("custom").Child("physical").String(),
+		})
 	}
 
 	return causes
