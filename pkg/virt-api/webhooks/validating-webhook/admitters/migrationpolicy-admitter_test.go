@@ -22,19 +22,13 @@ package admitters
 import (
 	"encoding/json"
 
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/testutils"
-
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/api/migrations"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -45,22 +39,12 @@ import (
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
 	var admitter *MigrationPolicyAdmitter
 	var policyName string
-	var kubeClient *fake.Clientset
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		kubeClient = fake.NewSimpleClientset()
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		admitter = &MigrationPolicyAdmitter{ClusterConfig: config, Client: virtClient}
+		admitter = &MigrationPolicyAdmitter{}
 		policyName = "test-policy"
-
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
 	DescribeTable("should reject migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
