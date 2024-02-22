@@ -7,12 +7,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -21,13 +18,6 @@ import (
 type factoryFunc func(requestedToplogy *api.CPUTopology, nodeTopology *v1.Topology, cpuSet []int) VCPUPool
 
 var _ = Describe("VCPU pinning", func() {
-
-	BeforeEach(func() {
-		seed := time.Now().UnixNano()
-		rand.Seed(seed)
-		log.DefaultLogger().Infof("using seed %v for cpu pinning tests", seed)
-	})
-
 	for _, factory := range []factoryFunc{NewRelaxedCPUPool, NewStrictCPUPool} {
 		generatePositiveCPUPinningTests(
 			defaultArgs().HostThreadsPerCore(1).CellCount(1).VCPUCores(12).VCPUThreadsPerCore(1).CPUPoolFactory(factory),
