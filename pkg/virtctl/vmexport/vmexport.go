@@ -257,6 +257,8 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 		},
 	}
 
+	shouldCreate = false
+
 	cmd.Flags().StringVar(&vm, "vm", "", "Sets VirtualMachine as vmexport kind and specifies the vm name.")
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Sets VirtualMachineSnapshot as vmexport kind and specifies the snapshot name.")
 	cmd.Flags().StringVar(&pvc, "pvc", "", "Sets PersistentVolumeClaim as vmexport kind and specifies the PVC name.")
