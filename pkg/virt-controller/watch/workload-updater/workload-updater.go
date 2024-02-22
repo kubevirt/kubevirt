@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
@@ -218,7 +219,8 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
 		return
 	}
 
-	if !isHotplugInProgress(vmi) || migrationutils.IsMigrating(vmi) {
+	if !(isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi)) ||
+		migrationutils.IsMigrating(vmi) {
 		return
 	}
 
@@ -322,6 +324,11 @@ func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 		condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
 }
 
+func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	return condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
+}
+
 func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
 		return false
@@ -330,8 +337,40 @@ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachi
 	if isHotplugInProgress(vmi) {
 		return true
 	}
+	if isVolumesUpdateInProgress(vmi) {
+		return true
+	}
 
 	return false
+}
+
+func canVolumesUpdateMigration(vmi *virtv1.VirtualMachineInstance) bool {
+	if len(vmi.Status.MigratedVolumes) == 0 {
+		return false
+	}
+	// Check if there are other reasons rather then the
+	// DisksNotLiveMigratable
+	for _, cond := range vmi.Status.Conditions {
+		if cond.Type == virtv1.VirtualMachineInstanceIsMigratable &&
+			cond.Status == k8sv1.ConditionFalse &&
+			cond.Reason != virtv1.VirtualMachineInstanceReasonDisksNotMigratable {
+			log.Log.Object(vmi).Errorf("cannot migrate the volumes as the VMI isn't migratable: %s", cond.Reason)
+			return false
+		}
+	}
+	// Check that all RWO volumes will be copied
+	volMigMap := make(map[string]bool)
+	for _, v := range vmi.Status.MigratedVolumes {
+		volMigMap[v.VolumeName] = true
+	}
+	for _, v := range vmi.Status.VolumeStatus {
+		_, ok := volMigMap[v.Name]
+		if storagetypes.IsReadWriteOnceAccessMode(v.PersistentVolumeClaimInfo.AccessModes) && !ok {
+			log.Log.Object(vmi).Errorf("cannot migrate the VM. The volume %s is RWO and not included in the migration volumes", v.Name)
+			return false
+		}
+	}
+	return true
 }
 
 func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateData {
@@ -381,7 +420,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 			continue
 		}
 
-		if automatedMigrationAllowed && vmi.IsMigratable() {
+		if automatedMigrationAllowed && (vmi.IsMigratable() || canVolumesUpdateMigration(vmi)) {
 			data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
 		} else if automatedShutdownAllowed {
 			data.evictOutdatedVMIs = append(data.evictOutdatedVMIs, vmi)
@@ -520,12 +559,18 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	c.migrationExpectations.ExpectCreations(key, migrateCount)
 	for _, vmi := range migrationCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
+			var labels map[string]string
+			if isVolumesUpdateInProgress(vmi) {
+				labels = make(map[string]string)
+				labels[virtv1.VolumesUpdateMigration] = vmi.Name
+			}
 			defer wg.Done()
 			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						virtv1.WorkloadUpdateMigrationAnnotation: "",
 					},
+					Labels:       labels,
 					GenerateName: "kubevirt-workload-update-",
 				},
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{

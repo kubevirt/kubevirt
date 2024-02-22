@@ -30,7 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
@@ -60,6 +59,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -816,6 +816,207 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 	}
 
 	return nil
+}
+
+type invalidVols struct {
+	hotplugged []string
+	fs         []string
+	shareable  []string
+	luns       []string
+}
+
+func (vols *invalidVols) errorMessage() string {
+	var s strings.Builder
+	if len(vols.hotplugged) < 0 && len(vols.fs) < 0 &&
+		len(vols.shareable) < 0 && len(vols.luns) < 0 {
+		return ""
+	}
+	s.WriteString("invalid volumes to update with migration:")
+	if len(vols.hotplugged) > 0 {
+		s.WriteString(fmt.Sprintf(" hotplugged: %v", vols.hotplugged))
+	}
+	if len(vols.fs) > 0 {
+		s.WriteString(fmt.Sprintf(" filesystem: %v", vols.fs))
+	}
+	if len(vols.shareable) > 0 {
+		s.WriteString(fmt.Sprintf(" shareable: %v", vols.shareable))
+	}
+	if len(vols.luns) > 0 {
+		s.WriteString(fmt.Sprintf(" luns: %v", vols.luns))
+	}
+
+	return s.String()
+}
+
+func updatedVolumesMapping(oldSpec *virtv1.VirtualMachineSpec, vmi *virtv1.VirtualMachineInstance) map[string]bool {
+	updateVols := make(map[string]bool)
+	return updateVols
+}
+
+func validateVolumes(oldSpec *virtv1.VirtualMachineSpec, vmi *virtv1.VirtualMachineInstance) (bool, string) {
+	var invalidVols invalidVols
+	valid := true
+	disks := storagetypes.GetDisksFromVolumes(vmi)
+	filesystems := storagetypes.GetFilesystemsFromVolumes(vmi)
+	updateVols := updatedVolumesMapping(oldSpec, vmi)
+	for _, v := range vmi.Spec.Volumes {
+		name := storagetypes.PVCNameFromVirtVolume(&v)
+		_, ok := updateVols[name]
+		if !ok {
+			continue
+		}
+
+		// Hotplugged volumes
+		if storagetypes.IsHotplugVolume(&v) {
+			invalidVols.hotplugged = append(invalidVols.hotplugged, v.Name)
+			valid = false
+			continue
+		}
+		// Filesystems
+		if _, ok := filesystems[v.Name]; ok {
+			invalidVols.fs = append(invalidVols.fs, v.Name)
+			valid = false
+			continue
+		}
+
+		d, ok := disks[v.Name]
+		if !ok {
+			continue
+		}
+
+		// Shareable disks
+		if d.Shareable != nil && *d.Shareable {
+			invalidVols.shareable = append(invalidVols.shareable, v.Name)
+			valid = false
+			continue
+		}
+
+		// LUN disks
+		if d.DiskDevice.LUN != nil {
+			invalidVols.luns = append(invalidVols.luns, v.Name)
+			valid = false
+			continue
+		}
+	}
+	if !valid {
+		return false, invalidVols.errorMessage()
+	}
+
+	return true, ""
+}
+
+func (c *VMController) handleVolumeUpdateRequest(oldSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine,
+	vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil {
+		return nil
+	}
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if migrations.IsMigrating(vmi) {
+		return fmt.Errorf("volumes update is not allowed while VMI is migrating")
+	}
+
+	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vm.Spec.Template.Spec.Volumes) {
+		return nil
+	}
+
+	vmConditions := controller.NewVirtualMachineConditionManager()
+	switch {
+	case vm.Spec.UpdateVolumesStrategy == nil ||
+		*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyReplacement:
+		if !vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:               virtv1.VirtualMachineRestartRequired,
+				LastTransitionTime: v1.Now(),
+				Status:             k8score.ConditionTrue,
+				Message:            "the volumes replacement is effective only after restart",
+			})
+		}
+	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
+		// Validate if the update volumes can be migrated
+		if valid, msg := validateVolumes(oldSpec, vmi); !valid {
+			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:               virtv1.VirtualMachineInstanceVolumesChange,
+				LastTransitionTime: v1.Now(),
+				Status:             k8score.ConditionTrue,
+				Message:            msg,
+			})
+			return nil
+		}
+		if err := c.patchVMIStatusWithMigratedVolumes(vmi, vm); err != nil {
+			return err
+		}
+		if err := c.patchVMIVolumes(vmi, vm); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("updateVolumes strategy not recognized: %s", *vm.Spec.UpdateVolumesStrategy)
+	}
+
+	return nil
+}
+
+func (c *VMController) patchVMIStatusWithMigratedVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
+	var migVolsInfo []virtv1.StorageMigratedVolumeInfo
+	oldVols := make(map[string]string)
+	for _, v := range vmi.Spec.Volumes {
+		if pvcName := storagetypes.PVCNameFromVirtVolume(&v); pvcName != "" {
+			oldVols[v.Name] = pvcName
+		}
+	}
+	for _, v := range vm.Spec.Template.Spec.Volumes {
+		claim := storagetypes.PVCNameFromVirtVolume(&v)
+		oldClaim, ok := oldVols[v.Name]
+		if !ok {
+			continue
+		}
+		if oldClaim == claim {
+			continue
+		}
+		oldPvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vmi.Namespace, oldClaim, c.pvcStore)
+		if err != nil {
+			return err
+		}
+		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vmi.Namespace, claim, c.pvcStore)
+		if err != nil {
+			return err
+		}
+		migVolsInfo = append(migVolsInfo, virtv1.StorageMigratedVolumeInfo{
+			VolumeName: v.Name,
+			DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
+				ClaimName:  claim,
+				VolumeMode: pvc.Spec.VolumeMode,
+			},
+			SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
+				ClaimName:  oldClaim,
+				VolumeMode: oldPvc.Spec.VolumeMode,
+			},
+		})
+	}
+	if equality.Semantic.DeepEqual(migVolsInfo, vmi.Status.MigratedVolumes) {
+		return nil
+	}
+	patches := patch.New()
+	if len(vmi.Status.MigratedVolumes) == 0 {
+		patches.Add("/status/migratedVolumes", migVolsInfo)
+	} else {
+		patches.TestAndReplace("/status/migratedVolumes", vmi.Status.MigratedVolumes, migVolsInfo)
+	}
+	patch, err := patches.GeneratePayload()
+	if err != nil {
+		return err
+	}
+	vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, &v1.PatchOptions{})
+	return err
+}
+func (c *VMController) patchVMIVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
+	patches := patch.New()
+	patches.TestAndReplace("/spec/volumes", vmi.Spec.Volumes, vm.Spec.Template.Spec.Volumes)
+	patch, err := patches.GeneratePayload()
+	if err != nil {
+		return err
+	}
+	vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, &v1.PatchOptions{})
+	return err
 }
 
 func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -2860,6 +3061,20 @@ func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 	vm.Status.VolumeRequests = tmpVolRequests
 }
 
+func liveUpdateVolumes(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) {
+	oldVols := make(map[string]bool)
+	for _, v := range lastSeenVMSpec.Template.Spec.Volumes {
+		if v.DataVolume != nil || v.PersistentVolumeClaim != nil {
+			oldVols[v.Name] = true
+		}
+	}
+	for i, v := range vm.Spec.Template.Spec.Volumes {
+		if _, ok := oldVols[v.Name]; ok {
+			lastSeenVMSpec.Template.Spec.Volumes[i] = v
+		}
+	}
+}
+
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
 func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, bool) {
 	if lastSeenVMSpec == nil {
@@ -2879,6 +3094,7 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 		}
 		lastSeenVMSpec.Template.Spec.NodeSelector = vm.Spec.Template.Spec.NodeSelector
 		lastSeenVMSpec.Template.Spec.Affinity = vm.Spec.Template.Spec.Affinity
+		liveUpdateVolumes(lastSeenVMSpec, vm)
 	}
 
 	if !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec, vm.Spec.Template.Spec) {
@@ -3044,6 +3260,14 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 					reason: HotPlugMemoryErrorReason,
 				}
 			}
+
+			if err := c.handleVolumeUpdateRequest(startVMSpec, vmCopy, vmi); err != nil {
+				syncErr = &syncErrorImpl{
+					err:    fmt.Errorf("error encountered while handling volumes update requests: %v", err),
+					reason: HotPlugMemoryErrorReason,
+				}
+			}
+
 		}
 
 		if syncErr == nil {
