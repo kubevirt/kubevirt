@@ -67,7 +67,7 @@ func (*cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	}
 
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) ||
-		!util.CompareLabels(found, cdi) {
+		!util.CompareLabels(cdi, found) {
 		overwritten := false
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing CDI's Spec to new opinionated values")

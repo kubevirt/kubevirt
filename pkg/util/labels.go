@@ -23,7 +23,8 @@ func MergeLabels(src, tgt *metav1.ObjectMeta) {
 func CompareLabels(src, tgt metav1.Object) bool {
 	targetLabels := tgt.GetLabels()
 	for key, val := range src.GetLabels() {
-		if targetLabels[key] != val {
+		tgt_v, ok := targetLabels[key]
+		if !ok || tgt_v != val {
 			return false
 		}
 	}

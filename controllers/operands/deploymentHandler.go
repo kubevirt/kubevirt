@@ -99,7 +99,7 @@ func (h *deploymentHooks) updateCr(req *common.HcoRequest, Client client.Client,
 // We need to check only certain fields in the deployment resource, since some of the fields
 // are being set by k8s.
 func hasCorrectDeploymentFields(found *appsv1.Deployment, required *appsv1.Deployment) bool {
-	return util.CompareLabels(found, required) &&
+	return util.CompareLabels(required, found) &&
 		reflect.DeepEqual(found.Spec.Selector, required.Spec.Selector) &&
 		reflect.DeepEqual(found.Spec.Replicas, required.Spec.Replicas) &&
 		reflect.DeepEqual(found.Spec.Template.Spec.Containers, required.Spec.Template.Spec.Containers) &&

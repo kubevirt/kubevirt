@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/gertd/go-pluralize"
 	. "github.com/onsi/ginkgo/v2"
@@ -34,7 +39,26 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 	It("should have all the required labels in all the controlled resources", func() {
 		hc := tests.GetHCO(ctx, cli)
 		plural := pluralize.NewClient()
+		const kv_name = "kubevirt-kubevirt-hyperconverged"
 
+		By("removing one of the managed labels and wait for it to be added back")
+		kv, err := cli.KubeVirt(hc.Namespace).Get(kv_name, &metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		expectedVersion := kv.Labels[hcoutil.AppLabelVersion]
+
+		patch := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
+		Eventually(func() error {
+			_, err := cli.KubeVirt(hc.Namespace).Patch(kv_name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			return err
+		}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			kv, err := cli.KubeVirt(hc.Namespace).Get(kv_name, &metav1.GetOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(kv.Labels).Should(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
+		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+
+		By("checking all the labels")
 		for _, resource := range hc.Status.RelatedObjects {
 			By(fmt.Sprintf("checking labels for %s/%s", resource.Kind, resource.Name))
 			parts := strings.Split(resource.APIVersion, "/")

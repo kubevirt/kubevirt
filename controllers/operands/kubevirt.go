@@ -249,7 +249,7 @@ func (*kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exi
 	}
 
 	if !reflect.DeepEqual(found.Spec, virt.Spec) ||
-		!hcoutil.CompareLabels(found, virt) ||
+		!hcoutil.CompareLabels(virt, found) ||
 		!isAnnotationStateMeetingRequirements(virt.Annotations, found.Annotations) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing KubeVirt's Spec to new opinionated values")

@@ -80,7 +80,7 @@ var _ = Describe("Test Labels", func() {
 
 	Context("test CompareLabels", func() {
 
-		DescribeTable("should compare source and target Labels ingnoring additional labels on target", func(src, tgt metav1.ObjectMeta, expected bool) {
+		DescribeTable("should compare source and target Labels ignoring additional labels on target", func(src, tgt metav1.ObjectMeta, expected bool) {
 			scm := &corev1.ConfigMap{
 				ObjectMeta: src,
 			}
@@ -171,6 +171,72 @@ var _ = Describe("Test Labels", func() {
 					},
 				},
 				false,
+			),
+			Entry("one label with empty value on source",
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+						"ccc": "",
+					},
+				},
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+						"ccc": "444",
+					},
+				},
+				false,
+			),
+			Entry("one label with empty value on target",
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+						"ccc": "333",
+					},
+				},
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+						"ccc": "",
+					},
+				},
+				false,
+			),
+			Entry("one label with empty value on source, missing on target",
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+						"ccc": "",
+					},
+				},
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+					},
+				},
+				false,
+			),
+			Entry("one label with empty value on target, missing on source",
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+					},
+				},
+				metav1.ObjectMeta{
+					Labels: map[string]string{
+						"aaa": "111",
+						"bbb": "222",
+						"ccc": "",
+					},
+				},
+				true,
 			),
 			Entry("one extra label on source",
 				metav1.ObjectMeta{

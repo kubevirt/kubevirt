@@ -49,7 +49,7 @@ func (h cmHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	}
 
 	if !reflect.DeepEqual(found.Data, h.required.Data) ||
-		!util.CompareLabels(found, h.required) {
+		!util.CompareLabels(h.required, found) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing Configmap to new opinionated values", "name", h.required.Name)
 		} else {

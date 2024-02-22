@@ -57,7 +57,7 @@ func (*cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 		return false, false, errors.New("can't convert to ConsoleCLIDownload")
 	}
 	if !reflect.DeepEqual(found.Spec, ccd.Spec) ||
-		!util.CompareLabels(found, ccd) {
+		!util.CompareLabels(ccd, found) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing ConsoleCLIDownload's Spec to new opinionated values")
 		} else {

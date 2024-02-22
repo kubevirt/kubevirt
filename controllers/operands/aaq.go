@@ -68,7 +68,7 @@ func (*aaqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 	}
 
 	if !reflect.DeepEqual(found.Spec, aaq.Spec) ||
-		!hcoutil.CompareLabels(found, aaq) {
+		!hcoutil.CompareLabels(aaq, found) {
 		overwritten := false
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing AAQ's Spec to new opinionated values")
