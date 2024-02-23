@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"k8s.io/utils/ptr"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"

@@ -22,11 +22,12 @@ package tests_test
 import (
 	"encoding/xml"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"net"
 	"os"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 

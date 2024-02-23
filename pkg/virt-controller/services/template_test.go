@@ -21,9 +21,10 @@ package services
 
 import (
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strconv"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"

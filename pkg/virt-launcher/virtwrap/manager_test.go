@@ -26,12 +26,13 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/testutils"

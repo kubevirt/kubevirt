@@ -24,9 +24,10 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"path"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"

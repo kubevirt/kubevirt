@@ -2,6 +2,7 @@ package mutators
 
 import (
 	"encoding/json"
+
 	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"

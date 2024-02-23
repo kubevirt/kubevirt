@@ -9,5 +9,6 @@ go_library(
         "//pkg/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials/insecure:go_default_library",
     ],
 )

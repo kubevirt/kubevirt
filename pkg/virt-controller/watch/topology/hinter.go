@@ -4,9 +4,11 @@ package topology
 
 import (
 	"fmt"
+
 	"k8s.io/utils/ptr"
 
 	"k8s.io/client-go/tools/cache"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	k6tv1 "kubevirt.io/api/core/v1"

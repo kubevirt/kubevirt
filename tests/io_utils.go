@@ -21,10 +21,11 @@ package tests
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"

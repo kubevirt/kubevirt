@@ -20,11 +20,12 @@ package grpc
 
 import (
 	"context"
-	"google.golang.org/grpc/credentials/insecure"
 	"net"
 	"os"
 	"path/filepath"
 	"time"
+
+	"google.golang.org/grpc/credentials/insecure"
 
 	"google.golang.org/grpc"
 

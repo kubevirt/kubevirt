@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"runtime"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 

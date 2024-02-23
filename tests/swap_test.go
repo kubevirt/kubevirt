@@ -22,10 +22,11 @@ package tests_test
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 

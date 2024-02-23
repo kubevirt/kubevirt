@@ -22,9 +22,10 @@ package export
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

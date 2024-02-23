@@ -22,10 +22,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/golang/mock/gomock"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"

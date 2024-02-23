@@ -23,9 +23,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -1784,7 +1785,7 @@ var _ = Describe("Migration watcher", func() {
 				true,
 			),
 			Entry("deny auto coverage",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = ptr.ToPtr(false) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = ptr.To(false) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowAutoConverge).ToNot(BeNil())
 					Expect(*c.AllowAutoConverge).To(BeFalse())

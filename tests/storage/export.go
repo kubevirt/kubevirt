@@ -26,11 +26,12 @@ import (
 	"encoding/pem"
 	goerrors "errors"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/yaml"
 

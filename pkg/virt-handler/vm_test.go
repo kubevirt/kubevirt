@@ -24,7 +24,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"net"
 	"os"
 	"path/filepath"
@@ -32,6 +31,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"

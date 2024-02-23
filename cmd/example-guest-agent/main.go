@@ -24,11 +24,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/client-go/util/keyutil"
 	"net"
 	"os"
 	"time"
+
+	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/client-go/util/keyutil"
 
 	"github.com/mdlayher/vsock"
 	"github.com/spf13/pflag"

@@ -2,6 +2,7 @@ package topology_test
 
 import (
 	"fmt"
+
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"

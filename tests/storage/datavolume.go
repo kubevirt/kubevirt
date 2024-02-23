@@ -22,10 +22,11 @@ package storage
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"math"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"

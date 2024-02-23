@@ -21,6 +21,7 @@ package vm_test
 
 import (
 	"context"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/golang/mock/gomock"

@@ -23,11 +23,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"

@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/utils/ptr"
+
 	"kubevirt.io/api/clone"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"

@@ -21,6 +21,7 @@ package csv
 import (
 	"encoding/json"
 	"fmt"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/coreos/go-semver/semver"

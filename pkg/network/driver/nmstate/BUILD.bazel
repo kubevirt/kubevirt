@@ -38,5 +38,6 @@ go_test(
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )

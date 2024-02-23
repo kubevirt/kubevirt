@@ -3,6 +3,8 @@ package clone
 import (
 	"fmt"
 
+	"k8s.io/utils/ptr"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	corev1 "k8s.io/api/core/v1"

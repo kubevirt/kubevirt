@@ -27,13 +27,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"k8s.io/utils/ptr"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/golang/mock/gomock"

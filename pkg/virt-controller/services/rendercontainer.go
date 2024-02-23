@@ -1,8 +1,9 @@
 package services
 
 import (
-	"k8s.io/utils/ptr"
 	"strconv"
+
+	"k8s.io/utils/ptr"
 
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"

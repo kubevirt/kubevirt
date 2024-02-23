@@ -22,12 +22,13 @@ package storage
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"math"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 

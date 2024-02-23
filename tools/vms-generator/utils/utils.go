@@ -22,9 +22,10 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"os"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 	"kubevirt.io/api/migrations/v1alpha1"

@@ -27,7 +27,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"k8s.io/utils/ptr"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,6 +35,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/Masterminds/semver"
 	jsonpatch "github.com/evanphx/json-patch"

@@ -23,8 +23,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strconv"
+
+	"k8s.io/utils/ptr"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 

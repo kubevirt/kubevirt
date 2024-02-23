@@ -32,7 +32,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"k8s.io/utils/ptr"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,6 +40,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"

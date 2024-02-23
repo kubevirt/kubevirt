@@ -2,8 +2,9 @@ package add_key
 
 import (
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/spf13/cobra"
 	core "k8s.io/api/core/v1"

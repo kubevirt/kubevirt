@@ -2,9 +2,10 @@ package add_key_test
 
 import (
 	"context"
-	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
+
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

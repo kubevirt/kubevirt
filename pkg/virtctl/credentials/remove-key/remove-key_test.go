@@ -2,9 +2,10 @@ package remove_key_test
 
 import (
 	"context"
-	"k8s.io/utils/ptr"
 	"os"
 	"path/filepath"
+
+	"k8s.io/utils/ptr"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"

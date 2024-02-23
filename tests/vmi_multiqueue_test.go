@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+
 	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/tests/decorators"

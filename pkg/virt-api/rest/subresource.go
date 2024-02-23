@@ -25,11 +25,12 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
-	"k8s.io/utils/ptr"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/emicklei/go-restful/v3"
 	v12 "k8s.io/api/core/v1"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
 	"kubevirt.io/kubevirt/pkg/util/status"
 
 	v1 "kubevirt.io/api/core/v1"

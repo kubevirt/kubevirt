@@ -25,12 +25,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"k8s.io/utils/ptr"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"

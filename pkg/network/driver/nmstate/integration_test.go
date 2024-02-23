@@ -22,8 +22,9 @@ package nmstate_test
 import (
 	"flag"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"os"
+
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

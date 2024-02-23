@@ -23,8 +23,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"text/template"
+
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

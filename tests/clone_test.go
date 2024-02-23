@@ -3,9 +3,10 @@ package tests
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strings"
 	"time"
+
+	"k8s.io/utils/ptr"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
