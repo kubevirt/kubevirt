@@ -16,3 +16,10 @@ filters:
       - sig-buildsystem-approvers
     labels:
       - sig/buildsystem
+  ".*_test.go":
+    reviewers:
+      - sig-test-reviewers
+    approvers:
+       - sig-test-approvers
+    labels:
+      - sig/test
