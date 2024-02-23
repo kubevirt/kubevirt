@@ -34,8 +34,8 @@ import (
 )
 
 const (
-	CONNECT_TIMEOUT_SECONDS = 2
-	unixProtocol            = "unix"
+	defaultTimeSeconds = 2
+	unixProtocol       = "unix"
 )
 
 func DialSocket(socketPath string) (*grpc.ClientConn, error) {
@@ -53,7 +53,7 @@ func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, er
 		grpc.WithBlock(), // dial sync in order to catch errors early
 	}
 
-	ctxTimeout := time.Duration(timeout+CONNECT_TIMEOUT_SECONDS) * time.Second
+	ctxTimeout := time.Duration(timeout+defaultTimeSeconds) * time.Second
 	if timeout > 0 {
 		ctxTimeout = time.Duration(timeout) * time.Second
 	}

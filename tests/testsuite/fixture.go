@@ -103,6 +103,7 @@ func SynchronizedBeforeTestSetup() []byte {
 func BeforeTestSuiteSetup(_ []byte) {
 
 	worker := GinkgoParallelProcess()
+	rand.Seed(int64(worker))
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
