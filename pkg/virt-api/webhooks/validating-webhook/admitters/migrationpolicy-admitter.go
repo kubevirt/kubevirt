@@ -23,8 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/migrations"
@@ -34,23 +32,16 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/client-go/kubecli"
-
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
 // MigrationPolicyAdmitter validates VirtualMachineSnapshots
 type MigrationPolicyAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
-	Client        kubecli.KubevirtClient
 }
 
 // NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
-func NewMigrationPolicyAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *MigrationPolicyAdmitter {
-	return &MigrationPolicyAdmitter{
-		ClusterConfig: clusterConfig,
-		Client:        client,
-	}
+func NewMigrationPolicyAdmitter() *MigrationPolicyAdmitter {
+	return &MigrationPolicyAdmitter{}
 }
 
 // Admit validates an AdmissionReview

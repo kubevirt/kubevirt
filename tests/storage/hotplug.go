@@ -1319,7 +1319,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				By("rename disk image on PVC")
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.RenameImgFile(pvc, newDiskImgName)
+				renameImgFile(pvc, newDiskImgName)
 
 				By("start VM with disk mutation sidecar")
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
@@ -2165,4 +2165,12 @@ func verifyVolumeAndDiskVMIAdded(virtClient kubecli.KubevirtClient, vmi *v1.Virt
 
 		return nil
 	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+func renameImgFile(pvc *corev1.PersistentVolumeClaim, newName string) {
+	args := []string{fmt.Sprintf("mv %s %s && ls -al %s", filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, newName), libstorage.DefaultPvcMountPath)}
+
+	By("renaming disk.img")
+	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
+	tests.RunPodAndExpectCompletion(pod)
 }

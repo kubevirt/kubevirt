@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
@@ -81,7 +82,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			vmi := libvmi.NewFedora(withSSHPK(secretID, withQuestAgentPropagationMethod))
 
 			By("Creating a secret with three ssh keys")
-			createNewSecret(secretID, map[string][]byte{
+			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
 				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
 				"my-key2": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"),
 				"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
@@ -122,7 +123,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			customPassword := "imadethisup"
 
 			By("Creating a secret with custom password")
-			createNewSecret(secretID, map[string][]byte{
+			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
 				"fedora": []byte(customPassword),
 			})
 
@@ -158,7 +159,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			)
 
 			By("Creating a secret with an ssh key")
-			createNewSecret(secretID, map[string][]byte{
+			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
 				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
 			})
 
@@ -181,7 +182,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			customPassword := "imadethisup"
 
 			By("Creating a secret with custom password")
-			createNewSecret(secretID, map[string][]byte{
+			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
 				"fedora": []byte(customPassword),
 			})
 			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
@@ -221,15 +222,15 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		DescribeTable("should have ssh-key under authorized keys added ", func(volumeCreationOption func(data string) libvmi.Option, propagationMethod v1.SSHPublicKeyAccessCredentialPropagationMethod) {
 			By("Creating a secret with three ssh keys")
-			createNewSecret(secretID, map[string][]byte{
+			vmi := libvmi.NewFedora(
+				volumeCreationOption(userData),
+				withSSHPK(secretID, propagationMethod))
+			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
 				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
 				"my-key2": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"),
 				"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
 			})
 
-			vmi := libvmi.NewFedora(
-				volumeCreationOption(userData),
-				withSSHPK(secretID, propagationMethod))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 			verifySSHKeys(vmi)
 		},
@@ -243,7 +244,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 	})
 })
 
-func createNewSecret(secretID string, data map[string][]byte) {
+func createNewSecret(namespace string, secretID string, data map[string][]byte) {
 	secret := &kubev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: secretID,
@@ -254,7 +255,7 @@ func createNewSecret(secretID string, data map[string][]byte) {
 		Type: "Opaque",
 		Data: data,
 	}
-	_, err := kubevirt.Client().CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err := kubevirt.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 }
 

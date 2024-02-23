@@ -129,3 +129,17 @@ func MultusNetwork(name, nadName string) *kvirtv1.Network {
 		},
 	}
 }
+
+// WithHostname sets the hostname parameter.
+func WithHostname(hostname string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.Hostname = hostname
+	}
+}
+
+// WithSubdomain sets the subdomain parameter.
+func WithSubdomain(subdomain string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.Subdomain = subdomain
+	}
+}

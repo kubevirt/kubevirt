@@ -2,6 +2,7 @@ package operatormetrics
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -22,6 +23,16 @@ type CollectorResult struct {
 	Metric Metric
 	Labels []string
 	Value  float64
+}
+
+func (c Collector) hash() string {
+	var sb strings.Builder
+
+	for _, cm := range c.Metrics {
+		sb.WriteString(cm.GetOpts().Name)
+	}
+
+	return sb.String()
 }
 
 func (c Collector) Describe(ch chan<- *prometheus.Desc) {

@@ -2028,7 +2028,7 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 			FileSystemType: fs.Type,
 			UsedBytes:      fs.UsedBytes,
 			TotalBytes:     fs.TotalBytes,
-			Disk:           fs.Disk,
+			Disk:           l.parseFSDisks(fs.Disk),
 		})
 	}
 
@@ -2073,7 +2073,7 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 			FileSystemType: fs.Type,
 			UsedBytes:      fs.UsedBytes,
 			TotalBytes:     fs.TotalBytes,
-			Disk:           fs.Disk,
+			Disk:           l.parseFSDisks(fs.Disk),
 		})
 	}
 
@@ -2174,6 +2174,18 @@ func (l *LibvirtDomainManager) InjectLaunchSecret(vmi *v1.VirtualMachineInstance
 	}
 
 	return nil
+}
+
+func (l *LibvirtDomainManager) parseFSDisks(fsDisks []api.FSDisk) []v1.VirtualMachineInstanceFileSystemDisk {
+	disks := []v1.VirtualMachineInstanceFileSystemDisk{}
+	for _, fsDisk := range fsDisks {
+		disks = append(disks, v1.VirtualMachineInstanceFileSystemDisk{
+			Serial:  fsDisk.Serial,
+			BusType: fsDisk.BusType,
+		})
+	}
+
+	return disks
 }
 
 // check whether VMI has a certain condition
