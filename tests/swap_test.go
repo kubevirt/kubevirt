@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -37,8 +39,6 @@ import (
 	expect "github.com/google/goexpect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/utils/pointer"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -61,8 +61,6 @@ import (
 )
 
 const (
-	// Define relevant k8s versions
-	k8sSwapVer = "1.22"
 	//20% of the default size which is 2G in kubevirt-ci
 	maxSwapSizeToUseKib = 415948
 	swapPartToUse       = 0.2
@@ -103,10 +101,9 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			By("Allowing post-copy")
 			kv := util.GetCurrentKv(virtClient)
-			oldMigrationConfiguration := kv.Spec.Configuration.MigrationConfiguration
 			kv.Spec.Configuration.MigrationConfiguration = &virtv1.MigrationConfiguration{
-				AllowPostCopy:           pointer.BoolPtr(true),
-				CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
+				AllowPostCopy:           pointer.P(true),
+				CompletionTimeoutPerGiB: pointer.P(int64(1)),
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
@@ -151,11 +148,6 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			By("Waiting for VMI to disappear")
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			kv = util.GetCurrentKv(virtClient)
-			kv.Spec.Configuration.MigrationConfiguration = oldMigrationConfiguration
-			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-
 		})
 
 		It("Migration of vmi to memory overcommited node", func() {
@@ -229,28 +221,28 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	})
 })
 
-func getMemInfoByString(node v1.Node, field string) (size int) {
+func getMemInfoByString(node v1.Node, field string) int {
 	stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(kubevirt.Client(), node.Name, []string{"grep", field, "/proc/meminfo"})
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
+	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
 	fields := strings.Fields(stdout)
-	size, err = strconv.Atoi(fields[1])
-	Expect(err).ToNot(HaveOccurred())
+	size, err := strconv.Atoi(fields[1])
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 	return size
 }
 
-func getAvailableMemSizeInKib(node v1.Node) (size int) {
+func getAvailableMemSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "MemAvailable")
 }
 
-func getTotalMemSizeInKib(node v1.Node) (size int) {
+func getTotalMemSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "MemTotal")
 }
 
-func getSwapFreeSizeInKib(node v1.Node) (size int) {
+func getSwapFreeSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "SwapFree")
 }
 
-func getSwapSizeInKib(node v1.Node) (size int) {
+func getSwapSizeInKib(node v1.Node) int {
 	return getMemInfoByString(node, "SwapTotal")
 }
 
@@ -266,10 +258,10 @@ func confirmMigrationMode(vmi *virtv1.VirtualMachineInstance, expectedMode virtv
 	var err error
 	By("Retrieving the VMI post migration")
 	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
 
 	By("Verifying the VMI's migration mode")
-	Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
+	ExpectWithOffset(1, vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
 }
 
 func skipIfSwapOff(message string) {
@@ -284,7 +276,11 @@ func skipIfSwapOff(message string) {
 
 func getAffinityForTargetNode(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
 	nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
+	if err != nil {
+		return nil, err
+	}
+
 	return &v1.Affinity{
 		NodeAffinity: nodeAffinityRuleForVmiToFill,
-	}, err
+	}, nil
 }
