@@ -866,7 +866,7 @@ var _ = Describe("ImageUpload", func() {
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure"}),
 			Entry("Image path and archive path provided", "cannot handle both image-path and archive-path, provide only one",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--archive-path", "/dev/null.tar"}),
-			Entry("Archive path and block volume true provided", "in archive upload the volume mode should always be filesystem",
+			Entry("Archive path and block volume true provided", "In archive upload the volume mode should always be filesystem",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--block-volume"}),
 			Entry("BlockVolume true provided with different volume-mode", "incompatible --volume-mode 'filesystem' and --block-volume",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--block-volume", "--volume-mode", "filesystem"}),
