@@ -292,29 +292,6 @@ func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error
 	return strings.TrimSpace(output), err
 }
 
-func ListCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
-	virtClient := kubevirt.Client()
-
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
-	)
-
-	if err == nil {
-		// Cgroup V1
-		return
-	}
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
-	)
-	return
-}
-
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	const (
 		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
