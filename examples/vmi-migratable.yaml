@@ -24,5 +24,5 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/alpine-container-disk-demo:devel
+      image: index.docker.io/kubevirt/alpine-container-disk-demo:mybuild
     name: containerdisk

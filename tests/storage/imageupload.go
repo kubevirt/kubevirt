@@ -243,7 +243,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				insecureArg)
 			err := virtctlCmd()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Invalid volume mode 'test'. Valid values are 'block' and 'filesystem'"))
+			Expect(err.Error()).To(ContainSubstring("invalid volume mode 'test'. Valid values are 'block' and 'filesystem'"))
 		})
 	})
 

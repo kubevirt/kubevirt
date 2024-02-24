@@ -26,5 +26,5 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+      image: index.docker.io/kubevirt/fedora-with-test-tooling-container-disk:mybuild
     name: containerdisk

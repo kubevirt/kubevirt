@@ -870,7 +870,7 @@ var _ = Describe("ImageUpload", func() {
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--block-volume"}),
 			Entry("BlockVolume true provided with different volume-mode", "incompatible --volume-mode 'filesystem' and --block-volume",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--block-volume", "--volume-mode", "filesystem"}),
-			Entry("invalid volume-mode specified", "Invalid volume mode 'foo'. Valid values are 'block' and 'filesystem'.",
+			Entry("Invalid volume-mode specified", "invalid volume mode 'foo'. Valid values are 'block' and 'filesystem'.",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--volume-mode", "foo"}),
 			Entry("PVC name and args", "cannot use --pvc-name and args",
 				[]string{"foo", "--pvc-name", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
