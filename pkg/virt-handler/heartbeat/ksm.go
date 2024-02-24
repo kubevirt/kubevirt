@@ -59,14 +59,6 @@ var (
 	ksmPagesPath = ksmBasePath + "pages_to_scan"
 
 	memInfoPath = "/proc/meminfo"
-
-	pagesBoost              = pagesBoostDefault
-	pagesDecay              = pagesDecayDefault
-	nPagesMin               = nPagesMinDefault
-	nPagesMax               = nPagesMaxDefault
-	nPagesInit              = nPagesInitDefault
-	sleepMsBaseline uint64  = sleepMsBaselineDefault // 10ms in oVirt seemed really low
-	freePercent     float32 = freePercentDefault
 )
 
 type ksmState struct {
@@ -123,7 +115,14 @@ func getKsmPages() (int, error) {
 }
 
 // Inspired from https://github.com/oVirt/mom/blob/master/doc/ksm.rules
-func calculateNewRunSleepAndPages(running bool) (ksmState, error) {
+func calculateNewRunSleepAndPages(node *v1.Node, running bool) (ksmState, error) {
+	pagesBoost := getIntParam(node, kubevirtv1.KSMPagesBoostOverride, pagesBoostDefault, 0, math.MaxInt)
+	pagesDecay := getIntParam(node, kubevirtv1.KSMPagesDecayOverride, pagesDecayDefault, math.MinInt, 0)
+	nPagesMin := getIntParam(node, kubevirtv1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
+	nPagesMax := getIntParam(node, kubevirtv1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
+	nPagesInit := getIntParam(node, kubevirtv1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
+	sleepMsBaseline := uint64(getIntParam(node, kubevirtv1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
+	freePercent := getFloatParam(node, kubevirtv1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 	ksm := ksmState{running: running}
 	total, available, err := getTotalAndAvailableMem()
 	if err != nil {
@@ -277,16 +276,7 @@ func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (bool, bo
 			return running, false
 		}
 	}
-
-	pagesBoost = getIntParam(node, kubevirtv1.KSMPagesBoostOverride, pagesBoostDefault, 0, math.MaxInt)
-	pagesDecay = getIntParam(node, kubevirtv1.KSMPagesDecayOverride, pagesDecayDefault, math.MinInt, 0)
-	nPagesMin = getIntParam(node, kubevirtv1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
-	nPagesMax = getIntParam(node, kubevirtv1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
-	nPagesInit = getIntParam(node, kubevirtv1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
-	sleepMsBaseline = uint64(getIntParam(node, kubevirtv1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
-	freePercent = getFloatParam(node, kubevirtv1.KSMFreePercentOverride, freePercentDefault, 0, 1)
-
-	ksm, err := calculateNewRunSleepAndPages(running)
+	ksm, err := calculateNewRunSleepAndPages(node, running)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
 		return running, false
