@@ -98,6 +98,83 @@ func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, name string) str
 	return restorePVCName(vmRestore, name)
 }
 
+func updatePVCOwner(vr *snapshotv1.VolumeRestore, pvc *corev1.PersistentVolumeClaim, t *vmRestoreTarget) (bool, error) {
+	if vr.DataVolumeName != nil {
+		return false, nil
+	}
+	updatePVC := pvc.DeepCopy()
+	dvName := restoreDVName(t.vmRestore, vr.VolumeName)
+
+	if updatePVC.Annotations[populatedForPVCAnnotation] != dvName {
+		if updatePVC.Annotations == nil {
+			updatePVC.Annotations = make(map[string]string)
+		}
+		updatePVC.Annotations[populatedForPVCAnnotation] = dvName
+		// datavolume will take ownership
+		updatePVC.OwnerReferences = nil
+		_, err := t.controller.Client.CoreV1().PersistentVolumeClaims(updatePVC.Namespace).Update(context.Background(), updatePVC, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err
+		}
+	}
+
+	vr.DataVolumeName = &dvName
+	return true, nil
+}
+
+func (t *vmRestoreTarget) updateVolumes(nv *kubevirtv1.Volume, v kubevirtv1.Volume, snapshotVM *snapshotv1.VirtualMachine, newTemplates *[]kubevirtv1.DataVolumeTemplateSpec) (bool, error) {
+
+	var updatedStatus bool
+	for k := range t.vmRestore.Status.Restores {
+		vr := &t.vmRestore.Status.Restores[k]
+		if vr.VolumeName != nv.Name {
+			continue
+		}
+
+		pvc, err := t.controller.getPVC(t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
+		if err != nil {
+			return false, err
+		}
+
+		if pvc == nil {
+			return false, fmt.Errorf("pvc %s/%s does not exist and should", t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
+		}
+
+		if nv.DataVolume == nil {
+			nv.PersistentVolumeClaim.ClaimName = vr.PersistentVolumeClaimName
+			continue
+		}
+
+		templateIndex := getDVTIdx(v, snapshotVM)
+		if templateIndex >= 0 {
+			if vr.DataVolumeName == nil {
+				updatedStatus, err = updatePVCOwner(vr, pvc, t)
+				if err != nil {
+					return false, err
+				}
+			}
+
+			dv := snapshotVM.Spec.DataVolumeTemplates[templateIndex].DeepCopy()
+			dv.Name = *vr.DataVolumeName
+			(*newTemplates)[templateIndex] = *dv
+			nv.DataVolume.Name = *vr.DataVolumeName
+		} else {
+			// convert to PersistentVolumeClaim volume
+			nv = &kubevirtv1.Volume{
+				Name: nv.Name,
+				VolumeSource: kubevirtv1.VolumeSource{
+					PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: vr.PersistentVolumeClaimName,
+						},
+					},
+				},
+			}
+		}
+	}
+	return updatedStatus, nil
+}
+
 func VmRestoreProgressing(vmRestore *snapshotv1.VirtualMachineRestore) bool {
 	return vmRestore.Status == nil || vmRestore.Status.Complete == nil || !*vmRestore.Status.Complete
 }
@@ -430,7 +507,6 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 
 	var newTemplates = make([]kubevirtv1.DataVolumeTemplateSpec, len(snapshotVM.Spec.DataVolumeTemplates))
 	var newVolumes []kubevirtv1.Volume
-	var deletedDataVolumes []string
 	updatedStatus := false
 
 	for i, t := range snapshotVM.Spec.DataVolumeTemplates {
@@ -440,74 +516,11 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 	for _, v := range snapshotVM.Spec.Template.Spec.Volumes {
 		nv := v.DeepCopy()
 		if nv.DataVolume != nil || nv.PersistentVolumeClaim != nil {
-			for k := range t.vmRestore.Status.Restores {
-				vr := &t.vmRestore.Status.Restores[k]
-				if vr.VolumeName != nv.Name {
-					continue
-				}
-
-				pvc, err := t.controller.getPVC(t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
-				if err != nil {
-					return false, err
-				}
-
-				if pvc == nil {
-					return false, fmt.Errorf("pvc %s/%s does not exist and should", t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
-				}
-
-				if nv.DataVolume != nil {
-					templateIndex := -1
-					for i, dvt := range snapshotVM.Spec.DataVolumeTemplates {
-						if v.DataVolume.Name == dvt.Name {
-							templateIndex = i
-							break
-						}
-					}
-
-					if templateIndex >= 0 {
-						if vr.DataVolumeName == nil {
-							updatePVC := pvc.DeepCopy()
-							dvName := restoreDVName(t.vmRestore, vr.VolumeName)
-
-							if updatePVC.Annotations[populatedForPVCAnnotation] != dvName {
-								if updatePVC.Annotations == nil {
-									updatePVC.Annotations = make(map[string]string)
-								}
-								updatePVC.Annotations[populatedForPVCAnnotation] = dvName
-								// datavolume will take ownership
-								updatePVC.OwnerReferences = nil
-								_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(updatePVC.Namespace).Update(context.Background(), updatePVC, metav1.UpdateOptions{})
-								if err != nil {
-									return false, err
-								}
-							}
-
-							vr.DataVolumeName = &dvName
-							updatedStatus = true
-						}
-
-						dv := snapshotVM.Spec.DataVolumeTemplates[templateIndex].DeepCopy()
-						dv.Name = *vr.DataVolumeName
-						newTemplates[templateIndex] = *dv
-
-						nv.DataVolume.Name = *vr.DataVolumeName
-					} else {
-						// convert to PersistentVolumeClaim volume
-						nv = &kubevirtv1.Volume{
-							Name: nv.Name,
-							VolumeSource: kubevirtv1.VolumeSource{
-								PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{
-									PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-										ClaimName: vr.PersistentVolumeClaimName,
-									},
-								},
-							},
-						}
-					}
-				} else {
-					nv.PersistentVolumeClaim.ClaimName = vr.PersistentVolumeClaimName
-				}
+			updatedStatus, err = t.updateVolumes(nv, v, snapshotVM, &newTemplates)
+			if err != nil {
+				return false, err
 			}
+
 		} else if nv.MemoryDump != nil {
 			// don't restore memory dump volume in the new spec
 			continue
@@ -517,51 +530,13 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 
 	if t.doesTargetVMExist() && updatedStatus {
 		// find DataVolumes that will no longer exist
-		for _, cdv := range t.vm.Spec.DataVolumeTemplates {
-			found := false
-			for _, ndv := range newTemplates {
-				if cdv.Name == ndv.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				deletedDataVolumes = append(deletedDataVolumes, cdv.Name)
-			}
-		}
+		deletedDataVolumes := t.getDeletedDV(newTemplates)
 		t.vmRestore.Status.DeletedDataVolumes = deletedDataVolumes
 
 		return true, nil
 	}
 
-	var newVM *kubevirtv1.VirtualMachine
-	if !t.doesTargetVMExist() {
-		newVM = &kubevirtv1.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        t.vmRestore.Spec.Target.Name,
-				Namespace:   t.vmRestore.Namespace,
-				Labels:      snapshotVM.Labels,
-				Annotations: snapshotVM.Annotations,
-			},
-			Spec:   *snapshotVM.Spec.DeepCopy(),
-			Status: kubevirtv1.VirtualMachineStatus{},
-		}
-
-	} else {
-		newVM = t.vm.DeepCopy()
-		newVM.Spec = *snapshotVM.Spec.DeepCopy()
-	}
-
-	// update Running state in case snapshot was on online VM
-	if newVM.Spec.RunStrategy != nil {
-		runStrategyHalted := kubevirtv1.RunStrategyHalted
-		newVM.Spec.RunStrategy = &runStrategyHalted
-	} else if newVM.Spec.Running != nil {
-		running := false
-		newVM.Spec.Running = &running
-	}
-	newVM.Spec.DataVolumeTemplates = newTemplates
-	newVM.Spec.Template.Spec.Volumes = newVolumes
+	newVM := t.createOrUpdateVM(snapshotVM, newTemplates, newVolumes)
 	setLastRestoreAnnotation(t.vmRestore, newVM)
 
 	if err = t.restoreInstancetypeControllerRevisions(newVM); err != nil {
@@ -820,6 +795,50 @@ func (t *vmRestoreTarget) doesTargetVMExist() bool {
 	return t.vm != nil
 }
 
+func searchDV(name string, newTemplates []kubevirtv1.DataVolumeTemplateSpec) bool {
+	for _, ndv := range newTemplates {
+		if name == ndv.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *vmRestoreTarget) createOrUpdateVM(snapshotVM *snapshotv1.VirtualMachine, newTemplates []kubevirtv1.DataVolumeTemplateSpec, newVolumes []kubevirtv1.Volume) *kubevirtv1.VirtualMachine {
+	var newVM *kubevirtv1.VirtualMachine
+	if !t.doesTargetVMExist() {
+		newVM = &kubevirtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        t.vmRestore.Spec.Target.Name,
+				Namespace:   t.vmRestore.Namespace,
+				Labels:      snapshotVM.Labels,
+				Annotations: snapshotVM.Annotations,
+			},
+			Spec:   *snapshotVM.Spec.DeepCopy(),
+			Status: kubevirtv1.VirtualMachineStatus{},
+		}
+
+	} else {
+		newVM = t.vm.DeepCopy()
+		newVM.Spec = *snapshotVM.Spec.DeepCopy()
+	}
+
+	// update Running state in case snapshot was on online VM
+	switch {
+	case newVM.Spec.RunStrategy != nil:
+		runStrategyHalted := kubevirtv1.RunStrategyHalted
+		newVM.Spec.RunStrategy = &runStrategyHalted
+	case newVM.Spec.Running != nil:
+		running := false
+		newVM.Spec.Running = &running
+	}
+
+	newVM.Spec.DataVolumeTemplates = newTemplates
+	newVM.Spec.Template.Spec.Volumes = newVolumes
+
+	return newVM
+}
+
 func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.VirtualMachineRestore) (*snapshotv1.VirtualMachineSnapshotContent, error) {
 	objKey := cacheKeyFunc(vmRestore.Namespace, vmRestore.Spec.VirtualMachineSnapshotName)
 	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(objKey)
@@ -915,6 +934,25 @@ func (ctrl *VMRestoreController) getDV(namespace, name string) (*v1beta1.DataVol
 	}
 
 	return obj.(*v1beta1.DataVolume).DeepCopy(), nil
+}
+
+func (t *vmRestoreTarget) getDeletedDV(newTemplates []kubevirtv1.DataVolumeTemplateSpec) []string {
+	var deletedDataVolumes []string
+	for _, cdv := range t.vm.Spec.DataVolumeTemplates {
+		if !searchDV(cdv.Name, newTemplates) {
+			deletedDataVolumes = append(deletedDataVolumes, cdv.Name)
+		}
+	}
+	return deletedDataVolumes
+}
+
+func getDVTIdx(v kubevirtv1.Volume, snapshotVM *snapshotv1.VirtualMachine) int {
+	for i, dvt := range snapshotVM.Spec.DataVolumeTemplates {
+		if v.DataVolume.Name == dvt.Name {
+			return i
+		}
+	}
+	return -1
 }
 
 func (ctrl *VMRestoreController) getPVC(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
