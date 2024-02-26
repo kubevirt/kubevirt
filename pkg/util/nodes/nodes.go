@@ -14,15 +14,7 @@ import (
 )
 
 func PatchNode(client kubecli.KubevirtClient, original, modified *corev1.Node) error {
-	originalBytes, err := json.Marshal(original)
-	if err != nil {
-		return fmt.Errorf("could not serialize original object: %v", err)
-	}
-	modifiedBytes, err := json.Marshal(modified)
-	if err != nil {
-		return fmt.Errorf("could not serialize modified object: %v", err)
-	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(originalBytes, modifiedBytes, corev1.Node{})
+	patch, err := CreateNodePatch(original, modified)
 	if err != nil {
 		return fmt.Errorf("could not create merge patch: %v", err)
 	}
@@ -30,4 +22,16 @@ func PatchNode(client kubecli.KubevirtClient, original, modified *corev1.Node) e
 		return fmt.Errorf("could not patch the node: %v", err)
 	}
 	return nil
+}
+
+func CreateNodePatch(original, modified *corev1.Node) ([]byte, error) {
+	originalBytes, err := json.Marshal(original)
+	if err != nil {
+		return nil, fmt.Errorf("could not serialize original object: %v", err)
+	}
+	modifiedBytes, err := json.Marshal(modified)
+	if err != nil {
+		return nil, fmt.Errorf("could not serialize modified object: %v", err)
+	}
+	return strategicpatch.CreateTwoWayMergePatch(originalBytes, modifiedBytes, corev1.Node{})
 }

@@ -3,8 +3,12 @@ package topology
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	nodeutils "kubevirt.io/kubevirt/pkg/util/nodes"
 
@@ -61,7 +65,13 @@ func (n *nodeTopologyUpdater) sync(nodes []*k8sv1.Node) *updateStats {
 			continue
 		}
 		if !equality.Semantic.DeepEqual(node.Labels, nodeCopy.Labels) {
-			if err := nodeutils.PatchNode(n.client, node, nodeCopy); err != nil {
+			var patch []byte
+			if patch, err = nodeutils.CreateNodePatch(node, nodeCopy); err != nil {
+				stats.error++
+				log.DefaultLogger().Object(node).Reason(err).Error("Could not create TSC frequencies patch for node")
+				continue
+			}
+			if _, err := n.client.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
 				stats.error++
 				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for node")
 				continue
