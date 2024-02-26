@@ -102,10 +102,11 @@ aliases:
   # SIG Compute
   # Owns everything which is taking place on a node, for example
   # (but not limited to) groups, SELinux, node labels, …
+  # And everything on the cluster level such as RBAC, controller, …
   #
-  sig-node-approvers:
+  sig-compute-approvers:
     - jean-edouard
-  sig-node-reviewers:
+  sig-compute-reviewers:
     - victortoso
 
   #
