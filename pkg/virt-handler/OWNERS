@@ -3,3 +3,6 @@ reviewers:
   - sig-node-reviewers
 approvers:
   - sig-node-approvers
+labels:
+  - area/virt-handler
+  - sig/node
