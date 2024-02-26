@@ -28,9 +28,13 @@ import (
 type State string
 
 const (
-	GA           = "General Availability" // By default, GAed feature gates are considered enabled and no-op.
-	Deprecated   = "Deprecated"           // The feature is going to be discontinued next release
-	Discontinued = "Discontinued"
+	// By default, GAed feature gates are considered enabled and no-op.
+	GA = "General Availability"
+	// The feature is going to be discontinued next release
+	Deprecated     = "Deprecated"
+	Discontinued   = "Discontinued"
+	WarningPattern = "feature gate %s is deprecated (feature state is %q), therefore it can be safely removed and is redundant. " +
+		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
 
 const (
@@ -56,16 +60,15 @@ var featureGates = [...]FeatureGate{
 	{Name: NonRoot, State: GA},
 	{Name: PSA, State: GA},
 	{Name: CPUNodeDiscoveryGate, State: GA},
-	{Name: PasstGate, State: Deprecated, Message: passtDeprecationMessage, VmiSpecUsed: passtApiUsed},
-	{Name: MacvtapGate, State: Deprecated, Message: macvtapDeprecationMessage, VmiSpecUsed: macvtapApiUsed},
+	{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed},
+	{Name: MacvtapGate, State: Deprecated, Message: MacvtapDeprecationMessage, VmiSpecUsed: macvtapApiUsed},
 }
 
 func init() {
 	for i, fg := range featureGates {
 		if fg.Message == "" {
-			const warningPattern = "feature gate %s is deprecated, therefore it can be safely removed and is redundant. " +
-				"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
-			featureGates[i].Message = fmt.Sprintf(warningPattern, fg.Name)
+
+			featureGates[i].Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
 		}
 	}
 }
