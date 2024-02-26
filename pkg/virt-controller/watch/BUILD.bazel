@@ -9,6 +9,7 @@ go_library(
         "node.go",
         "pool.go",
         "replicaset.go",
+        "sync.go",
         "vm.go",
         "vmi.go",
         "vsock.go",

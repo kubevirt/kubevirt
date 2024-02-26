@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gtypes "github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,17 +170,30 @@ var _ = Describe("Migration watcher", func() {
 		})
 	}
 
-	shouldExpectPodAnnotationTimestamp := func(vmi *virtv1.VirtualMachineInstance) {
+	podAnnotationTimestampPatch := func(vmi *virtv1.VirtualMachineInstance) gtypes.GomegaMatcher {
+		key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
+		return Equal(fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`, key, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String()))
+	}
+
+	unpauseConditionPatch := func(vmi *virtv1.VirtualMachineInstance) gtypes.GomegaMatcher {
+		removeTimestamps := func(obtainedPatch string) string {
+			return regexp.MustCompile(`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`).ReplaceAllString(obtainedPatch, "")
+		}
+		return WithTransform(removeTimestamps, Equal(fmt.Sprintf(`[{ "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"kubevirt.io/virtual-machine-unpaused","status":"True","lastProbeTime":"","lastTransitionTime":"","reason":"NotPaused","message":"the virtual machine is not paused"}] }]`)))
+	}
+
+	shouldExpectPodPatches := func(expectedPatches ...gtypes.GomegaMatcher) {
+		obtainedPatches := []string{}
 		kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			patchAction, ok := action.(testing.PatchAction)
 			Expect(ok).To(BeTrue())
 			Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
-
-			key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
-			expectedPatch := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`, key, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
-
-			Expect(string(patchAction.GetPatch())).To(Equal(expectedPatch))
-
+			obtainedPatches = append(obtainedPatches, string(patchAction.GetPatch()))
+			matchers := []gtypes.GomegaMatcher{}
+			for _, expectedPatch := range expectedPatches {
+				matchers = append(matchers, ContainElement(expectedPatch))
+			}
+			Expect(obtainedPatches).To(SatisfyAny(matchers...))
 			return true, nil, nil
 		})
 	}
@@ -1356,7 +1371,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			shouldExpectPodAnnotationTimestamp(vmi)
+			shouldExpectPodPatches(podAnnotationTimestampPatch(vmi), unpauseConditionPatch(vmi))
 			shouldExpectMigrationCompletedState(migration)
 
 			controller.Execute()
@@ -1394,7 +1409,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			shouldExpectPodAnnotationTimestamp(vmi)
+			shouldExpectPodPatches(podAnnotationTimestampPatch(vmi), unpauseConditionPatch(vmi))
 			controller.Execute()
 		},
 			Entry("CPU change condition", []virtv1.VirtualMachineInstanceConditionType{virtv1.VirtualMachineInstanceVCPUChange}),
@@ -1459,6 +1474,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
+			shouldExpectPodPatches(unpauseConditionPatch(vmi))
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()

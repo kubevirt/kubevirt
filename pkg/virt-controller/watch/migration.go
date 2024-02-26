@@ -592,16 +592,24 @@ func (c *MigrationController) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationRunning
 		}
 	case virtv1.MigrationRunning:
-		_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
-		if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
-			key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
-			patchOps := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`,
-				key,
-				vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
 
-			_, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, []byte(patchOps), v1.PatchOptions{})
-			if err != nil {
-				return err
+		if vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+			// If VM was not paused patch the pod with unpaused condition
+			// to allow readiness gate to catch up before live migration is finished
+			if err := syncPausedConditionToPod(c.clientset, vmi, pod); err != nil {
+				return fmt.Errorf("failed to sync paused condition at vmi migration target pod: %v", err)
+			}
+			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
+			if !exists {
+				key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
+				patchOps := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`,
+					key,
+					vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
+
+				_, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, []byte(patchOps), v1.PatchOptions{})
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -727,6 +735,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		c.podExpectations.CreationObserved(key)
 		return err
 	}
+
 	log.Log.Object(vmi).Infof("Created migration target pod %s/%s with uuid %s for migration %s with uuid %s", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID))
 	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
 	return nil
