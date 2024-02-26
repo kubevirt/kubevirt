@@ -60,11 +60,11 @@ import (
 
 var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, func() {
 
-	var err error
 	var vmi *v1.VirtualMachineInstance
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
+			var err error
 			vmi = libvmi.New(libvmi.WithResourceMemory("1Mi"))
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -72,7 +72,6 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 		})
 
 		Context("with VNC connection", func() {
-
 			vncConnect := func() {
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
@@ -120,7 +119,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 					// communicate.
 					By("Checking the response from VNC server")
 					Expect(response).To(Equal("RFB 003.008\n"))
-				case err = <-k8ResChan:
+				case err := <-k8ResChan:
 					Expect(err).ToNot(HaveOccurred())
 				case <-time.After(45 * time.Second):
 					Fail("Timout reached while waiting for valid VNC server response")
