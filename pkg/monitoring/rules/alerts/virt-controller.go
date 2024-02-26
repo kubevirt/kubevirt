@@ -19,7 +19,8 @@ package alerts
 import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func virtControllerAlerts(namespace string) []promv1.Rule {
@@ -27,7 +28,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowReadyVirtControllersCount",
 			Expr:  intstr.FromString("kubevirt_virt_controller_ready <  kubevirt_virt_controller_up"),
-			For:   ptr.To(promv1.Duration("10m")),
+			For:   pointer.P(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "Some virt controllers are running but not ready.",
 			},
@@ -39,7 +40,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "NoReadyVirtController",
 			Expr:  intstr.FromString("kubevirt_virt_controller_ready == 0"),
-			For:   ptr.To(promv1.Duration("10m")),
+			For:   pointer.P(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "No ready virt-controller was detected for the last 10 min.",
 			},
@@ -51,7 +52,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "VirtControllerDown",
 			Expr:  intstr.FromString("kubevirt_virt_controller_up == 0"),
-			For:   ptr.To(promv1.Duration("10m")),
+			For:   pointer.P(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "No running virt-controller was detected for the last 10 min.",
 			},
@@ -63,7 +64,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowVirtControllersCount",
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_controller_ready < 2)"),
-			For:   ptr.To(promv1.Duration("10m")),
+			For:   pointer.P(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "More than one virt-controller should be ready if more than one worker node.",
 			},
@@ -86,7 +87,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "VirtControllerRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-controller", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   ptr.To(promv1.Duration("5m")),
+			For:   pointer.P(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				"summary": getRestCallsFailedWarning(80, "virt-controller", durationFiveMinutes),
 			},

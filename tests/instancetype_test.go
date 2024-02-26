@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -22,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -315,18 +316,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			preference.Spec.Features = &instancetypev1beta1.FeaturePreferences{
 				PreferredHyperv: &v1.FeatureHyperv{
 					VAPIC: &v1.FeatureState{
-						Enabled: pointer.Bool(true),
+						Enabled: pointer.P(true),
 					},
 					Relaxed: &v1.FeatureState{
-						Enabled: pointer.Bool(true),
+						Enabled: pointer.P(true),
 					},
 				},
 			}
 			preference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
-				PreferredUseBios: pointer.Bool(true),
+				PreferredUseBios: pointer.P(true),
 			}
-			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.Int64(15)
-			preference.Spec.PreferredSubdomain = pointer.String("non-existent-subdomain")
+			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.P(int64(15))
+			preference.Spec.PreferredSubdomain = pointer.P("non-existent-subdomain")
 			preference.Spec.Annotations = map[string]string{
 				"preferred-annotation-1": "1",
 				"preferred-annotation-2": "use-vm-value",
@@ -1201,7 +1202,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							Domain: v1.DomainSpec{},
 						},
 					},
-					Running: pointer.Bool(false),
+					Running: pointer.P(false),
 				},
 			}
 		})
@@ -1419,7 +1420,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi := libvmi.NewCirros()
 
 			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
-			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.Bool(true)
+			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1849,7 +1850,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Instancetype: &v1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -1892,7 +1893,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Instancetype: &v1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -1926,7 +1927,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -1966,7 +1967,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2003,7 +2004,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2037,7 +2038,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2077,7 +2078,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2114,7 +2115,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2176,7 +2177,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Instancetype: &v1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -2220,7 +2221,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Instancetype: &v1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
@@ -2255,7 +2256,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2296,7 +2297,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2337,7 +2338,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2378,7 +2379,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
@@ -2416,7 +2417,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "vm-",
 					},
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
+						Running: pointer.P(false),
 						Preference: &v1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
