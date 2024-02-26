@@ -71,9 +71,9 @@ func (n *nodeTopologyUpdater) sync(nodes []*k8sv1.Node) *updateStats {
 				log.DefaultLogger().Object(node).Reason(err).Error("Could not create TSC frequencies patch for node")
 				continue
 			}
-			if _, err := n.client.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
+			if _, err := n.client.ShadowNodeClient().Patch(context.Background(), node.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
 				stats.error++
-				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for node")
+				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for shadowNode")
 				continue
 			}
 			stats.updated++

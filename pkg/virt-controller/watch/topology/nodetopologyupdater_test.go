@@ -10,6 +10,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	v1 "kubevirt.io/api/core/v1"
+	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 
 	"kubevirt.io/client-go/kubecli"
 )
@@ -21,6 +23,7 @@ var _ = Describe("Nodetopologyupdater", func() {
 	var hinter *MockHinter
 	var virtClient *kubecli.MockKubevirtClient
 	var fakeK8sClient *fake.Clientset
+	var fakeClient *fakeclientset.Clientset
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -31,7 +34,9 @@ var _ = Describe("Nodetopologyupdater", func() {
 			client: virtClient,
 		}
 		fakeK8sClient = fake.NewSimpleClientset()
+		fakeClient = fakeclientset.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(fakeK8sClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().ShadowNodeClient().Return(fakeClient.KubevirtV1().ShadowNodes()).AnyTimes()
 	})
 
 	Context("with no VMs with TSC frequency set running", func() {
@@ -44,12 +49,14 @@ var _ = Describe("Nodetopologyupdater", func() {
 		It("should add the lowest scheduling frequency to a node", func() {
 			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true)}
 			trackNodes(fakeK8sClient, nodes...)
+			shadowNodes := createShadowNodeFromNodes(nodes)
+			trackShadowNodes(fakeClient, shadowNodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			shadowNode, err := fakeClient.KubevirtV1().ShadowNodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
 		})
 
 		It("should continue if it encounters invalid nodes", func() {
@@ -60,6 +67,8 @@ var _ = Describe("Nodetopologyupdater", func() {
 				NodeWithTSC("mynode2", 123, true),
 			}
 			trackNodes(fakeK8sClient, nodes...)
+			shadowNodes := createShadowNodeFromNodes(nodes)
+			trackShadowNodes(fakeClient, shadowNodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 1, 1, 2)
 		})
@@ -67,12 +76,14 @@ var _ = Describe("Nodetopologyupdater", func() {
 		It("should only add the nodes own frequency if the node is not schedulable", func() {
 			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, false)}
 			trackNodes(fakeK8sClient, nodes...)
+			shadowNodes := createShadowNodeFromNodes(nodes)
+			trackShadowNodes(fakeClient, shadowNodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			shadowNode, err := fakeClient.KubevirtV1().ShadowNodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
-			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
+			g.Expect(shadowNode.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
 		})
 
 		It("should do nothing if all frequencies are already present", func() {
@@ -84,14 +95,16 @@ var _ = Describe("Nodetopologyupdater", func() {
 		It("should remove inappropriate labels", func() {
 			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 99, 200, 123)}
 			trackNodes(fakeK8sClient, nodes...)
+			shadowNodes := createShadowNodeFromNodes(nodes)
+			trackShadowNodes(fakeClient, shadowNodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			shadowNode, err := fakeClient.KubevirtV1().ShadowNodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
-			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(99), "true"))
-			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(200), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
+			g.Expect(shadowNode.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(99), "true"))
+			g.Expect(shadowNode.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(200), "true"))
 		})
 
 	})
@@ -118,16 +131,18 @@ var _ = Describe("Nodetopologyupdater", func() {
 		It("should keep old cluster minimums if still used by VMs", func() {
 			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 98, 99, 101, 200, 123)}
 			trackNodes(fakeK8sClient, nodes...)
+			shadowNodes := createShadowNodeFromNodes(nodes)
+			trackShadowNodes(fakeClient, shadowNodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			shadowNode, err := fakeClient.KubevirtV1().ShadowNodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
-			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(98), "true"))
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(99), "true"))
-			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(101), "true"))
-			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(200), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
+			g.Expect(shadowNode.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(98), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(99), "true"))
+			g.Expect(shadowNode.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(101), "true"))
+			g.Expect(shadowNode.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(200), "true"))
 		})
 	})
 
@@ -139,15 +154,36 @@ var _ = Describe("Nodetopologyupdater", func() {
 		It("should do nothing", func() {
 			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 98, 99, 101, 200, 123)}
 			trackNodes(fakeK8sClient, nodes...)
+			shadowNodes := createShadowNodeFromNodes(nodes)
+			trackShadowNodes(fakeClient, shadowNodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, len(nodes), 0)
 		})
 	})
 })
 
+func createShadowNodeFromNodes(nodes []*k8sv1.Node) []*v1.ShadowNode {
+	var shadowNodes []*v1.ShadowNode
+	for i, _ := range nodes {
+		shadowNodes = append(shadowNodes, &v1.ShadowNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   nodes[i].Name,
+				Labels: nodes[i].Labels,
+			},
+		})
+	}
+	return shadowNodes
+}
+
 func trackNodes(clientset *fake.Clientset, nodes ...*k8sv1.Node) {
 	for i, _ := range nodes {
 		g.ExpectWithOffset(1, clientset.Tracker().Add(nodes[i])).To(g.Succeed())
+	}
+}
+
+func trackShadowNodes(clientset *fakeclientset.Clientset, shadowNodes ...*v1.ShadowNode) {
+	for i, _ := range shadowNodes {
+		g.ExpectWithOffset(1, clientset.Tracker().Add(shadowNodes[i])).To(g.Succeed())
 	}
 }
 
