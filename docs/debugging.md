@@ -8,7 +8,7 @@ will try to connect to the apiserver.
 
 ## Retrieving Logs
 
-To investigate the logs of a pod, you can view the logs via
+To investigate the logs of a pod, you can view via
 `cluster-up/kubectl.sh logs`. To view the logs of `virt-api`, type
 
 ```bash
