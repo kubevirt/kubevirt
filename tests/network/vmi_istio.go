@@ -184,9 +184,6 @@ var istioTests = func(vmType VmType) {
 			}
 			BeforeEach(func() {
 				checks.SkipIfMigrationIsNotPossible()
-				if vmType == Passt {
-					Skip("passt doesn't support live migration.")
-				}
 			})
 			JustBeforeEach(func() {
 				sourcePodName = tests.GetVmPodName(virtClient, vmi)
@@ -475,6 +472,7 @@ var istioTestsWithPasstBinding = func() {
 		err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
