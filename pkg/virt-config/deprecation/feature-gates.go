@@ -38,12 +38,12 @@ const (
 )
 
 const (
-	LiveMigrationGate      = "LiveMigration"      // Deprecated
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // Deprecated
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // Deprecated
+	LiveMigrationGate      = "LiveMigration"      // GA
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
+	NonRoot                = "NonRoot"            // GA
+	PSA                    = "PSA"                // GA
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
 	PasstGate              = "Passt"              // Deprecated
-	NonRoot                = "NonRoot"            // Deprecated
-	PSA                    = "PSA"                // Deprecated
 	MacvtapGate            = "Macvtap"            // Deprecated
 )
 
