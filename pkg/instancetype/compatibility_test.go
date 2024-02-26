@@ -3,6 +3,8 @@ package instancetype
 import (
 	"encoding/json"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -10,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
-
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -47,9 +47,9 @@ var _ = Describe("compatibility", func() {
 				CPU: instancetypev1beta1.CPUInstancetype{
 					Guest: 4,
 					// Set the following values to be compatible with objects converted from prior API versions
-					Model:                 ptr.To(""),
-					DedicatedCPUPlacement: ptr.To(false),
-					IsolateEmulatorThread: ptr.To(false),
+					Model:                 pointer.P(""),
+					DedicatedCPUPlacement: pointer.P(false),
+					IsolateEmulatorThread: pointer.P(false),
 				},
 				Memory: instancetypev1beta1.MemoryInstancetype{
 					Guest: resource.MustParse("128Mi"),

@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"github.com/spf13/cobra"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -208,7 +209,7 @@ func newSecretWithKey(vm *v1.VirtualMachine, sshKey string) *core.Secret {
 				Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 				Name:       vm.Name,
 				UID:        vm.UID,
-				Controller: pointer.Bool(true),
+				Controller: pointer.P(true),
 			}},
 		},
 		Data: map[string][]byte{

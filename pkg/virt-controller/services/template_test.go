@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -41,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
@@ -218,14 +219,14 @@ var _ = Describe("Template", func() {
 		It("should set seccomp profile when configured", func() {
 			expectedProfile := &k8sv1.SeccompProfile{
 				Type:             k8sv1.SeccompProfileTypeLocalhost,
-				LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+				LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
 			}
 			_, kvInformer, svc = configFactory(defaultArch)
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
 				VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
 					},
 				},
 			}
@@ -1434,19 +1435,19 @@ var _ = Describe("Template", func() {
 							Features: &v1.Features{
 								Hyperv: &v1.FeatureHyperv{
 									SyNIC: &v1.FeatureState{
-										Enabled: pointer.BoolPtr(true),
+										Enabled: pointer.P(true),
 									},
 									SyNICTimer: &v1.SyNICTimer{
-										Enabled: pointer.BoolPtr(true),
+										Enabled: pointer.P(true),
 									},
 									Frequencies: &v1.FeatureState{
-										Enabled: pointer.BoolPtr(true),
+										Enabled: pointer.P(true),
 									},
 									IPI: &v1.FeatureState{
-										Enabled: pointer.BoolPtr(true),
+										Enabled: pointer.P(true),
 									},
 									EVMCS: &v1.FeatureState{
-										Enabled: pointer.BoolPtr(EVMCSEnabled),
+										Enabled: pointer.P(EVMCSEnabled),
 									},
 								},
 							},
@@ -1515,7 +1516,7 @@ var _ = Describe("Template", func() {
 
 			Context("TSC frequency label", func() {
 				var noHints, validHints *v1.TopologyHints
-				validHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(123123)}
+				validHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(123123))}
 
 				setVmWithTscRequirementType := func(vmi *v1.VirtualMachineInstance, tscRequirementType topology.TscFrequencyRequirementType) {
 					switch tscRequirementType {
@@ -1533,7 +1534,7 @@ var _ = Describe("Template", func() {
 						vmi.Spec.Domain.Features = &v1.Features{
 							Hyperv: &v1.FeatureHyperv{
 								Reenlightenment: &v1.FeatureState{
-									Enabled: pointer.Bool(true),
+									Enabled: pointer.P(true),
 								},
 							},
 						}
@@ -2126,11 +2127,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
 				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 335),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.Bool(true), 335),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.Bool(false), 318),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 335),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 318),
 				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 469),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.Bool(true), 469),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.Bool(false), 453),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 469),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 453),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -3886,7 +3887,7 @@ var _ = Describe("Template", func() {
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.Bool(true),
+				RunAsNonRoot: pointer.P(true),
 				FSGroup:      &nonRootUser,
 			}),
 			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
@@ -3902,7 +3903,7 @@ var _ = Describe("Template", func() {
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.Bool(true),
+				RunAsNonRoot: pointer.P(true),
 				FSGroup:      &nonRootUser,
 			}),
 			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
@@ -3916,7 +3917,7 @@ var _ = Describe("Template", func() {
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.Bool(true),
+				RunAsNonRoot: pointer.P(true),
 				FSGroup:      &nonRootUser,
 			}),
 		)
@@ -3933,8 +3934,8 @@ var _ = Describe("Template", func() {
 
 			runUser := int64(util.NonRootUID)
 			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(k8sv1.SecurityContext{
-				AllowPrivilegeEscalation: pointer.Bool(false),
-				RunAsNonRoot:             pointer.Bool(true),
+				AllowPrivilegeEscalation: pointer.P(false),
+				RunAsNonRoot:             pointer.P(true),
 				RunAsUser:                &runUser,
 				SeccompProfile: &k8sv1.SeccompProfile{
 					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -4047,8 +4048,8 @@ var _ = Describe("Template", func() {
 
 			runUser := int64(util.NonRootUID)
 			Expect(*pod.Spec.Containers[0].SecurityContext).To(Equal(k8sv1.SecurityContext{
-				AllowPrivilegeEscalation: pointer.Bool(false),
-				RunAsNonRoot:             pointer.Bool(true),
+				AllowPrivilegeEscalation: pointer.P(false),
+				RunAsNonRoot:             pointer.P(true),
 				RunAsUser:                &runUser,
 				SeccompProfile: &k8sv1.SeccompProfile{
 					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -4271,7 +4272,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				originalOverhead := GetMemoryOverhead(vmi, config.GetClusterCPUArch(), nil)
-				actualOverheadWithHeadroom := GetMemoryOverhead(vmi, config.GetClusterCPUArch(), pointer.String(ratioStr))
+				actualOverheadWithHeadroom := GetMemoryOverhead(vmi, config.GetClusterCPUArch(), pointer.P(ratioStr))
 				expectedOverheadWithHeadroom := multiplyMemory(originalOverhead, ratio)
 
 				const errFmt = "overhead without headroom: %s, ratio: %s, actual overhead with headroom: %s, expected overhead with headroom: %s"
@@ -4319,7 +4320,7 @@ var _ = Describe("Template", func() {
 						VolumeSource: k8sv1.VolumeSource{
 							ConfigMap: &k8sv1.ConfigMapVolumeSource{
 								LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-cm"},
-								DefaultMode:          pointer.Int32(0755),
+								DefaultMode:          pointer.P(int32(0755)),
 							},
 						},
 					}))
@@ -4480,7 +4481,7 @@ var _ = Describe("Template", func() {
 	Context("with VSOCK enabled", func() {
 		It("should add VSOCK device to resources", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).NotTo(HaveOccurred())

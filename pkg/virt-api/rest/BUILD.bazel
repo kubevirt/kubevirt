@@ -23,6 +23,7 @@ go_library(
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/status:go_default_library",
@@ -51,7 +52,6 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1:go_default_library",
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
@@ -70,6 +70,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/instancetype:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/status:go_default_library",
@@ -102,7 +103,6 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

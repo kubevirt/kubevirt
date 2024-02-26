@@ -17,6 +17,7 @@ go_library(
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
@@ -48,7 +49,6 @@ go_library(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
@@ -68,6 +68,7 @@ go_test(
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
@@ -98,7 +99,6 @@ go_test(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

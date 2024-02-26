@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"k8s.io/client-go/tools/cache"
 
 	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -31,8 +33,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/utils/pointer"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -293,7 +293,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 	}
 	if isInPhase(vmClone, clonev1alpha1.SnapshotInProgress) {
 		if snapshotName := syncInfo.snapshotName; snapshotName != "" {
-			vmClone.Status.SnapshotName = pointer.String(snapshotName)
+			vmClone.Status.SnapshotName = pointer.P(snapshotName)
 		}
 
 		if syncInfo.snapshotReady {
@@ -302,7 +302,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 	}
 	if isInPhase(vmClone, clonev1alpha1.RestoreInProgress) {
 		if restoreName := syncInfo.restoreName; restoreName != "" {
-			vmClone.Status.RestoreName = pointer.String(restoreName)
+			vmClone.Status.RestoreName = pointer.P(restoreName)
 		}
 
 		if syncInfo.restoreReady {
@@ -311,7 +311,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 	}
 	if isInPhase(vmClone, clonev1alpha1.CreatingTargetVM) {
 		if targetVMName := syncInfo.targetVMName; targetVMName != "" {
-			vmClone.Status.TargetName = pointer.String(targetVMName)
+			vmClone.Status.TargetName = pointer.P(targetVMName)
 		}
 
 		if syncInfo.targetVMCreated {

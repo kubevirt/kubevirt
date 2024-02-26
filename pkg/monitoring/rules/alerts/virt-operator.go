@@ -19,7 +19,8 @@ package alerts
 import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func virtOperatorAlerts(namespace string) []promv1.Rule {
@@ -27,7 +28,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "VirtOperatorDown",
 			Expr:  intstr.FromString("kubevirt_virt_operator_up == 0"),
-			For:   ptr.To(promv1.Duration("10m")),
+			For:   pointer.P(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "All virt-operator servers are down.",
 			},
@@ -39,7 +40,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowVirtOperatorCount",
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_operator_up < 2)"),
-			For:   ptr.To(promv1.Duration("60m")),
+			For:   pointer.P(promv1.Duration("60m")),
 			Annotations: map[string]string{
 				"summary": "More than one virt-operator should be running if more than one worker nodes exist.",
 			},
@@ -62,7 +63,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "VirtOperatorRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-operator", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   ptr.To(promv1.Duration("5m")),
+			For:   pointer.P(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				"summary": getRestCallsFailedWarning(80, "virt-operator", durationFiveMinutes),
 			},
@@ -74,7 +75,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowReadyVirtOperatorsCount",
 			Expr:  intstr.FromString("kubevirt_virt_operator_ready <  kubevirt_virt_operator_up"),
-			For:   ptr.To(promv1.Duration("60m")),
+			For:   pointer.P(promv1.Duration("60m")),
 			Annotations: map[string]string{
 				"summary": "Some virt-operators are running but not ready.",
 			},
@@ -86,7 +87,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "NoReadyVirtOperator",
 			Expr:  intstr.FromString("kubevirt_virt_operator_ready == 0"),
-			For:   ptr.To(promv1.Duration("10m")),
+			For:   pointer.P(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "No ready virt-operator was detected for the last 10 min.",
 			},
@@ -98,7 +99,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "NoLeadingVirtOperator",
 			Expr:  intstr.FromString("kubevirt_virt_operator_leading == 0"),
-			For:   ptr.To(promv1.Duration("60m")),
+			For:   pointer.P(promv1.Duration("60m")),
 			Annotations: map[string]string{
 				"summary": "No leading virt-operator was detected for the last 10 min.",
 			},

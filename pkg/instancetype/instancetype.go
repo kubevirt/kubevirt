@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -18,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/ptr"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -1226,35 +1226,35 @@ func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePr
 	// 2. The user hasn't defined the corresponding attribute already within the VMI
 	//
 	if preferenceSpec.Devices.PreferredAutoattachGraphicsDevice != nil && vmiSpec.Domain.Devices.AutoattachGraphicsDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = ptr.To(*preferenceSpec.Devices.PreferredAutoattachGraphicsDevice)
+		vmiSpec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(*preferenceSpec.Devices.PreferredAutoattachGraphicsDevice)
 	}
 
 	if preferenceSpec.Devices.PreferredAutoattachMemBalloon != nil && vmiSpec.Domain.Devices.AutoattachMemBalloon == nil {
-		vmiSpec.Domain.Devices.AutoattachMemBalloon = ptr.To(*preferenceSpec.Devices.PreferredAutoattachMemBalloon)
+		vmiSpec.Domain.Devices.AutoattachMemBalloon = pointer.P(*preferenceSpec.Devices.PreferredAutoattachMemBalloon)
 	}
 
 	if preferenceSpec.Devices.PreferredAutoattachPodInterface != nil && vmiSpec.Domain.Devices.AutoattachPodInterface == nil {
-		vmiSpec.Domain.Devices.AutoattachPodInterface = ptr.To(*preferenceSpec.Devices.PreferredAutoattachPodInterface)
+		vmiSpec.Domain.Devices.AutoattachPodInterface = pointer.P(*preferenceSpec.Devices.PreferredAutoattachPodInterface)
 	}
 
 	if preferenceSpec.Devices.PreferredAutoattachSerialConsole != nil && vmiSpec.Domain.Devices.AutoattachSerialConsole == nil {
-		vmiSpec.Domain.Devices.AutoattachSerialConsole = ptr.To(*preferenceSpec.Devices.PreferredAutoattachSerialConsole)
+		vmiSpec.Domain.Devices.AutoattachSerialConsole = pointer.P(*preferenceSpec.Devices.PreferredAutoattachSerialConsole)
 	}
 
 	if preferenceSpec.Devices.PreferredUseVirtioTransitional != nil && vmiSpec.Domain.Devices.UseVirtioTransitional == nil {
-		vmiSpec.Domain.Devices.UseVirtioTransitional = ptr.To(*preferenceSpec.Devices.PreferredUseVirtioTransitional)
+		vmiSpec.Domain.Devices.UseVirtioTransitional = pointer.P(*preferenceSpec.Devices.PreferredUseVirtioTransitional)
 	}
 
 	if preferenceSpec.Devices.PreferredBlockMultiQueue != nil && vmiSpec.Domain.Devices.BlockMultiQueue == nil {
-		vmiSpec.Domain.Devices.BlockMultiQueue = ptr.To(*preferenceSpec.Devices.PreferredBlockMultiQueue)
+		vmiSpec.Domain.Devices.BlockMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredBlockMultiQueue)
 	}
 
 	if preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue != nil && vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue == nil {
-		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = ptr.To(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
+		vmiSpec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue)
 	}
 
 	if preferenceSpec.Devices.PreferredAutoattachInputDevice != nil && vmiSpec.Domain.Devices.AutoattachInputDevice == nil {
-		vmiSpec.Domain.Devices.AutoattachInputDevice = ptr.To(*preferenceSpec.Devices.PreferredAutoattachInputDevice)
+		vmiSpec.Domain.Devices.AutoattachInputDevice = pointer.P(*preferenceSpec.Devices.PreferredAutoattachInputDevice)
 	}
 
 	// FIXME DisableHotplug isn't a pointer bool so we don't have a way to tell if a user has actually set it, for now override.
@@ -1305,7 +1305,7 @@ func applyDiskPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 			}
 
 			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && vmiDisk.DedicatedIOThread == nil {
-				vmiDisk.DedicatedIOThread = ptr.To(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
+				vmiDisk.DedicatedIOThread = pointer.P(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
 			}
 		} else if vmiDisk.DiskDevice.CDRom != nil {
 			if preferenceSpec.Devices.PreferredCdromBus != "" && vmiDisk.DiskDevice.CDRom.Bus == "" {
@@ -1473,7 +1473,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
 	}
 
 	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial == nil {
-		vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial = ptr.To(*preferenceSpec.Firmware.PreferredUseBiosSerial)
+		vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(*preferenceSpec.Firmware.PreferredUseBiosSerial)
 	}
 
 	if preferenceSpec.Firmware.PreferredUseEfi != nil && *preferenceSpec.Firmware.PreferredUseEfi && vmiSpec.Domain.Firmware.Bootloader.EFI == nil && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil {
@@ -1481,7 +1481,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
 	}
 
 	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && vmiSpec.Domain.Firmware.Bootloader.EFI != nil && vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil {
-		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = ptr.To(*preferenceSpec.Firmware.PreferredUseSecureBoot)
+		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(*preferenceSpec.Firmware.PreferredUseSecureBoot)
 	}
 }
 
@@ -1526,6 +1526,6 @@ func applySubdomain(preferenceSpec *instancetypev1beta1.VirtualMachinePreference
 
 func applyTerminationGracePeriodSeconds(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.PreferredTerminationGracePeriodSeconds != nil && vmiSpec.TerminationGracePeriodSeconds == nil {
-		vmiSpec.TerminationGracePeriodSeconds = ptr.To(*preferenceSpec.PreferredTerminationGracePeriodSeconds)
+		vmiSpec.TerminationGracePeriodSeconds = pointer.P(*preferenceSpec.PreferredTerminationGracePeriodSeconds)
 	}
 }

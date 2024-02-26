@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
@@ -32,7 +34,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -65,7 +66,7 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
 		}
 
-		currentConfiguration.NetworkConfiguration.PermitSlirpInterface = pointer.BoolPtr(enable)
+		currentConfiguration.NetworkConfiguration.PermitSlirpInterface = pointer.P(enable)
 		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
 		currentConfiguration = kv.Spec.Configuration
 	}

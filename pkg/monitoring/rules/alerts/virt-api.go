@@ -19,7 +19,8 @@ package alerts
 import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 func virtApiAlerts(namespace string) []promv1.Rule {
@@ -27,7 +28,7 @@ func virtApiAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "VirtAPIDown",
 			Expr:  intstr.FromString("kubevirt_virt_api_up == 0"),
-			For:   ptr.To(promv1.Duration("10m")),
+			For:   pointer.P(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "All virt-api servers are down.",
 			},
@@ -39,7 +40,7 @@ func virtApiAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowVirtAPICount",
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_api_up < 2)"),
-			For:   ptr.To(promv1.Duration("60m")),
+			For:   pointer.P(promv1.Duration("60m")),
 			Annotations: map[string]string{
 				"summary": "More than one virt-api should be running if more than one worker nodes exist.",
 			},
@@ -62,7 +63,7 @@ func virtApiAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "VirtApiRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-api", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   ptr.To(promv1.Duration("5m")),
+			For:   pointer.P(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				"summary": getRestCallsFailedWarning(80, "virt-api", durationFiveMinutes),
 			},

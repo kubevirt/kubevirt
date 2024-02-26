@@ -40,12 +40,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
-	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -85,14 +84,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	enableSlirpInterface := func() {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			PermitSlirpInterface: pointer.Bool(true),
+			PermitSlirpInterface: pointer.P(true),
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 	disableBridgeOnPodNetwork := func() {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			PermitBridgeInterfaceOnPodNetwork: pointer.Bool(false),
+			PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 		}
 
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
@@ -155,7 +154,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		vmi.Spec.Domain.Clock = &v1.Clock{
 			ClockOffset: v1.ClockOffset{
 				UTC: &v1.ClockOffsetUTC{
-					OffsetSeconds: pointer.Int(5),
+					OffsetSeconds: pointer.P(5),
 				},
 			},
 		}
@@ -1964,7 +1963,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should allow BlockMultiQueue with CPU settings", func() {
 			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
 			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("5")
 
@@ -1974,7 +1973,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should ignore CPU settings for explicitly rejected BlockMultiQueue", func() {
 			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.Bool(false)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(false)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
@@ -3061,7 +3060,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		DescribeTable("should reject disk with invalid errorPolicy", func(policy string) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk", ErrorPolicy: kubevirtpointer.P(v1.DiskErrorPolicy(policy)), DiskDevice: v1.DiskDevice{
+				Name: "testdisk", ErrorPolicy: pointer.P(v1.DiskErrorPolicy(policy)), DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{}}})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
@@ -3077,7 +3076,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		DescribeTable("It should accept a disk with a valid errorPolicy", func(mode v1.DiskErrorPolicy) {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk", ErrorPolicy: kubevirtpointer.P(mode), DiskDevice: v1.DiskDevice{
+				Name: "testdisk", ErrorPolicy: pointer.P(mode), DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{}}})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
@@ -3150,21 +3149,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
 				v1.Disk{
 					Name:              "disk-with-dedicated-io-thread-and-sata",
-					DedicatedIOThread: pointer.Bool(true),
+					DedicatedIOThread: pointer.P(true),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
 						Bus: bus,
 					}},
 				},
 				v1.Disk{
 					Name:              "disk-with-dedicated-io-thread-and-virtio",
-					DedicatedIOThread: pointer.Bool(true),
+					DedicatedIOThread: pointer.P(true),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
 						Bus: v1.DiskBusVirtio,
 					}},
 				},
 				v1.Disk{
 					Name:              "disk-without-dedicated-io-thread-and-with-sata",
-					DedicatedIOThread: pointer.Bool(false),
+					DedicatedIOThread: pointer.P(false),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
 						Bus: v1.DiskBusSATA,
 					}},
@@ -3255,7 +3254,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name: "blockdisk",
 					BlockSize: &v1.BlockSize{
 						MatchVolume: &v1.FeatureState{
-							Enabled: pointer.Bool(true),
+							Enabled: pointer.P(true),
 						},
 					},
 				})
@@ -3275,7 +3274,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							Physical: 1234,
 						},
 						MatchVolume: &v1.FeatureState{
-							Enabled: pointer.Bool(true),
+							Enabled: pointer.P(true),
 						},
 					},
 				})
@@ -3296,7 +3295,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							Physical: 4096,
 						},
 						MatchVolume: &v1.FeatureState{
-							Enabled: pointer.Bool(false),
+							Enabled: pointer.P(false),
 						},
 					},
 				})
@@ -3568,7 +3567,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -3602,7 +3601,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.Bool(false),
+						SecureBoot: pointer.P(false),
 					},
 				},
 			}
@@ -3617,7 +3616,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
@@ -3682,7 +3681,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.Bool(true),
+						SecureBoot: pointer.P(true),
 					},
 				},
 			}
@@ -3770,7 +3769,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.Bool(false),
+						SecureBoot: pointer.P(false),
 					},
 				},
 			}
@@ -3807,10 +3806,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject when SecureBoot is enabled", func() {
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			}
-			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(true)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(true)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("SEV does not work along with SecureBoot"))
@@ -3858,7 +3857,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Expect(causes).To(BeEmpty())
 			})
 			It("should accept vmi with vsocks defined", func() {
-				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
@@ -3866,7 +3865,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Context("feature gate disabled", func() {
 			It("should reject when the feature gate is disabled", func() {
 				disableFeatureGates()
-				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.VSOCKGate)))
@@ -4665,14 +4664,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VM persistent state defined", func() {
 		var vmi *v1.VirtualMachineInstance
 		addPersistentTPM := func() {
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.BoolPtr(true)}
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
 		}
 		addPersistentEFI := func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						Persistent: pointer.BoolPtr(true),
-						SecureBoot: pointer.BoolPtr(false),
+						Persistent: pointer.P(true),
+						SecureBoot: pointer.P(false),
 					},
 				},
 			}
@@ -4994,13 +4993,13 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				Runtime: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				Reset: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -5014,7 +5013,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -5039,7 +5038,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -5055,10 +5054,10 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				VAPIC: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -5082,10 +5081,10 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				VAPIC: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -5109,10 +5108,10 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				VAPIC: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -5126,13 +5125,13 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				SyNIC: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -5146,16 +5145,16 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				VPIndex: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				SyNIC: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}

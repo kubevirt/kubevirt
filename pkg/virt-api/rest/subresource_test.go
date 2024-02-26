@@ -34,17 +34,17 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
+	"github.com/emicklei/go-restful/v3"
 	"github.com/golang/mock/gomock"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/ghttp"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
-
-	"github.com/emicklei/go-restful/v3"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
 
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -102,7 +102,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
 	var migrateClient *kubecli.MockVirtualMachineInstanceMigrationInterface
 
-	gracePeriodZero := pointer.Int64(0)
+	gracePeriodZero := pointer.P(int64(0))
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -450,7 +450,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vm := v1.VirtualMachine{
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(NotRunning),
+						Running: pointer.P(NotRunning),
 					},
 				}
 
@@ -470,7 +470,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(restartOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
 				}
@@ -527,7 +527,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(body)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
 				}
@@ -553,7 +553,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
@@ -574,7 +574,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 				vmi := newVirtualMachineInstanceInPhase(v1.Running)
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
@@ -596,7 +596,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(stopOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -1637,11 +1637,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			}
 		},
-			Entry("fail with nil graceperiod", pointer.Int64(int64(1800)), nil, true),
-			Entry("fail with equal graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(1800)), true),
-			Entry("fail with greater graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(2400)), true),
-			Entry("not fail with non-nil graceperiod and nil termination graceperiod", nil, pointer.Int64(int64(1800)), false),
-			Entry("not fail with shorter graceperiod and non-nil termination graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(800)), false),
+			Entry("fail with nil graceperiod", pointer.P(int64(1800)), nil, true),
+			Entry("fail with equal graceperiod", pointer.P(int64(1800)), pointer.P(int64(1800)), true),
+			Entry("fail with greater graceperiod", pointer.P(int64(1800)), pointer.P(int64(2400)), true),
+			Entry("not fail with non-nil graceperiod and nil termination graceperiod", nil, pointer.P(int64(1800)), false),
+			Entry("not fail with shorter graceperiod and non-nil termination graceperiod", pointer.P(int64(1800)), pointer.P(int64(800)), false),
 		)
 
 		DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -2173,7 +2173,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Namespace: k8smetav1.NamespaceDefault,
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running:  pointer.Bool(NotRunning),
+					Running:  pointer.P(NotRunning),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
 				},
 			}

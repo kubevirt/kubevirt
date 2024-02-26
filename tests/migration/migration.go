@@ -35,7 +35,7 @@ import (
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -80,7 +80,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -244,7 +243,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			assertConnectivityToService := func(msg string) {
 				By(msg)
 				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
-				tcpJob.Spec.BackoffLimit = pointer.Int32(3)
+				tcpJob.Spec.BackoffLimit = pointer.P(int32(3))
 				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1482,7 +1481,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Context("[Serial] with TLS disabled", Serial, func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKvConfig(virtClient)
-					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					vmi := libvmi.NewAlpineWithTestTooling(
@@ -1506,7 +1505,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				It("[test_id:6977]should not secure migrations with TLS", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
-					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -1676,9 +1675,9 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Allowing post-copy and limit migration bandwidth")
 				policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
-				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
-				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
+				migrationPolicy.Spec.AllowPostCopy = pointer.P(true)
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(1))
+				migrationPolicy.Spec.BandwidthPerMigration = pointer.P(resource.MustParse("5Mi"))
 			})
 
 			Context("with datavolume", func() {
@@ -1797,8 +1796,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				BeforeEach(func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-						ProgressTimeout:         pointer.Int64(5),
-						CompletionTimeoutPerGiB: pointer.Int64(5),
+						ProgressTimeout:         pointer.P(int64(5)),
+						CompletionTimeoutPerGiB: pointer.P(int64(5)),
 						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
 					}
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -2694,7 +2693,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKvConfig(virtClient)
-				config.MigrationConfiguration.AllowAutoConverge = pointer.BoolPtr(true)
+				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := libvmi.NewAlpine(
@@ -2706,7 +2705,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
 					policy := GeneratePolicyAndAlignVMI(vmi)
-					policy.Spec.AllowAutoConverge = pointer.BoolPtr(false)
+					policy.Spec.AllowAutoConverge = pointer.P(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -3361,7 +3360,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi := libvmi.NewWindows()
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
-				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.P(true)}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)

@@ -19,9 +19,10 @@ package alerts
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 )
 
 func virtHandlerAlerts(namespace string) []promv1.Rule {
@@ -32,7 +33,7 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 				fmt.Sprintf("(%s - %s) != 0",
 					fmt.Sprintf("kube_daemonset_status_number_ready{namespace='%s', daemonset='virt-handler'}", namespace),
 					fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", namespace))),
-			For: ptr.To(promv1.Duration("15m")),
+			For: pointer.P(promv1.Duration("15m")),
 			Annotations: map[string]string{
 				"summary": "Some virt-handlers failed to roll out",
 			},
@@ -55,7 +56,7 @@ func virtHandlerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "VirtHandlerRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-handler", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
-			For:   ptr.To(promv1.Duration("5m")),
+			For:   pointer.P(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				"summary": getRestCallsFailedWarning(80, "virt-handler", durationFiveMinutes),
 			},

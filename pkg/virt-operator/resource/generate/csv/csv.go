@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"github.com/coreos/go-semver/semver"
 	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
@@ -191,7 +191,7 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 	imageVersion := components.AddVersionSeparatorPrefix(data.OperatorImageVersion)
 
 	if data.Replicas > 0 && *deployment.Spec.Replicas != int32(data.Replicas) {
-		deployment.Spec.Replicas = pointer.Int32(int32(data.Replicas))
+		deployment.Spec.Replicas = pointer.P(int32(data.Replicas))
 	}
 
 	clusterRules := rbac.NewOperatorClusterRole().Rules
