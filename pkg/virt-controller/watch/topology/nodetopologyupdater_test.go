@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	g "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -20,7 +20,7 @@ var _ = Describe("Nodetopologyupdater", func() {
 	var ctrl *gomock.Controller
 	var hinter *MockHinter
 	var virtClient *kubecli.MockKubevirtClient
-	var kubeClient *fake.Clientset
+	var fakeK8sClient *fake.Clientset
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -30,8 +30,8 @@ var _ = Describe("Nodetopologyupdater", func() {
 			hinter: hinter,
 			client: virtClient,
 		}
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		fakeK8sClient = fake.NewSimpleClientset()
+		virtClient.EXPECT().CoreV1().Return(fakeK8sClient.CoreV1()).AnyTimes()
 	})
 
 	Context("with no VMs with TSC frequency set running", func() {
@@ -42,51 +42,51 @@ var _ = Describe("Nodetopologyupdater", func() {
 		})
 
 		It("should add the lowest scheduling frequency to a node", func() {
-			nodes := []*v1.Node{NodeWithTSC("mynode", 123, true)}
-			trackNodes(kubeClient, nodes...)
+			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true)}
+			trackNodes(fakeK8sClient, nodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := kubeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
 			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
 			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
 		})
 
 		It("should continue if it encounters invalid nodes", func() {
-			nodes := []*v1.Node{
+			nodes := []*k8sv1.Node{
 				NodeWithTSC("mynode1", 123, true),
 				NodeWithTSC("syncednode", 123, true, 123, 100),
 				NodeWithInvalidTSC("invalid"),
 				NodeWithTSC("mynode2", 123, true),
 			}
-			trackNodes(kubeClient, nodes...)
+			trackNodes(fakeK8sClient, nodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 1, 1, 2)
 		})
 
 		It("should only add the nodes own frequency if the node is not schedulable", func() {
-			nodes := []*v1.Node{NodeWithTSC("mynode", 123, false)}
-			trackNodes(kubeClient, nodes...)
+			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, false)}
+			trackNodes(fakeK8sClient, nodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := kubeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
 			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
 			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
 		})
 
 		It("should do nothing if all frequencies are already present", func() {
-			nodes := []*v1.Node{NodeWithTSC("mynode", 123, true, 100, 123)}
+			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 100, 123)}
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 1, 0)
 		})
 
 		It("should remove inappropriate labels", func() {
-			nodes := []*v1.Node{NodeWithTSC("mynode", 123, true, 99, 200, 123)}
-			trackNodes(kubeClient, nodes...)
+			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 99, 200, 123)}
+			trackNodes(fakeK8sClient, nodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := kubeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
 			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
 			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
@@ -103,7 +103,7 @@ var _ = Describe("Nodetopologyupdater", func() {
 		})
 
 		It("should do nothing if all frequencies are already present", func() {
-			nodes := []*v1.Node{NodeWithTSC("mynode", 123, true, 100, 123, 80, 60)}
+			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 100, 123, 80, 60)}
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 1, 0)
 		})
@@ -116,11 +116,11 @@ var _ = Describe("Nodetopologyupdater", func() {
 		})
 
 		It("should keep old cluster minimums if still used by VMs", func() {
-			nodes := []*v1.Node{NodeWithTSC("mynode", 123, true, 98, 99, 101, 200, 123)}
-			trackNodes(kubeClient, nodes...)
+			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 98, 99, 101, 200, 123)}
+			trackNodes(fakeK8sClient, nodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, 0, 1)
-			node, err := kubeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			node, err := fakeK8sClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			g.Expect(err).ToNot(g.HaveOccurred())
 			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(123), "true"))
 			g.Expect(node.Labels).To(g.HaveKeyWithValue(ToTSCSchedulableLabel(100), "true"))
@@ -137,15 +137,15 @@ var _ = Describe("Nodetopologyupdater", func() {
 		})
 
 		It("should do nothing", func() {
-			nodes := []*v1.Node{NodeWithTSC("mynode", 123, true, 98, 99, 101, 200, 123)}
-			trackNodes(kubeClient, nodes...)
+			nodes := []*k8sv1.Node{NodeWithTSC("mynode", 123, true, 98, 99, 101, 200, 123)}
+			trackNodes(fakeK8sClient, nodes...)
 			stats := topologyUpdater.sync(nodes)
 			expectUpdates(stats, 0, len(nodes), 0)
 		})
 	})
 })
 
-func trackNodes(clientset *fake.Clientset, nodes ...*v1.Node) {
+func trackNodes(clientset *fake.Clientset, nodes ...*k8sv1.Node) {
 	for i, _ := range nodes {
 		g.ExpectWithOffset(1, clientset.Tracker().Add(nodes[i])).To(g.Succeed())
 	}
