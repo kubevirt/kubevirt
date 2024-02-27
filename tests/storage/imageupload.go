@@ -8,16 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/testsuite"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,16 +17,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/remotecommand"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/errorhandling"
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -132,7 +131,12 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 			if startVM {
 				By("Start VM")
-				vmi := tests.NewRandomVMIWithDataVolume(targetName)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", targetName),
+					libvmi.WithResourceMemory("1Gi"),
+				)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
@@ -269,7 +273,12 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(err.Error()).To(ContainSubstring("make sure the PVC is Bound, or use force-bind flag"))
 
 			By("Start VM")
-			vmi := tests.NewRandomVMIWithDataVolume("target-dv")
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", "target-dv"),
+				libvmi.WithResourceMemory("1Gi"),
+			)
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			defer func() {

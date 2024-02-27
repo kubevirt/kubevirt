@@ -1567,7 +1567,13 @@ var _ = SIGDescribe("Export", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 			)
 			dataVolume = createDataVolume(dataVolume)
-			vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+			)
 			vmi = createVMI(vmi)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1611,7 +1617,13 @@ var _ = SIGDescribe("Export", func() {
 			// Remove limit range to avoid having to configure proper VMI ratio for VMI.
 			removeLimitRangeFromNamespace()
 			By("Starting VMI, the export should return to pending")
-			vmi = tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+			vmi = libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+			)
 			vmi = createVMI(vmi)
 			waitForExportPhase(export, exportv1.Pending)
 			waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
@@ -1867,11 +1879,18 @@ var _ = SIGDescribe("Export", func() {
 		blankDv.SetNamespace(testsuite.GetTestNamespace(blankDv))
 		blankDv = createDataVolume(blankDv)
 
-		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-		tests.AddUserData(vmi, "cloud-init", bashHelloScript)
-		vm := libvmi.NewVirtualMachine(vmi)
-		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
-		vm.Spec.Running = pointer.Bool(true)
+		vm := libvmi.NewVirtualMachine(
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
+				libvmi.WithDataVolume("blankdisk", blankDv.Name),
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+			),
+			libvmi.WithRunning(),
+		)
 		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 			Name: clusterInstancetype.Name,
 		}

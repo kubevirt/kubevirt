@@ -1072,7 +1072,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
-				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
 
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1373,7 +1378,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
-					return tests.NewRandomVMIWithDataVolume(dv.Name)
+					return libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithDataVolume("disk0", dv.Name),
+						libvmi.WithResourceMemory("1Gi"),
+					)
 				}, console.LoginToAlpine),
 
 				Entry("[test_id:8611] with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
@@ -1458,7 +1468,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
-					return tests.NewRandomVMIWithDataVolume(dv.Name)
+					return libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithDataVolume("disk0", dv.Name),
+						libvmi.WithResourceMemory("1Gi"),
+					)
 				}, console.LoginToAlpine),
 
 				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
@@ -2190,8 +2205,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 600, HaveSucceeded())
-				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
-				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dv.Name),
+					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"),
+				)
 				return vmi
 			}
 
