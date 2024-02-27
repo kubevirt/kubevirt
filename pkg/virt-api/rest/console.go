@@ -29,7 +29,7 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 }
 
 func validateVMIForConsole(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-	if vmi.Spec.Domain.Devices.AutoattachSerialConsole != nil && *vmi.Spec.Domain.Devices.AutoattachSerialConsole == false {
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole != nil && !*vmi.Spec.Domain.Devices.AutoattachSerialConsole {
 		err := fmt.Errorf("No serial consoles are present.")
 		log.Log.Object(vmi).Reason(err).Error("Can't establish a serial console connection.")
 		return errors.NewBadRequest(err.Error())
