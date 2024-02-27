@@ -983,7 +983,7 @@ func handleDownloadFlags() error {
 		}
 	}
 	if !exportManifest && outputFile == "" {
-		return fmt.Errorf("Warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file.", OUTPUT_FLAG, OUTPUT_FLAG)
+		return fmt.Errorf("warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file", OUTPUT_FLAG, OUTPUT_FLAG)
 	}
 
 	return nil
@@ -1066,12 +1066,12 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	// List the pods matching the selector
 	podList, err := client.CoreV1().Pods(vmeInfo.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podSelector.String()})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list pods: %v", err)
+		return nil, fmt.Errorf("failed to list pods: %v", err)
 	}
 
 	// Pick the first pod to forward the port
 	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("No pods found for the service %s", service.Name)
+		return nil, fmt.Errorf("no pods found for the service %s", service.Name)
 	}
 
 	// Set up the port forwarding ports
@@ -1097,7 +1097,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%d", localPort)
 		}
 	case <-time.After(30 * time.Second):
-		return nil, fmt.Errorf("Timeout waiting for port forwarding to be ready.")
+		return nil, fmt.Errorf("timeout waiting for port forwarding to be ready")
 	}
 	return stopChan, nil
 }
