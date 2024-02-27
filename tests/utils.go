@@ -769,24 +769,6 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	return stdout, err
 }
 
-func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-	if err != nil {
-		return false, err
-	}
-
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
-		virtClient,
-		vmiPod,
-		libpod.LookupComputeContainer(vmiPod).Name,
-		[]string{"virsh", "--quiet", "domstate", vmi.Namespace + "_" + vmi.Name},
-	)
-	if err != nil {
-		return false, fmt.Errorf("could not get libvirt domstate (remotely on pod): %v: %s", err, stderr)
-	}
-	return strings.Contains(stdout, "paused"), nil
-}
-
 func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vm)
 	if err != nil {
