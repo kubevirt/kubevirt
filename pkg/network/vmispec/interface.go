@@ -69,7 +69,6 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	}
 
 	return fmt.Errorf("cannot migrate VMI which does not use masquerade, bridge with %s VM annotation or a migratable plugin to connect to the pod network", v1.AllowPodBridgeNetworkLiveMigrationAnnotation)
-
 }
 
 func IsPodNetworkWithMigratableBindingPlugin(networks []v1.Network, ifaces []v1.Interface, bindingPlugins map[string]v1.InterfaceBindingPlugin) bool {

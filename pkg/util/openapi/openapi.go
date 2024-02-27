@@ -143,7 +143,6 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 			requests.AdditionalProperties = nil
 			resourceRequirements.Properties["requests"] = requests
 		}
-
 	}
 
 	objectMeta, exists := openapispec.Definitions[objectmeta]

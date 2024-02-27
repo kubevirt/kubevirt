@@ -41,7 +41,6 @@ type command struct {
 }
 
 func (c *command) run() error {
-
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err

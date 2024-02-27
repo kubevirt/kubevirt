@@ -67,5 +67,4 @@ func main() {
 	if flags.Delete {
 		lg.Delete(client, workload)
 	}
-	return
 }
