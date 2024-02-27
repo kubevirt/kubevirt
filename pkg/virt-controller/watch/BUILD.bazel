@@ -127,6 +127,7 @@ go_test(
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/rest:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/storage/types:go_default_library",
