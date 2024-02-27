@@ -352,14 +352,13 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 //
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	diskName := "disk0"
-
-	vmi = libstorage.AddDataVolumeDisk(vmi, diskName, dataVolumeName)
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	return vmi
+	return libvmi.New(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithDataVolume("disk0", dataVolumeName),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	)
 }
 
 // NewRandomVMWithEphemeralDisk

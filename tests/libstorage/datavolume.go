@@ -43,27 +43,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-func AddDataVolumeDisk(vmi *v13.VirtualMachineInstance, diskName, dataVolumeName string) *v13.VirtualMachineInstance {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v13.Disk{
-		Name: diskName,
-		DiskDevice: v13.DiskDevice{
-			Disk: &v13.DiskTarget{
-				Bus: v13.DiskBusVirtio,
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v13.Volume{
-		Name: diskName,
-		VolumeSource: v13.VolumeSource{
-			DataVolume: &v13.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-
-	return vmi
-}
-
 func AddDataVolumeTemplate(vm *v13.VirtualMachine, dataVolume *v1beta1.DataVolume) {
 	dvt := &v13.DataVolumeTemplateSpec{}
 
