@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -189,6 +191,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			update, _ := action.(testing.UpdateAction)
 			return true, update.GetObject(), nil
 		})
+	}
+
+	shouldExpectVirtualMachinePendingState := func(vmi *virtv1.VirtualMachineInstance) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Pending))
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
+		}).Return(vmi, nil)
 	}
 
 	shouldExpectVirtualMachineSchedulingState := func(vmi *virtv1.VirtualMachineInstance) {
@@ -571,6 +581,28 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
 			shouldExpectVirtualMachineDataVolumesReadyCondition(vmi, k8sv1.ConditionFalse)
+			controller.Execute()
+		})
+
+		It("should not create a corresponding Pod on VMI creation when backend storage is pending", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Domain.Firmware = &virtv1.Firmware{
+				Bootloader: &virtv1.Bootloader{
+					EFI: &virtv1.EFI{
+						Persistent: pointer.Bool(true),
+					},
+				},
+			}
+
+			pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
+			pvc.Status.Phase = k8sv1.ClaimPending
+			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
+
+			addVirtualMachine(vmi)
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				return true, pvc, nil
+			})
+			shouldExpectVirtualMachinePendingState(vmi)
 			controller.Execute()
 		})
 	})
