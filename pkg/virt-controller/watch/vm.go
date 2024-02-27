@@ -154,12 +154,12 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	}
 
 	c.hasSynced = func() bool {
-		return c.vmiInformer.HasSynced() && c.vmInformer.HasSynced() &&
-			c.dataVolumeInformer.HasSynced() && c.dataSourceInformer.HasSynced() &&
-			c.pvcInformer.HasSynced() && c.crInformer.HasSynced() && c.podInformer.HasSynced()
+		return vmiInformer.HasSynced() && vmInformer.HasSynced() &&
+			dataVolumeInformer.HasSynced() && dataSourceInformer.HasSynced() &&
+			pvcInformer.HasSynced() && crInformer.HasSynced() && podInformer.HasSynced()
 	}
 
-	_, err := c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: c.deleteVirtualMachine,
 		UpdateFunc: c.updateVirtualMachine,
@@ -168,7 +168,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		return nil, err
 	}
 
-	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
@@ -177,7 +177,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		return nil, err
 	}
 
-	_, err = c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
