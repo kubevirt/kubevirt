@@ -219,9 +219,7 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 	// Special case: if there's no status field at all, add one.
 	newStatus := v1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
-		for _, change := range changes {
-			newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, change)
-		}
+		newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, changes...)
 		statusJson, err := json.Marshal(newStatus)
 		if err != nil {
 			return "", err
@@ -244,9 +242,7 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 		}
 
 		changeRequests := []v1.VirtualMachineStateChangeRequest{}
-		for _, change := range changes {
-			changeRequests = append(changeRequests, change)
-		}
+		changeRequests = append(changeRequests, changes...)
 
 		oldChangeRequestsJson, err := json.Marshal(vm.Status.StateChangeRequests)
 		if err != nil {
