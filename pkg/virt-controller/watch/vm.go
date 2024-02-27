@@ -153,6 +153,12 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		clusterConfig: clusterConfig,
 	}
 
+	c.hasSynced = func() bool {
+		return c.vmiInformer.HasSynced() && c.vmInformer.HasSynced() &&
+			c.dataVolumeInformer.HasSynced() && c.dataSourceInformer.HasSynced() &&
+			c.pvcInformer.HasSynced() && c.crInformer.HasSynced() && c.podInformer.HasSynced()
+	}
+
 	_, err := c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: c.deleteVirtualMachine,
@@ -236,6 +242,7 @@ type VMController struct {
 	cloneAuthFunc          CloneAuthFunc
 	statusUpdater          *status.VMStatusUpdater
 	clusterConfig          *virtconfig.ClusterConfig
+	hasSynced              func() bool
 }
 
 func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -244,7 +251,7 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmInformer.HasSynced, c.dataVolumeInformer.HasSynced, c.podInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
