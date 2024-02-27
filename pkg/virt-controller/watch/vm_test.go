@@ -5335,6 +5335,66 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmConditionController.HasCondition(vm, virtv1.VirtualMachineRestartRequired)).To(BeTrue())
 				})
 			})
+
+			Context("Affinity", func() {
+				It("should be live-updated", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								},
+							},
+						},
+					})
+
+					vm, vmi := DefaultVirtualMachine(true)
+					addVirtualMachine(vm)
+
+					affinity := k8sv1.Affinity{
+						PodAffinity: &k8sv1.PodAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+								{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"test": "nmc",
+										},
+									},
+								},
+							},
+						},
+					}
+					vm.Spec.Template.Spec.Affinity = affinity.DeepCopy()
+					Expect(vmiInformer.GetIndexer().Add(vmi)).To(Succeed())
+
+					By("Expecting to see patch for the VMI with new affinity")
+					vmiInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+						func(_, _, _ any, data []byte, _ any, _ ...any) (*virtv1.VirtualMachineInstance, error) {
+							// Don't try to change this as long as you want to use equality.Semantic.DeepEqual
+							type P struct {
+								Op    string
+								Path  string
+								Value k8sv1.Affinity
+							}
+
+							patches := []P{}
+
+							Expect(json.Unmarshal(data, &patches)).To(Succeed())
+							Expect(patches).To(HaveLen(1), "Expecting one patch adding new affinity")
+							Expect(equality.Semantic.DeepEqual(affinity, patches[0].Value)).To(BeTrue(), "Expecting the affinity to equal")
+
+							return nil, nil
+						},
+					)
+
+					// Do not care
+					vmInterface.EXPECT().UpdateStatus(gomock.Any(), gomock.Any())
+
+					sanityExecute(vm)
+				})
+
+			})
 		})
 
 		Context("CPU topology", func() {
