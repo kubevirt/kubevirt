@@ -132,14 +132,14 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 
 	c := &VMController{
 		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
-		vmiInformer:            vmiInformer,
-		vmInformer:             vmInformer,
-		dataVolumeInformer:     dataVolumeInformer,
-		dataSourceInformer:     dataSourceInformer,
+		vmiIndexer:             vmiInformer.GetIndexer(),
+		vmIndexer:              vmInformer.GetIndexer(),
+		dataVolumeStore:        dataVolumeInformer.GetStore(),
+		dataSourceStore:        dataSourceInformer.GetStore(),
 		namespaceStore:         namespaceStore,
-		pvcInformer:            pvcInformer,
-		crInformer:             crInformer,
-		podInformer:            podInformer,
+		pvcStore:               pvcInformer.GetStore(),
+		crIndexer:              crInformer.GetIndexer(),
+		podIndexer:             podInformer.GetIndexer(),
 		instancetypeMethods:    instancetypeMethods,
 		recorder:               recorder,
 		clientset:              clientset,
@@ -227,14 +227,14 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 type VMController struct {
 	clientset              kubecli.KubevirtClient
 	Queue                  workqueue.RateLimitingInterface
-	vmiInformer            cache.SharedIndexInformer
-	vmInformer             cache.SharedIndexInformer
-	dataVolumeInformer     cache.SharedIndexInformer
-	dataSourceInformer     cache.SharedIndexInformer
+	vmiIndexer             cache.Indexer
+	vmIndexer              cache.Indexer
+	dataVolumeStore        cache.Store
+	dataSourceStore        cache.Store
 	namespaceStore         cache.Store
-	pvcInformer            cache.SharedIndexInformer
-	crInformer             cache.SharedIndexInformer
-	podInformer            cache.SharedIndexInformer
+	pvcStore               cache.Store
+	crIndexer              cache.Indexer
+	podIndexer             cache.Indexer
 	instancetypeMethods    instancetype.Methods
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
@@ -294,7 +294,7 @@ func (c *VMController) Execute() bool {
 }
 
 func (c *VMController) execute(key string) error {
-	obj, exists, err := c.vmInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.vmIndexer.GetByKey(key)
 	if err != nil {
 		return nil
 	}
@@ -347,7 +347,7 @@ func (c *VMController) execute(key string) error {
 		}, vm, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vmi *virtv1.VirtualMachineInstance
-	vmiObj, exist, err := c.vmiInformer.GetStore().GetByKey(vmKey)
+	vmiObj, exist, err := c.vmiIndexer.GetByKey(vmKey)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch vmi for namespace from cache.")
 		return err
@@ -364,7 +364,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	dataVolumes, err := storagetypes.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.dataVolumeInformer.GetStore())
+	dataVolumes, err := storagetypes.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.dataVolumeStore)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
@@ -411,7 +411,7 @@ func (c *VMController) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv
 	// For this reason, we check if the source PVC exists and, if not, we trigger an event to let users know of this behavior.
 	if dv.Spec.Source.PVC != nil {
 		// TODO: a lot of CDI knowledge, maybe an API to check if source exists?
-		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcInformer.GetStore())
+		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcStore)
 		if err != nil {
 			return err
 		}
@@ -436,7 +436,7 @@ func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume
 		}
 	}
 
-	proxy := &authProxy{client: c.clientset, dataSourceStore: c.dataSourceInformer.GetStore(), namespaceStore: c.namespaceStore}
+	proxy := &authProxy{client: c.clientset, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}
 	allowed, reason, err := c.cloneAuthFunc(dataVolume, vm.Namespace, dataVolume.Name, proxy, vm.Namespace, serviceAccountName)
 	if err != nil && err != cdiv1.ErrNoTokenOkay {
 		return err
@@ -466,7 +466,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		}
 		if !exists {
 			// Don't create DV if PVC already exists
-			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.pvcInformer.GetStore())
+			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.pvcStore)
 			if err != nil {
 				return false, err
 			}
@@ -600,7 +600,7 @@ func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, reque
 
 func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
 	request := vm.Status.MemoryDumpRequest
-	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcInformer.GetStore())
+	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcStore)
 	if err != nil {
 		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
 		return err
@@ -1531,7 +1531,7 @@ func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
 }
 
 func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, error) {
-	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return false, err
 	}
@@ -1542,7 +1542,7 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 			continue
 		}
 
-		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
+		storeObj, exists, err := c.crIndexer.GetByKey(key)
 		if !exists || err != nil {
 			return false, err
 		}
@@ -1566,7 +1566,7 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 }
 
 func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
-	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return err
 	}
@@ -1576,7 +1576,7 @@ func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
 			continue
 		}
 
-		storeObj, exists, err := c.crInformer.GetStore().GetByKey(key)
+		storeObj, exists, err := c.crIndexer.GetByKey(key)
 		if !exists || err != nil {
 			return err
 		}
@@ -1609,7 +1609,7 @@ func (c *VMController) getControllerRevision(namespace string, name string) (*ap
 }
 
 func (c *VMController) getVMSpecForKey(key string) (*virtv1.VirtualMachineSpec, error) {
-	obj, exists, err := c.crInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.crIndexer.GetByKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -1638,7 +1638,7 @@ func genFromKey(key string) (int64, error) {
 }
 
 func (c *VMController) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineSpec, error) {
-	keys, err := c.crInformer.GetIndexer().IndexKeys("vm", string(vm.UID))
+	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return nil, err
 	}
@@ -1886,7 +1886,7 @@ func (c *VMController) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []
 // listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
 // TODO +pkotas unify this code with replicaset
 func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmiIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1900,7 +1900,7 @@ func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.Virtua
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
 // from the VirtualMachine cache which run in this namespace
 func (c *VMController) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
-	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.vmIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -2185,7 +2185,7 @@ func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 		return
 	}
 	for _, indexName := range []string{"dv", "pvc"} {
-		objs, err := c.vmInformer.GetIndexer().ByIndex(indexName, k)
+		objs, err := c.vmIndexer.ByIndex(indexName, k)
 		if err != nil {
 			log.Log.Object(dataVolume).Errorf("Cannot get index %s of DataVolume: %s", indexName, dataVolume.Name)
 			return
@@ -2488,7 +2488,7 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return storagetypes.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer.GetStore())
+	return storagetypes.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeStore)
 }
 
 // isVirtualMachineStatusWaitingForVolumeBinding
@@ -2497,7 +2497,7 @@ func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.
 		return false
 	}
 
-	return storagetypes.HasUnboundPVC(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.pvcInformer.GetStore())
+	return storagetypes.HasUnboundPVC(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.pvcStore)
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
@@ -2579,7 +2579,7 @@ func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachi
 
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
 func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	err := storagetypes.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer.GetStore())
+	err := storagetypes.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeStore)
 	if err != nil {
 		log.Log.Object(vm).Errorf("%v", err)
 		return true
@@ -3085,7 +3085,7 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	vm, exists, err := c.vmInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	vm, exists, err := c.vmIndexer.GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -3131,7 +3131,7 @@ func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *vi
 }
 
 func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineInstance) (bool, error) {
-	pod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
+	pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
 		return false, err
