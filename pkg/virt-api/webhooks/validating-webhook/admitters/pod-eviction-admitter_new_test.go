@@ -22,6 +22,7 @@ package admitters_test
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -271,6 +272,45 @@ var _ = Describe("Pod eviction admitter", func() {
 			true,
 		),
 	)
+
+	DescribeTable("The admitter should deny the request and not trigger VMI evacuation", func(clusterWideEvictionStrategy, vmiEvictionStrategy *kvirtv1.EvictionStrategy) {
+		nonMigratableVMI := newVMI(testNamespace, testVMIName, testNodeName, withEvictionStrategy(vmiEvictionStrategy))
+
+		evictedVirtLauncherPod := newVirtLauncherPod(nonMigratableVMI.Namespace, nonMigratableVMI.Name, nonMigratableVMI.Status.NodeName)
+		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+		vmiClient.EXPECT().Get(context.Background(), nonMigratableVMI.Name, metav1.GetOptions{}).Return(nonMigratableVMI, nil)
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
+			VirtClient:    virtClient,
+		}
+
+		expectedAdmissionResponse := newDeniedAdmissionResponse(
+			fmt.Sprintf("VMI %s is configured with an eviction strategy but is not live-migratable", nonMigratableVMI.Name),
+		)
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, nil),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	},
+		Entry("When cluster-wide eviction strategy is nil, VMI eviction strategy is LiveMigrate and VMI is not migratable",
+			nil,
+			pointer.P(kvirtv1.EvictionStrategyLiveMigrate),
+		),
+		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is nil and VMI is not migratable",
+			pointer.P(kvirtv1.EvictionStrategyLiveMigrate),
+			nil,
+		),
+	)
 })
 
 func newClusterConfig(clusterWideEvictionStrategy *kvirtv1.EvictionStrategy) *virtconfig.ClusterConfig {
@@ -363,6 +403,16 @@ func newAdmissionReview(evictedPodNamespace, evictedPodName string, isDryRun *bo
 func allowedAdmissionResponse() *k8sadmissionv1.AdmissionResponse {
 	return &k8sadmissionv1.AdmissionResponse{
 		Allowed: true,
+	}
+}
+
+func newDeniedAdmissionResponse(message string) *k8sadmissionv1.AdmissionResponse {
+	return &k8sadmissionv1.AdmissionResponse{
+		Allowed: false,
+		Result: &metav1.Status{
+			Code:    int32(http.StatusTooManyRequests),
+			Message: message,
+		},
 	}
 }
 
