@@ -21,6 +21,9 @@ package admitters_test
 
 import (
 	"context"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/golang/mock/gomock"
 
@@ -181,6 +184,91 @@ var _ = Describe("Pod eviction admitter", func() {
 			pointer.P(kvirtv1.EvictionStrategyLiveMigrateIfPossible),
 			nil,
 			false,
+		),
+	)
+
+	DescribeTable("The admitter should approve the request and trigger VMI evacuation", func(clusterWideEvictionStrategy, vmiEvictionStrategy *kvirtv1.EvictionStrategy, isVMIMigratable bool) {
+		vmiOptions := []vmiOption{
+			withEvictionStrategy(vmiEvictionStrategy),
+		}
+
+		if isVMIMigratable {
+			vmiOptions = append(vmiOptions, withLiveMigratableCondition())
+		}
+
+		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+
+		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
+		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+
+		expectedPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, testNodeName)
+		vmiClient.
+			EXPECT().
+			Patch(context.Background(),
+				vmi.Name,
+				types.JSONPatchType,
+				[]byte(expectedPatchData),
+				metav1.PatchOptions{}).
+			Return(nil, nil)
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
+			VirtClient:    virtClient,
+		}
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, nil),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	},
+		Entry("When cluster-wide eviction strategy is nil, VMI eviction strategy is LiveMigrate and VMI is migratable",
+			nil,
+			pointer.P(kvirtv1.EvictionStrategyLiveMigrate),
+			true,
+		),
+		Entry("When cluster-wide eviction strategy is nil, VMI eviction strategy is LiveMigrateIfPossible and VMI is migratable",
+			nil,
+			pointer.P(kvirtv1.EvictionStrategyLiveMigrateIfPossible),
+			true,
+		),
+		Entry("When cluster-wide eviction strategy is nil, VMI eviction strategy is External and VMI is not migratable",
+			nil,
+			pointer.P(kvirtv1.EvictionStrategyExternal),
+			false,
+		),
+		Entry("When cluster-wide eviction strategy is nil, VMI eviction strategy is External and VMI is migratable",
+			nil,
+			pointer.P(kvirtv1.EvictionStrategyExternal),
+			true,
+		),
+		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is nil and VMI is migratable",
+			pointer.P(kvirtv1.EvictionStrategyLiveMigrate),
+			nil,
+			true,
+		),
+		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is nil and VMI is migratable",
+			pointer.P(kvirtv1.EvictionStrategyLiveMigrateIfPossible),
+			nil,
+			true,
+		),
+		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is nil and VMI is not migratable",
+			pointer.P(kvirtv1.EvictionStrategyExternal),
+			nil,
+			false,
+		),
+		Entry("When cluster-wide eviction strategy is External, VMI eviction strategy is nil and VMI is migratable",
+			pointer.P(kvirtv1.EvictionStrategyExternal),
+			nil,
+			true,
 		),
 	)
 })
