@@ -649,8 +649,8 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 		return bytes / 1024 / 1024
 	}
 
-	bToMbps := func(bytes uint64) uint64 {
-		return bytes / 8 / 1000000
+	bpsToMbps := func(bytes uint64) uint64 {
+		return bytes * 8 / 1000000
 	}
 
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
@@ -658,9 +658,9 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
 		`DiskMbps:%d`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
-		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bToMbps(info.MemBps), bToMbps(info.MemDirtyRate*info.MemPageSize),
+		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
-		bToMbps(info.DiskBps),
+		bpsToMbps(info.DiskBps),
 	))
 }
 
