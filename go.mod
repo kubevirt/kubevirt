@@ -16,7 +16,7 @@ require (
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/go-openapi/validate v0.20.2
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/glog v1.1.0
+	github.com/golang/glog v1.1.2
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.3
 	github.com/google/go-github/v32 v32.0.0
@@ -27,6 +27,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/imdario/mergo v0.3.16
 	github.com/insomniacslk/dhcp v0.0.0-20230908212754-65c27093e38a
+	github.com/k8snetworkplumbingwg/ipamclaims v0.4.0-alpha
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.6.0
 	github.com/kisielk/errcheck v1.6.2
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
