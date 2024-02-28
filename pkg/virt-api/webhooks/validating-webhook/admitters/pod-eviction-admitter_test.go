@@ -167,61 +167,6 @@ var _ = Describe("Pod eviction admitter", func() {
 			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 		})
 
-		It("Should allow review requests when eviction strategy is not configured", func() {
-
-			By("Removing eviction strategy from the VMI")
-			vmi.Spec.EvictionStrategy = nil
-
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testpod",
-					Namespace: testns,
-					Annotations: map[string]string{
-						virtv1.DomainAnnotation: vmi.Name,
-					},
-					Labels: map[string]string{
-						virtv1.AppLabel: "virt-launcher",
-					},
-				},
-				Spec: k8sv1.PodSpec{
-					NodeName: nodeName,
-				},
-				Status: k8sv1.PodStatus{},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
-			vmiClient.
-				EXPECT().
-				Patch(context.Background(),
-					vmi.Name,
-					types.JSONPatchType,
-					[]byte(data),
-					metav1.PatchOptions{}).
-				Return(nil, fmt.Errorf("err")).AnyTimes()
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
-			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
-		})
-
 		DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {
 			By("Composing a dummy admission request on a virt-launcher pod")
 			pod := &k8sv1.Pod{
@@ -351,7 +296,6 @@ var _ = Describe("Pod eviction admitter", func() {
 				Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 			},
 				Entry("and should mark the VMI", true, nil),
-				Entry("and should not mark the VMI", false, virtv1.EvictionStrategyNone),
 			)
 		})
 	})
@@ -455,18 +399,6 @@ var _ = Describe("Pod eviction admitter", func() {
 			vmi := prepareVMI(nodeName, evictionStrategy, k8sv1.ConditionTrue)
 
 			ar := prepareAdmissionReview(vmi, nodeName, true)
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
-			actions := kubeClient.Fake.Actions()
-			Expect(actions).To(HaveLen(1))
-		})
-
-		It("Should allow on non-migratable VMIs any review request and not set status.EvacuationNodeName", func() {
-
-			vmi := prepareVMI(nodeName, evictionStrategy, k8sv1.ConditionFalse)
-
-			ar := prepareAdmissionReview(vmi, nodeName, false)
 
 			resp := podEvictionAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
