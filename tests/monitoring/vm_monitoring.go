@@ -67,9 +67,9 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	Context("Cluster VM metrics", func() {
 		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
 			for i := 0; i < 5; i++ {
-				vmi := tests.NewRandomVMI()
+				vmi := libvmi.NewGuestless()
 				vm := libvmi.NewVirtualMachine(vmi)
-				_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -86,11 +86,11 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		}
 
 		BeforeEach(func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewGuestless()
 			vm = libvmi.NewVirtualMachine(vmi)
 
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -260,7 +260,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("should fire KubevirtVmHighMemoryUsage alert", func() {
 			By("starting VMI")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewGuestless()
 			tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("fill up the vmi pod memory")
@@ -279,7 +279,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewGuestless()
 			tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("delete virt-handler daemonset")
