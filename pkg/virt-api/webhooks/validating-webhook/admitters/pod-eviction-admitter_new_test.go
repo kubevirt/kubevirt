@@ -49,6 +49,16 @@ var _ = Describe("Pod eviction admitter", func() {
 		testNodeName  = "node01"
 	)
 
+	var ctrl *gomock.Controller
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+	})
+
+	AfterEach(func() {
+		ctrl.Finish()
+	})
+
 	When("an AdmissionReview request for the eviction of a regular pod is admitted", func() {
 		It("should be allowed", func() {
 			const evictedPodName = "my-pod"
@@ -56,7 +66,6 @@ var _ = Describe("Pod eviction admitter", func() {
 			evictedPod := newPod(testNamespace, evictedPodName, testNodeName)
 			kubeClient := fake.NewSimpleClientset(evictedPod)
 
-			ctrl := gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
@@ -67,6 +76,28 @@ var _ = Describe("Pod eviction admitter", func() {
 
 			actualAdmissionResponse := admitter.Admit(
 				newAdmissionReview(evictedPod.Namespace, evictedPod.Name, nil),
+			)
+
+			Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		})
+	})
+
+	When("the admitter cannot fetch the pod from the AdmissionReview request", func() {
+		It("should allow the request", func() {
+			kubeClient := fake.NewSimpleClientset()
+			Expect(kubeClient.Fake.Resources).To(BeEmpty())
+
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			admitter := admitters.PodEvictionAdmitter{
+				ClusterConfig: newClusterConfig(nil),
+				VirtClient:    virtClient,
+			}
+
+			actualAdmissionResponse := admitter.Admit(
+				newAdmissionReview(testNamespace, "does-not-exist", nil),
 			)
 
 			Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
