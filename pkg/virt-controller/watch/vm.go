@@ -190,9 +190,9 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 }
 
 type authProxy struct {
-	client             kubecli.KubevirtClient
-	dataSourceInformer cache.SharedIndexInformer
-	namespaceStore     cache.Store
+	client          kubecli.KubevirtClient
+	dataSourceStore cache.Store
+	namespaceStore  cache.Store
 }
 
 func (p *authProxy) CreateSar(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
@@ -213,7 +213,7 @@ func (p *authProxy) GetNamespace(name string) (*k8score.Namespace, error) {
 
 func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, error) {
 	key := fmt.Sprintf("%s/%s", namespace, name)
-	obj, exists, err := p.dataSourceInformer.GetStore().GetByKey(key)
+	obj, exists, err := p.dataSourceStore.GetByKey(key)
 	if err != nil {
 		return nil, err
 	} else if !exists {
@@ -364,7 +364,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	dataVolumes, err := storagetypes.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.dataVolumeInformer)
+	dataVolumes, err := storagetypes.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.dataVolumeInformer.GetStore())
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
@@ -411,7 +411,7 @@ func (c *VMController) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv
 	// For this reason, we check if the source PVC exists and, if not, we trigger an event to let users know of this behavior.
 	if dv.Spec.Source.PVC != nil {
 		// TODO: a lot of CDI knowledge, maybe an API to check if source exists?
-		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcInformer)
+		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcInformer.GetStore())
 		if err != nil {
 			return err
 		}
@@ -436,7 +436,7 @@ func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume
 		}
 	}
 
-	proxy := &authProxy{client: c.clientset, dataSourceInformer: c.dataSourceInformer, namespaceStore: c.namespaceStore}
+	proxy := &authProxy{client: c.clientset, dataSourceStore: c.dataSourceInformer.GetStore(), namespaceStore: c.namespaceStore}
 	allowed, reason, err := c.cloneAuthFunc(dataVolume, vm.Namespace, dataVolume.Name, proxy, vm.Namespace, serviceAccountName)
 	if err != nil && err != cdiv1.ErrNoTokenOkay {
 		return err
@@ -466,7 +466,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		}
 		if !exists {
 			// Don't create DV if PVC already exists
-			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.pvcInformer)
+			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.pvcInformer.GetStore())
 			if err != nil {
 				return false, err
 			}
@@ -600,7 +600,7 @@ func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, reque
 
 func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
 	request := vm.Status.MemoryDumpRequest
-	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcInformer)
+	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcInformer.GetStore())
 	if err != nil {
 		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
 		return err
@@ -2488,7 +2488,7 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return storagetypes.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer)
+	return storagetypes.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer.GetStore())
 }
 
 // isVirtualMachineStatusWaitingForVolumeBinding
@@ -2497,7 +2497,7 @@ func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.
 		return false
 	}
 
-	return storagetypes.HasUnboundPVC(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.pvcInformer)
+	return storagetypes.HasUnboundPVC(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.pvcInformer.GetStore())
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
@@ -2579,7 +2579,7 @@ func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachi
 
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
 func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	err := storagetypes.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer)
+	err := storagetypes.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeInformer.GetStore())
 	if err != nil {
 		log.Log.Object(vm).Errorf("%v", err)
 		return true
@@ -3131,7 +3131,7 @@ func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *vi
 }
 
 func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineInstance) (bool, error) {
-	pod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+	pod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
 		return false, err

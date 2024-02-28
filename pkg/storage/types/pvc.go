@@ -142,9 +142,9 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 	return volumeNamesPVCMap, nil
 }
 
-func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache.SharedInformer) (*k8sv1.PersistentVolumeClaim, error) {
+func GetPersistentVolumeClaimFromCache(namespace, name string, pvcStore cache.Store) (*k8sv1.PersistentVolumeClaim, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := pvcInformer.GetStore().GetByKey(key)
+	obj, exists, err := pvcStore.GetByKey(key)
 
 	if err != nil {
 		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
@@ -161,14 +161,14 @@ func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache
 	return pvc, nil
 }
 
-func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedInformer) bool {
+func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcStore cache.Store) bool {
 	for _, volume := range volumes {
 		claimName := PVCNameFromVirtVolume(&volume)
 		if claimName == "" {
 			continue
 		}
 
-		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcInformer)
+		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcStore)
 		if err != nil {
 			log.Log.Errorf("Error fetching PersistentVolumeClaim %s while determining virtual machine status: %v", claimName, err)
 			continue

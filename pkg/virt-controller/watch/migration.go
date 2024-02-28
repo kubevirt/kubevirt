@@ -505,7 +505,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	}
 
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
-	controller.SetSourcePod(migrationCopy, vmi, c.podInformer)
+	controller.SetSourcePod(migrationCopy, vmi, c.podInformer.GetIndexer())
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
@@ -1063,7 +1063,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 }
 
 func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
-	sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+	sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
 	if err != nil {
 		return fmt.Errorf("failed to get current VMI pod: %v", err)
 	}
@@ -1267,7 +1267,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		}
 
 		if !targetPodExists {
-			sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+			sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
 			if err != nil {
 				log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 				return err
