@@ -392,6 +392,37 @@ var _ = Describe("Pod eviction admitter", func() {
 			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 		})
 	})
+
+	When("The VMI is already marked for evacuation", func() {
+		It("should allow the request and not mark it again", func() {
+			evictionStratrgy := kvirtv1.EvictionStrategyLiveMigrate
+			vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition(), withEvacuationNodeName(testNodeName)}
+
+			migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+
+			evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
+			kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+			vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
+
+			admitter := admitters.PodEvictionAdmitter{
+				ClusterConfig: newClusterConfig(nil),
+				VirtClient:    virtClient,
+			}
+
+			actualAdmissionResponse := admitter.Admit(
+				newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, nil),
+			)
+
+			Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		})
+	})
 })
 
 func newClusterConfig(clusterWideEvictionStrategy *kvirtv1.EvictionStrategy) *virtconfig.ClusterConfig {
@@ -529,5 +560,11 @@ func withLiveMigratableCondition() vmiOption {
 			Type:   kvirtv1.VirtualMachineInstanceIsMigratable,
 			Status: k8scorev1.ConditionTrue,
 		})
+	}
+}
+
+func withEvacuationNodeName(evacuationNodeName string) vmiOption {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Status.EvacuationNodeName = evacuationNodeName
 	}
 }
