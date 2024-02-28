@@ -72,7 +72,6 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 			deleteOpts := metav1.DeleteOptions{}
 			err = json.Unmarshal(ar.Request.Options.Raw, &deleteOpts)
 			if deleteOpts.GracePeriodSeconds != nil && *deleteOpts.GracePeriodSeconds == 0 {
-				//patchForceDeleteVMAnnotation
 				if vm.ObjectMeta.Annotations == nil {
 					vm.ObjectMeta.Annotations = map[string]string{}
 				}

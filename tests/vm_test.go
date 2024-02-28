@@ -47,7 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -56,6 +55,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -670,7 +670,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			// Registry URL scheme validated in CDI
 			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
 				testsuite.GetTestNamespace(nil), storageClassName, k8sv1.ReadWriteOnce)
-			vm.Spec.Running = pointer.BoolPtr(true)
+			vm.Spec.Running = pointer.P(true)
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1530,11 +1530,67 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 		})
 
-		FContext("Deleting a running VM with high TerminationGracePeriod via command line", func() {
+		FContext("a running VM that gets stuck in terminating state with a high TerminationGracePeriod", func() {
+			It("should be force deleted via command line", func() {
+				By("creating a VM with a high TerminationGracePeriod")
+				vmi := libvmi.NewCirros(
+					libvmi.WithTerminationGracePeriod(1600),
+				)
+				vm := startVM(virtClient, createVM(virtClient, vmi))
+
+				By("setting up a watch for vmi")
+				lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				terminationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {
+					for {
+						select {
+						case <-stopCn:
+							return
+						case e := <-eventsCn:
+							vmi, ok := e.Object.(*v1.VirtualMachineInstance)
+							Expect(ok).To(BeTrue())
+							if vmi.Name != vm.Name {
+								continue
+							}
+
+							if vmi.DeletionGracePeriodSeconds != nil {
+								fmt.Printf("grace-period: %d\n", *vmi.DeletionGracePeriodSeconds)
+							}
+
+							if *vmi.Spec.TerminationGracePeriodSeconds == 0 {
+								updated <- true
+							}
+						}
+					}
+				}
+				stopCn := make(chan bool, 1)
+				updated := make(chan bool, 1)
+				go terminationGracePeriodUpdated(stopCn, lw.ResultChan(), updated)
+				gracePeriod := int64(1600)
+				err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+				// By("Sending a force delete VM request using k8s client binary")
+				// fmt.Println("deleting VM")
+				// _, _, err = clientcmd.RunCommand(k8sClient, "delete", "vm", vm.GetName())
+				// Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the VM gets deleted")
+				waitForResourceDeletion(k8sClient, "vms", vm.GetName())
+
+				By("Verifying pod gets deleted")
+				expectedPodName := getExpectedPodName(vm)
+				waitForResourceDeletion(k8sClient, "pods", expectedPodName)
+
+				Expect(updated).To(Receive(), "vmi should be updated")
+				stopCn <- true
+			})
+		})
+
+		Context("Deleting a running VM with high TerminationGracePeriod via command line", func() {
 			DescribeTable("should force delete the VM", func(deleteFlags []string) {
 				By("creating a VM with a high TerminationGracePeriod and no bootable device")
 				By("Creating a VMI with no disk and an explicit network interface")
-				vmi := libvmi.New(
+				vmi := libvmi.NewWindows(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithTerminationGracePeriod(1600),
@@ -1557,16 +1613,38 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Ensuring network boot is disabled on the network interface")
 				Expect(vmi.Spec.Domain.Devices.Interfaces[0].BootOrder).To(BeNil())
 
-				vm := startVM(virtClient, createVM(virtClient, vmi))
+				vm := createRunningVM(virtClient, vmi)
 
-				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
-
-				By("Checking that VM is running")
-				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
+				By("setting up a watch for vmi")
+				lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+				terminationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {
+					for {
+						select {
+						case <-stopCn:
+							return
+						case e := <-eventsCn:
+							vmi, ok := e.Object.(*v1.VirtualMachineInstance)
+							Expect(ok).To(BeTrue())
+							if vmi.Name != vm.Name {
+								continue
+							}
+
+							if *vmi.Spec.TerminationGracePeriodSeconds == 0 {
+								updated <- true
+							}
+						}
+					}
+				}
+				stopCn := make(chan bool, 1)
+				updated := make(chan bool, 1)
+				go terminationGracePeriodUpdated(stopCn, lw.ResultChan(), updated)
+
+				By("Waiting for VMI to start")
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(Exist())
+
+				Expect(console.NetBootExpecter(vmi)).NotTo(Succeed())
 
 				By("Sending a force delete VM request using k8s client binary")
 				deleteCmd := append([]string{"delete", "vm", vm.GetName()}, deleteFlags...)
@@ -1579,6 +1657,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Verifying pod gets deleted")
 				expectedPodName := getExpectedPodName(vm)
 				waitForResourceDeletion(k8sClient, "pods", expectedPodName)
+
+				Expect(updated).To(Receive(), "vmi should be updated")
+				stopCn <- true
 			},
 				Entry("when --force and --grace-period=0 are provided", []string{}),
 				Entry("when --now is provided", []string{"--now"}),
@@ -2118,6 +2199,21 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 	return vm
 }
 
+func getVirtLauncherPodName(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred(), "Should list pods")
+
+	podName := ""
+	for _, pod := range pods.Items {
+		if pod.ObjectMeta.DeletionTimestamp == nil && strings.Contains(pod.ObjectMeta.Name, "virt-launcher") {
+			podName = pod.ObjectMeta.Name
+			break
+		}
+	}
+
+	return podName
+}
+
 func beCreated() gomegatypes.GomegaMatcher {
 	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -2168,6 +2264,14 @@ func haveStateChangeRequests() gomegatypes.GomegaMatcher {
 	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"StateChangeRequests": Not(BeEmpty()),
+		}),
+	}))
+}
+
+func haveGracePeriod(gracePeriod int64) gomegatypes.GomegaMatcher {
+	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"DeletionGracePeriod": HaveValue(BeNumerically("==", gracePeriod)),
 		}),
 	}))
 }
