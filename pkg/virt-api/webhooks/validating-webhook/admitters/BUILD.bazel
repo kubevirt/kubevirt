@@ -88,7 +88,6 @@ go_test(
         "migration-update-admitter_test.go",
         "migrationpolicy-admitter_test.go",
         "pod-eviction-admitter_new_test.go",
-        "pod-eviction-admitter_test.go",
         "preference-admitter_test.go",
         "vmclone-admitter_test.go",
         "vmexport-admitter_test.go",
