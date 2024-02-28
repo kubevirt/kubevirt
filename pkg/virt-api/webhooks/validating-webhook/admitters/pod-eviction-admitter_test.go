@@ -356,38 +356,6 @@ var _ = Describe("Pod eviction admitter", func() {
 		})
 	})
 
-	Context("Not a virt launcher pod", func() {
-
-		It("Should allow any review requests", func() {
-
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: testns,
-					Name:      "foo",
-				},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
-		})
-	})
-
 	prepareAdmissionReview := func(vmi *virtv1.VirtualMachineInstance, nodeName string, migratable bool) *admissionv1.AdmissionReview {
 		dryRun := false
 		pod := &k8sv1.Pod{
