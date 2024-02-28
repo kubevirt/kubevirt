@@ -22,7 +22,6 @@ package admitters
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -112,59 +111,6 @@ var _ = Describe("Pod eviction admitter", func() {
 					EvictionStrategy: &liveMigrateStrategy,
 				},
 			}
-		})
-
-		It("Should deny review requests when updating the VMI fails", func() {
-
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testpod",
-					Namespace: testns,
-					Annotations: map[string]string{
-						virtv1.DomainAnnotation: vmi.Name,
-					},
-					Labels: map[string]string{
-						virtv1.AppLabel: "virt-launcher",
-					},
-				},
-				Spec: k8sv1.PodSpec{
-					NodeName: nodeName,
-				},
-				Status: k8sv1.PodStatus{},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
-			vmiClient.
-				EXPECT().
-				Patch(context.Background(),
-					vmi.Name,
-					types.JSONPatchType,
-					[]byte(data),
-					metav1.PatchOptions{}).
-				Return(nil, fmt.Errorf("err"))
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Code).To(Equal(int32(http.StatusTooManyRequests)))
-			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 		})
 
 		DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {

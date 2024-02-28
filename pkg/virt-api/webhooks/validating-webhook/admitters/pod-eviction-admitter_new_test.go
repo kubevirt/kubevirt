@@ -328,6 +328,52 @@ var _ = Describe("Pod eviction admitter", func() {
 			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 		})
 	})
+
+	When("The admitter fails to patch the VMI", func() {
+		It("should deny the request", func() {
+			evictionStratrgy := kvirtv1.EvictionStrategyLiveMigrate
+			vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
+
+			migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+
+			evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
+			kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+			vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
+
+			expectedPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, testNodeName)
+			expectedError := errors.New("some error")
+			vmiClient.
+				EXPECT().
+				Patch(context.Background(),
+					migratableVMI.Name,
+					types.JSONPatchType,
+					[]byte(expectedPatchData),
+					metav1.PatchOptions{}).
+				Return(nil, expectedError)
+
+			admitter := admitters.PodEvictionAdmitter{
+				ClusterConfig: newClusterConfig(nil),
+				VirtClient:    virtClient,
+			}
+
+			expectedAdmissionResponse := newDeniedAdmissionResponse(
+				fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", expectedError.Error()),
+			)
+
+			actualAdmissionResponse := admitter.Admit(
+				newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, nil),
+			)
+
+			Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
+			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		})
+	})
 })
 
 func newClusterConfig(clusterWideEvictionStrategy *kvirtv1.EvictionStrategy) *virtconfig.ClusterConfig {
