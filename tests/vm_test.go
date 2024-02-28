@@ -1367,29 +1367,29 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("Using expand command with file input", func() {
 				const (
 					invalidVmSpec = `apiVersion: kubevirt.io/v1
-kind: VirtualMachine
-metadata:
-  annotations: {}
-  labels: {}
-  name: testvm
-spec: {}
-`
+ kind: VirtualMachine
+ metadata:
+   annotations: {}
+   labels: {}
+   name: testvm
+ spec: {}
+ `
 					vmSpec = `apiVersion: kubevirt.io/v1
-kind: VirtualMachine
-metadata:
-  name: testvm
-spec:
-  runStrategy: Always
-  template:
-    spec:
-      domain:
-        devices: {}
-        machine:
-          type: q35
-        resources: {}
-        volumes:
-status:
-`
+ kind: VirtualMachine
+ metadata:
+   name: testvm
+ spec:
+   runStrategy: Always
+   template:
+	 spec:
+	   domain:
+		 devices: {}
+		 machine:
+		   type: q35
+		 resources: {}
+		 volumes:
+ status:
+ `
 				)
 
 				var file *os.File
@@ -1532,22 +1532,41 @@ status:
 
 		FContext("Deleting a running VM with high TerminationGracePeriod via command line", func() {
 			DescribeTable("should force delete the VM", func(deleteFlags []string) {
-				By("getting a VM with a high TerminationGracePeriod")
-				vm := startVM(virtClient, createVM(virtClient, libvmi.NewFedora(
-					libvmi.WithTerminationGracePeriod(300),
-				)))
+				By("creating a VM with a high TerminationGracePeriod and no bootable device")
+				By("Creating a VMI with no disk and an explicit network interface")
+				vmi := libvmi.New(
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithTerminationGracePeriod(1600),
+				)
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("32M"),
+					},
+				}
+
+				By("Enabling BIOS serial output")
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{
+							UseSerial: pointer.P(true),
+						},
+					},
+				}
+
+				By("Ensuring network boot is disabled on the network interface")
+				Expect(vmi.Spec.Domain.Devices.Interfaces[0].BootOrder).To(BeNil())
+
+				vm := startVM(virtClient, createVM(virtClient, vmi))
 
 				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(Exist())
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
 
 				By("Checking that VM is running")
 				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-
-				By("Sending a delete VM request with no flags using k8s client binary")
-				_, _, err = clientcmd.RunCommand(k8sClient, "delete", "vms", vm.GetName())
 
 				By("Sending a force delete VM request using k8s client binary")
 				deleteCmd := append([]string{"delete", "vm", vm.GetName()}, deleteFlags...)
@@ -1561,8 +1580,8 @@ status:
 				expectedPodName := getExpectedPodName(vm)
 				waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 			},
-				Entry("when --force and --grace-period=0 are provided", []string{"--force", "--grace-period=0"}),
-				Entry("when --now is provided", []string{}),
+				Entry("when --force and --grace-period=0 are provided", []string{}),
+				Entry("when --now is provided", []string{"--now"}),
 			)
 		})
 
