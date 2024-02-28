@@ -549,6 +549,8 @@ github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/X
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
+github.com/k8snetworkplumbingwg/ipamclaims v0.4.0-alpha h1:ss+EP77GlQmh90hGKpnAG4Q3VVxRlB7GoncemaPtO4g=
+github.com/k8snetworkplumbingwg/ipamclaims v0.4.0-alpha/go.mod h1:qlR+sKxQ2OGfwhFCuXSd7rJ/GgC38vQBeHKQ7f2YnpI=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.6.0 h1:BT3ghAY0q7lWib9rz+tVXDFkm27dJV6SLCn7TunZwo4=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.6.0/go.mod h1:wxt2YWRVItDtaQmVSmaN5ubE2L1c9CiNoHQwSJnM8Ko=
 github.com/karrick/godirwalk v1.8.0/go.mod h1:H5KPZjojv4lE+QYImBI8xVtrBRgYrIVsaRPx4tDPEn4=
