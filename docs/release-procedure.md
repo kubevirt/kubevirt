@@ -185,6 +185,7 @@ As per the PR template, if the PR requires additional action from users switchin
 * ```sig/network```:  The PR is relevant to SIG Networking.
 * ```sig/storage```: The PR is relevant to SIG Storage.
 * ```sig/code-quality```: The PR is relevant to SIG Code Quality.
+* ```sig/wg-ipam```: The PR is relevant to SIG WG IPAM.
 
 ## Viewing Release Notes
 

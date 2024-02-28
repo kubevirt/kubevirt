@@ -154,3 +154,14 @@ aliases:
   #
   sig-architecture-approvers: []
   sig-architecture-reviewers: []
+
+  #
+  # SIG WG-IPAM
+  # Owns IPAM for secondary networks feature.
+  #
+  sig-wg-ipam-approvers:
+    - maiqueb
+  sig-wg-ipam-reviewers:
+    - maiqueb
+    - qinqon
+    - oshoval

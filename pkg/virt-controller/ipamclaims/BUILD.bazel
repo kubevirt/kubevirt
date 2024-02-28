@@ -1,0 +1,48 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["ipamclaims.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/namescheme:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
+        "//pkg/virt-controller/ipamclaims/libipam:go_default_library",
+        "//pkg/virt-controller/network:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "ipamclaims_suite_test.go",
+        "ipamclaims_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//pkg/virt-controller/ipamclaims/libipam:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned/fake:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
