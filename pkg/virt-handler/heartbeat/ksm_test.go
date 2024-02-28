@@ -116,31 +116,33 @@ var _ = Describe("KSM", func() {
 		_ = os.RemoveAll(fakeSysKSMDir)
 	})
 
-	It("should add KSM label", func() {
-		node := &v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "mynode",
-			},
-		}
-		fakeClient := fake.NewSimpleClientset(node)
-		createCustomMemInfo(false)
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
+	When("ksmConfiguration is not provided", func() {
+		It("should set KSM label value to false", func() {
+			node := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mynode",
+				},
+			}
+			fakeClient := fake.NewSimpleClientset(node)
+			createCustomMemInfo(false)
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
 
-		heartbeat.do()
-		node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
+			heartbeat.do()
+			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
 
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
-		Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
+			Expect(err).ToNot(HaveOccurred())
 
-		heartbeat.do()
-		node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"))
+			heartbeat.do()
+			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
+		})
 	})
 
-	Describe(", when ksmConfiguration is provided,", func() {
+	When("ksmConfiguration is provided,", func() {
 		var kv *kubevirtv1.KubeVirt
 
 		alternativeLabelSelector := &metav1.LabelSelector{
@@ -171,6 +173,27 @@ var _ = Describe("KSM", func() {
 				},
 			}
 		})
+
+		DescribeTable("independently from node pressure", func(nodeLabels map[string]string, expectedLabelValue string) {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+			node := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "mynode",
+					Labels: nodeLabels,
+				},
+			}
+			fakeClient := fake.NewSimpleClientset(node)
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+
+			heartbeat.do()
+
+			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, expectedLabelValue))
+		},
+			Entry("should add KSM label if the node labels match ksmConfiguration.nodeLabelSelector", map[string]string{"test_label": "true"}, "true"),
+			Entry("should not add KSM label if the node labels match ksmConfiguration.nodeLabelSelector", map[string]string{"no_macthing_label": "true"}, "false"),
+		)
 
 		DescribeTable("with memory pressure, should", func(initialKsmValue string, selectorOverride *metav1.LabelSelector,
 			nodeLabels, nodeAnnotations map[string]string,
@@ -213,11 +236,6 @@ var _ = Describe("KSM", func() {
 				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
 				"0",
 			),
-			Entry("not change ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node does not have the KSMHandlerManagedAnnotation annotation",
-				"1\n", nil, map[string]string{"test_label": "false"}, make(map[string]string),
-				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
-				"1",
-			),
 			Entry(", with alternative label selector, enable ksm if the node labels match ksmConfiguration.nodeLabelSelector",
 				"0\n", alternativeLabelSelector, map[string]string{"test_label": "true"}, make(map[string]string),
 				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "true"),
@@ -227,11 +245,6 @@ var _ = Describe("KSM", func() {
 				"1\n", alternativeLabelSelector, map[string]string{"test_label": "false"}, map[string]string{kubevirtv1.KSMHandlerManagedAnnotation: "true"},
 				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
 				"0",
-			),
-			Entry(", with alternative label selector, not change ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node does not have the KSMHandlerManagedAnnotation annotation",
-				"1\n", alternativeLabelSelector, map[string]string{"test_label": "false"}, make(map[string]string),
-				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
-				"1",
 			),
 		)
 
