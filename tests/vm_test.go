@@ -53,15 +53,18 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	ptr "kubevirt.io/kubevirt/pkg/pointer"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -1908,7 +1911,72 @@ status:
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 	})
+
+	Context("[Serial] when node becomes unhealthy", Serial, func() {
+		const componentName = "virt-handler"
+		var nodeName string
+
+		AfterEach(func() {
+			libpod.DeleteKubernetesApiBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			Eventually(func(g Gomega) {
+				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
+			}, 120*time.Second, time.Second).Should(Succeed())
+
+			tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", util.GetCurrentKv(virtClient).ResourceVersion,
+				tests.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
+		})
+
+		It("[Serial] the VMs running in that node should be respawned", func() {
+			By("Starting VM")
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			nodeName = vmi.Status.NodeName
+			oldUID := vmi.UID
+
+			By("Blocking virt-handler from reconciling the VMI")
+			libpod.AddKubernetesApiBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			Eventually(func(g Gomega) {
+				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
+			}, 120*time.Second, time.Second).Should(Succeed())
+
+			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Simulating loss of the virt-launcher")
+			err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: ptr.P(int64(0)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			// These timeouts are low on purpose. The VMI should be marked as Failed and be recreated fast.
+			// In case this fails, do not increase the timeouts.
+			By("The VM should not be Ready")
+			Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).ShouldNot(beReady())
+
+			// This is only possible if the VMI has been in Phase Failed
+			By("Check if the VMI has been recreated")
+			Eventually(func() types.UID {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.UID
+			}, 30*time.Second, 1*time.Second).ShouldNot(BeEquivalentTo(oldUID), "The UID should not match to old VMI, new VMI should appear")
+		})
+	})
 })
+
+func getHandlerNodePod(virtClient kubecli.KubevirtClient, nodeName string) *k8sv1.PodList {
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
+		metav1.ListOptions{
+			LabelSelector: "kubevirt.io=virt-handler",
+			FieldSelector: fmt.Sprintf("spec.nodeName=" + nodeName),
+		})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(pods.Items).To(HaveLen(1))
+
+	return pods
+}
 
 func getExpectedPodName(vm *v1.VirtualMachine) string {
 	maxNameLength := 63
