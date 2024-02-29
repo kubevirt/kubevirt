@@ -172,12 +172,14 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 	return domainInterfaces
 }
 
+type SetDomainFunc func(*v1.VirtualMachineInstance, *api.DomainSpec) (cli.VirDomain, error)
+
 // withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
 // to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
+func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f SetDomainFunc) (cli.VirDomain, error) {
 	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
 	dom, err := f(vmi, domainSpecWithIfacesResource)
 	if err != nil {
