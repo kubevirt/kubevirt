@@ -149,9 +149,9 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 	return newDataVolume, nil
 }
 
-func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.SharedInformer) (*cdiv1.DataVolume, error) {
+func GetDataVolumeFromCache(namespace, name string, dataVolumeStore cache.Store) (*cdiv1.DataVolume, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := dataVolumeInformer.GetStore().GetByKey(key)
+	obj, exists, err := dataVolumeStore.GetByKey(key)
 
 	if err != nil {
 		return nil, fmt.Errorf("error fetching DataVolume %s: %v", key, err)
@@ -168,13 +168,13 @@ func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.Sha
 	return dv, nil
 }
 
-func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedInformer) error {
+func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store) error {
 	for _, volume := range volumes {
 		if volume.DataVolume == nil {
 			continue
 		}
 
-		dv, err := GetDataVolumeFromCache(namespace, volume.DataVolume.Name, dataVolumeInformer)
+		dv, err := GetDataVolumeFromCache(namespace, volume.DataVolume.Name, dataVolumeStore)
 		if err != nil {
 			log.Log.Errorf("Error fetching DataVolume %s: %v", volume.DataVolume.Name, err)
 			continue
@@ -199,13 +199,13 @@ func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeIn
 	return nil
 }
 
-func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedInformer) bool {
+func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store) bool {
 	for _, volume := range volumes {
 		if volume.DataVolume == nil {
 			continue
 		}
 
-		dv, err := GetDataVolumeFromCache(namespace, volume.DataVolume.Name, dataVolumeInformer)
+		dv, err := GetDataVolumeFromCache(namespace, volume.DataVolume.Name, dataVolumeStore)
 		if err != nil {
 			log.Log.Errorf("Error fetching DataVolume %s while determining virtual machine status: %v", volume.DataVolume.Name, err)
 			continue
@@ -225,12 +225,12 @@ func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVo
 	return false
 }
 
-func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVolumeTemplateSpec, dataVolumeInformer cache.SharedInformer) ([]*cdiv1.DataVolume, error) {
+func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVolumeTemplateSpec, dataVolumeStore cache.Store) ([]*cdiv1.DataVolume, error) {
 	dataVolumes := []*cdiv1.DataVolume{}
 
 	for _, template := range dvTemplates {
 		// get DataVolume from cache for each templated dataVolume
-		dv, err := GetDataVolumeFromCache(namespace, template.Name, dataVolumeInformer)
+		dv, err := GetDataVolumeFromCache(namespace, template.Name, dataVolumeStore)
 		if err != nil {
 			return dataVolumes, err
 		} else if dv == nil {
@@ -242,7 +242,7 @@ func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVol
 	return dataVolumes, nil
 }
 
-func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeInformer cache.SharedInformer, pvcInformer cache.SharedInformer) ([]*cdiv1.DataVolume, error) {
+func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store, pvcInformer cache.SharedInformer) ([]*cdiv1.DataVolume, error) {
 	dataVolumes := []*cdiv1.DataVolume{}
 
 	for _, volume := range volumes {
@@ -251,7 +251,7 @@ func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataV
 			continue
 		}
 
-		dv, err := GetDataVolumeFromCache(namespace, *dataVolumeName, dataVolumeInformer)
+		dv, err := GetDataVolumeFromCache(namespace, *dataVolumeName, dataVolumeStore)
 		if err != nil {
 			return dataVolumes, err
 		} else if dv == nil {

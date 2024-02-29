@@ -246,13 +246,13 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 	return vmiSpec
 }
 
-func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndexInformer) (*k8sv1.Pod, error) {
+func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
 
 	// current pod is the most recent pod created on the current VMI node
 	// OR the most recent pod created if no VMI node is set.
 
 	// Get all pods from the namespace
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := podIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -346,11 +346,11 @@ func SetVMIMigrationPhaseTransitionTimestamp(oldVMIMigration *v1.VirtualMachineI
 	}
 }
 
-func SetSourcePod(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndexInformer) {
+func SetSourcePod(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) {
 	if migration.Status.Phase != v1.MigrationPending {
 		return
 	}
-	sourcePod, err := CurrentVMIPod(vmi, podInformer)
+	sourcePod, err := CurrentVMIPod(vmi, podIndexer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Warning("migration source pod not found")
 	}
