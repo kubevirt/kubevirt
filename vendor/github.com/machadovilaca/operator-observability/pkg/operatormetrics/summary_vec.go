@@ -6,14 +6,14 @@ type SummaryVec struct {
 	prometheus.SummaryVec
 
 	metricOpts  MetricOpts
-	summaryOpts SummaryOpts
+	summaryOpts prometheus.SummaryOpts
 }
 
 var _ Metric = &SummaryVec{}
 
 // NewSummaryVec creates a new SummaryVec. The SummaryVec must be
 // registered with the Prometheus registry through RegisterMetrics.
-func NewSummaryVec(metricOpts MetricOpts, summaryOpts SummaryOpts, labels []string) *SummaryVec {
+func NewSummaryVec(metricOpts MetricOpts, summaryOpts prometheus.SummaryOpts, labels []string) *SummaryVec {
 	return &SummaryVec{
 		SummaryVec:  *prometheus.NewSummaryVec(makePrometheusSummaryOpts(metricOpts, summaryOpts), labels),
 		metricOpts:  metricOpts,
@@ -25,7 +25,7 @@ func (c *SummaryVec) GetOpts() MetricOpts {
 	return c.metricOpts
 }
 
-func (c *SummaryVec) GetSummaryOpts() SummaryOpts {
+func (c *SummaryVec) GetSummaryOpts() prometheus.SummaryOpts {
 	return c.summaryOpts
 }
 
