@@ -931,6 +931,9 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers)
 	})
+	http.HandleFunc(components.VirtLauncherPodMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeVirtLauncherPods(w, r, app.clusterConfig, informers)
+	})
 	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
 	})
@@ -1069,6 +1072,7 @@ func (app *virtAPIApp) Run() {
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
 	namespaceInformer := kubeInformerFactory.Namespace()
+	virtLauncherPodInformer := kubeInformerFactory.VirtLauncherPod()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
@@ -1103,10 +1107,11 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
 	webhookInformers := &webhooks.Informers{
-		VMIPresetInformer:  vmiPresetInformer,
-		VMRestoreInformer:  vmRestoreInformer,
-		DataSourceInformer: dataSourceInformer,
-		NamespaceInformer:  namespaceInformer,
+		VirtLauncherPodInformer: virtLauncherPodInformer,
+		VMIPresetInformer:       vmiPresetInformer,
+		VMRestoreInformer:       vmRestoreInformer,
+		DataSourceInformer:      dataSourceInformer,
+		NamespaceInformer:       namespaceInformer,
 	}
 
 	// Build webhook subresources

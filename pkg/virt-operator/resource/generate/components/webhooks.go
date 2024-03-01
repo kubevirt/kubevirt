@@ -2,7 +2,6 @@ package components
 
 import (
 	"fmt"
-
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -282,6 +281,36 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      pointer.String(VMCloneCreateMutatePath),
+					},
+				},
+			},
+			{
+				Name:                    "virt-launcher-pods-mutator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				SideEffects:             &sideEffectNone,
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{corev1.SchemeGroupVersion.Version},
+						Resources:   []string{"pods"},
+					},
+				}},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						virtv1.AppLabel: "virt-launcher",
+					},
+				},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      pointer.String(VirtLauncherPodMutatePath),
 					},
 				},
 			},
@@ -848,6 +877,8 @@ const MigrationUpdateValidatePath = "/migration-validate-update"
 const VMMutatePath = "/virtualmachines-mutate"
 
 const VMIMutatePath = "/virtualmachineinstances-mutate"
+
+const VirtLauncherPodMutatePath = "/virt-launcher-pods-mutate"
 
 const MigrationMutatePath = "/migration-mutate-create"
 
