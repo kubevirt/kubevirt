@@ -1137,7 +1137,6 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 func (c *VMController) cleanupRestartRequired(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
-		vm = vm.DeepCopy()
 		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
 	}
 
@@ -2906,7 +2905,6 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 	}
 
 	if !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec, vm.Spec.Template.Spec) {
-		vm = vm.DeepCopy()
 		vmConditionManager := controller.NewVirtualMachineConditionManager()
 		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
