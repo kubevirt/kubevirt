@@ -65,6 +65,44 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
 	if vm.DeletionTimestamp != nil {
+		// if a force delete has been requested on a VM already scheduled for deletion,
+		// add an annotation to inform kubevirt to attempt a force VMI shut down if
+		// there is a running VMI
+		if ar.Request.Operation == admissionv1.Delete {
+			deleteOpts := metav1.DeleteOptions{}
+			err = json.Unmarshal(ar.Request.Options.Raw, &deleteOpts)
+			if deleteOpts.GracePeriodSeconds != nil && *deleteOpts.GracePeriodSeconds == 0 {
+				if vm.ObjectMeta.Annotations == nil {
+					vm.ObjectMeta.Annotations = map[string]string{}
+				}
+				vm.ObjectMeta.Annotations[v1.ForceDeleteVM] = ""
+
+				patchBytes, err := patch.GeneratePatchPayload(
+					patch.PatchOperation{
+						Op:    patch.PatchReplaceOp,
+						Path:  "/metadata",
+						Value: vm.ObjectMeta,
+					},
+				)
+
+				if err != nil {
+					log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
+					return &admissionv1.AdmissionResponse{
+						Result: &metav1.Status{
+							Message: err.Error(),
+							Code:    http.StatusInternalServerError,
+						},
+					}
+				}
+
+				jsonPatchType := admissionv1.PatchTypeJSONPatch
+				return &admissionv1.AdmissionResponse{
+					Allowed:   true,
+					Patch:     patchBytes,
+					PatchType: &jsonPatchType,
+				}
+			}
+		}
 		return &admissionv1.AdmissionResponse{
 			Allowed: true,
 		}
@@ -123,6 +161,17 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	mutator.setDefaultArchitecture(&vm)
 	mutator.setDefaultMachineType(&vm, preferenceSpec)
 	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
+
+	// If the VirtualMachine is being force deleted (i.e GracePeriodSeconds is 0),
+	// we want to honor the force deletion and update the VM's TerminationGracePeriodSeconds
+	if ar.Request.Operation == admissionv1.Delete {
+		deleteOpts := metav1.DeleteOptions{}
+		err = json.Unmarshal(ar.Request.Options.Raw, &deleteOpts)
+
+		if deleteOpts.GracePeriodSeconds != nil && *deleteOpts.GracePeriodSeconds == 0 {
+			mutator.setTerminationGracePeriodSeconds(&vm, deleteOpts.GracePeriodSeconds)
+		}
+	}
 
 	patchBytes, err := patch.GeneratePatchPayload(
 		patch.PatchOperation{
@@ -206,6 +255,14 @@ func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, 
 			}
 		}
 	}
+}
+
+func (mutator *VMsMutator) setTerminationGracePeriodSeconds(vm *v1.VirtualMachine, gracePeriod *int64) {
+	if vm.Spec.Template == nil {
+		return
+	}
+
+	vm.Spec.Template.Spec.TerminationGracePeriodSeconds = gracePeriod
 }
 
 func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {

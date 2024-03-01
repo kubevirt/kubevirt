@@ -896,6 +896,17 @@ func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
 }
 
 func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, syncError) {
+	// check if VM has ForceDeleteVM annotation; if so, force stop the VMI if it exists
+	if _, ok := vm.ObjectMeta.GetAnnotations()[virtv1.ForceDeleteVM]; ok {
+		vm, err := c.stopVMI(vm, vmi)
+		if err != nil {
+			log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
+			return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
+		}
+
+		return vm, nil
+	}
+
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
 		return vm, &syncErrorImpl{fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason}
@@ -1484,15 +1495,21 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	// if for some reason the VM has been requested to be deleted, we want to use the
 	// deletion grace period specified to the VM as the TerminationGracePeriodSeconds
 	// for the VMI.
+	// if a force delete is requested, use grace period of 0 for the VMI
+	gracePeriod := *vm.Spec.Template.Spec.TerminationGracePeriodSeconds
 	if vm.DeletionTimestamp != nil {
-		err = c.patchVMITerminationGracePeriod(vm.GetDeletionGracePeriodSeconds(), vmi)
+		gracePeriod = *vm.DeletionGracePeriodSeconds
+		if _, ok := vm.GetAnnotations()[virtv1.ForceDeleteVM]; ok {
+			gracePeriod = int64(0)
+		}
+		err = c.patchVMITerminationGracePeriod(&gracePeriod, vmi)
 		if err != nil {
 			log.Log.Object(vmi).Errorf("unable to patch vmi termination grace period: %v", err)
 			return vm, err
 		}
 	}
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
-	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, &v1.DeleteOptions{})
+	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, &v1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 
 	// Don't log an error if it is already deleted
 	if err != nil {
@@ -1500,6 +1517,14 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		c.expectations.DeletionObserved(vmKey, controller.VirtualMachineInstanceKey(vmi))
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
 		return vm, err
+	}
+
+	// If VM has been force deleted due to the VMI being deleted, don't attempt cleanup
+	if vm == nil {
+		c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
+		log.Log.Object(vm).Infof("Dispatching delete event for vmi %s with phase %s", controller.NamespacedKey(vmi.Namespace, vmi.Name), vmi.Status.Phase)
+
+		return vm, nil
 	}
 
 	vm, err = c.cleanupRestartRequired(vm)
@@ -2957,9 +2982,17 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 	if vm.DeletionTimestamp != nil {
 		if vmi == nil || controller.HasFinalizer(vm, v1.FinalizerOrphanDependents) {
-			vm, err = c.removeVMFinalizer(vm, virtv1.VirtualMachineControllerFinalizer)
-			if err != nil {
-				return vm, nil, err
+			if _, ok := vm.GetAnnotations()[virtv1.ForceDeleteVM]; ok {
+				vm, err = c.stopVMI(vm, vmi)
+				if err != nil {
+					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
+					return vm, &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}, nil
+				}
+			} else {
+				vm, err = c.removeVMFinalizer(vm, virtv1.VirtualMachineControllerFinalizer)
+				if err != nil {
+					return vm, nil, err
+				}
 			}
 		} else {
 			vm, err = c.stopVMI(vm, vmi)
