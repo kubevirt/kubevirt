@@ -174,7 +174,7 @@ func (n *NodeLabeller) loadCPUInfo() error {
 
 	models := make(map[string]cpuFeatures)
 	archPrefix, ok := util.DefaultArchitecturePrefix[runtime.GOARCH]
-	// Only arm64 and amd64 architectures are currently supported.
+	// Only s390x, arm64 and amd64 architectures are currently supported.
 	if !ok {
 		return fmt.Errorf("unsupported system architecture")
 	}

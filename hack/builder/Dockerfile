@@ -1,5 +1,6 @@
 FROM quay.io/centos/centos:stream9
 
+ARG ARCH
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
 
@@ -44,6 +45,16 @@ RUN dnf install -y dnf-plugins-core && \
         diffutils \
         skopeo && \
     dnf clean -y all
+
+RUN if test "${ARCH}" = amd64; then \
+      dnf install -y --setopt=install_weak_deps=False  --installroot /usr/s390x-linux-gnu/sys-root --forcearch s390x --releasever 9 \
+          glibc-devel \
+          glibc-static && \
+      dnf install -y epel-release && \
+      dnf install -y --setopt=install_weak_deps=False \
+          gcc-s390x-linux-gnu && \
+      dnf clean -y all; \
+    fi
 
 # Avoids the need to install sssd-client by disabling lookups
 COPY nsswitch.conf /etc/nsswitch.conf

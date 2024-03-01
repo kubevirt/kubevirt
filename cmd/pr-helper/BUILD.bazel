@@ -23,6 +23,10 @@ container_image(
             ":multipath",
             "//rpm:pr-helper_aarch64",
         ],
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            ":multipath",
+            "//rpm:pr-helper_s390x",
+        ],
         "//conditions:default": [
             ":multipath",
             "//rpm:pr-helper_x86_64",
@@ -34,6 +38,7 @@ container_image(
     name = "pr-helper",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",

@@ -96,15 +96,12 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
 }
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	if vmiSpec.Architecture == "arm64" {
-		return true
-	}
-	return false
+	return vmiSpec.Architecture == "arm64"
 }
 
 func IsPPC64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	if vmiSpec.Architecture == "ppc64le" {
-		return true
-	}
-	return false
+	return vmiSpec.Architecture == "ppc64le"
+}
+func IsS390X(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Architecture == "s390x"
 }

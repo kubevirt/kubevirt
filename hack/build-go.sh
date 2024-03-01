@@ -47,8 +47,11 @@ x86_64* | i?86_64* | amd64*)
 aarch64* | arm64*)
     ARCH="arm64"
     ;;
+s390x)
+    ARCH="s390x"
+    ;;
 *)
-    echo "invalid Arch, only support x86_64 and aarch64"
+    echo "invalid Arch, only support x86_64, aarch64 and s390x"
     exit 1
     ;;
 esac
@@ -128,12 +131,15 @@ for arg in $args; do
 
             # build virtctl for all architectures if requested
             if [ "${BIN_NAME}" = "virtctl" -a "${KUBEVIRT_RELEASE}" = "true" ]; then
-                for arch in amd64 arm64; do
+                for arch in amd64 arm64 s390x; do
                     for os in linux darwin windows; do
                         if [ "${os}" = "windows" ]; then
                             extension=".exe"
                         else
                             extension=""
+                        fi
+                        if [ "${arch}" = "s390x" ] && [ "${os}" != "linux" ]; then
+                            continue
                         fi
 
                         GOOS=${os} GOARCH=${arch} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-${os}-${arch}${extension} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir ${os} ${arch})

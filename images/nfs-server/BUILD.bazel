@@ -15,10 +15,12 @@ container_image(
     name = "nfs-server-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@nfs-server_aarch64//image",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@nfs-server_s390x//image",
         "//conditions:default": "@nfs-server//image",
     }),
     cmd = ["/entrypoint.sh"],
