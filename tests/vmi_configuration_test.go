@@ -2717,7 +2717,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					if len(pid) == 0 {
 						continue
 					}
-					output, err = tests.GetProcessName(readyPod, pid)
+					output, err = getProcessName(readyPod, pid)
 					if err != nil {
 						getProcessNameErrors++
 						continue
@@ -3432,5 +3432,19 @@ func listCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
 		"compute",
 		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
 	)
+	return
+}
+
+func getProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
+	virtClient := kubevirt.Client()
+
+	fPath := "/proc/" + pid + "/comm"
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", fPath},
+	)
+
 	return
 }
