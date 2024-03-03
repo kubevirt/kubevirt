@@ -66,3 +66,36 @@ func WithNodeAffinityForLabel(nodeLabelKey, nodeLabelValue string) Option {
 			append(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, nodeSelectorTerm)
 	}
 }
+
+func WithPreferredPodAffinity(term k8sv1.WeightedPodAffinityTerm) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Affinity == nil {
+			vmi.Spec.Affinity = &k8sv1.Affinity{}
+		}
+
+		if vmi.Spec.Affinity.PodAffinity == nil {
+			vmi.Spec.Affinity.PodAffinity = &k8sv1.PodAffinity{}
+		}
+
+		vmi.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+			vmi.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term,
+		)
+	}
+}
+
+func WithPreferredNodeAffinity(term k8sv1.PreferredSchedulingTerm) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Affinity == nil {
+			vmi.Spec.Affinity = &k8sv1.Affinity{}
+		}
+
+		if vmi.Spec.Affinity.NodeAffinity == nil {
+			vmi.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+		}
+
+		vmi.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+			vmi.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			term,
+		)
+	}
+}

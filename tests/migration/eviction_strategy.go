@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -55,7 +53,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = SIGMigrationDescribe("Live Migration", func() {
@@ -245,7 +242,10 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			Context("[Serial] with node tainted during node drain", Serial, func() {
 
-				var nodeAffinity *k8sv1.NodeAffinity
+				var (
+					nodeAffinity     *k8sv1.NodeAffinity
+					nodeAffinityTerm k8sv1.PreferredSchedulingTerm
+				)
 
 				// temporaryNodeDrain also sets the `NoSchedule` taint on the node.
 				// nodes with this taint will be reset to their original state on each
@@ -308,17 +308,17 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 					// This nodeAffinity will make sure the vmi, initially, will not be scheduled in the control-plane node in those clusters where there is only one.
 					// This is mandatory, since later the tests will drain the node where the vmi will be scheduled.
-					nodeAffinity = &k8sv1.NodeAffinity{
-						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
-							{
-								Weight: int32(1),
-								Preference: k8sv1.NodeSelectorTerm{
-									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{controlPlaneNodes.Items[0].Name}},
-									},
-								},
+					nodeAffinityTerm = k8sv1.PreferredSchedulingTerm{
+						Weight: int32(1),
+						Preference: k8sv1.NodeSelectorTerm{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{controlPlaneNodes.Items[0].Name}},
 							},
 						},
+					}
+
+					nodeAffinity = &k8sv1.NodeAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{nodeAffinityTerm},
 					}
 				})
 
@@ -387,46 +387,44 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				})
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
-					vmi_evict1 := alpineVMIWithEvictionStrategy()
-					vmi_evict2 := alpineVMIWithEvictionStrategy()
-					vmi_noevict := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-					vmi_noevict.Spec.EvictionStrategy = kvpointer.P(v1.EvictionStrategyNone)
-
-					labelKey := "testkey"
-					labels := map[string]string{
-						labelKey: "",
-					}
+					const labelKey = "testkey"
 
 					// give an affinity rule to ensure the vmi's get placed on the same node.
-					affinityRule := &k8sv1.Affinity{
-						PodAffinity: &k8sv1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.WeightedPodAffinityTerm{
-								{
-									Weight: int32(1),
-									PodAffinityTerm: k8sv1.PodAffinityTerm{
-										LabelSelector: &metav1.LabelSelector{
-											MatchExpressions: []metav1.LabelSelectorRequirement{
-												{
-													Key:      labelKey,
-													Operator: metav1.LabelSelectorOpIn,
-													Values:   []string{""}},
-											},
-										},
-										TopologyKey: "kubernetes.io/hostname",
-									},
+					podAffinityTerm := k8sv1.WeightedPodAffinityTerm{
+						Weight: int32(1),
+						PodAffinityTerm: k8sv1.PodAffinityTerm{
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      labelKey,
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{""}},
 								},
 							},
+							TopologyKey: "kubernetes.io/hostname",
 						},
-						NodeAffinity: nodeAffinity,
 					}
-
-					vmi_evict1.Labels = labels
-					vmi_evict2.Labels = labels
-					vmi_noevict.Labels = labels
-
-					vmi_evict1.Spec.Affinity = affinityRule
-					vmi_evict2.Spec.Affinity = affinityRule
-					vmi_noevict.Spec.Affinity = affinityRule
+					vmi_evict1 := alpineVMIWithEvictionStrategy(
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithLabel(labelKey, ""),
+						libvmi.WithPreferredPodAffinity(podAffinityTerm),
+						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+					)
+					vmi_evict2 := alpineVMIWithEvictionStrategy(
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithLabel(labelKey, ""),
+						libvmi.WithPreferredPodAffinity(podAffinityTerm),
+						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+					)
+					vmi_noevict := libvmi.NewAlpine(
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
+						libvmi.WithLabel(labelKey, ""),
+						libvmi.WithPreferredPodAffinity(podAffinityTerm),
+						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
+					)
 
 					By("Starting the VirtualMachineInstance with eviction set to live migration")
 					vm_evict1 := libvmi.NewVirtualMachine(vmi_evict1)
@@ -593,7 +591,11 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 			Context("with no eviction strategy set", func() {
 				It("[test_id:10155]should block the eviction api and migrate", func() {
 					// no EvictionStrategy set
-					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vmi := libvmi.NewAlpine(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
+
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 					vmiNodeOrig := vmi.Status.NodeName
 					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -629,9 +631,11 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			Context("with eviction strategy set to 'None'", func() {
 				It("[test_id:10156]The VMI should get evicted", func() {
-					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-					evictionStrategy := v1.EvictionStrategyNone
-					vmi.Spec.EvictionStrategy = &evictionStrategy
+					vmi := libvmi.NewAlpine(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
+					)
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 					pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
@@ -651,11 +655,14 @@ func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	return libvmi.NewFedora(opts...)
 }
 
-func alpineVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
+func alpineVMIWithEvictionStrategy(additionalOpts ...libvmi.Option) *v1.VirtualMachineInstance {
 	opts := append(libnet.WithMasqueradeNetworking(),
 		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 	)
+
+	opts = append(opts, additionalOpts...)
+
 	return libvmi.NewAlpine(opts...)
 }
 
