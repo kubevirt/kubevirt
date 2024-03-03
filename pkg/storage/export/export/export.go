@@ -1342,14 +1342,7 @@ func (ctrl *VMExportController) expandVirtualMachine(vm *virtv1.VirtualMachine) 
 
 func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		volumeName := ""
-		if volume.DataVolume != nil {
-			volumeName = volume.DataVolume.Name
-		}
-		if volume.PersistentVolumeClaim != nil {
-			volumeName = volume.PersistentVolumeClaim.ClaimName
-		}
-		if volumeName != "" {
+		if volumeName := types.PVCNameFromVirtVolume(&volume); volumeName != "" {
 			vm.Spec.DataVolumeTemplates = ctrl.replaceUrlDVTemplate(volumeName, vm.Namespace, vm.Spec.DataVolumeTemplates)
 		}
 	}
@@ -1402,14 +1395,7 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) []*cdiv1.DataVolume {
 	res := make([]*cdiv1.DataVolume, 0)
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		volumeName := ""
-		if volume.DataVolume != nil {
-			volumeName = volume.DataVolume.Name
-		}
-		if volume.PersistentVolumeClaim != nil {
-			volumeName = volume.PersistentVolumeClaim.ClaimName
-		}
-		if volumeName != "" {
+		if volumeName := types.PVCNameFromVirtVolume(&volume); volumeName != "" {
 			found := false
 			for _, template := range vm.Spec.DataVolumeTemplates {
 				if template.ObjectMeta.Name == volumeName {

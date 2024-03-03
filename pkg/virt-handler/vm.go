@@ -2474,12 +2474,7 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil {
 
-			var claimName string
-			if volSrc.PersistentVolumeClaim != nil {
-				claimName = volSrc.PersistentVolumeClaim.ClaimName
-			} else {
-				claimName = volSrc.DataVolume.Name
-			}
+			claimName := pvctypes.PVCNameFromVirtVolume(&volume)
 
 			volumeStatus, ok := volumeStatusMap[volume.Name]
 
