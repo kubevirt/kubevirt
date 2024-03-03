@@ -72,7 +72,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "targetcli", cmd)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("command='targetcli %v' stdout='%s' stderr='%s'", args, stdout, stderr))
 	}
 
@@ -93,7 +93,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		// at the package installation. The targetcli utility relies on ctype python package that
 		// uses it to find shared library.
 		// To fix this issue, we run ldconfig before targetcli
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "targetcli", []string{"ldconfig"})
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli", []string{"ldconfig"})
 		By(fmt.Sprintf("ldconfig: stdout: %v stderr: %v", stdout, stderr))
 		Expect(err).ToNot(HaveOccurred())
 
@@ -122,7 +122,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "targetcli",
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "targetcli",
 			[]string{"/bin/lsblk", "--scsi", "-o", "NAME,MODEL", "-p", "-n"})
 		Expect(err).ToNot(HaveOccurred(), stdout, stderr)
 		lines := strings.Split(stdout, "\n")

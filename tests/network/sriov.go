@@ -576,15 +576,15 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 }
 
 func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
-	sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+	sriovNodes := getNodesWithAllocatedResource(sriovResourceName)
 	if len(sriovNodes) < minRequiredNodes {
 		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")
 	}
 	return nil
 }
 
-func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceName string) []k8sv1.Node {
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
+func getNodesWithAllocatedResource(resourceName string) []k8sv1.Node {
+	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 	filteredNodes := []k8sv1.Node{}
 	for _, node := range nodes.Items {
 		resourceList := node.Status.Allocatable
@@ -603,7 +603,6 @@ func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceNa
 
 func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, networkName, sriovResourceName string) error {
 	out, err := exec.ExecuteCommandOnPod(
-		virtClient,
 		tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace),
 		"compute",
 		[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", networkName)},
@@ -725,11 +724,8 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
-	virtClient := kubevirt.Client()
-
 	By("checking default interface is present")
 	_, err := exec.ExecuteCommandOnPod(
-		virtClient,
 		vmiPod,
 		"compute",
 		[]string{"ip", "address", "show", "eth0"},
@@ -740,7 +736,6 @@ func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 
 	By("checking default interface is attached to VMI")
 	_, err = exec.ExecuteCommandOnPod(
-		virtClient,
 		vmiPod,
 		"compute",
 		[]string{"ip", "address", "show", "k6t-eth0"},
@@ -782,9 +777,7 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 }
 
 func sriovNodeName(sriovResourceName string) (string, error) {
-	virtClient := kubevirt.Client()
-
-	sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+	sriovNodes := getNodesWithAllocatedResource(sriovResourceName)
 	if len(sriovNodes) == 0 {
 		return "", fmt.Errorf("failed to detect nodes with allocatable resources (%s)", sriovResourceName)
 	}

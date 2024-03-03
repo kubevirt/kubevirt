@@ -370,7 +370,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						launcher, err := libpod.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace())
 						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
 							launcher,
 							node,
 							k8sv1.IPv6Protocol)
@@ -485,7 +484,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						launcher, err := libpod.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace())
 						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
 							launcher,
 							node,
 							k8sv1.IPv6Protocol)
@@ -782,10 +780,9 @@ func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 	return nil
 }
 
-func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
+func resolveNodeIp(pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
 	ahostsCmd := string("ahosts" + ipFamily[2:])
 	output, err := exec.ExecuteCommandOnPod(
-		virtclient,
 		pod,
 		"compute",
 		[]string{"getent", ahostsCmd, hostname})
@@ -803,10 +800,10 @@ func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname s
 	return "", fmt.Errorf("could not resolve an %s address from %s name", ipFamily, hostname)
 }
 
-func resolveNodeIPAddrByFamily(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.Pod, node k8sv1.Node, ipFamily k8sv1.IPFamily) (string, error) {
+func resolveNodeIPAddrByFamily(sourcePod *k8sv1.Pod, node k8sv1.Node, ipFamily k8sv1.IPFamily) (string, error) {
 	hostname := getNodeHostname(node.Status.Addresses)
 	if hostname == nil {
 		return "", fmt.Errorf("could not get node hostname")
 	}
-	return resolveNodeIp(virtClient, sourcePod, *hostname, ipFamily)
+	return resolveNodeIp(sourcePod, *hostname, ipFamily)
 }

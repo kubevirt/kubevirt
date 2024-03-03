@@ -125,7 +125,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc1)
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
@@ -136,7 +135,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			virtioFsFileTestCmd = fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc2)
 			pod = tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podVirtioFsFileExist, err = exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
@@ -233,7 +231,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvcName)
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
@@ -345,7 +342,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", dataVolume.Name)
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},

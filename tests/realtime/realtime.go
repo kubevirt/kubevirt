@@ -90,7 +90,6 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			Expect(err).ToNot(HaveOccurred())
 			emulator = filepath.Base(emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
@@ -103,7 +102,6 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			}
 			By("Validating that the memory lock limits are higher than the memory requested")
 			psOutput, err = exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -C " + emulator + " -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
@@ -134,7 +132,6 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			Expect(err).ToNot(HaveOccurred())
 			emulator = filepath.Base(emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
@@ -146,7 +143,6 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 
 			By("Validating the VCPU mask matches the scheduler profile for all cores")
 			psOutput, err = exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", "ps -TcC " + emulator + " |grep CPU |awk '{print $3\" \" $8}'"},

@@ -124,7 +124,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		By(fmt.Sprintf("Checking cloud init ISO at '%s' is 4k-block fs compatible", path))
 		cmdCheck := []string{"stat", "--printf='%s'", path}
 
-		out, err := exec.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+		out, err := exec.ExecuteCommandOnPod(pod, "compute", cmdCheck)
 		Expect(err).NotTo(HaveOccurred())
 		size, err := strconv.Atoi(strings.Trim(out, "'"))
 		Expect(err).NotTo(HaveOccurred())

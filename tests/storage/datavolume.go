@@ -1148,7 +1148,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var unused string
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
 			lsOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},

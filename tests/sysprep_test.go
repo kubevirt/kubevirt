@@ -360,7 +360,6 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			Eventually(func() error {
 				fmt.Printf("Running \"%s\" command via winrm-cli\n", command)
 				output, err = exec.ExecuteCommandOnPod(
-					virtClient,
 					winrmcliPod,
 					winrmcliPod.Spec.Containers[0].Name,
 					command,

@@ -134,7 +134,6 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 
 			By("start the virtual machine with slirp interface")
 			output, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"cat", "/proc/net/tcp"},
@@ -145,7 +144,6 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 			Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
 			By("return \"Hello World!\" when connecting to localhost on port 80")
 			output, err = exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"nc", "127.0.0.1", "80", "--recv-only"},
@@ -156,7 +154,6 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 
 			By("reject connecting to localhost and port different than 80")
 			output, err = exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[1].Name,
 				[]string{"curl", "127.0.0.1:9080"},

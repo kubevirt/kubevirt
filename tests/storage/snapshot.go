@@ -407,8 +407,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				for _, c := range strings.Split(command, ",") {
 					commandSlice = append(commandSlice, strings.Trim(c, "\" "))
 				}
-				virtClient := kubevirt.Client()
-				return exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
+				return exec.ExecuteCommandOnPodWithResults(pod, pod.Annotations[annoContainer], commandSlice)
 			}
 
 			It("[test_id:6767]with volumes and guest agent available", func() {

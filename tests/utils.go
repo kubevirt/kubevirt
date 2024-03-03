@@ -260,18 +260,16 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 }
 
 func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
-	virtClient := kubevirt.Client()
-
 	pscmd := `ps -LC ` + emulator + ` -o lwp,comm | grep "CPU ` + cpu + `"  | cut -f1 -dC`
 	args := []string{BinBash, "-c", pscmd}
 	Eventually(func() error {
-		output, err = exec.ExecuteCommandOnPod(virtClient, pod, "compute", args)
+		output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
 		return err
 	}).Should(Succeed())
 	vcpupid := strings.TrimSpace(strings.Trim(output, "\n"))
 	tasksetcmd := "taskset -c -p " + vcpupid + " | cut -f2 -d:"
 	args = []string{BinBash, "-c", tasksetcmd}
-	output, err = exec.ExecuteCommandOnPod(virtClient, pod, "compute", args)
+	output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
 	Expect(err).ToNot(HaveOccurred())
 
 	return strings.TrimSpace(output), err
@@ -283,9 +281,7 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
 	)
 
-	virtClient := kubevirt.Client()
 	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
 		pod,
 		"compute",
 		[]string{"cat", cgroupV2cpusetPath},
@@ -296,7 +292,6 @@ func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	}
 
 	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
 		pod,
 		"compute",
 		[]string{"cat", cgroupV1cpusetPath},
@@ -729,7 +724,6 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
-		virtClient,
 		vmiPod,
 		libpod.LookupComputeContainer(vmiPod).Name,
 		command,
@@ -809,7 +803,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	procPath := filepath.Join("/proc/1/root", diskPath)
 	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
 	Expect(err).ToNot(HaveOccurred())
-	_, _, err = exec.ExecuteCommandOnPodWithResults(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
+	_, _, err = exec.ExecuteCommandOnPodWithResults(virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -828,7 +822,6 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	vmiPod := GetVmiPod(virtClient, vmi)
 
 	output, err := exec.ExecuteCommandOnPod(
-		virtClient,
 		vmiPod,
 		"compute",
 		command,
@@ -857,7 +850,6 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	}
 
 	output, err := exec.ExecuteCommandOnPod(
-		virtClient,
 		vmiPod,
 		"compute",
 		command,
@@ -1394,11 +1386,8 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 }
 
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
-	virtClient := kubevirt.Client()
-
 	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 	podOutput, err := exec.ExecuteCommandOnPod(
-		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[0].Name,
 		[]string{"id", "-u"},
@@ -1413,7 +1402,7 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	if err != nil {
 		return "", "", err
 	}
-	return exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, components.VirtHandlerName, command)
+	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
 }
 
 func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {

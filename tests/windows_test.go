@@ -97,7 +97,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
 
-				cli = winrnLoginCommand(virtClient, windowsVMI)
+				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("[test_id:240]should have correct UUID", func() {
@@ -107,7 +107,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				Eventually(func() error {
 					var err error
 					output, err = exec.ExecuteCommandOnPod(
-						virtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
 						command,
@@ -125,7 +124,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				Eventually(func() error {
 					var err error
 					output, err = exec.ExecuteCommandOnPod(
-						virtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
 						command,
@@ -141,7 +139,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				searchDomain := getPodSearchDomain(windowsVMI)
 				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
 
-				runCommandAndExpectOutput(virtClient,
+				runCommandAndExpectOutput(
 					winrmcliPod,
 					cli,
 					"wmic nicconfig get dnsdomain",
@@ -159,7 +157,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
 
-				cli = winrnLoginCommand(virtClient, windowsVMI)
+				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("should have the domain set properly with subdomain", func() {
@@ -167,7 +165,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
 
 				expectedSearchDomain := windowsVMI.Spec.Subdomain + "." + searchDomain
-				runCommandAndExpectOutput(virtClient,
+				runCommandAndExpectOutput(
 					winrmcliPod,
 					cli,
 					"wmic nicconfig get dnsdomain",
@@ -186,7 +184,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 					libwait.WithTimeout(420),
 				)
 
-				cli = winrnLoginCommand(virtClient, windowsVMI)
+				cli = winrnLoginCommand(windowsVMI)
 			})
 
 			It("should be recognized by other pods in cluster", func() {
@@ -218,7 +216,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {
 					_, err = exec.ExecuteCommandOnPod(
-						virtClient,
 						winrmcliPod,
 						winrmcliPod.Spec.Containers[0].Name,
 						command,
@@ -230,9 +227,9 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 	})
 })
 
-func winrnLoginCommand(virtClient kubecli.KubevirtClient, windowsVMI *v1.VirtualMachineInstance) []string {
+func winrnLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error
-	windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
+	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	vmiIp := windowsVMI.Status.Interfaces[0].IP
@@ -266,13 +263,12 @@ func getPodSearchDomain(windowsVMI *v1.VirtualMachineInstance) string {
 	return searchDomain
 }
 
-func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k8sv1.Pod, cli []string, command, expectedOutputRegex string) {
+func runCommandAndExpectOutput(winrmcliPod *k8sv1.Pod, cli []string, command, expectedOutputRegex string) {
 	cliCmd := append(cli, command)
 	By(fmt.Sprintf("Running \"%s\" command via winrm-cli", cliCmd))
 	By("first making sure that we can execute VMI commands")
 	EventuallyWithOffset(1, func() error {
 		_, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			winrmcliPod,
 			winrmcliPod.Spec.Containers[0].Name,
 			cliCmd,
@@ -283,7 +279,6 @@ func runCommandAndExpectOutput(virtClient kubecli.KubevirtClient, winrmcliPod *k
 	By("repeatedly trying to get the search domain, since it may take some time until the domain is set")
 	EventuallyWithOffset(1, func() string {
 		output, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			winrmcliPod,
 			winrmcliPod.Spec.Containers[0].Name,
 			cliCmd,
