@@ -16,23 +16,20 @@
  * Copyright the KubeVirt Authors.
  */
 
-package virt_handler
+package reflector
 
-import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/reflector"
-)
-
-func SetupMetrics() error {
-	if err := reflector.SetupMetrics(); err != nil {
-		return err
+var (
+	resourceMetrics = []operatormetrics.Metric{
+		lastResourceVersion,
 	}
 
-	return client.SetupMetrics()
-}
-
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
-}
+	lastResourceVersion = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "reflector_last_resource_version",
+			Help: "Last resource version seen by the reflector",
+		},
+		[]string{"name"},
+	)
+)

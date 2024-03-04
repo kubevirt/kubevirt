@@ -267,6 +267,30 @@ Returns the labels of the persistent volume claims that are used for restoring v
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
 
+### reflector_items_per_list
+How many items an API list returns to the reflectors Type: Summary.
+
+### reflector_items_per_watch
+How many items an API watch returns to the reflectors Type: Summary.
+
+### reflector_last_resource_version
+Last resource version seen by the reflector Type: Gauge.
+
+### reflector_list_duration_seconds
+How long an API list takes to return and decode for the reflectors Type: Summary.
+
+### reflector_lists_total
+Total number of API lists done by the reflectors Type: Counter.
+
+### reflector_short_watches_total
+Total number of short API watches done by the reflectors Type: Counter.
+
+### reflector_watch_duration_seconds
+How long an API watch takes to return and decode for the reflectors Type: Summary.
+
+### reflector_watches_total
+Total number of API watches done by the reflectors Type: Counter.
+
 ### rest_client_rate_limiter_duration_seconds
 Client side rate limiter latency in seconds. Broken down by verb and URL. Type: Histogram.
 

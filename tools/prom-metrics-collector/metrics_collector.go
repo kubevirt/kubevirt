@@ -37,6 +37,14 @@ var excludedMetrics = map[string]struct{}{
 	"rest_client_rate_limiter_duration_seconds": {},
 	"rest_client_request_latency_seconds":       {},
 	"rest_client_requests_total":                {},
+	"reflector_lists_total":                     {},
+	"reflector_list_duration_seconds":           {},
+	"reflector_items_per_list":                  {},
+	"reflector_watches_total":                   {},
+	"reflector_short_watches_total":             {},
+	"reflector_watch_duration_seconds":          {},
+	"reflector_items_per_watch":                 {},
+	"reflector_last_resource_version":           {},
 }
 
 // Extract the name, help, and type from the metrics doc file

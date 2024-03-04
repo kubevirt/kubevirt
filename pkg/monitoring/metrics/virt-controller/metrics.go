@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/reflector"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -68,6 +69,10 @@ func SetupMetrics(
 	clusterConfig = virtClusterConfig
 
 	if err := client.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := reflector.SetupMetrics(); err != nil {
 		return err
 	}
 
