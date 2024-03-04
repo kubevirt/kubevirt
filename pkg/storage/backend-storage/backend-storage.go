@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/tools/cache"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -123,8 +125,8 @@ func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfi
 // IsPVCReady returns true if either:
 // - No PVC is needed for the VMI since it doesn't use backend storage
 // - The backend storage PVC is bound
-// - The backend storage PVC is pending uses a WaitForFirstCustomer storage class
-func IsPVCReady(vmi *corev1.VirtualMachineInstance, client kubecli.KubevirtClient) (bool, error) {
+// - The backend storage PVC is pending uses a WaitForFirstConsumer storage class
+func IsPVCReady(vmi *corev1.VirtualMachineInstance, client kubecli.KubevirtClient, scStore cache.Store) (bool, error) {
 	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
 		return true, nil
 	}
@@ -143,10 +145,14 @@ func IsPVCReady(vmi *corev1.VirtualMachineInstance, client kubecli.KubevirtClien
 		if pvc.Spec.StorageClassName == nil {
 			return false, fmt.Errorf("no storage class name")
 		}
-		sc, err := client.StorageV1().StorageClasses().Get(context.Background(), *pvc.Spec.StorageClassName, metav1.GetOptions{})
+		obj, exists, err := scStore.GetByKey(*pvc.Spec.StorageClassName)
 		if err != nil {
 			return false, err
 		}
+		if !exists {
+			return false, fmt.Errorf("storage class %s not found", *pvc.Spec.StorageClassName)
+		}
+		sc := obj.(*storagev1.StorageClass)
 		if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
 			return true, nil
 		}

@@ -26,12 +26,14 @@ import (
 	"strings"
 	"time"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
@@ -94,6 +96,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
+	var storageClassInformer cache.SharedIndexInformer
 	var rqInformer cache.SharedIndexInformer
 	var nsInformer cache.SharedIndexInformer
 	var kvInformer cache.SharedIndexInformer
@@ -260,12 +263,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		go pvcInformer.Run(stop)
 
 		go dataVolumeInformer.Run(stop)
+		go storageClassInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			vmInformer.HasSynced,
 			podInformer.HasSynced,
 			pvcInformer.HasSynced,
-			dataVolumeInformer.HasSynced)).To(BeTrue())
+			dataVolumeInformer.HasSynced,
+			storageClassInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -283,12 +288,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{
 			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-				MinimumClusterTSCFrequency: pointer.Int64(12345),
+				MinimumClusterTSCFrequency: pointer.P(int64(12345)),
 			},
 		}
 
 		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
@@ -299,6 +305,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmInformer,
 			podInformer,
 			pvcInformer,
+			storageClassInformer,
 			recorder,
 			virtClient,
 			dataVolumeInformer,
@@ -582,26 +589,67 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 		})
 
-		It("should not create a corresponding Pod on VMI creation when backend storage is pending", func() {
-			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Spec.Domain.Firmware = &virtv1.Firmware{
-				Bootloader: &virtv1.Bootloader{
-					EFI: &virtv1.EFI{
-						Persistent: pointer.Bool(true),
+		When("backend storage is pending", func() {
+			var vmi *virtv1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = NewPendingVirtualMachine("testvmi")
+				vmi.Spec.Domain.Firmware = &virtv1.Firmware{
+					Bootloader: &virtv1.Bootloader{
+						EFI: &virtv1.EFI{
+							Persistent: pointer.P(true),
+						},
 					},
-				},
-			}
-
-			pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
-			pvc.Status.Phase = k8sv1.ClaimPending
-			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
-
-			addVirtualMachine(vmi)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-				return true, pvc, nil
+				}
+				addVirtualMachine(vmi)
 			})
-			shouldExpectVirtualMachinePendingState(vmi)
-			controller.Execute()
+
+			DescribeTable("should not create a corresponding Pod on VMI creation with a storage class in Immediate mode", func(mode *storagev1.VolumeBindingMode) {
+				sc := &storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testsc123",
+					},
+					VolumeBindingMode: mode,
+				}
+				Expect(storageClassInformer.GetIndexer().Add(sc)).To(Succeed())
+
+				pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
+				pvc.Status.Phase = k8sv1.ClaimPending
+				pvc.Spec.StorageClassName = pointer.P("testsc123")
+				Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
+
+				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+					return true, pvc, nil
+				})
+				shouldExpectVirtualMachinePendingState(vmi)
+				controller.Execute()
+			},
+				Entry("using explicit Immediate mode", pointer.P(storagev1.VolumeBindingImmediate)),
+				Entry("using nil mode", nil))
+
+			It("should create a corresponding Pod on VMI creation with a storage class in WaitForFirstConsumer mode", func() {
+				sc := &storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testsc456",
+					},
+					VolumeBindingMode: pointer.P(storagev1.VolumeBindingWaitForFirstConsumer),
+				}
+				Expect(storageClassInformer.GetIndexer().Add(sc)).To(Succeed())
+
+				pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
+				pvc.Status.Phase = k8sv1.ClaimPending
+				pvc.Spec.StorageClassName = pointer.P("testsc456")
+				Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
+
+				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+					return true, pvc, nil
+				})
+				shouldExpectPodCreation(vmi.UID)
+
+				controller.Execute()
+				testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			})
+
 		})
 	})
 
@@ -3266,7 +3314,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
-					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
+					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			}
 
@@ -3370,7 +3418,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
 			vmi.Status.Phase = virtv1.Scheduling
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			addVirtualMachine(vmi)
@@ -3387,7 +3435,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should recycle the CID when the pods are deleted", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 			Expect(controller.cidsMap.Allocate(vmi)).To(Succeed())
 			vmi.Status.Phase = virtv1.Succeeded
 			addVirtualMachine(vmi)
