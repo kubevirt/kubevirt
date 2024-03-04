@@ -3054,9 +3054,11 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 		if syncErr == nil {
 			if !equality.Semantic.DeepEqual(vm, vmCopy) {
-				vm, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+				updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 				if err != nil {
 					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}
+				} else {
+					vm = updatedVm
 				}
 			}
 		}
