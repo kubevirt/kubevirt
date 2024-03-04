@@ -65,7 +65,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
 			var err error
-			vmi = libvmi.New(libvmi.WithResourceMemory("1Mi"))
+			vmi = libvmi.NewGuestless()
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
