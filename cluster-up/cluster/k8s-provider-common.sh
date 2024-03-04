@@ -159,6 +159,13 @@ function wait_for_cdi_ready() {
     fi
 }
 
+# configure Prometheus to select kubevirt prometheusrules
+function configure_prometheus() {
+    if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && $kubectl get crd prometheuses.monitoring.coreos.com; then
+        _kubectl patch prometheus k8s -n monitoring --type='json' -p='[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {}}}]'
+    fi
+}
+
 function up() {
     params=$(_add_common_params)
     if echo "$params" | grep -q ERROR; then
@@ -198,6 +205,7 @@ function up() {
     fi
     $kubectl label node -l $label node-role.kubernetes.io/worker=''
 
+    configure_prometheus
     configure_memory_overcommitment_behavior
 
     deploy_cnao
