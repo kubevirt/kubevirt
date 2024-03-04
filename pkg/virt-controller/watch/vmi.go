@@ -143,6 +143,7 @@ func NewVMIController(templateService services.TemplateService,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
@@ -159,6 +160,7 @@ func NewVMIController(templateService services.TemplateService,
 		vmStore:           vmInformer.GetStore(),
 		podIndexer:        podInformer.GetIndexer(),
 		pvcIndexer:        pvcInformer.GetIndexer(),
+		storageClassStore: storageClassInformer.GetStore(),
 		recorder:          recorder,
 		clientset:         clientset,
 		podExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -172,7 +174,7 @@ func NewVMIController(templateService services.TemplateService,
 	}
 
 	c.hasSynced = func() bool {
-		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() && pvcInformer.HasSynced()
+		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() && pvcInformer.HasSynced() && storageClassInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -264,6 +266,7 @@ type VMIController struct {
 	vmStore           cache.Store
 	podIndexer        cache.Indexer
 	pvcIndexer        cache.Indexer
+	storageClassStore cache.Store
 	topologyHinter    topology.Hinter
 	recorder          record.EventRecorder
 	podExpectations   *controller.UIDTrackingControllerExpectations
@@ -1209,7 +1212,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		// Ensure the backend storage PVC is ready
 		var backendStorageReady bool
-		backendStorageReady, err = backendstorage.IsPVCReady(vmi, c.clientset)
+		backendStorageReady, err = backendstorage.IsPVCReady(vmi, c.clientset, c.storageClassStore)
 		if err != nil {
 			return &syncErrorImpl{err, FailedBackendStorageProbeReason}
 		}
