@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-api",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/monitoring/reflector/prometheus:go_default_library",
         "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/virt-api:go_default_library",
