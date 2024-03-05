@@ -393,15 +393,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					libvmi.WithCloudInitNoCloudNetworkDataSecretName(secretID),
 				)
 
-				idx := 0
-				for i, volume := range vmi.Spec.Volumes {
-					if volume.CloudInitNoCloud == nil {
-						continue
-					}
-					idx = i
-					break
-				}
-
 				By("Creating a secret with network data")
 				secret := libsecret.New(secretID, map[string][]byte{
 					"networkdata": []byte(testNetworkData),
@@ -423,9 +414,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				// Expect that the secret is not present on the vmi itself
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkData).To(BeEmpty())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
+
+				testVolume := lookupCloudInitNoCloudVolume(vmi.Spec.Volumes)
+				Expect(testVolume).ToNot(BeNil(), "should find cloud-init volume in vmi spec")
+				Expect(testVolume.CloudInitNoCloud.UserData).To(BeEmpty())
+				Expect(testVolume.CloudInitNoCloud.NetworkData).To(BeEmpty())
+				Expect(testVolume.CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
 			})
 
 		})
@@ -626,3 +620,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	})
 })
+
+func lookupCloudInitNoCloudVolume(volumes []v1.Volume) *v1.Volume {
+	for i, volume := range volumes {
+		if volume.CloudInitNoCloud != nil {
+			return &volumes[i]
+		}
+	}
+	return nil
+}
