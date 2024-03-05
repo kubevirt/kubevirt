@@ -22,6 +22,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -1316,9 +1317,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
-	for k, v := range filterVMIAnnotationsForPod(vmi.Annotations) {
-		annotationsSet[k] = v
-	}
+	maps.Copy(annotationsSet, filterVMIAnnotationsForPod(vmi.Annotations))
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
