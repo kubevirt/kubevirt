@@ -67,7 +67,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).ToNot(BeEmpty())
 
-		stderr, err := copyFromPod(virtClient, &pods.Items[0], "target", "/images/alpine/disk.img", imagePath)
+		stderr, err := copyFromPod(&pods.Items[0], "target", "/images/alpine/disk.img", imagePath)
 		log.DefaultLogger().Info(stderr)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -449,7 +449,7 @@ func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string
 	return tgtPath
 }
 
-func copyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, sourceFile, targetFile string) (stderr string, err error) {
+func copyFromPod(pod *k8sv1.Pod, containerName, sourceFile, targetFile string) (stderr string, err error) {
 	var (
 		stderrBuf bytes.Buffer
 	)
@@ -468,6 +468,6 @@ func copyFromPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName, 
 		Stderr: &stderrBuf,
 		Tty:    false,
 	}
-	err = execute.ExecuteCommandOnPodWithOptions(virtCli, pod, containerName, []string{"cat", sourceFile}, options)
+	err = execute.ExecuteCommandOnPodWithOptions(pod, containerName, []string{"cat", sourceFile}, options)
 	return stderrBuf.String(), err
 }

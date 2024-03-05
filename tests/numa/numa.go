@@ -63,7 +63,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 		By("Fetching the numa memory mapping")
 		handler, err := libnode.GetVirtHandlerPod(virtClient, cpuVMI.Status.NodeName)
 		Expect(err).ToNot(HaveOccurred())
-		pid := getQEMUPID(virtClient, handler, cpuVMI)
+		pid := getQEMUPID(handler, cpuVMI)
 
 		By("Checking if the pinned numa memory chunks match the VMI memory size")
 		scanner := bufio.NewScanner(strings.NewReader(getNUMAMapping(virtClient, handler, pid)))
@@ -109,12 +109,12 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 
 })
 
-func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
+func getQEMUPID(handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 	var stdout, stderr string
 	// Using `ps` here doesn't work reliably. Grepping /proc instead.
 	// The "[g]" prevents grep from finding its own process
 	Eventually(func() (err error) {
-		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, handlerPod, "virt-handler",
+		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(handlerPod, "virt-handler",
 			[]string{
 				"/bin/bash",
 				"-c",
@@ -132,7 +132,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 }
 
 func getNUMAMapping(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, pid string) string {
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler",
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler",
 		[]string{
 			"/bin/bash",
 			"-c",

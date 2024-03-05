@@ -222,7 +222,6 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 		execOnHelperPod := func(command string) (string, error) {
 			stdout, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				helperPod,
 				helperPod.Spec.Containers[0].Name,
 				[]string{tests.BinBash, "-c", command})

@@ -366,7 +366,6 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, testsuite.GetTestNamespace(vmiOne))
 				podInterfaceName := "e31d7ce2712-nic"
 				out, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					"compute",
 					[]string{"sh", "-c", fmt.Sprintf("ip a show %s", podInterfaceName)},
@@ -477,7 +476,6 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
 				podInterfaceName := "72ad293a5c9-nic"
 				out, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					"compute",
 					[]string{"sh", "-c", fmt.Sprintf("ip a show %s", podInterfaceName)},
@@ -529,7 +527,6 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				getPodInterfaceMtu := func(vmi *v1.VirtualMachineInstance) string {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					output, err := exec.ExecuteCommandOnPod(
-						virtClient,
 						vmiPod,
 						"compute",
 						[]string{"cat", "/sys/class/net/pod72ad293a5c9/mtu"},

@@ -242,7 +242,6 @@ var _ = SIGDescribe("Memory dump", func() {
 	verifyMemoryDumpOutput := func(memoryDumpPVC *k8sv1.PersistentVolumeClaim, previousOutput string, shouldEqual bool) string {
 		executorPod := createExecutorPodWithPVC(verifierPodName, memoryDumpPVC)
 		lsOutput, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
 			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s", libstorage.DefaultPvcMountPath)},
@@ -251,7 +250,6 @@ var _ = SIGDescribe("Memory dump", func() {
 		log.Log.Infof("%s", lsOutput)
 		Expect(err).ToNot(HaveOccurred())
 		wcOutput, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
 			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s | wc -l", libstorage.DefaultPvcMountPath)},

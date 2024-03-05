@@ -151,7 +151,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		// We need a token from a service account that can view all namespaces in the cluster
 		By("extracting virt-operator sa token")
 		cmd := []string{"cat", "/var/run/secrets/kubernetes.io/serviceaccount/token"}
-		token, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &op, "virt-operator", cmd)
+		token, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-operator", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), token, stderr, err))
 		Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
 
@@ -170,7 +170,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 				vmi.Name,
 			)}
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &op, "virt-operator", cmd)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-operator", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
 
 		// the Prometheus go-client does not export queryResult, and
@@ -339,7 +339,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		Expect(err).ToNot(HaveOccurred())
 		for _, ep := range endpoint.Subsets[0].Addresses {
 			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
+			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 			Expect(stdout).To(ContainSubstring("go_goroutines"))
 		}
@@ -616,7 +616,7 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 		}
 
 		cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
 		if err != nil {
 			return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
 		}

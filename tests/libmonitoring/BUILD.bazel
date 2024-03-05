@@ -14,7 +14,6 @@ go_library(
         "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
-        "//tests/framework/kubevirt:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",

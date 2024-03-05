@@ -164,7 +164,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
 					By(fmt.Sprintf("checking %s MTU inside the pod", ifaceName))
 					output, err := exec.ExecuteCommandOnPod(
-						virtClient,
 						vmiPod,
 						"compute",
 						[]string{"cat", fmt.Sprintf("/sys/class/net/%s/mtu", ifaceName)},
@@ -942,7 +941,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			getMtu := func(pod *k8sv1.Pod, ifaceName string) int {
 				output, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					pod,
 					"compute",
 					[]string{"cat", fmt.Sprintf("/sys/class/net/%s/mtu", ifaceName)},

@@ -309,7 +309,7 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileName = blockVolumeMountPath
 		}
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, md5Command(fileName))
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
@@ -348,7 +348,7 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
@@ -361,7 +361,7 @@ var _ = SIGDescribe("Export", func() {
 			"-d",
 			filepath.Join(dataPath, fileName),
 		}
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		fileName = strings.Replace(fileName, ".gz", "", 1)
@@ -369,7 +369,7 @@ var _ = SIGDescribe("Export", func() {
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
@@ -388,14 +388,14 @@ var _ = SIGDescribe("Export", func() {
 			filepath.Join(dataPath),
 			"./" + extractedFileName,
 		}
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		fileAndPathName := filepath.Join(dataPath, extractedFileName)
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
@@ -570,7 +570,7 @@ var _ = SIGDescribe("Export", func() {
 			fileAndPathName,
 		}
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
 		verifyFunction(fileName, comparison, downloadPod, volumeMode)
@@ -737,7 +737,7 @@ var _ = SIGDescribe("Export", func() {
 			"-c",
 			"kill 1",
 		}
-		_, _, _ = exec.ExecuteCommandOnPodWithResults(virtClient, exporterPod, exporterPod.Spec.Containers[0].Name, command)
+		_, _, _ = exec.ExecuteCommandOnPodWithResults(exporterPod, exporterPod.Spec.Containers[0].Name, command)
 		By("Verifying the pod is killed and a new secret created")
 		Eventually(func() types.UID {
 			exporterPod = getExporterPod(vmExport)
@@ -1649,7 +1649,7 @@ var _ = SIGDescribe("Export", func() {
 			url,
 		}
 
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		split := strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(3))
@@ -1677,7 +1677,7 @@ var _ = SIGDescribe("Export", func() {
 			filepath.Join(caCertPath, caBundleKey),
 			url,
 		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		split = strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(2))
@@ -1708,7 +1708,7 @@ var _ = SIGDescribe("Export", func() {
 			url,
 		}
 
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		list := &k8sv1.List{}
 		err = json.Unmarshal([]byte(out), list)
@@ -1741,7 +1741,7 @@ var _ = SIGDescribe("Export", func() {
 			filepath.Join(caCertPath, caBundleKey),
 			url,
 		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		resSecret := &k8sv1.Secret{}
 		err = yaml.Unmarshal([]byte(out), resSecret)
@@ -1912,7 +1912,7 @@ var _ = SIGDescribe("Export", func() {
 			url,
 		}
 
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		split := strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(5))
@@ -1954,7 +1954,7 @@ var _ = SIGDescribe("Export", func() {
 			filepath.Join(caCertPath, caBundleKey),
 			url,
 		}
-		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 		split = strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(2))
