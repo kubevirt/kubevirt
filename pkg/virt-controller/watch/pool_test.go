@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -344,7 +345,7 @@ var _ = Describe("Pool", func() {
 			vmi.Spec = vm.Spec.Template.Spec
 			vmi.Name = vm.Name
 			vmi.Namespace = vm.Namespace
-			vmi.Labels = mapCopy(vm.Spec.Template.ObjectMeta.Labels)
+			vmi.Labels = maps.Clone(vm.Spec.Template.ObjectMeta.Labels)
 			vmi.OwnerReferences = []metav1.OwnerReference{{
 				APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 				Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
