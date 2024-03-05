@@ -515,19 +515,23 @@ func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInsta
 
 }
 
-func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
+func (c *VMIController) getOwnerVMReference(vmi *virtv1.VirtualMachineInstance) *v1.OwnerReference {
 	controllerRef := v1.GetControllerOf(vmi)
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
-		return false
+		return nil
 	}
 
 	obj, exists, _ := c.vmStore.GetByKey(vmi.Namespace + "/" + controllerRef.Name)
 	if !exists {
-		return false
+		return nil
 	}
 
 	ownerVM := obj.(*virtv1.VirtualMachine)
-	return controllerRef.UID == ownerVM.UID
+	if controllerRef.UID != ownerVM.UID {
+		return nil
+	}
+
+	return controllerRef
 }
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
@@ -720,7 +724,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.LauncherContainerImageVersion = ""
 		}
 
-		if !c.hasOwnerVM(vmi) && len(vmiCopy.Finalizers) > 0 {
+		if c.getOwnerVMReference(vmi) == nil && len(vmiCopy.Finalizers) > 0 {
 			// if there's no owner VM around still, then remove the VM controller's finalizer if it exists
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
 		}
