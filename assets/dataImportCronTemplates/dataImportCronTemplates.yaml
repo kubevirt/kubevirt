@@ -3,7 +3,7 @@
       cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-stream8-image-cron
     labels:
-      instancetype.kubevirt.io/default-preference: centos.8.stream
+      instancetype.kubevirt.io/default-preference: centos.stream8
       instancetype.kubevirt.io/default-instancetype: u1.medium
   spec:
     schedule: "0 */12 * * *"
@@ -23,7 +23,7 @@
       cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-stream9-image-cron
     labels:
-      instancetype.kubevirt.io/default-preference: centos.9.stream
+      instancetype.kubevirt.io/default-preference: centos.stream9
       instancetype.kubevirt.io/default-instancetype: u1.medium
   spec:
     schedule: "0 */12 * * *"
