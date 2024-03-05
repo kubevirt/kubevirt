@@ -23,10 +23,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,7 +34,6 @@ import (
 )
 
 func GetRunningPodByLabel(label, labelType, namespace, node string) (*k8sv1.Pod, error) {
-	virtCli := kubevirt.Client()
 	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
 	var fieldSelector string
 	if node != "" {
@@ -42,6 +41,23 @@ func GetRunningPodByLabel(label, labelType, namespace, node string) (*k8sv1.Pod,
 	} else {
 		fieldSelector = fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
 	}
+	pod, err := lookupPodBySelector(namespace, labelSelector, fieldSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pod with the label %s", label)
+	}
+	return pod, nil
+}
+
+func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
+	pod, err := lookupPodBySelector(namespace, vmiLabelSelector(vmi), vmiFieldSelector(vmi))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pod for VMI %s (%s)", vmi.Name, string(vmi.GetUID()))
+	}
+	return pod, nil
+}
+
+func lookupPodBySelector(namespace, labelSelector, fieldSelector string) (*k8sv1.Pod, error) {
+	virtCli := kubevirt.Client()
 	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(),
 		metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
 	)
@@ -49,37 +65,27 @@ func GetRunningPodByLabel(label, labelType, namespace, node string) (*k8sv1.Pod,
 		return nil, err
 	}
 
-	switch len(pods.Items) {
-	case 0:
-		return nil, fmt.Errorf("failed to find pod with the label %s", label)
-	default:
-		// There can be more than one running pod in case of migration
-		// therefore 	return the latest running pod
-		sort.Sort(sort.Reverse(PodsByCreationTimestamp(pods.Items)))
-		return &pods.Items[0], nil
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("failed to lookup pod")
 	}
+
+	// There can be more than one running pod in case of migration
+	// therefore 	return the latest running pod
+	sort.Sort(sort.Reverse(PodsByCreationTimestamp(pods.Items)))
+	return &pods.Items[0], nil
 }
 
-func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
-	virtCli := kubevirt.Client()
+func vmiLabelSelector(vmi *v1.VirtualMachineInstance) string {
+	return fmt.Sprintf("%s=%s", v1.CreatedByLabel, string(vmi.GetUID()))
+}
 
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
+func vmiFieldSelector(vmi *v1.VirtualMachineInstance) string {
+	var fieldSelectors []string
+	if vmi.Status.Phase == v1.Running {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("status.phase==%s", k8sv1.PodRunning))
 	}
-
-	var controlledPod *k8sv1.Pod
-	for podIndex := range pods.Items {
-		pod := &pods.Items[podIndex]
-		if controller.IsControlledBy(pod, vmi) {
-			controlledPod = pod
-			break
-		}
+	if node := vmi.Status.NodeName; node != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName==%s", node))
 	}
-
-	if controlledPod == nil {
-		return nil, fmt.Errorf("no controlled pod was found for VMI")
-	}
-
-	return controlledPod, nil
+	return strings.Join(fieldSelectors, ",")
 }
