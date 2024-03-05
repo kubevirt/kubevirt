@@ -19733,17 +19733,15 @@
     "description": "VirtualMachineInstanceFileSystemDisk represents the guest os FS disks",
     "type": "object",
     "required": [
-     "serial",
-     "bus-type"
+     "busType"
     ],
     "properties": {
-     "bus-type": {
+     "busType": {
       "type": "string",
       "default": ""
      },
      "serial": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      }
     }
    },
@@ -20102,6 +20100,10 @@
       "description": "Indicates that the migration failed",
       "type": "boolean"
      },
+     "failureReason": {
+      "description": "Contains the reason why the migration failed",
+      "type": "string"
+     },
      "migrationConfiguration": {
       "description": "Migration configurations to apply",
       "$ref": "#/definitions/v1.MigrationConfiguration"
@@ -20120,6 +20122,9 @@
      },
      "sourceNode": {
       "description": "The source node that the VMI originated on",
+      "type": "string"
+     },
+     "sourcePod": {
       "type": "string"
      },
      "startTimestamp": {

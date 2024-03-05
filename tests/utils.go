@@ -65,15 +65,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -83,7 +80,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
-	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -263,20 +259,6 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 	return pods, nil
 }
 
-func GetProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
-	virtClient := kubevirt.Client()
-
-	fPath := "/proc/" + pid + "/comm"
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", fPath},
-	)
-
-	return
-}
-
 func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
 	virtClient := kubevirt.Client()
 
@@ -293,44 +275,6 @@ func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error
 	Expect(err).ToNot(HaveOccurred())
 
 	return strings.TrimSpace(output), err
-}
-
-func GetKvmPitMask(qemupid, nodeName string) (output string, err error) {
-	kvmpitcomm := "kvm-pit/" + qemupid
-	args := []string{"pgrep", "-f", kvmpitcomm}
-	output, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
-	Expect(err).ToNot(HaveOccurred())
-
-	kvmpitpid := strings.TrimSpace(output)
-	tasksetcmd := "taskset -c -p " + kvmpitpid + " | cut -f2 -d:"
-	args = []string{BinBash, "-c", tasksetcmd}
-	output, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
-	Expect(err).ToNot(HaveOccurred())
-
-	return strings.TrimSpace(output), err
-}
-
-func ListCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
-	virtClient := kubevirt.Client()
-
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
-	)
-
-	if err == nil {
-		// Cgroup V1
-		return
-	}
-	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
-		pod,
-		"compute",
-		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
-	)
-	return
 }
 
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
@@ -572,20 +516,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	return vmi
 }
 
-// NewRandomFedoraVMI
-//
-// Deprecated: Use libvmi directly
-func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
-	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
-
-	return libvmi.NewFedora(append([]libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData)},
-		opts...)...,
-	)
-}
-
 func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
 	return fmt.Sprintf(`#!/bin/bash
             echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
@@ -759,14 +689,6 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 	RunPodAndExpectCompletion(pod)
 }
 
-func RenameImgFile(pvc *k8sv1.PersistentVolumeClaim, newName string) {
-	args := []string{fmt.Sprintf("mv %s %s && ls -al %s", filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, newName), libstorage.DefaultPvcMountPath)}
-
-	By("renaming disk.img")
-	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
-	RunPodAndExpectCompletion(pod)
-}
-
 func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	dstPath = testsuite.HostPathAlpine + "-nopriv"
 	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
@@ -816,24 +738,6 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod %s): %v: %s, %s", vmiPod.Name, err, stdout, stderr)
 	}
 	return stdout, err
-}
-
-func LibvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-	if err != nil {
-		return false, err
-	}
-
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
-		virtClient,
-		vmiPod,
-		libpod.LookupComputeContainer(vmiPod).Name,
-		[]string{"virsh", "--quiet", "domstate", vmi.Namespace + "_" + vmi.Name},
-	)
-	if err != nil {
-		return false, fmt.Errorf("could not get libvirt domstate (remotely on pod): %v: %s", err, stderr)
-	}
-	return strings.Contains(stdout, "paused"), nil
 }
 
 func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
@@ -907,21 +811,6 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	Expect(err).ToNot(HaveOccurred())
 	_, _, err = exec.ExecuteCommandOnPodWithResults(virtClient, virtHandlerPod, "virt-handler", []string{"rm", "-rf", procPath})
 	Expect(err).ToNot(HaveOccurred())
-}
-
-func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
-	hostPathType := k8sv1.HostPathDirectoryOrCreate
-	dir := filepath.Dir(diskPath)
-
-	command := fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)
-	if !checks.HasFeature(virtconfig.Root) {
-		command = command + fmt.Sprintf(" && chown 107:107 %s", diskPath)
-	}
-
-	args := []string{command}
-	pod := libpod.RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
-
-	return pod
 }
 
 func GetVmiPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
@@ -1434,16 +1323,6 @@ func GetPodsCertIfSynced(labelSelector string, namespace string, port string) (c
 		}
 	}
 	return certs[0], true, nil
-}
-
-func GetCertFromSecret(secretName string) []byte {
-	virtClient := kubevirt.Client()
-	secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	if rawBundle, ok := secret.Data[bootstrap.CertBytesValue]; ok {
-		return rawBundle
-	}
-	return nil
 }
 
 func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) {

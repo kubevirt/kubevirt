@@ -557,7 +557,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
 
-			pod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+			pod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
 			if err != nil {
 
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to detect active pod for vmi during workload update")

@@ -44,7 +44,7 @@ function get_timestamp() {
 
 function perftest() {
     _out/cmd/perfscale-load-generator/perfscale-load-generator \
-        -v 6 \
+        -verbose 6 \
         -delete \
         -workload ${PERFSCALE_WORKLOAD}
 }

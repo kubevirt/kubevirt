@@ -708,8 +708,11 @@ type VirtualMachineInstanceMigrationState struct {
 	TargetPod string `json:"targetPod,omitempty"`
 	// The UID of the target attachment pod for hotplug volumes
 	TargetAttachmentPodUID types.UID `json:"targetAttachmentPodUID,omitempty"`
+
 	// The source node that the VMI originated on
 	SourceNode string `json:"sourceNode,omitempty"`
+	SourcePod  string `json:"sourcePod,omitempty"`
+
 	// Indicates the migration completed
 	Completed bool `json:"completed,omitempty"`
 	// Indicates that the migration failed
@@ -718,6 +721,8 @@ type VirtualMachineInstanceMigrationState struct {
 	AbortRequested bool `json:"abortRequested,omitempty"`
 	// Indicates the final status of the live migration abortion
 	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
+	// Contains the reason why the migration failed
+	FailureReason string `json:"failureReason,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Lets us know if the vmi is currently running pre or post copy migration
@@ -969,7 +974,7 @@ const (
 	// SEVESLabel marks the node as capable of running workloads with SEV-ES
 	SEVESLabel string = "kubevirt.io/sev-es"
 
-	// KSMEnabledLabel marks the node as KSM enabled
+	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
 
 	// KSMHandlerManagedAnnotation is an annotation used to mark the nodes where the virt-handler has enabled the ksm
@@ -2232,8 +2237,8 @@ type VirtualMachineInstanceFileSystemList struct {
 
 // VirtualMachineInstanceFileSystemDisk represents the guest os FS disks
 type VirtualMachineInstanceFileSystemDisk struct {
-	Serial  string `json:"serial"`
-	BusType string `json:"bus-type"`
+	Serial  string `json:"serial,omitempty"`
+	BusType string `json:"busType"`
 }
 
 // VirtualMachineInstanceFileSystem represents guest os disk

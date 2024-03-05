@@ -54,26 +54,24 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-
-			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()).To(Succeed())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			var err error
+			vmi = libvmi.NewGuestless()
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		Context("with VNC connection", func() {
-
 			vncConnect := func() {
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
@@ -85,7 +83,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 				go func() {
 					defer GinkgoRecover()
-					vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+					vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
 					if err != nil {
 						k8ResChan <- err
 						return
@@ -121,7 +119,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 					// communicate.
 					By("Checking the response from VNC server")
 					Expect(response).To(Equal("RFB 003.008\n"))
-				case err = <-k8ResChan:
+				case err := <-k8ResChan:
 					Expect(err).ToNot(HaveOccurred())
 				case <-time.After(45 * time.Second):
 					Fail("Timout reached while waiting for valid VNC server response")

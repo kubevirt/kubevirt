@@ -374,14 +374,14 @@ func (c *VMIController) execute(key string) error {
 
 	// Only consider pods which belong to this vmi
 	// excluding unfinalized migration targets from this list.
-	pod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+	pod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 		return err
 	}
 
 	// Get all dataVolumes associated with this vmi
-	dataVolumes, err := storagetypes.ListDataVolumesFromVolumes(vmi.Namespace, vmi.Spec.Volumes, c.dataVolumeInformer, c.pvcInformer)
+	dataVolumes, err := storagetypes.ListDataVolumesFromVolumes(vmi.Namespace, vmi.Spec.Volumes, c.dataVolumeInformer.GetStore(), c.pvcInformer)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
@@ -1136,10 +1136,7 @@ func isPodFailed(pod *k8sv1.Pod) bool {
 }
 
 func podExists(pod *k8sv1.Pod) bool {
-	if pod != nil {
-		return true
-	}
-	return false
+	return pod != nil
 }
 
 func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) (bool, syncError) {
@@ -2125,7 +2122,7 @@ func (c *VMIController) createAttachmentPopulateTriggerPodTemplate(volume *virtv
 }
 
 func (c *VMIController) deleteAllAttachmentPods(vmi *virtv1.VirtualMachineInstance) error {
-	virtlauncherPod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+	virtlauncherPod, err := controller.CurrentVMIPod(vmi, c.podInformer.GetIndexer())
 	if err != nil {
 		return err
 	}

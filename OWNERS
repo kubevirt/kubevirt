@@ -9,8 +9,17 @@ filters:
     emeritus_approvers:
       - emeritus_approvers
 
-  "BUILD.bazel|WORKSPACE":
+  "BUILD.bazel|WORKSPACE|.bazel.*|.fossa.yml|cluster-up-sha.txt":
     reviewers:
       - sig-buildsystem-reviewers
     approvers:
       - sig-buildsystem-approvers
+    labels:
+      - sig/buildsystem
+  ".*_test.go":
+    reviewers:
+      - sig-test-reviewers
+    approvers:
+       - sig-test-approvers
+    labels:
+      - sig/test

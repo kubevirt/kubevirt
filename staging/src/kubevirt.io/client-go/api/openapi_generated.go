@@ -22868,12 +22868,11 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref comm
 				Properties: map[string]spec.Schema{
 					"serial": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
-					"bus-type": {
+					"busType": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -22881,7 +22880,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref comm
 						},
 					},
 				},
-				Required: []string{"serial", "bus-type"},
+				Required: []string{"busType"},
 			},
 		},
 	}
@@ -23548,6 +23547,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"sourcePod": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"completed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates the migration completed",
@@ -23572,6 +23577,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 					"abortStatus": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates the final status of the live migration abortion",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"failureReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Contains the reason why the migration failed",
 							Type:        []string{"string"},
 							Format:      "",
 						},

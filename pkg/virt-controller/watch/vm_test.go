@@ -222,6 +222,12 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
+			allAnnotations := map[string]string{
+				"cdi.kubevirt.io/allowClaimAdoption": "true",
+			}
+			for k, v := range annotations {
+				allAnnotations[k] = v
+			}
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
@@ -229,7 +235,7 @@ var _ = Describe("VirtualMachine", func() {
 				dataVolume := update.GetObject().(*cdiv1.DataVolume)
 				Expect(dataVolume.ObjectMeta.OwnerReferences[0].UID).To(Equal(uid))
 				Expect(dataVolume.ObjectMeta.Labels).To(Equal(labels))
-				Expect(dataVolume.ObjectMeta.Annotations).To(Equal(annotations))
+				Expect(dataVolume.ObjectMeta.Annotations).To(Equal(allAnnotations))
 				Expect(dataVolume.Spec.PriorityClassName).To(Equal(priorityClassName))
 				return true, update.GetObject(), nil
 			})
@@ -242,6 +248,12 @@ var _ = Describe("VirtualMachine", func() {
 		shouldFailDataVolumeCreationNoResourceFound := func() {
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, fmt.Errorf("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)")
+			})
+		}
+
+		shouldFailDataVolumeCreationClaimAlreadyExists := func() {
+			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("PVC already exists")
 			})
 		}
 
@@ -926,6 +938,58 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
+
+		DescribeTable("should properly handle PVC existing before DV created", func(annotations map[string]string, expectedCreations int, initFunc func()) {
+			vm, _ := DefaultVirtualMachine(false)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
+				Name: "test1",
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, virtv1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+
+			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
+			addVirtualMachine(vm)
+
+			pvc := k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "dv1",
+					Namespace:   vm.Namespace,
+					Annotations: annotations,
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Phase: k8sv1.ClaimBound,
+				},
+			}
+			Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+
+			createCount := 0
+			if expectedCreations > 0 {
+				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
+			}
+
+			if initFunc != nil {
+				initFunc()
+			}
+
+			controller.Execute()
+			Expect(createCount).To(Equal(expectedCreations))
+			if expectedCreations > 0 {
+				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+			}
+		},
+			Entry("when PVC has no annotation", map[string]string{}, 1, nil),
+			Entry("when PVC was garbage collected", map[string]string{"cdi.kubevirt.io/garbageCollected": "true"}, 0, nil),
+			Entry("when PVC has owned by annotation and CDI does not support adoption", map[string]string{}, 0, shouldFailDataVolumeCreationClaimAlreadyExists),
+		)
 
 		DescribeTable("should properly set priority class", func(dvPriorityClass, vmPriorityClass, expectedPriorityClass string) {
 			vm, _ := DefaultVirtualMachine(true)
@@ -5334,6 +5398,66 @@ var _ = Describe("VirtualMachine", func() {
 					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
 					Expect(vmConditionController.HasCondition(vm, virtv1.VirtualMachineRestartRequired)).To(BeTrue())
 				})
+			})
+
+			Context("Affinity", func() {
+				It("should be live-updated", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								},
+							},
+						},
+					})
+
+					vm, vmi := DefaultVirtualMachine(true)
+					addVirtualMachine(vm)
+
+					affinity := k8sv1.Affinity{
+						PodAffinity: &k8sv1.PodAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+								{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"test": "nmc",
+										},
+									},
+								},
+							},
+						},
+					}
+					vm.Spec.Template.Spec.Affinity = affinity.DeepCopy()
+					Expect(vmiInformer.GetIndexer().Add(vmi)).To(Succeed())
+
+					By("Expecting to see patch for the VMI with new affinity")
+					vmiInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+						func(_, _, _ any, data []byte, _ any, _ ...any) (*virtv1.VirtualMachineInstance, error) {
+							// Don't try to change this as long as you want to use equality.Semantic.DeepEqual
+							type P struct {
+								Op    string
+								Path  string
+								Value k8sv1.Affinity
+							}
+
+							patches := []P{}
+
+							Expect(json.Unmarshal(data, &patches)).To(Succeed())
+							Expect(patches).To(HaveLen(1), "Expecting one patch adding new affinity")
+							Expect(equality.Semantic.DeepEqual(affinity, patches[0].Value)).To(BeTrue(), "Expecting the affinity to equal")
+
+							return nil, nil
+						},
+					)
+
+					// Do not care
+					vmInterface.EXPECT().UpdateStatus(gomock.Any(), gomock.Any())
+
+					sanityExecute(vm)
+				})
+
 			})
 		})
 

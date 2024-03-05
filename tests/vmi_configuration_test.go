@@ -81,6 +81,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/storage"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
@@ -1256,7 +1257,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomFedoraVMI()
+				agentVMI := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI)
@@ -1458,7 +1459,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						return false
 					}
 
-					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != ""
+					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
+						len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
 
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
 			})
@@ -2160,11 +2162,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 
 			By("setting disk caches")
-			//ephemeral-disk1
+			// ephemeral-disk1
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-			//ephemeral-disk2
+			// ephemeral-disk2
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
-			//ephemeral-disk5
+			// ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -2357,7 +2359,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			tmpHostDiskDir := tests.RandTmpDir()
 			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewString()))
 
-			job := tests.CreateHostDiskImage(tmpHostDiskPath)
+			job := storage.CreateDiskOnHost(tmpHostDiskPath)
 			job, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(job), 30*time.Second, 1*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
@@ -2638,7 +2640,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				podQos := readyPod.Status.QOSClass
 				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 
-				//-------------------------------------------------------------------
+				// -------------------------------------------------------------------
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -2705,7 +2707,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output, 100)
 				Expect(err).ToNot(HaveOccurred())
 
-				output, err = tests.ListCgroupThreads(readyPod)
+				output, err = listCgroupThreads(readyPod)
 				Expect(err).ToNot(HaveOccurred())
 				pids := strings.Split(output, "\n")
 
@@ -2715,7 +2717,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					if len(pid) == 0 {
 						continue
 					}
-					output, err = tests.GetProcessName(readyPod, pid)
+					output, err = getProcessName(readyPod, pid)
 					if err != nil {
 						getProcessNameErrors++
 						continue
@@ -2748,7 +2750,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				if err != nil {
 					return
 				}
-				kvmpitmask, err := tests.GetKvmPitMask(strings.TrimSpace(qemuPid), node)
+				kvmpitmask, err := getKvmPitMask(strings.TrimSpace(qemuPid), node)
 				Expect(err).ToNot(HaveOccurred())
 
 				vcpuzeromask, err := tests.GetVcpuMask(readyPod, emulator, "0")
@@ -3143,7 +3145,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		BeforeEach(func() {
 			var bootOrder uint = 1
-			vmi = tests.NewRandomFedoraVMI()
+			vmi = libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
@@ -3235,7 +3237,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		}
 		It("should be lower than allocated size", func() {
 			By("Starting a VirtualMachineInstance")
-			vmi := tests.NewRandomFedoraVMI()
+			vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -3393,4 +3395,56 @@ func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume
 	)
 
 	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+}
+
+func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
+	kvmpitcomm := "kvm-pit/" + qemupid
+	args := []string{"pgrep", "-f", kvmpitcomm}
+	output, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	Expect(err).ToNot(HaveOccurred())
+
+	kvmpitpid := strings.TrimSpace(output)
+	tasksetcmd := "taskset -c -p " + kvmpitpid + " | cut -f2 -d:"
+	args = []string{tests.BinBash, "-c", tasksetcmd}
+	output, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, args)
+	Expect(err).ToNot(HaveOccurred())
+
+	return strings.TrimSpace(output), err
+}
+
+func listCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
+	virtClient := kubevirt.Client()
+
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
+	)
+
+	if err == nil {
+		// Cgroup V1
+		return
+	}
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
+	)
+	return
+}
+
+func getProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
+	virtClient := kubevirt.Client()
+
+	fPath := "/proc/" + pid + "/comm"
+	output, err = exec.ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", fPath},
+	)
+
+	return
 }
