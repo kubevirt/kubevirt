@@ -29,13 +29,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"kubevirt.io/client-go/kubecli"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GetRunningPodByLabel(virtCli kubecli.KubevirtClient, label, labelType, namespace, node string) (*k8sv1.Pod, error) {
+func GetRunningPodByLabel(label, labelType, namespace, node string) (*k8sv1.Pod, error) {
+	virtCli := kubevirt.Client()
 	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
 	var fieldSelector string
 	if node != "" {

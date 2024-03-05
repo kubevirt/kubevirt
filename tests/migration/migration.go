@@ -3055,7 +3055,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 
 		getLibvirtDomainCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
-			pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+			pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
 			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
@@ -3094,7 +3094,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 
 		getVirtLauncherCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
-			pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+			pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
 			return getPodCPUSet(pod)
@@ -3534,7 +3534,7 @@ func libvirtDomainIsPaused(vmi *v1.VirtualMachineInstance) (bool, error) {
 		return false, err
 	}
 
-	vmiPod, err := libpod.GetRunningPodByLabel(kubevirt.Client(), string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
+	vmiPod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 	if err != nil {
 		return false, err
 	}
@@ -3551,7 +3551,7 @@ func libvirtDomainIsPaused(vmi *v1.VirtualMachineInstance) (bool, error) {
 }
 
 func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance) cgroup.CgroupVersion {
-	pod, err := libpod.GetRunningPodByLabel(kubevirt.Client(), string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+	pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 	Expect(err).ToNot(HaveOccurred())
 
 	return getPodsCgroupVersion(pod)
