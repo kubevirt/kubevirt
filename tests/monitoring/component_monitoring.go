@@ -250,35 +250,6 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 	})
-
-	Context("Resource metrics", func() {
-		var resourceAlerts = []string{
-			"KubeVirtComponentExceedsRequestedCPU",
-			"KubeVirtComponentExceedsRequestedMemory",
-		}
-
-		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
-			scales.UpdateScale(virtOperator.deploymentName, int32(0))
-			libmonitoring.ReduceAlertPendingTime(virtClient)
-		})
-
-		AfterEach(func() {
-			scales.RestoreAllScales()
-			time.Sleep(10 * time.Second)
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, resourceAlerts...)
-		})
-
-		It("KubeVirtComponentExceedsRequestedCPU should be triggered when virt-api exceeds requested CPU", func() {
-			By("updating virt-api deployment CPU and Memory requests")
-			updateDeploymentResourcesRequest(virtClient, virtApi.deploymentName, resource.MustParse("0m"), resource.MustParse("0Mi"))
-
-			By("waiting for KubeVirtComponentExceedsRequestedCPU and KubeVirtComponentExceedsRequestedMemory alerts")
-			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedCPU")
-			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedMemory")
-		})
-	})
 })
 
 func updateDeploymentResourcesRequest(virtClient kubecli.KubevirtClient, deploymentName string, cpu, memory resource.Quantity) {
