@@ -2361,7 +2361,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				It("should be able to properly abort migration", func() {
 					By("Starting a VirtualMachineInstance")
-					vmi := tests.NewRandomVMI()
+					vmi := libvmi.NewGuestless(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
