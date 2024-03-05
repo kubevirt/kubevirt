@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/dns"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
@@ -196,7 +197,8 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				Expect(err).ToNot(HaveOccurred())
 
 				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
-					winVmiPod := tests.GetRunningPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
+					winVmiPod, err := libpod.GetPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
+					Expect(err).NotTo(HaveOccurred())
 					nodeName := winVmiPod.Spec.NodeName
 
 					pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)

@@ -38,11 +38,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -51,7 +51,6 @@ const skipIPv6Message = "port-forwarding over ipv6 is not supported yet. Trackin
 
 var _ = SIGDescribe("Port-forward", func() {
 	var (
-		err        error
 		virtClient kubecli.KubevirtClient
 	)
 
@@ -78,8 +77,8 @@ var _ = SIGDescribe("Port-forward", func() {
 			vmnetserver.StartHTTPServerWithSourceIP(vmi, vmiHttpServerPort, getMasqueradeInternalAddress(ipFamily), console.LoginToCirros)
 
 			localPort = 1500 + GinkgoParallelProcess()
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
-			Expect(vmiPod).ToNot(BeNil())
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 			portForwardCmd, err = portForwardCommand(vmiPod, localPort, vmiHttpServerPort)
 			Expect(err).NotTo(HaveOccurred())
 

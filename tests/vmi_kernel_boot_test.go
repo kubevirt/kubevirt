@@ -37,6 +37,7 @@ import (
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 
@@ -80,7 +81,8 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Fetching virt-launcher pod")
-			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Ensuring VMI is deleted")
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})
@@ -155,7 +157,8 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Fetching virt-launcher pod")
-			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Ensuring VMI is deleted")
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})

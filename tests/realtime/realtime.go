@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -85,7 +86,8 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			const noMask = ""
 			vmi := byStartingTheVMI(newFedoraRealtime(noMask), virtClient)
 			By("Validating VCPU scheduler placement information")
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			emulator, err := tests.GetRunningVMIEmulator(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			emulator = filepath.Base(emulator)
@@ -126,7 +128,8 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 
 		It("when realtime mask is specified", func() {
 			vmi := byStartingTheVMI(newFedoraRealtime("0-1,^1"), virtClient)
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			By("Validating VCPU scheduler placement information")
 			emulator, err := tests.GetRunningVMIEmulator(vmi)
 			Expect(err).ToNot(HaveOccurred())

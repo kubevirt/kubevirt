@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
@@ -602,8 +603,11 @@ func getNodesWithAllocatedResource(resourceName string) []k8sv1.Node {
 }
 
 func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, networkName, sriovResourceName string) error {
+	pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).NotTo(HaveOccurred())
+
 	out, err := exec.ExecuteCommandOnPod(
-		tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace),
+		pod,
 		"compute",
 		[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", networkName)},
 	)
@@ -722,10 +726,11 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 }
 
 func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
-	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).NotTo(HaveOccurred())
 
 	By("checking default interface is present")
-	_, err := exec.ExecuteCommandOnPod(
+	_, err = exec.ExecuteCommandOnPod(
 		vmiPod,
 		"compute",
 		[]string{"ip", "address", "show", "eth0"},

@@ -155,8 +155,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
 				startupTimeout)
 
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(pod).NotTo(BeNil())
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
 		})
@@ -167,8 +167,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				libvmi.WithAnnotation("kubernetes.io/test", "test")),
 				startupTimeout)
 
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(pod).NotTo(BeNil())
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
 			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
@@ -178,8 +178,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			vmi := libvmi.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(pod).ToNot(BeNil())
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("calling evict on VMI's pod")
 			err = kubevirt.Client().CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
@@ -190,8 +190,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			By("should have evacuation node name set on vmi status")
 			Consistently(func() error {
 
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(pod).ToNot(BeNil())
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.DeletionTimestamp).To(BeNil())
 
 				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -961,7 +961,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				newVMI := libvmi.NewCirros()
 				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
 				By("Fetching virt-launcher pod")
-				virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
+				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(defaultCPUModel)), "Node selector for the cpuModel in vmi spec should appear in virt-launcher pod")
 
 			})
@@ -982,7 +983,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				}
 				newVMI = tests.RunVMIAndExpectLaunch(newVMI, 90)
 				By("Fetching virt-launcher pod")
-				virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
+				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(vmiCPUModel)), "Node selector for the cpuModel in kubevirtCR should appear in virt-launcher pod")
 
 			})
@@ -1312,8 +1314,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(pod).NotTo(BeNil())
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 
 				emulationFlagFound := false
 				computeContainerFound := false
@@ -1381,10 +1383,10 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				libwait.WaitForSuccessfulVMIStart(vmi)
+				vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(pod).NotTo(BeNil())
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 
 				computeContainerFound := false
 				for _, container := range pod.Spec.Containers {
@@ -1417,8 +1419,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[test_id:1646]should request a KVM and TUN device", func() {
 				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewAlpine(), startupTimeout)
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(pod).NotTo(BeNil())
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 
 				computeContainerFound := false
 				for _, container := range pod.Spec.Containers {
@@ -1438,8 +1440,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[test_id:1647]should not enable emulation in virt-launcher", func() {
 				vmi = tests.RunVMIAndExpectLaunch(libvmi.NewAlpine(), startupTimeout)
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(pod).NotTo(BeNil())
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 
 				emulationFlagFound := false
 				computeContainerFound := false

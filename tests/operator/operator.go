@@ -1503,7 +1503,9 @@ spec:
 		}
 
 		checkVirtLauncherPod := func(vmi *v1.VirtualMachineInstance) {
-			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			serviceAccount, err := virtClient.CoreV1().ServiceAccounts(vmi.Namespace).Get(context.Background(), virtLauncherPod.Spec.ServiceAccountName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(equality.Semantic.DeepEqual(virtLauncherPod.Spec.ImagePullSecrets, serviceAccount.ImagePullSecrets)).To(BeTrue())
@@ -2070,7 +2072,9 @@ spec:
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Verifying virt-launcher image is also prefixed")
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
 					_, imageName, _ := parseImage(container.Image)

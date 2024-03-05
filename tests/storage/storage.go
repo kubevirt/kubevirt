@@ -614,10 +614,12 @@ var _ = SIGDescribe("Storage", func() {
 						)
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
 
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img has been created")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						nodeName = vmiPod.Spec.NodeName
 						output, err := exec.ExecuteCommandOnPod(
 							vmiPod,
@@ -642,10 +644,12 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if another.img has been created")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						nodeName = vmiPod.Spec.NodeName
 						output, err := exec.ExecuteCommandOnPod(
 							vmiPod,
@@ -695,10 +699,12 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img exists")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						output, err := exec.ExecuteCommandOnPod(
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
@@ -780,10 +786,12 @@ var _ = SIGDescribe("Storage", func() {
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: node}}))
-						tests.RunVMIAndExpectLaunch(vmi, 90)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						output, err := exec.ExecuteCommandOnPod(
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
@@ -1093,8 +1101,9 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = newVMIWithEphemeralPVC(dataVolume.Name)
 				By("Initializing the VM")
 
-				tests.RunVMIAndExpectLaunch(vmi, 60)
-				runningPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				runningPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that the virt-launcher pod spec contains the volumeDevice")
 				Expect(runningPod.Spec.Containers[0].VolumeDevices).NotTo(BeEmpty())
