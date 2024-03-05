@@ -95,7 +95,6 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			}
 			patchData1Str := fmt.Sprintf(`[ {"op":"%s","path":"/spec/template/spec/affinity"%s} ]`, op, value)
 			patchData1 := []byte(patchData1Str)
-			fmt.Println("patchData1: ", string(patchData1))
 			_, err = virtClient.VirtualMachine(vmNamespace).Patch(context.Background(), vmName, types.JSONPatchType, patchData1, &k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
