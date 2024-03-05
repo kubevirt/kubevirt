@@ -107,14 +107,14 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			migrationBandwidthLimit := resource.MustParse("1Ki")
 			migration.CreateMigrationPolicy(virtClient, migration.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
-			By("Ensuring the compute container has at least 128Mi of memory")
+			By("Ensuring the compute container has the expected memory")
 			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory := compute.Resources.Requests.Memory().Value()
 			Expect(reqMemory).To(BeNumerically(">=", guest.Value()))
 
-			By("Hotplug 128Mi of memory")
+			By("Hotplug additional memory")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", "128Mi", "256Mi")
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
@@ -152,7 +152,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 				return vmi.Status.Memory.GuestCurrent.Value()
 			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
 
-			By("Ensuring the virt-launcher pod now has at least more than 256Mi of memory")
+			By("Ensuring the virt-launcher pod now has more memory")
 			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory = compute.Resources.Requests.Memory().Value()
@@ -165,7 +165,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			maxGuest := resource.MustParse("512Mi")
 			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, 0)
 
-			By("Hotplug 128Mi of memory")
+			By("Hotplug additional memory")
 			newGuestMemory := resource.MustParse("256Mi")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", guest.String(), newGuestMemory.String())
 			Expect(err).NotTo(HaveOccurred())
