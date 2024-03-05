@@ -64,11 +64,17 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 	})
 
 	Context("VirtualMachineInstances", func() {
-		var vmi *v1.VirtualMachineInstance
+		var (
+			vmi *v1.VirtualMachineInstance
+		)
 		resource := "virtualmachineinstances"
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi = libvmi.NewAlpine(
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 		})
 
 		It("[test_id:7627]create a VirtualMachineInstance", func() {
@@ -231,8 +237,11 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		resource := "virtualmachineinstancemigrations"
 
 		BeforeEach(func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			vmi := libvmi.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmim = libmigration.New(vmi.Name, vmi.Namespace)
 		})
@@ -738,7 +747,10 @@ func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstanceP
 }
 
 func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+	vmi := libvmi.NewAlpine(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
 
 	return &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
