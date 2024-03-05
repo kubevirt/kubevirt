@@ -312,6 +312,14 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				By("Making sure snapshot and restore objects are cleaned up")
 				Expect(vmClone.Status.SnapshotName).To(BeNil())
 				Expect(vmClone.Status.RestoreName).To(BeNil())
+
+				err = virtClient.VirtualMachine(targetVM.Namespace).Delete(context.Background(), targetVM.Name, &v1.DeleteOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				Eventually(func() error {
+					_, err := virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
+					return err
+				}, 120*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VM clone should be successfully deleted")
 			})
 
 			It("simple clone with snapshot source", func() {

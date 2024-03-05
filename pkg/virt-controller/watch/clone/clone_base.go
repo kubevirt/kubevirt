@@ -5,22 +5,20 @@ import (
 	"time"
 
 	k8scorev1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/storage/snapshot"
-
-	"kubevirt.io/api/clone"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
-
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	virtv1 "kubevirt.io/api/core/v1"
+	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
@@ -113,6 +111,16 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
 			DeleteFunc: ctrl.handlePVC,
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ctrl.vmInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: ctrl.handleDeleteVM,
 		},
 	)
 
@@ -250,6 +258,42 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 	}
 }
 
+func (ctrl *VMCloneController) handleDeleteVM(obj interface{}) {
+	vm, ok := obj.(*virtv1.VirtualMachine)
+	// When a delete is dropped, the relist will notice a vm in the store not
+	// in the list, leading to the insertion of a tombstone object which contains
+	// the deleted key/value. Note that this value might be stale.
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		vm, ok = tombstone.Obj.(*virtv1.VirtualMachine)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vm %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	}
+	vmCloneList, err := ctrl.listVmCloneMatchingVM(vm.Namespace, vm.Name)
+	if err != nil {
+		log.Log.Errorf("error retrieving vm clone list: %v", err.Error())
+		return
+	}
+	log.Log.V(4).Object(vm).Infof("vm clone lis: %v", vmCloneList)
+	for _, vmClone := range vmCloneList {
+		log.Log.V(4).Object(vm).Infof("vm deleted for vm clone %s", vmClone.Name)
+		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(vmClone)
+		if err != nil {
+			log.Log.Errorf("vm clone controller failed to get key from object: %v, %v", err, vmClone)
+			return
+		}
+		ctrl.vmCloneQueue.AddRateLimited(objName)
+	}
+
+	return
+}
+
 func (ctrl *VMCloneController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer ctrl.vmCloneQueue.ShutDown()
@@ -297,4 +341,28 @@ func (ctrl *VMCloneController) Execute() bool {
 func (ctrl *VMCloneController) runWorker() {
 	for ctrl.Execute() {
 	}
+}
+
+// takes a namespace and returns all vm clone with the specified target vm name
+func (ctrl *VMCloneController) listVmCloneMatchingVM(namespace, name string) ([]*clonev1alpha1.VirtualMachineClone, error) {
+	return ctrl.filterVmClone(namespace, func(vmClone *clonev1alpha1.VirtualMachineClone) bool {
+		return vmClone.Spec.Target.Name == name
+	})
+}
+
+func (ctrl *VMCloneController) filterVmClone(namespace string, filter func(*clonev1alpha1.VirtualMachineClone) bool) ([]*clonev1alpha1.VirtualMachineClone, error) {
+	objs, err := ctrl.vmCloneInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var vmClones []*clonev1alpha1.VirtualMachineClone
+	for _, obj := range objs {
+		vmClone := obj.(*clonev1alpha1.VirtualMachineClone)
+
+		if filter(vmClone) {
+			vmClones = append(vmClones, vmClone)
+		}
+	}
+	return vmClones, nil
 }
