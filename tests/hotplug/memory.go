@@ -100,7 +100,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		It("[test_id:10823]should successfully hotplug memory", func() {
 			By("Creating a VM")
 			guest := resource.MustParse("128Mi")
-			maxGuest := resource.MustParse("256Mi")
+			maxGuest := resource.MustParse("512Mi")
 			vm, vmi := createHotplugVM(&guest, &maxGuest, nil, 0)
 
 			By("Limiting the bandwidth of migrations in the test namespace")
