@@ -1834,8 +1834,11 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
 					)
 
-					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-					tests.AddUserData(vmi, "cloud-init", bashHelloScript)
+					vmi := libvmi.New(
+						libvmi.WithDataVolume("disk0", dataVolume.Name),
+						libvmi.WithResourceMemory("1Gi"),
+						libvmi.WithCloudInitNoCloudUserData(bashHelloScript),
+					)
 					vm := libvmi.NewVirtualMachine(vmi)
 					libstorage.AddDataVolumeTemplate(vm, dataVolume)
 					return vm

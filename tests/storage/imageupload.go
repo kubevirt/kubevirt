@@ -10,6 +10,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -132,7 +133,10 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 			if startVM {
 				By("Start VM")
-				vmi := tests.NewRandomVMIWithDataVolume(targetName)
+				vmi := libvmi.New(
+					libvmi.WithDataVolume("disk0", targetName),
+					libvmi.WithResourceMemory("1Gi"),
+				)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
@@ -269,7 +273,10 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(err.Error()).To(ContainSubstring("make sure the PVC is Bound, or use force-bind flag"))
 
 			By("Start VM")
-			vmi := tests.NewRandomVMIWithDataVolume("target-dv")
+			vmi := libvmi.New(
+				libvmi.WithDataVolume("disk0", "target-dv"),
+				libvmi.WithResourceMemory("1Gi"),
+			)
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer func() {
