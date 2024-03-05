@@ -22,6 +22,8 @@ package libvmi
 import (
 	"encoding/base64"
 
+	k8scorev1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -57,6 +59,7 @@ func WithCloudInitNoCloudNetworkData(data string) Option {
 
 		volume := getVolume(vmi, cloudInitDiskName)
 		volume.CloudInitNoCloud.NetworkData = data
+		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
 	}
 }
 
@@ -68,6 +71,19 @@ func WithCloudInitNoCloudEncodedNetworkData(networkData string) Option {
 		volume := getVolume(vmi, cloudInitDiskName)
 		volume.CloudInitNoCloud.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
 		volume.CloudInitNoCloud.NetworkData = ""
+		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
+	}
+}
+
+// WithCloudInitNoCloudNetworkDataSecretName adds cloud-init no-cloud network data from secret.
+func WithCloudInitNoCloudNetworkDataSecretName(secretName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitNoCloud.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
+		volume.CloudInitNoCloud.NetworkData = ""
+		volume.CloudInitNoCloud.NetworkDataBase64 = ""
 	}
 }
 

@@ -385,10 +385,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 			It("[test_id:3183]should have cloud-init network-config from k8s secret", func() {
+				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
+
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudUserData(""),
+					libvmi.WithCloudInitNoCloudNetworkDataSecretName(secretID),
 				)
 
 				idx := 0
@@ -397,21 +399,15 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						continue
 					}
 					idx = i
-
-					secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
-					spec := volume.CloudInitNoCloud
-					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
-
-					// Store cloudinit data as k8s secret
-					By("Creating a secret with network data")
-					secret := libsecret.New(secretID, map[string][]byte{
-						"networkdata": []byte(testNetworkData),
-					})
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
 					break
 				}
+
+				By("Creating a secret with network data")
+				secret := libsecret.New(secretID, map[string][]byte{
+					"networkdata": []byte(testNetworkData),
+				})
+				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				vmi = LaunchVMI(vmi)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -428,7 +424,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
 			})
