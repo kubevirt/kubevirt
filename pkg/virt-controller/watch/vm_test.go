@@ -1405,7 +1405,7 @@ var _ = Describe("VirtualMachine", func() {
 				initFunc()
 			}
 
-			controller.Execute()
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(expectedCreations))
 			if expectedCreations > 0 {
 				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1845,6 +1845,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					return true, "", nil
 				}
+
 				sanityExecute(vm)
 				if fail {
 					Expect(createCount).To(Equal(0))
