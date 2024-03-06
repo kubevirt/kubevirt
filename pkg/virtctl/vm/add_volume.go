@@ -146,7 +146,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 			Bus: "scsi",
 		}
 	default:
-		return fmt.Errorf("Invalid disk type '%s'. Only LUN and Disk are supported.", diskType)
+		return fmt.Errorf("invalid disk type '%s'. Only LUN and Disk are supported", diskType)
 	}
 
 	if serial != "" {

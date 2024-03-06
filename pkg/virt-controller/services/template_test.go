@@ -1201,7 +1201,7 @@ var _ = Describe("Template", func() {
 						Namespace: "default",
 						UID:       "1234",
 						Annotations: map[string]string{
-							istio.ISTIO_INJECT_ANNOTATION: "true",
+							istio.IstioInjectAnnotation: "true",
 						},
 					},
 				}

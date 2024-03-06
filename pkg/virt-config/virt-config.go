@@ -187,7 +187,7 @@ func (c *ClusterConfig) GetDefaultArchitecture() string {
 
 func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
 	autoAttach := spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && *autoAttach == false {
+	if autoAttach != nil && !*autoAttach {
 		return nil
 	}
 

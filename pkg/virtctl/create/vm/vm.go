@@ -25,6 +25,8 @@ import (
 	"sort"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
+
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -73,6 +75,8 @@ const (
 	snapshot      = "snapshot"
 
 	InvalidInferenceVolumeError = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
+
+	ImportedVolume = "imported-volume"
 )
 
 type createVM struct {
@@ -1038,7 +1042,7 @@ func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
 
 		name, err := params.GetParamByName("name", volume)
 		if err != nil {
-			name = fmt.Sprintf("imported-volume-%s", rand.String(4))
+			name = common.RandomWithPrefix(ImportedVolume+"-", 4)
 		}
 
 		if err := createVolumeWithSource(source, size, name, vm); err != nil {

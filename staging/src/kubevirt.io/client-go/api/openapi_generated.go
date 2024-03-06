@@ -22198,7 +22198,7 @@ func schema_kubevirtio_api_core_v1_TPMDevice(ref common.ReferenceCallback) commo
 				Properties: map[string]spec.Schema{
 					"persistent": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Persistent indicates the state of the TPM device should be kept accross reboots Defaults to false",
+							Description: "Persistent indicates the state of the TPM device should be kept across reboots Defaults to false",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

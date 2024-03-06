@@ -463,9 +463,9 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		}
 	}
 
-	// Rather than enqueing based on VMI activity, we keep periodically poping the loop
+	// Rather than enqueuing based on VMI activity, we keep periodically poping the loop
 	// until all VMIs are updated. Watching all VMI activity is chatty for this controller
-	// when we don't need to be that efficent in how quickly the updates are being processed.
+	// when we don't need to be that efficient in how quickly the updates are being processed.
 	if len(data.evictOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 {
 		c.queue.AddAfter(key, periodicReEnqueueIntervalSeconds)
 	}

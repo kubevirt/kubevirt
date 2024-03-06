@@ -414,7 +414,7 @@ var _ = Describe("MemoryDump", func() {
 			Expect(cmd.Execute()).To(Succeed())
 		})
 
-		It("should call download memory dump and decompress succesfully", func() {
+		It("should call download memory dump and decompress successfully", func() {
 			vmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 				resp := http.Response{
 					StatusCode: http.StatusOK,
@@ -481,7 +481,7 @@ var _ = Describe("MemoryDump", func() {
 			Entry("with port-forward specifying default number on local port", []string{"memory-dump", "download", "testvm", outputFileFlag, "--port-forward", "--local-port", "0"}),
 		)
 
-		It("should fail download memory dump if not completed succesfully", func() {
+		It("should fail download memory dump if not completed successfully", func() {
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpErr
 
 			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag}

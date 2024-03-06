@@ -373,10 +373,10 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 	if bodyStruct.GracePeriodSeconds != nil {
 		if *bodyStruct.GracePeriodSeconds > 0 {
-			writeError(errors.NewBadRequest(fmt.Sprintf("For force restart, only gracePeriod=0 is supported for now")), response)
+			writeError(errors.NewBadRequest("For force restart, only gracePeriod=0 is supported for now"), response)
 			return
 		} else if *bodyStruct.GracePeriodSeconds < 0 {
-			writeError(errors.NewBadRequest(fmt.Sprintf("gracePeriod has to be greater or equal to 0")), response)
+			writeError(errors.NewBadRequest("gracePeriod has to be greater or equal to 0"), response)
 			return
 		}
 	}

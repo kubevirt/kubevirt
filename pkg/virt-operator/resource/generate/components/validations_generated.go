@@ -6059,8 +6059,7 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             persistent:
                               description: Persistent indicates the state of the TPM
-                                device should be kept accross reboots Defaults to
-                                false
+                                device should be kept across reboots Defaults to false
                               type: boolean
                           type: object
                         useVirtioTransitional:
@@ -8501,7 +8500,7 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 persistent:
                   description: Persistent indicates the state of the TPM device should
-                    be kept accross reboots Defaults to false
+                    be kept across reboots Defaults to false
                   type: boolean
               type: object
             preferredUseVirtioTransitional:
@@ -10640,7 +10639,7 @@ var CRDsValidation map[string]string = map[string]string{
                   properties:
                     persistent:
                       description: Persistent indicates the state of the TPM device
-                        should be kept accross reboots Defaults to false
+                        should be kept across reboots Defaults to false
                       type: boolean
                   type: object
                 useVirtioTransitional:
@@ -13433,7 +13432,7 @@ var CRDsValidation map[string]string = map[string]string{
                   properties:
                     persistent:
                       description: Persistent indicates the state of the TPM device
-                        should be kept accross reboots Defaults to false
+                        should be kept across reboots Defaults to false
                       type: boolean
                   type: object
                 useVirtioTransitional:
@@ -15635,8 +15634,7 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             persistent:
                               description: Persistent indicates the state of the TPM
-                                device should be kept accross reboots Defaults to
-                                false
+                                device should be kept across reboots Defaults to false
                               type: boolean
                           type: object
                         useVirtioTransitional:
@@ -20022,7 +20020,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   properties:
                                     persistent:
                                       description: Persistent indicates the state
-                                        of the TPM device should be kept accross reboots
+                                        of the TPM device should be kept across reboots
                                         Defaults to false
                                       type: boolean
                                   type: object
@@ -21853,7 +21851,7 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 persistent:
                   description: Persistent indicates the state of the TPM device should
-                    be kept accross reboots Defaults to false
+                    be kept across reboots Defaults to false
                   type: boolean
               type: object
             preferredUseVirtioTransitional:
@@ -25191,7 +25189,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       properties:
                                         persistent:
                                           description: Persistent indicates the state
-                                            of the TPM device should be kept accross
+                                            of the TPM device should be kept across
                                             reboots Defaults to false
                                           type: boolean
                                       type: object

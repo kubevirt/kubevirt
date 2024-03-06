@@ -78,7 +78,7 @@ type command struct {
 
 type memoryDumpCompleteFunc func(kubecli.KubevirtClient, string, string, time.Duration, time.Duration) (string, error)
 
-// WaitMemoryDumpCompleted is used to store the function to wait for the memory dump to be complete.
+// WaitMemoryDumpComplete is used to store the function to wait for the memory dump to be complete.
 // Useful for unit tests.
 var WaitMemoryDumpComplete memoryDumpCompleteFunc = waitForMemoryDump
 
@@ -240,7 +240,7 @@ func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.Ku
 
 func createPVCforMemoryDump(namespace, vmName, claimName string, virtClient kubecli.KubevirtClient) error {
 	// Before creating a new pvc check that there is not already
-	// assocaited memory dump pvc
+	// associated memory dump pvc
 	if err := checkNoAssociatedMemoryDump(namespace, vmName, virtClient); err != nil {
 		return err
 	}

@@ -23,10 +23,7 @@ func (d *Defaulter) IsPPC64() bool {
 }
 
 func (d *Defaulter) IsARM64() bool {
-	if d.Architecture == "arm64" {
-		return true
-	}
-	return false
+	return d.Architecture == "arm64"
 }
 
 func (d *Defaulter) SetDefaults_Devices(devices *Devices) {

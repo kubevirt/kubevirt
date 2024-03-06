@@ -31,7 +31,7 @@ const (
 
 func SEVPolicyToBits(policy *v1.SEVPolicy) uint {
 	// NoDebug is always true
-	bits := uint(SEVPolicyNoDebug)
+	bits := SEVPolicyNoDebug
 
 	if policy != nil {
 		if policy.EncryptedState != nil && *policy.EncryptedState {

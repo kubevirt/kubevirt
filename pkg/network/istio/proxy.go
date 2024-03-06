@@ -26,7 +26,7 @@ import (
 )
 
 func ProxyInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if val, ok := vmi.GetAnnotations()[ISTIO_INJECT_ANNOTATION]; ok {
+	if val, ok := vmi.GetAnnotations()[IstioInjectAnnotation]; ok {
 		return strings.ToLower(val) == "true"
 	}
 	return false

@@ -301,5 +301,4 @@ func ConvertKubeVirtFeaturesToDomainFeatureList(features *api.Features) *libvirt
 	f.HyperV = ConvertKubeVirtFeatureHypervToDomainFeatureHyperV(features.Hyperv)
 	f.KVM = ConverKubeVirtFeatureKVMToDomainFeatureKVM(features.KVM)
 	return f
-
 }

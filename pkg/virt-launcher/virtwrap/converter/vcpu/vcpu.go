@@ -452,7 +452,7 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 			}
 		}
 		disabledSockets := uint32(disabledVCPUs) / (requestedToplogy.Cores * requestedToplogy.Threads)
-		requestedToplogy.Sockets -= uint32(disabledSockets)
+		requestedToplogy.Sockets -= disabledSockets
 	}
 
 	if isNumaPassthrough(vmi) {

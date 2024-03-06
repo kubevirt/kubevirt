@@ -172,8 +172,8 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 	}
 
 	for _, pcpu := range alignedPhysicalCPUs {
-		if vCPU, exist := p2vCPUMap[strconv.Itoa(int(pcpu))]; exist {
-			alignedVCPUList = append(alignedVCPUList, uint32(vCPU))
+		if vCPU, exist := p2vCPUMap[strconv.Itoa(pcpu)]; exist {
+			alignedVCPUList = append(alignedVCPUList, vCPU)
 		}
 	}
 	return alignedVCPUList, nil

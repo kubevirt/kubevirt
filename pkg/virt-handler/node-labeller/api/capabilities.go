@@ -113,7 +113,6 @@ func (b *CPUSiblings) UnmarshalXMLAttr(attr xml.Attr) error {
 			}
 		} else {
 			return fmt.Errorf("failed to parse %v to ints: %v", attr.Value, err)
-
 		}
 	}
 	return nil

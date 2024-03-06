@@ -116,7 +116,7 @@ var _ = Describe("Guestfs shell", func() {
 			guestfs.SetDefaulAttacher()
 		})
 
-		It("Succesfully attach to PVC", func() {
+		It("Successfully attach to PVC", func() {
 			guestfs.SetClient(fakeCreateClientPVC)
 			cmd := virtctlcmd.NewRepeatableVirtctlCommand(commandName, pvcName)
 			Expect(cmd()).To(Succeed())

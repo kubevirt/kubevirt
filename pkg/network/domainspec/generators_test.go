@@ -205,7 +205,7 @@ var _ = Describe("Pod Network", func() {
 				passtIface := createPasstInterface()
 				istioVmi := api2.NewMinimalVMI("passtVmi")
 				istioVmi.Annotations = map[string]string{
-					istio.ISTIO_INJECT_ANNOTATION: "true",
+					istio.IstioInjectAnnotation: "true",
 				}
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					passtIface, nil, podIfaceName, istioVmi)
@@ -222,7 +222,7 @@ var _ = Describe("Pod Network", func() {
 
 			It("should set passt domain interface", func() {
 				istioVmi := api2.NewMinimalVMI("test")
-				istioVmi.Annotations = map[string]string{istio.ISTIO_INJECT_ANNOTATION: "true"}
+				istioVmi.Annotations = map[string]string{istio.IstioInjectAnnotation: "true"}
 
 				testDom := api.NewMinimalDomain("test")
 				testAlias := api.NewUserDefinedAlias("default")

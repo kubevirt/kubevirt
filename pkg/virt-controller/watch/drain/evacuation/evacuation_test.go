@@ -364,7 +364,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 
 			podSource.Add(newPod(vmi, "runningPod", v12.PodRunning, true))
-			podSource.Add(newPod(vmi, "succededPod", v12.PodSucceeded, true))
+			podSource.Add(newPod(vmi, "succeededPod", v12.PodSucceeded, true))
 			podSource.Add(newPod(vmi, "failedPod", v12.PodFailed, true))
 			podSource.Add(newPod(vmi, "notOwnedRunningPod", v12.PodRunning, false))
 			// pods do not cause the queue to get added to

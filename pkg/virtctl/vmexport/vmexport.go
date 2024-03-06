@@ -102,8 +102,8 @@ const (
 	exportTokenHeader = "x-kubevirt-export-token"
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
-	// secretTokenLenght is the lenght of the randomly generated token
-	secretTokenLenght = 20
+	// secretTokenLength is the length of the randomly generated token
+	secretTokenLength = 20
 
 	// ErrRequiredFlag serves as error message when a mandatory flag is missing
 	ErrRequiredFlag = "need to specify the '%s' flag when using '%s'"
@@ -311,7 +311,7 @@ func (c *command) run(args []string) error {
 func (c *command) parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 	funcName := strings.ToLower(args[0])
 
-	// Assign the appropiate vmexport function and make sure the used flags are compatible
+	// Assign the appropriate vmexport function and make sure the used flags are compatible
 	switch funcName {
 	case CREATE:
 		exportFunction = CreateVirtualMachineExport
@@ -437,7 +437,7 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return err
 	}
 
-	fmt.Printf("VirtualMachineExport '%s/%s' created succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	fmt.Printf("VirtualMachineExport '%s/%s' created successfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -451,7 +451,7 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return nil
 	}
 
-	fmt.Printf("VirtualMachineExport '%s/%s' deleted succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	fmt.Printf("VirtualMachineExport '%s/%s' deleted successfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -570,7 +570,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 
 	// Prevent this output ending up in the stdout
 	if vmeInfo.OutputFile != "" {
-		fmt.Println("Download finished succesfully")
+		fmt.Println("Download finished successfully")
 	}
 	return nil
 }
@@ -710,7 +710,7 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 // HandleHTTPRequestFunc function used to handle http requests
 type HandleHTTPRequestFunc func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error)
 
-// instance of function used to handle http requests
+// HandleHTTPRequest is instance of function used to handle http requests
 var HandleHTTPRequest HandleHTTPRequestFunc = handleHTTPGetRequest
 
 // handleHTTPGetRequest generates the GET request with proper certificate handling
@@ -788,7 +788,7 @@ func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress b
 // getOrCreateTokenSecret obtains a token secret to be used along with the virtualMachineExport
 func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (*k8sv1.Secret, error) {
 	// Securely randomize a 20 char string to be used as a token
-	token, err := util.GenerateSecureRandomString(secretTokenLenght)
+	token, err := util.GenerateSecureRandomString(secretTokenLength)
 	if err != nil {
 		return nil, err
 	}
@@ -1047,12 +1047,12 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	// List the pods matching the selector
 	podList, err := client.CoreV1().Pods(vmeInfo.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podSelector.String()})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list pods: %v", err)
+		return nil, fmt.Errorf("failed to list pods: %v", err)
 	}
 
 	// Pick the first pod to forward the port
 	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("No pods found for the service %s", service.Name)
+		return nil, fmt.Errorf("no pods found for the service %s", service.Name)
 	}
 
 	// Set up the port forwarding ports
@@ -1078,7 +1078,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%d", localPort)
 		}
 	case <-time.After(30 * time.Second):
-		return nil, fmt.Errorf("Timeout waiting for port forwarding to be ready.")
+		return nil, fmt.Errorf("timeout waiting for port forwarding to be ready")
 	}
 	return stopChan, nil
 }

@@ -20,5 +20,5 @@
 package istio
 
 const (
-	ISTIO_INJECT_ANNOTATION = "sidecar.istio.io/inject"
+	IstioInjectAnnotation = "sidecar.istio.io/inject"
 )

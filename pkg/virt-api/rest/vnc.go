@@ -155,7 +155,7 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 
 func validateVMIForVNC(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 	// If there are no graphics devices present, we can't proceed
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == false {
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
 		err := fmt.Errorf("No graphics devices are present.")
 		log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
 		return errors.NewBadRequest(err.Error())
