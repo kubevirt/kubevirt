@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/watcher"
 
 	expect "github.com/google/goexpect"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
@@ -731,6 +732,71 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					}
 					Expect(found).To(BeTrue())
 				}
+			})
+
+			It("[QUARANTINE] should report appropriate event when freeze fails", decorators.Quarantine, func() {
+				// Activate SELinux and reboot machine so we can force fsfreeze failure
+				const userData = "#cloud-config\n" +
+					"password: fedora\n" +
+					"chpasswd: { expire: False }\n" +
+					"runcmd:\n" +
+					"  - sudo sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config\n"
+
+				vmi := libvmi.NewFedora(
+					libvmi.WithCloudInitNoCloudUserData(userData),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
+
+				dv := libdv.NewDataVolume(
+					libdv.WithBlankImageSource(),
+					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+				)
+
+				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithDataVolumeTemplate(dv))
+				// Adding snapshotable volume
+				libstorage.AddDataVolume(vm, "blank", dv)
+
+				vm, vmi = createAndStartVM(vm)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(300),
+				)
+
+				Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				// Restart VM again to enable SELinux
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).SoftReboot(context.Background(), vmi.Name)).ToNot(HaveOccurred())
+				Eventually(matcher.ThisVMI(vmi), 3*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				blankDisk := "/dev/"
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, volStatus := range vmi.Status.VolumeStatus {
+						if volStatus.Name == "blank" {
+							blankDisk += volStatus.Target
+							return true
+						}
+					}
+					return false
+				}, 30*time.Second, time.Second).Should(BeTrue())
+
+				// Recreating one specific SELinux error.
+				// Better described in https://bugzilla.redhat.com/show_bug.cgi?id=2237678
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "mkdir /mount_dir\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: fmt.Sprintf("mkfs.ext4 %s\n", blankDisk)},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: fmt.Sprintf("mount %s /mount_dir\n", blankDisk)},
+					&expect.BExp{R: console.PromptExpression},
+				}, 20)).To(Succeed())
+
+				snapshot = newSnapshot()
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
+				objectEventWatcher.WaitFor(context.Background(), watcher.WarningEvent, "FreezeError")
 			})
 
 			It("Calling Velero hooks should freeze/unfreeze VM", func() {
