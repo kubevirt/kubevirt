@@ -355,62 +355,21 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	return causes
 }
 
-/**
 func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
-	if len(spec.DataVolumeTemplates) > 0 {
-
-		for idx, dataVolume := range spec.DataVolumeTemplates {
-			if dataVolume.Name == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("'name' field must not be empty for DataVolumeTemplate entry %s.", field.Child("dataVolumeTemplate").Index(idx).String()),
-					Field:   field.Child("dataVolumeTemplate").Index(idx).Child("name").String(),
-				})
-			}
-
-			dataVolumeRefFound := false
-			for _, volume := range spec.Template.Spec.Volumes {
-				// TODO: Assuming here that PVC name == DV name which might not be the case in the future
-				if volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == dataVolume.Name {
-					dataVolumeRefFound = true
-					break
-				} else if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolume.Name {
-					dataVolumeRefFound = true
-					break
-				}
-			}
-
-			if !dataVolumeRefFound {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("DataVolumeTemplate entry %s must be referenced in the VMI template's 'volumes' list", field.Child("dataVolumeTemplate").Index(idx).String()),
-					Field:   field.Child("dataVolumeTemplate").Index(idx).String(),
-				})
-			}
-		}
+	if len(spec.DataVolumeTemplates) == 0 {
+		return causes
 	}
-	return causes
-}
-**/
 
-func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
 	for idx, dataVolume := range spec.DataVolumeTemplates {
 		if dataVolume.Name == "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf("'name' field must not be empty for DataVolumeTemplate entyr %s.", field.Child("dataVolumeTemplate").Index(idx).String()),
+				Message: fmt.Sprintf("'name' field must not be empty for DataVolumeTemplate entry %s.", field.Child("dataVolumeTemplate").Index(idx).String()),
 				Field:   field.Child("dataVolumeTemplate").Index(idx).Child("name").String(),
 			})
 		}
 
-		dataVolumeRefFound := false
-		for _, volume := range spec.Template.Spec.Volumes {
-			if volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.DataVolume.Name == dataVolume.Name {
-				dataVolumeRefFound = true
-				break
-			}
-		}
-
+		dataVolumeRefFound := checkDataVolumeReference(field, idx, dataVolume, spec.Template.Spec.Volumes)
 		if !dataVolumeRefFound {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
@@ -419,7 +378,19 @@ func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 			})
 		}
 	}
+
 	return causes
+}
+
+func checkDataVolumeReference(field *k8sfield.Path, idx int, dataVolume v1.DataVolumeTemplateSpec, volumes []v1.Volume) bool {
+	for _, volume := range volumes {
+		if volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == dataVolume.Name {
+			return true
+		} else if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolume.Name {
+			return true
+		}
+	}
+	return false
 }
 
 func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
