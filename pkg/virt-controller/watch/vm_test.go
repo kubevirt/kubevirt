@@ -362,6 +362,22 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(equality.Semantic.DeepEqual(vm, added)).To(BeTrue(), "A cached VM was modified")
 		}
 
+		expectOnlyInitializedConditionToBeChanged := func(vm *virtv1.VirtualMachine) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vmArg *virtv1.VirtualMachine) (interface{}, error) {
+				vm1 := vmArg.DeepCopy()
+
+				conditions := []virtv1.VirtualMachineCondition{}
+				for _, condition := range vm1.Status.Conditions {
+					if condition.Type != virtv1.VirtualMachineInitialized {
+						conditions = append(conditions, condition)
+					}
+				}
+				vm1.Status.Conditions = conditions
+				Expect(equality.Semantic.DeepEqual(vm1.Status, vm.Status)).To(BeTrue())
+				return vmArg, nil
+			})
+		}
+
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, virtv1.Volume{
@@ -1230,6 +1246,7 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1276,7 +1293,8 @@ var _ = Describe("VirtualMachine", func() {
 				initFunc()
 			}
 
-			controller.Execute()
+			expectOnlyInitializedConditionToBeChanged(vm)
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(expectedCreations))
 			if expectedCreations > 0 {
 				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1313,6 +1331,7 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreationPriorityClass(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, expectedPriorityClass, &createCount)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1701,6 +1720,10 @@ var _ = Describe("VirtualMachine", func() {
 
 					return true, "", nil
 				}
+				if !fail {
+					expectOnlyInitializedConditionToBeChanged(vm)
+				}
+
 				sanityExecute(vm)
 				if fail {
 					Expect(createCount).To(Equal(0))
@@ -2896,6 +2919,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 		})
 
@@ -2911,6 +2935,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 		})
 
@@ -2926,6 +2951,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 		})
 
