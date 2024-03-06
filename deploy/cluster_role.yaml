@@ -3680,6 +3680,17 @@ rules:
 - apiGroups:
   - aaq.kubevirt.io
   resources:
+  - applicationawareappliedclusterresourcequotas
+  verbs:
+  - create
+  - update
+  - delete
+  - get
+  - watch
+  - list
+- apiGroups:
+  - aaq.kubevirt.io
+  resources:
   - applicationawareclusterresourcequotas/finalizers
   verbs:
   - create

@@ -274,16 +274,15 @@ type ApplicationAwareClusterResourceQuotaList struct {
 	Items []ApplicationAwareClusterResourceQuota `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// AppliedApplicationAwareClusterResourceQuota mirrors ClusterResourceQuota at a project scope, for projection
+// ApplicationAwareAppliedClusterResourceQuota mirrors ApplicationAwareAppliedClusterResourceQuota at a project scope, for projection
 // into a project.  It allows a project-admin to know which ClusterResourceQuotas are applied to
 // his project and their associated usage.
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=acrq;acrqs,categories=all
-// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=aacrq;aacrqs,categories=all
 // +k8s:openapi-gen=true
-// +genclient:onlyVerbs=get,list
-type AppliedApplicationAwareClusterResourceQuota struct {
+type ApplicationAwareAppliedClusterResourceQuota struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is the standard object's metadata.
@@ -297,9 +296,9 @@ type AppliedApplicationAwareClusterResourceQuota struct {
 	Status ApplicationAwareClusterResourceQuotaStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
-// AppliedApplicationAwareClusterResourceQuotaList is a collection of AppliedApplicationAwareClusterResourceQuotas
+// ApplicationAwareAppliedClusterResourceQuotaList is a collection of AppliedApplicationAwareClusterResourceQuotas
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type AppliedApplicationAwareClusterResourceQuotaList struct {
+type ApplicationAwareAppliedClusterResourceQuotaList struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is the standard list's metadata.
@@ -307,5 +306,5 @@ type AppliedApplicationAwareClusterResourceQuotaList struct {
 	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Items is a list of AppliedApplicationAwareClusterResourceQuota
-	Items []AppliedApplicationAwareClusterResourceQuota `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Items []ApplicationAwareAppliedClusterResourceQuota `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
