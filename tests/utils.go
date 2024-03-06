@@ -147,23 +147,6 @@ func CreateSecret(name, namespace string, data map[string]string) {
 	}
 }
 
-func DeleteConfigMap(name, namespace string) {
-	virtCli := kubevirt.Client()
-
-	err := virtCli.CoreV1().ConfigMaps(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func DeleteSecret(name, namespace string) {
-	virtCli := kubevirt.Client()
-
-	err := virtCli.CoreV1().Secrets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-}
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
