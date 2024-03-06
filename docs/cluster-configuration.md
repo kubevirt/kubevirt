@@ -1166,6 +1166,16 @@ spec:
         some-label: "some value"
     allowApplicationAwareClusterResourceQuota: true
 ```
+## Configure higher workload density
+Cluster administrators can opt-in for higher VM workload density by configuring the memroy overcommit percentage as follows:
+```yaml
+spec:
+  higherWorkloadDensity:
+    memoryOvercommitPercentage: <intValue> # i.e. 150, 200, default is 100
+```
+As an example, if the VM compute container requests 4Gi memory, then the corresponding VM guest OS will see `4Gi * 150 / 100 = 6Gi`.
+
+**Note**: When updating the overcommit percentage, changes will apply to existing VM workloads only after a power cycle or after live-imgration. 
 
 ## Configurations via Annotations
 

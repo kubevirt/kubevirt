@@ -676,6 +676,10 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) *kubevirtcorev1.DeveloperConf
 		},
 	}
 
+	if hc.Spec.HigherWorkloadDensity != nil {
+		devConf.MemoryOvercommit = hc.Spec.HigherWorkloadDensity.MemoryOvercommitPercentage
+	}
+
 	fgs := getKvFeatureGateList(&hc.Spec.FeatureGates)
 	if len(fgs) > 0 {
 		devConf.FeatureGates = fgs

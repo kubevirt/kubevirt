@@ -1176,6 +1176,22 @@ spec:
                       value
                     type: object
                 type: object
+              higherWorkloadDensity:
+                default:
+                  memoryOvercommitPercentage: 100
+                description: HigherWorkloadDensity holds configurataion aimed to increase
+                  virtual machine density
+                properties:
+                  memoryOvercommitPercentage:
+                    default: 100
+                    description: |-
+                      MemoryOvercommitPercentage is the percentage of memory we want to give VMIs compared to the amount
+                      given to its parent pod (virt-launcher). For example, a value of 102 means the VMI will
+                      "see" 2% more memory than its parent pod. Values under 100 are effectively "undercommits".
+                      Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
+                    minimum: 1
+                    type: integer
+                type: object
               infra:
                 description: |-
                   infra HyperConvergedConfig influences the pod configuration (currently only placement)

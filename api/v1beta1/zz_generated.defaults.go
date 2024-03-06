@@ -170,6 +170,16 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 			in.Spec.VirtualMachineOptions.DisableSerialConsoleLog = &ptrVar1
 		}
 	}
+	if in.Spec.HigherWorkloadDensity == nil {
+		if err := json.Unmarshal([]byte(`{"memoryOvercommitPercentage": 100}`), &in.Spec.HigherWorkloadDensity); err != nil {
+			panic(err)
+		}
+	}
+	if in.Spec.HigherWorkloadDensity != nil {
+		if in.Spec.HigherWorkloadDensity.MemoryOvercommitPercentage == 0 {
+			in.Spec.HigherWorkloadDensity.MemoryOvercommitPercentage = 100
+		}
+	}
 }
 
 func SetObjectDefaults_HyperConvergedList(in *HyperConvergedList) {

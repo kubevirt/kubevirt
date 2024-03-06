@@ -24,6 +24,8 @@ spec:
     nonRoot: true
     persistentReservation: false
     withHostPassthroughCPU: false
+  higherWorkloadDensity:
+    memoryOvercommitPercentage: 100
   infra: {}
   liveMigrationConfig:
     allowAutoConverge: false

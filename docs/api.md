@@ -12,6 +12,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [DataImportCronStatus](#dataimportcronstatus)
 * [DataImportCronTemplate](#dataimportcrontemplate)
 * [DataImportCronTemplateStatus](#dataimportcrontemplatestatus)
+* [HigherWorkloadDensityConfiguration](#higherworkloaddensityconfiguration)
 * [HyperConverged](#hyperconverged)
 * [HyperConvergedCertConfig](#hyperconvergedcertconfig)
 * [HyperConvergedConfig](#hyperconvergedconfig)
@@ -98,6 +99,16 @@ DataImportCronTemplateStatus is a copy of a dataImportCronTemplate as defined in
 | metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) |  | false |
 | spec |  | *cdiv1beta1.DataImportCronSpec |  | false |
 | status |  | [DataImportCronStatus](#dataimportcronstatus) |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## HigherWorkloadDensityConfiguration
+
+HigherWorkloadDensity holds configurataion aimed to increase virtual machine density
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| memoryOvercommitPercentage | MemoryOvercommitPercentage is the percentage of memory we want to give VMIs compared to the amount given to its parent pod (virt-launcher). For example, a value of 102 means the VMI will \"see\" 2% more memory than its parent pod. Values under 100 are effectively \"undercommits\". Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully. | int | 100 | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -216,6 +227,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | ksmConfiguration | KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available). | *v1.KSMConfiguration |  | false |
 | networkBinding | NetworkBinding defines the network binding plugins. Those bindings can be used when defining virtual machine interfaces. | map[string]v1.InterfaceBindingPlugin |  | false |
 | applicationAwareConfig | ApplicationAwareConfig set the AAQ configurations | *[ApplicationAwareConfigurations](#applicationawareconfigurations) |  | false |
+| higherWorkloadDensity | HigherWorkloadDensity holds configurataion aimed to increase virtual machine density | *[HigherWorkloadDensityConfiguration](#higherworkloaddensityconfiguration) | {"memoryOvercommitPercentage": 100} | false |
 
 [Back to TOC](#table-of-contents)
 

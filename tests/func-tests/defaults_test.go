@@ -239,4 +239,25 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		)
 	})
 
+	Context("HigherWorkloadDensity defaults", func() {
+		defaultHigherWorkloadDensity := &v1beta1.HigherWorkloadDensityConfiguration{
+			MemoryOvercommitPercentage: 100,
+		}
+
+		DescribeTable("Check that HigherWorkloadDensity defaults are behaving as expected", func(path string) {
+			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
+			Eventually(func() error {
+				return tests.PatchHCO(ctx, cli, patch)
+			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				hc := tests.GetHCO(ctx, cli)
+				g.Expect(reflect.DeepEqual(hc.Spec.HigherWorkloadDensity, defaultHigherWorkloadDensity)).Should(BeTrue(), "HigherWorkloadDensity should be equal to default")
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+		},
+			Entry("when removing /spec/higherWorkloadDensity/memoryOvercommitPercentage", "/spec/higherWorkloadDensity/memoryOvercommitPercentage"),
+			Entry("when removing /spec/higherWorkloadDensity", "/spec/higherWorkloadDensity"),
+			Entry("when removing /spec", "/spec"),
+		)
+	})
 })
