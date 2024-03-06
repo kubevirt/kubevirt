@@ -5857,11 +5857,6 @@ var _ = Describe("VirtualMachine", func() {
 
 			expectVMUpdate := func() {
 				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (interface{}, error) {
-					for _, condition := range vm.Status.Conditions {
-						if condition.Type == virtv1.VirtualMachineRestartRequired {
-							restartRequired = condition.Status == k8sv1.ConditionTrue
-						}
-					}
 					return vm, nil
 				}).AnyTimes()
 			}
