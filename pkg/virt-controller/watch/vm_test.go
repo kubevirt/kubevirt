@@ -89,15 +89,6 @@ var _ = Describe("VirtualMachine", func() {
 		var config *virtconfig.ClusterConfig
 		var kvInformer cache.SharedIndexInformer
 
-		syncCaches := func() {
-			Expect(cache.WaitForCacheSync(stop,
-				vmiInformer.HasSynced,
-				vmInformer.HasSynced,
-				dataVolumeInformer.HasSynced,
-				crInformer.HasSynced,
-			)).To(BeTrue())
-		}
-
 		asInt64Ptr := func(i int64) *int64 {
 			return &i
 		}
@@ -344,7 +335,6 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		addVirtualMachine := func(vm *virtv1.VirtualMachine) {
-			syncCaches()
 			mockQueue.ExpectAdds(1)
 			vmSource.Add(vm)
 			mockQueue.Wait()
@@ -2580,6 +2570,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
 			vmiSource.Add(nonMatchingVMI)
+			syncCache(controller.vmiIndexer)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(2).Return(vm, nil).AnyTimes()
@@ -5742,7 +5733,6 @@ var _ = Describe("VirtualMachine", func() {
 					})
 
 					vm, vmi := DefaultVirtualMachine(true)
-					addVirtualMachine(vm)
 
 					affinity := k8sv1.Affinity{
 						PodAffinity: &k8sv1.PodAffinity{
@@ -5758,6 +5748,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}
 					vm.Spec.Template.Spec.Affinity = affinity.DeepCopy()
+					addVirtualMachine(vm)
 					Expect(vmiInformer.GetIndexer().Add(vmi)).To(Succeed())
 
 					By("Expecting to see patch for the VMI with new affinity")
@@ -5882,14 +5873,6 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(vmi, nil).AnyTimes()
 			}
 
-			expectControllerRevisionList := func() {
-				k8sClient.Fake.PrependReactor("list", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					crListLock.Lock()
-					defer crListLock.Unlock()
-					return true, crList.DeepCopy(), nil
-				})
-			}
-
 			expectControllerRevisionDelete := func() {
 				k8sClient.Fake.PrependReactor("delete", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 					deleted, ok := action.(testing.DeleteAction)
@@ -5905,34 +5888,6 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					return true, nil, fmt.Errorf("not found")
 				})
-			}
-
-			expectControllerRevisionCreation := func() {
-				k8sClient.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					created, ok := action.(testing.CreateAction)
-					Expect(ok).To(BeTrue())
-
-					createObj, ok := created.GetObject().(*appsv1.ControllerRevision)
-					Expect(ok).To(BeTrue())
-
-					crListLock.Lock()
-					defer crListLock.Unlock()
-					crList.Items = append(crList.Items, *createObj)
-					crSource.Add(createObj)
-
-					return true, created.GetObject(), nil
-				})
-			}
-
-			crFor := func(uid string) string {
-				crListLock.Lock()
-				defer crListLock.Unlock()
-				for _, cr := range crList.Items {
-					if strings.Contains(cr.Name, uid) {
-						return cr.Name
-					}
-				}
-				return ""
 			}
 
 			BeforeEach(func() {
@@ -5963,10 +5918,6 @@ var _ = Describe("VirtualMachine", func() {
 				restartRequired = false
 			})
 
-			AfterEach(func() {
-				k8sClient.Fake.ClearActions()
-			})
-
 			It("should appear when changing a non-live-updatable field", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
@@ -5978,10 +5929,11 @@ var _ = Describe("VirtualMachine", func() {
 				vmi = controller.setupVMIFromVM(vm)
 				expectVMICreation()
 				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
+
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer)
+
 				sanityExecute(vm)
-				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
@@ -5995,7 +5947,6 @@ var _ = Describe("VirtualMachine", func() {
 				expectControllerRevisionDelete()
 				expectVMUpdate()
 				sanityExecute(vm)
-				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
@@ -6014,10 +5965,11 @@ var _ = Describe("VirtualMachine", func() {
 				vmi = controller.setupVMIFromVM(vm)
 				expectVMICreation()
 				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
+
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer)
+
 				sanityExecute(vm)
-				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
@@ -6031,7 +5983,6 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMUpdate()
 				expectControllerRevisionDelete()
 				sanityExecute(vm)
-				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
@@ -6050,10 +6001,11 @@ var _ = Describe("VirtualMachine", func() {
 				vmi = controller.setupVMIFromVM(vm)
 				expectVMICreation()
 				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
+
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer)
+
 				sanityExecute(vm)
-				syncCaches()
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmi.Status.Memory = &virtv1.MemoryStatus{
@@ -6072,7 +6024,6 @@ var _ = Describe("VirtualMachine", func() {
 				expectVMUpdate()
 				expectControllerRevisionDelete()
 				sanityExecute(vm)
-				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
@@ -6089,11 +6040,11 @@ var _ = Describe("VirtualMachine", func() {
 				vmi = controller.setupVMIFromVM(vm)
 				expectVMICreation()
 				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
+
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer)
+
 				sanityExecute(vm)
-				syncCaches()
-				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
 				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
@@ -6110,8 +6061,6 @@ var _ = Describe("VirtualMachine", func() {
 					expectVMIPatch()
 				}
 				sanityExecute(vm)
-				syncCaches()
-				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
 				Eventually(restartRequired, 10*time.Second).Should(Equal(expectCond), "restart required")
 			},
 				Entry("should appear if the feature gate is not set",
@@ -6234,4 +6183,11 @@ func DefaultVirtualMachine(started bool) (*virtv1.VirtualMachine, *virtv1.Virtua
 
 func markVmAsReady(vm *virtv1.VirtualMachine) {
 	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
+}
+
+func syncCache(store cache.Store) {
+	EventuallyWithOffset(1, func(g Gomega) {
+		keys := store.ListKeys()
+		g.Expect(keys).To(HaveLen(1))
+	}, 1*time.Second).Should(Succeed())
 }
