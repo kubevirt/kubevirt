@@ -25,13 +25,12 @@ package virtconfig
 
 import (
 	"fmt"
-
-	"kubevirt.io/client-go/log"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
@@ -99,6 +98,39 @@ func IsARM64(arch string) bool {
 
 func IsPPC64(arch string) bool {
 	return arch == "ppc64le"
+}
+
+func (c *ClusterConfig) GetFeaturesToDisable() map[string]*cmdv1.FeaturesToDisable {
+	/*
+					Libvirt validation fails when a CPU model is usable
+					by QEMU but lacks features listed in
+					`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
+
+					To avoid the validation error mentioned above we will disable
+					some of the features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files
+					for some of the cpu models.
+					Examples of validation error:
+		    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283
+					https://gitlab.com/libvirt/libvirt/-/issues/304
+
+					Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
+					once the issue is resolved we can remove the key,value pairs with the mpx feature
+	*/
+
+	return map[string]*cmdv1.FeaturesToDisable{
+		"Cascadelake-Server-noTSX":  {Features: []string{"mpx"}},
+		"Cascadelake-Server":        {Features: []string{"mpx"}},
+		"Icelake-Client-noTSX":      {Features: []string{"mpx"}},
+		"Icelake-Client":            {Features: []string{"mpx"}},
+		"Icelake-Server-noTSX":      {Features: []string{"mpx"}},
+		"Icelake-Server":            {Features: []string{"mpx"}},
+		"Skylake-Client-IBRS":       {Features: []string{"mpx"}},
+		"Skylake-Client-noTSX-IBRS": {Features: []string{"mpx"}},
+		"Skylake-Client":            {Features: []string{"mpx"}},
+		"Skylake-Server-IBRS":       {Features: []string{"mpx"}},
+		"Skylake-Server-noTSX-IBRS": {Features: []string{"mpx"}},
+		"Skylake-Server":            {Features: []string{"mpx"}},
+	}
 }
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
