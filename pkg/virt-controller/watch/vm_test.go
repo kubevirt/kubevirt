@@ -6219,7 +6219,7 @@ var _ = Describe("VirtualMachine", func() {
 					})
 				})
 				DescribeTable("should add RestartRequired to VM when", func(originalVM, updatedVM *v1.VirtualMachine) {
-					_, required := controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)
+					required := controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)
 					Expect(required).To(BeTrue())
 					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
 					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
