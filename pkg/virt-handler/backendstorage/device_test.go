@@ -20,17 +20,17 @@ var _ = Describe("Check filesystem", func() {
 		err := cleanupFilesystemTestEnv(testTempDir)
 		Expect(err).ToNot(HaveOccurred())
 	})
-	It("should properly detect ext4 filesystem", func() {
+	It("should properly detect ext3 filesystem", func() {
 		log.Printf("Using temporary directory: %s", testTempDir)
 		vmStateDir, err := safepath.JoinAndResolveWithRelativeRoot(testTempDir, "/var/lib/libvirt/vm-state")
 		Expect(err).ToNot(HaveOccurred())
-		m, err := isExt4Mounted(vmStateDir)
+		m, err := isExt3Mounted(vmStateDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(m).To(BeTrue())
 
 		nvramDir, err := safepath.JoinAndResolveWithRelativeRoot(testTempDir, "/var/lib/libvirt/qemu/nvram")
 		Expect(err).ToNot(HaveOccurred())
-		m, err = isExt4Mounted(nvramDir)
+		m, err = isExt3Mounted(nvramDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(m).To(BeFalse())
 	})
