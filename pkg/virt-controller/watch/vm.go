@@ -306,8 +306,8 @@ func (c *VMController) execute(key string) error {
 		c.expectations.DeleteExpectations(key)
 		return nil
 	}
-	vm := obj.(*virtv1.VirtualMachine)
-	vm = vm.DeepCopy()
+	originalVM := obj.(*virtv1.VirtualMachine)
+	vm := originalVM.DeepCopy()
 
 	logger := log.Log.Object(vm)
 
@@ -390,7 +390,7 @@ func (c *VMController) execute(key string) error {
 		logger.Reason(syncErr).Error("Reconciling the VirtualMachine failed.")
 	}
 
-	err = c.updateStatus(vm, vmi, syncErr, logger)
+	err = c.updateStatus(vm, originalVM, vmi, syncErr, logger)
 	if err != nil {
 		logger.Reason(err).Error("Updating the VirtualMachine status failed.")
 		return err
@@ -2390,11 +2390,9 @@ func (c *VMController) syncGenerationInfo(vm *virtv1.VirtualMachine, vmi *virtv1
 	return nil
 }
 
-func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError, logger *log.FilteredLogger) error {
+func (c *VMController) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError, logger *log.FilteredLogger) error {
 	key := controller.VirtualMachineKey(vmOrig)
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vmOrig.Name})
-
-	vm := vmOrig.DeepCopy()
 
 	created := vmi != nil
 	vm.Status.Created = created

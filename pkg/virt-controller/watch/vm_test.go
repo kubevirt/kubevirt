@@ -356,6 +356,28 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(equality.Semantic.DeepEqual(vm, added)).To(BeTrue(), "A cached VM was modified")
 		}
 
+		Context("RunStrategyRerunOnFailure", func() {
+			It("Should add VirtualMachineInitialized condition", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				By("Executing the controller expecting the RestartRequired condition to appear")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(v1.VirtualMachineInitialized),
+					"Status": Equal(k8sv1.ConditionTrue),
+				})))
+			})
+
+		})
+
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -1406,7 +1428,7 @@ var _ = Describe("VirtualMachine", func() {
 				initFunc()
 			}
 
-			controller.Execute()
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(expectedCreations))
 			if expectedCreations > 0 {
 				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1846,6 +1868,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					return true, "", nil
 				}
+
 				sanityExecute(vm)
 				if fail {
 					Expect(createCount).To(Equal(0))
