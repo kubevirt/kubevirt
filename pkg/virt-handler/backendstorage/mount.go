@@ -68,8 +68,8 @@ func (m *mounter) MountBlockDevice(vmi *v1.VirtualMachineInstance, mountRoot *sa
 	}
 
 	// Create the filesystem.
-	if err := createExt4IfNotExist(mountNamespace, deviceFile); err != nil {
-		return fmt.Errorf("failed to create ext4 filesystem on backend storage: %w", err)
+	if err := createExt3IfNotExist(mountNamespace, deviceFile); err != nil {
+		return fmt.Errorf("failed to create ext3 filesystem on backend storage: %w", err)
 	}
 
 	// Crate the VM state directory and mount the filesystem. For example, it
