@@ -121,8 +121,14 @@ aliases:
   # SIG Release
   # Owns the release process, including the schedule, and tools.
   #
-  sig-release-approvers: []
-  sig-release-reviewers: []
+  sig-release-approvers:
+    - acardace
+    - fossedihelm
+    - xpivarc
+  sig-release-reviewers:
+    - acardace
+    - fossedihelm
+    - xpivarc
 
   #
   # SIG Buildsystem
