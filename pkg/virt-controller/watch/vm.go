@@ -2900,9 +2900,9 @@ func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 }
 
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
-func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, bool) {
+func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
 	if lastSeenVMSpec == nil {
-		return vm, false
+		return false
 	}
 	// Ignore all the live-updatable fields by copying them over. (If the feature gate is disabled, nothing is live-updatable)
 	// Note: this list needs to stay up-to-date with everything that can be live-updated
@@ -2928,10 +2928,10 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 			Status:             k8score.ConditionTrue,
 			Message:            "a non-live-updatable field was changed in the template spec",
 		})
-		return vm, true
+		return true
 	}
 
-	return vm, false
+	return false
 }
 
 func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (*virtv1.VirtualMachine, syncError, error) {
@@ -3021,7 +3021,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 	}
 
-	vm, restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
+	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
 
 	// Must check needsSync again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
