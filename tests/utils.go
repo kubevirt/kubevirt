@@ -685,15 +685,6 @@ func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	return
 }
 
-func DeleteAlpineWithNonQEMUPermissions() {
-	nonQemuAlpinePath := testsuite.HostPathAlpine + "-nopriv"
-	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
-
-	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
-
-	RunPodAndExpectCompletion(pod)
-}
-
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 	if err != nil {

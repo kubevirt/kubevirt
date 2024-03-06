@@ -259,8 +259,12 @@ var _ = SIGDescribe("Storage", func() {
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 					if targetImagePath != testsuite.HostPathAlpine {
-						tests.DeleteAlpineWithNonQEMUPermissions()
-					}
+						// delete the Alpine image with non-QEMU permissions
+						args := []string{fmt.Sprintf("rm -rf %s", testsuite.HostPathAlpine + "-nopriv")}
+			
+						pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+			
+						tests.RunPodAndExpectCompletion(pod)					}
 				})
 				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
 					libnet.SkipWhenClusterNotSupportIPFamily(family)
