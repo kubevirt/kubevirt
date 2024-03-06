@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -337,12 +336,6 @@ var _ = Describe("VirtualMachine", func() {
 		addVirtualMachine := func(vm *virtv1.VirtualMachine) {
 			mockQueue.ExpectAdds(1)
 			vmSource.Add(vm)
-			mockQueue.Wait()
-		}
-
-		modifyVirtualMachine := func(vm *virtv1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Modify(vm)
 			mockQueue.Wait()
 		}
 
@@ -5841,16 +5834,8 @@ var _ = Describe("VirtualMachine", func() {
 			var vm *virtv1.VirtualMachine
 			var vmi *virtv1.VirtualMachineInstance
 			var kv *virtv1.KubeVirt
-			var crList appsv1.ControllerRevisionList
-			var crListLock sync.Mutex
 
 			restartRequired := false
-
-			expectVMUpdate := func() {
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (interface{}, error) {
-					return vm, nil
-				}).AnyTimes()
-			}
 
 			expectVMStatusUpdate := func() {
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (interface{}, error) {
@@ -5863,37 +5848,13 @@ var _ = Describe("VirtualMachine", func() {
 				}).AnyTimes()
 			}
 
-			expectVMICreation := func() {
-				vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, arg interface{}) (interface{}, error) {
-					return arg, nil
-				}).AnyTimes()
-			}
-
-			expectVMIPatch := func() {
-				vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(vmi, nil).AnyTimes()
-			}
-
-			expectControllerRevisionDelete := func() {
-				k8sClient.Fake.PrependReactor("delete", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					deleted, ok := action.(testing.DeleteAction)
-					Expect(ok).To(BeTrue())
-
-					crListLock.Lock()
-					defer crListLock.Unlock()
-					for i, obj := range crList.Items {
-						if obj.Name == deleted.GetName() && obj.Namespace == deleted.GetNamespace() {
-							crList.Items = append(crList.Items[:i], crList.Items[i+1:]...)
-							return true, nil, nil
-						}
-					}
-					return true, nil, fmt.Errorf("not found")
-				})
-			}
-
 			BeforeEach(func() {
 				k8sClient.Fake.ClearActions()
-				crList = appsv1.ControllerRevisionList{}
 				vm, vmi = DefaultVirtualMachine(true)
+				vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineInitialized,
+					Status: k8score.ConditionTrue,
+				})
 				vm.ObjectMeta.UID = types.UID(uuid.NewString())
 				vmi.ObjectMeta.UID = vm.ObjectMeta.UID
 				vm.Generation = 1
@@ -5921,31 +5882,22 @@ var _ = Describe("VirtualMachine", func() {
 			It("should appear when changing a non-live-updatable field", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
-				By("Creating a VM with hostname a")
+				By("Creating a VMI with hostname 'a'")
 				vm.Spec.Template.Spec.Hostname = "a"
-				addVirtualMachine(vm)
-
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
 				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
 
+				By("Creating a Controller Revision with the hostname 'a'")
 				crSource.Add(createVMRevision(vm))
 				syncCache(controller.crIndexer)
 
-				sanityExecute(vm)
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-
-				By("Bumping the VM sockets above the cluster maximum")
+				By("Changing the hostname to 'b'")
 				vm.Spec.Template.Spec.Hostname = "b"
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
+				addVirtualMachine(vm)
 
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectControllerRevisionDelete()
-				expectVMUpdate()
+				expectVMStatusUpdate()
 				sanityExecute(vm)
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
@@ -5958,30 +5910,20 @@ var _ = Describe("VirtualMachine", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = 8
-				addVirtualMachine(vm)
-
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
-				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-
+				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer)
 
-				sanityExecute(vm)
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				By("Creating a VMI with cluster max")
+				vmi = controller.setupVMIFromVM(vm)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
 
 				By("Bumping the VM sockets above the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
+				addVirtualMachine(vm)
 
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
+				expectVMStatusUpdate()
 				sanityExecute(vm)
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
@@ -5989,76 +5931,86 @@ var _ = Describe("VirtualMachine", func() {
 			It("should appear when VM doesn't specify maxGuest and guest memory goes above cluster-wide maxGuest", func() {
 				var maxGuest = resource.MustParse("256Mi")
 
-				By("Setting a cluster-wide CPU maxGuest value")
+				By("Setting a cluster-wide Memory maxGuest value")
 				kv.Spec.Configuration.LiveUpdateConfiguration.MaxGuest = &maxGuest
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
-				addVirtualMachine(vm)
-
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
-				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-
 				crSource.Add(createVMRevision(vm))
 				syncCache(controller.crIndexer)
 
-				sanityExecute(vm)
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
+				By("Creating a VMI")
+				vmi = controller.setupVMIFromVM(vm)
 				markAsReady(vmi)
 				vmi.Status.Memory = &virtv1.MemoryStatus{
 					GuestAtBoot:  &maxGuest,
 					GuestCurrent: &maxGuest,
 				}
-				vmiFeeder.Add(vmi)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
 
 				By("Bumping the VM guest memory above the cluster maximum")
 				bigGuest := resource.MustParse("257Mi")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &bigGuest
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
+				addVirtualMachine(vm)
 
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
+				expectVMStatusUpdate()
 				sanityExecute(vm)
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
 			DescribeTable("when changing a live-updatable field", func(fgs []string, strat *virtv1.VMRolloutStrategy, expectCond bool) {
+				// Add necessary stuff to reflect running VM
+				// TODO: This should be done in more places
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.PrintableStatus = "Running"
+				virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineReady,
+					Status: k8sv1.ConditionTrue,
+				})
 				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 				kv.Spec.Configuration.VMRolloutStrategy = strat
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
-				addVirtualMachine(vm)
-
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
-				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-
 				crSource.Add(createVMRevision(vm))
 				syncCache(controller.crIndexer)
 
-				sanityExecute(vm)
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
+				By("Creating a VMI")
+				vmi = controller.setupVMIFromVM(vm)
 				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
 
 				By("Bumping the VM sockets to a reasonable value")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 4
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
+				addVirtualMachine(vm)
 
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
-				if !expectCond {
-					expectVMIPatch()
+				if expectCond {
+					expectVMStatusUpdate()
+				} else {
+					vmiInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+						Do(func(_ context.Context, _ string, _ types.PatchType, data []byte, _ *metav1.PatchOptions, subresources ...string) {
+							type P struct {
+								Op    string
+								Path  string
+								Value int
+							}
+							patches := []P{}
+
+							Expect(json.Unmarshal(data, &patches)).To(Succeed())
+							Expect(patches).To(HaveLen(2))
+							Expect(patches).To(ContainElement(P{
+								Op:    "replace",
+								Path:  "/spec/domain/cpu/sockets",
+								Value: 4,
+							}))
+						})
 				}
 				sanityExecute(vm)
 				Eventually(restartRequired, 10*time.Second).Should(Equal(expectCond), "restart required")
