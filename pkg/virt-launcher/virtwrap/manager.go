@@ -1005,6 +1005,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
 		}
 
+		c.CpuModelToFeaturesToDisable = options.CpuModelToFeaturesToDisable
 		c.DomainAttachmentByInterfaceName = options.GetInterfaceDomainAttachment()
 	}
 	c.DisksInfo = l.disksInfo

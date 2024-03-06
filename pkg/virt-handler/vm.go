@@ -3141,6 +3141,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	period := d.clusterConfig.GetMemBalloonStatsPeriod()
 
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig)
+	options.CpuModelToFeaturesToDisable = d.clusterConfig.GetFeaturesToDisable()
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
 
 	err = client.SyncVirtualMachine(vmi, options)

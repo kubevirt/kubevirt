@@ -19232,6 +19232,29 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"cpuFeaturesToDisable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CpuFeaturesToDisable is a map used to disable specific CPU features across the entire cluster for CPU Models. The key of CpuFeaturesToDisable should match the CPU Model name, and the value should be a list of CPU features to disable. For example, if we have an entry like Skylake-Client-noTSX-IBRS: {\"aes\",\"mpx\"}, it means that whenever the CPU Model is Skylake-Client-noTSX-IBRS, the features aes and mpx will be disabled.\n\nNote: This map does not affect the scheduling of virtual machines. It only influences the libvirt domain XML input provided by KubeVirt, resulting in feature disablement at the QEMU level.\n\nIf This map conflicts with the CPU features specified in VMI.Spec.Domain.CPU.Features, the configuration policy specified in VMI.Spec.Domain.CPU.Features will determine the behavior.\n\nAdditionally, please note that changes made using this map will not affect existing virtual machines.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"array"},
+										Items: &spec.SchemaOrArray{
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Default: "",
+													Type:    []string{"string"},
+													Format:  "",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 					"additionalGuestMemoryOverheadRatio": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure overhead. This is useful, since the calculation of this overhead is not accurate and cannot be entirely known in advance. The ratio that is being set determines by which factor to increase the overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised by node pressures, but would mean that fewer VMs could be scheduled to a node. If not set, the default is 1.",

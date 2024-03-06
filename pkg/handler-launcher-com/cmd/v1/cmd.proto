@@ -104,6 +104,10 @@ message InterfaceBindingMigration{
   string Method = 1;
 }
 
+message FeaturesToDisable{
+  repeated string features = 1;
+}
+
 message VirtualMachineOptions {
   SMBios VirtualMachineSMBios = 1;
   uint32 MemBalloonStatsPeriod = 2;
@@ -115,6 +119,7 @@ message VirtualMachineOptions {
   ClusterConfig clusterConfig = 7;
   map<string, string> interfaceDomainAttachment = 8;
   map<string, InterfaceBindingMigration> interfaceMigration = 9;
+  map<string, FeaturesToDisable> cpuModelToFeaturesToDisable = 10;
 }
 
 message VMIRequest {
