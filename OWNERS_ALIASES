@@ -99,29 +99,14 @@ aliases:
   sig-api-reviewers: []
 
   #
-  # SIG Controllers
-  # Owns the knowledge about excellent controllers in kubevirt.
-  #
-  sig-controllers-approvers: []
-  sig-controllers-reviewers: []
-
-  #
-  # SIG Live Migration
-  # Owns the orchestration of live migrations, besides this keeping
-  # other teams honest to make sure that their features work well
-  # with Live Migration.
-  #
-  sig-live-migration-approvers: []
-  sig-live-migration-reviewers: []
-
-  #
-  # SIG Node
+  # SIG Compute
   # Owns everything which is taking place on a node, for example
   # (but not limited to) groups, SELinux, node labels, …
+  # And everything on the cluster level such as RBAC, controller, …
   #
-  sig-node-approvers:
+  sig-compute-approvers:
     - jean-edouard
-  sig-node-reviewers:
+  sig-compute-reviewers:
     - victortoso
 
   #
