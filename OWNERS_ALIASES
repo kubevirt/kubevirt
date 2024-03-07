@@ -106,6 +106,7 @@ aliases:
   #
   sig-compute-approvers:
     - jean-edouard
+    - iholder101
   sig-compute-reviewers:
     - victortoso
 
