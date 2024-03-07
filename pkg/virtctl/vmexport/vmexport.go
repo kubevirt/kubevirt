@@ -71,6 +71,7 @@ const (
 	SNAPSHOT_FLAG       = "--snapshot"
 	INSECURE_FLAG       = "--insecure"
 	KEEP_FLAG           = "--keep-vme"
+	DELETE_FLAG         = "--delete-vme"
 	FORMAT_FLAG         = "--format"
 	PVC_FLAG            = "--pvc"
 	TTL_FLAG            = "--ttl"
@@ -130,6 +131,7 @@ var (
 	outputFile           string
 	insecure             bool
 	keepVme              bool
+	deleteVme            bool
 	shouldCreate         bool
 	includeSecret        bool
 	exportManifest       bool
@@ -146,6 +148,7 @@ type VMExportInfo struct {
 	ShouldCreate   bool
 	Insecure       bool
 	KeepVme        bool
+	DeleteVme      bool
 	IncludeSecret  bool
 	ExportManifest bool
 	Decompress     bool
@@ -269,6 +272,8 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 		},
 	}
 
+	shouldCreate = false
+
 	cmd.Flags().StringVar(&vm, "vm", "", "Sets VirtualMachine as vmexport kind and specifies the vm name.")
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Sets VirtualMachineSnapshot as vmexport kind and specifies the snapshot name.")
 	cmd.Flags().StringVar(&pvc, "pvc", "", "Sets PersistentVolumeClaim as vmexport kind and specifies the PVC name.")
@@ -277,7 +282,9 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
 	cmd.Flags().StringVar(&format, "format", "", "Used to specify the format of the downloaded image. There's two options: gzip (default) and raw.")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
-	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
+	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should always be retained after the download finishes.")
+	cmd.Flags().BoolVar(&deleteVme, "delete-vme", false, "When used with the 'download' option, specifies that the vmexport object should always be deleted after the download finishes.")
+	cmd.MarkFlagsMutuallyExclusive("keep-vme", "delete-vme")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
 	cmd.Flags().StringVar(&manifestOutputFormat, "manifest-output-format", "", "Manifest output format, defaults to Yaml. Valid options are yaml or json")
 	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use in the returned manifest, instead of the external URL in the Virtual Machine export status. This is useful for NodePorts or if you don't have an external URL configured")
@@ -384,6 +391,7 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
+	vmeInfo.DeleteVme = deleteVme
 	vmeInfo.VolumeName = volumeName
 	vmeInfo.ServiceURL = serviceUrl
 	vmeInfo.OutputFormat = manifestOutputFormat
@@ -486,7 +494,7 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 		}
 	}
 
-	if !vmeInfo.KeepVme && !vmeInfo.ExportManifest {
+	if shouldDeleteVMExport(vmeInfo) {
 		defer DeleteVirtualMachineExport(client, vmeInfo)
 	}
 
@@ -592,6 +600,12 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 	printToOutput("Download finished succesfully\n")
 
 	return nil
+}
+
+// shouldDeleteVMExport decides wether we should retain or delete a VMExport after a download. If delete/retain are not explicitly specified,
+// the vmexport will be deleted when is created in the same instance as the download, retained otherwise.
+func shouldDeleteVMExport(vmeInfo *VMExportInfo) bool {
+	return !vmeInfo.ExportManifest && (vmeInfo.DeleteVme || (vmeInfo.ShouldCreate && !vmeInfo.KeepVme))
 }
 
 func replaceUrlWithServiceUrl(manifestUrl string, vmeInfo *VMExportInfo) (string, error) {
@@ -900,6 +914,9 @@ func handleCreateFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, CREATE)
 	}
+	if deleteVme {
+		return fmt.Errorf(ErrIncompatibleFlag, DELETE_FLAG, CREATE)
+	}
 	if portForward {
 		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, CREATE)
 	}
@@ -933,6 +950,9 @@ func handleDeleteFlags() error {
 	}
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, DELETE)
+	}
+	if deleteVme {
+		return fmt.Errorf(ErrIncompatibleFlag, DELETE_FLAG, DELETE)
 	}
 	if portForward {
 		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, DELETE)
