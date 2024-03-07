@@ -1943,6 +1943,97 @@ var _ = Describe("Converter", func() {
 			Entry("using an auto policy with 5 CPUs", v1.IOThreadsPolicyAuto, 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 		)
 
+		It("Should not add IOThreads to non-virtio disks", func() {
+			dedicatedDiskName := "dedicated"
+			sharedDiskName := "shared"
+			incompatibleDiskName := "incompatible"
+			claimName := "claimName"
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: dedicatedDiskName,
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: v1.VirtIO,
+										},
+									},
+									DedicatedIOThread: True(),
+								},
+								{
+									Name: sharedDiskName,
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: v1.VirtIO,
+										},
+									},
+									DedicatedIOThread: False(),
+								},
+								{
+									Name: incompatibleDiskName,
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: v1.DiskBusSATA,
+										},
+									},
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: dedicatedDiskName,
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: claimName,
+									},
+								},
+							},
+						},
+						{
+							Name: sharedDiskName,
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: claimName,
+									},
+								},
+							},
+						},
+						{
+							Name: incompatibleDiskName,
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: claimName,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator})
+			Expect(domain.Spec.IOThreads).ToNot(BeNil())
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(2)))
+			// Disk with dedicated IOThread (2)
+			Expect(domain.Spec.Devices.Disks[0].Driver.IOThread).ToNot(BeNil())
+			Expect(*domain.Spec.Devices.Disks[0].Driver.IOThread).To(Equal(uint(2)))
+			// Disk with shared IOThread
+			Expect(domain.Spec.Devices.Disks[1].Driver.IOThread).ToNot(BeNil())
+			Expect(*domain.Spec.Devices.Disks[1].Driver.IOThread).To(Equal(uint(1)))
+			// Disk incompatible with IOThreads
+			Expect(domain.Spec.Devices.Disks[2].Driver.IOThread).To(BeNil())
+		})
 	})
 
 	Context("virtio block multi-queue", func() {
