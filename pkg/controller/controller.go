@@ -346,6 +346,23 @@ func SetVMIMigrationPhaseTransitionTimestamp(oldVMIMigration *v1.VirtualMachineI
 	}
 }
 
+func SetSourcePod(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndexInformer) {
+	if migration.Status.Phase != v1.MigrationPending {
+		return
+	}
+	sourcePod, err := CurrentVMIPod(vmi, podInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("migration source pod not found")
+	}
+	if sourcePod != nil {
+		if migration.Status.MigrationState == nil {
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{}
+		}
+		migration.Status.MigrationState.SourcePod = sourcePod.Name
+	}
+
+}
+
 func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume != nil {

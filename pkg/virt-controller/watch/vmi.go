@@ -1134,10 +1134,7 @@ func isPodFailed(pod *k8sv1.Pod) bool {
 }
 
 func podExists(pod *k8sv1.Pod) bool {
-	if pod != nil {
-		return true
-	}
-	return false
+	return pod != nil
 }
 
 func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) (bool, syncError) {

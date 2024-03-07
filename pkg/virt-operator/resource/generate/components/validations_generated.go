@@ -12186,6 +12186,9 @@ var CRDsValidation map[string]string = map[string]string{
             failed:
               description: Indicates that the migration failed
               type: boolean
+            failureReason:
+              description: Contains the reason why the migration failed
+              type: string
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
@@ -12281,6 +12284,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             sourceNode:
               description: The source node that the VMI originated on
+              type: string
+            sourcePod:
               type: string
             startTimestamp:
               description: The time the migration action began
@@ -12584,6 +12589,9 @@ var CRDsValidation map[string]string = map[string]string{
             failed:
               description: Indicates that the migration failed
               type: boolean
+            failureReason:
+              description: Contains the reason why the migration failed
+              type: string
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
@@ -12679,6 +12687,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             sourceNode:
               description: The source node that the VMI originated on
+              type: string
+            sourcePod:
               type: string
             startTimestamp:
               description: The time the migration action began

@@ -216,6 +216,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"failed":                         "Indicates that the migration failed",
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
+		"failureReason":                  "Contains the reason why the migration failed",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
 		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
