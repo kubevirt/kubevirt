@@ -78,11 +78,12 @@ const (
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
-
 	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
 	VolumesUpdateStrategy = "VolumesUpdateStrategy"
 	// VolumeMigration enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
 	VolumeMigration = "VolumeMigration"
+	// PersistentIPsGate enables IPAM persistent IPs feature.
+	PersistentIPsGate = "PersistentIPs"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -253,4 +254,8 @@ func (config *ClusterConfig) VolumesUpdateStrategyEnabled() bool {
 
 func (config *ClusterConfig) VolumeMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(VolumeMigration)
+}
+
+func (config *ClusterConfig) PersistentIPsEnabled() bool {
+	return config.isFeatureGateEnabled(PersistentIPsGate)
 }
