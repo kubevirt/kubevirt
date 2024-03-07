@@ -39,6 +39,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -92,7 +93,11 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"option2": "value2",
 					"option3": "value3",
 				}
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
+				_, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+					Data:       data,
+				}, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			AfterEach(func() {
@@ -147,7 +152,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			BeforeEach(func() {
 				for i := 0; i < configMapsCnt; i++ {
 					name := "configmap-" + uuid.NewString()
-					tests.CreateConfigMap(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
+					data := map[string]string{"option": "value"}
+					_, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{Name: name},
+						Data:       data,
+					}, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					configMaps = append(configMaps, name)
 				}
 			})
@@ -158,7 +168,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 					}
 				}
-				
 				configMaps = nil
 			})
 
@@ -255,7 +264,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 					}
 				}
-				
 				secrets = nil
 			})
 
@@ -349,9 +357,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"user":     "admin",
 					"password": "redhat",
 				}
-
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), configData)
-
+				
+				_, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+					Data:       configData,
+				}, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secretData)
 			})
 
