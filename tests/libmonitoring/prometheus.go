@@ -30,7 +30,6 @@ import (
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 type AlertRequestResult struct {
@@ -395,7 +394,7 @@ func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRul
 
 func GetKubevirtVMMetrics(pod *k8sv1.Pod, ip string) string {
 	metricsURL := PrepareMetricsURL(ip, 8443)
-	stdout, _, err := execute.ExecuteCommandOnPodWithResults(kubevirt.Client(),
+	stdout, _, err := execute.ExecuteCommandOnPodWithResults(
 		pod,
 		"virt-handler",
 		[]string{

@@ -620,7 +620,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				pod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), nodeName)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, _, err = exec.ExecuteCommandOnPodWithResults(kubevirt.Client(), pod,
+				_, _, err = exec.ExecuteCommandOnPodWithResults(pod,
 					"virt-handler",
 					[]string{
 						"rm",

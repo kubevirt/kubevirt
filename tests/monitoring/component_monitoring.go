@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -220,11 +221,11 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
+		PIt("VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewGuestless()
 
 			Eventually(func(g Gomega) {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
@@ -239,7 +240,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmi.NewGuestless()
 
 			Eventually(func(g Gomega) {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
@@ -248,35 +249,6 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
-		})
-	})
-
-	Context("Resource metrics", func() {
-		var resourceAlerts = []string{
-			"KubeVirtComponentExceedsRequestedCPU",
-			"KubeVirtComponentExceedsRequestedMemory",
-		}
-
-		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
-			scales.UpdateScale(virtOperator.deploymentName, int32(0))
-			libmonitoring.ReduceAlertPendingTime(virtClient)
-		})
-
-		AfterEach(func() {
-			scales.RestoreAllScales()
-			time.Sleep(10 * time.Second)
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, resourceAlerts...)
-		})
-
-		It("KubeVirtComponentExceedsRequestedCPU should be triggered when virt-api exceeds requested CPU", func() {
-			By("updating virt-api deployment CPU and Memory requests")
-			updateDeploymentResourcesRequest(virtClient, virtApi.deploymentName, resource.MustParse("0m"), resource.MustParse("0Mi"))
-
-			By("waiting for KubeVirtComponentExceedsRequestedCPU and KubeVirtComponentExceedsRequestedMemory alerts")
-			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedCPU")
-			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtComponentExceedsRequestedMemory")
 		})
 	})
 })

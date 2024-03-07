@@ -744,6 +744,13 @@ func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause 
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
 	}
+	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "IOThreads are not supported by scsi bus.",
+			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+		}}
+	}
 
 	return nil
 }

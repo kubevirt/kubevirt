@@ -22,12 +22,8 @@ package virtiofs
 import (
 	"fmt"
 
-	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
@@ -45,10 +41,7 @@ import (
 )
 
 var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, func() {
-	var virtClient kubecli.KubevirtClient
-
 	BeforeEach(func() {
-		virtClient = kubevirt.Client()
 		checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
 	})
 
@@ -86,7 +79,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			By("Checking if ConfigMap has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", configMapName),
 				[]string{"cat",
@@ -143,7 +135,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			By("Checking if Secret has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", secretName),
 				[]string{"cat",
@@ -185,7 +176,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			By("Checking if ServiceAccount has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			namespace, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
 				[]string{"cat",
@@ -196,7 +186,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			Expect(namespace).To(Equal(testsuite.GetTestNamespace(vmi)))
 
 			token, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
 				[]string{"tail", "-c", "20",
@@ -244,7 +233,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			By("Checking if DownwardAPI has been attached to the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			podOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", downwardAPIName),
 				[]string{"grep", testLabelKey,

@@ -96,7 +96,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -192,7 +191,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	}
 
 	getVirtqemudPid := func(pod *k8sv1.Pod) string {
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "compute",
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "compute",
 			[]string{
 				"pidof",
 				"virtqemud",
@@ -339,15 +338,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 		Context("with a bridge network interface", func() {
 			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					{
-						Name: "default",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-				}
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
@@ -598,18 +592,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			)
 
 			It("[test_id:6842]should migrate with TSC frequency set", decorators.Invtsc, decorators.TscFrequencies, func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Features: []v1.CPUFeature{
-						{
-							Name:   "invtsc",
-							Policy: "require",
-						},
-					},
-				}
-				// only with this strategy will the frequency be set
-				strategy := v1.EvictionStrategyLiveMigrate
-				vmi.Spec.EvictionStrategy = &strategy
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCPUFeature("invtsc", "require"),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+				)
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -761,7 +749,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				// kill virtqemud
 				By(fmt.Sprintf("Killing virtqemud with pid %s", pid))
-				stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &pods.Items[0], "compute",
+				stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(&pods.Items[0], "compute",
 					[]string{
 						"kill",
 						"-9",
@@ -806,7 +794,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// ensure the libvirt domain is persistent
-				persistent, err := libvirtDomainIsPersistent(virtClient, vmi)
+				persistent, err := libvirtDomainIsPersistent(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should list libvirt domains successfully")
 				Expect(persistent).To(BeTrue(), "The VMI was not found in the list of libvirt persistent domains")
 				libmigration.EnsureNoMigrationMetadataInPersistentXML(vmi)
@@ -828,7 +816,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is still paused before migration")
-				isPausedb, err := libvirtDomainIsPaused(virtClient, vmi)
+				isPausedb, err := libvirtDomainIsPaused(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
 				Expect(isPausedb).To(BeTrue(), "The VMI should be paused before migration, but it is not.")
 
@@ -840,7 +828,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("verifying that the vmi is still paused after migration")
-				isPaused, err := libvirtDomainIsPaused(virtClient, vmi)
+				isPaused, err := libvirtDomainIsPaused(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
 				Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
 
@@ -850,7 +838,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is running")
-				isPaused, err = libvirtDomainIsPaused(virtClient, vmi)
+				isPaused, err = libvirtDomainIsPaused(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
 				Expect(isPaused).To(BeFalse(), "The VMI should be running, but it is not.")
 			})
@@ -2361,7 +2349,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				It("should be able to properly abort migration", func() {
 					By("Starting a VirtualMachineInstance")
-					vmi := tests.NewRandomVMI()
+					vmi := libvmi.NewGuestless(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
@@ -2696,7 +2687,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				config.MigrationConfiguration.AllowAutoConverge = pointer.BoolPtr(true)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi := libvmi.NewAlpine(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
 
 				var expectedPolicyName *string
 				if defineMigrationPolicy {
@@ -2820,33 +2814,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	})
 
 	Context("[Serial] With Huge Pages", Serial, func() {
-		var hugepagesVmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			hugepagesVmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		})
-
 		DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
 			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
-			v, err := cluster.GetKubernetesVersion()
-			Expect(err).ShouldNot(HaveOccurred())
-			if strings.Contains(v, "1.16") {
-				hugepagesVmi.Annotations = map[string]string{
-					v1.MemfdMemoryBackend: "false",
-				}
-				log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
-			}
 
 			count := 0
 			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-			requestedMemory := resource.MustParse(memory)
-			hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = requestedMemory
-
 			for _, node := range nodes.Items {
 				// Cmp returns -1, 0, or 1 for less than, equal to, or greater than
-				if v, ok := node.Status.Capacity[hugepageType]; ok && v.Cmp(requestedMemory) == 1 {
+				if v, ok := node.Status.Capacity[hugepageType]; ok && v.Cmp(resource.MustParse(memory)) == 1 {
 					count += 1
 				}
 			}
@@ -2855,9 +2832,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Skip(fmt.Sprintf("Not enough nodes with hugepages %s capacity. Need 2, found %d.", hugepageType, count))
 			}
 
-			hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
-				Hugepages: &v1.Hugepages{PageSize: hugepageSize},
-			}
+			hugepagesVmi := libvmi.NewAlpine(
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory(memory),
+				libvmi.WithHugepages(hugepageSize),
+			)
 
 			By("Starting hugepages VMI")
 			_, err = virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Create(context.Background(), hugepagesVmi)
@@ -2880,15 +2861,15 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		It("should not make migrations fail", func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
-			cpuVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-			cpuVMI.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 3,
-				DedicatedCPUPlacement: true,
-			}
-			cpuVMI.Spec.Domain.Memory = &v1.Memory{
-				Hugepages: &v1.Hugepages{PageSize: "2Mi"},
-			}
+			cpuVMI := libvmi.NewAlpine(
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithDedicatedCPUPlacement(),
+				libvmi.WithCPUCount(3, 1, 1),
+				libvmi.WithHugepages("2Mi"),
+			)
 
 			By("Starting a VirtualMachineInstance")
 			cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
@@ -2904,16 +2885,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 				var err error
-				cpuVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-				cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-				cpuVMI.Spec.Domain.CPU = &v1.CPU{
-					Cores:                 3,
-					DedicatedCPUPlacement: true,
-					NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
-				}
-				cpuVMI.Spec.Domain.Memory = &v1.Memory{
-					Hugepages: &v1.Hugepages{PageSize: "2Mi"},
-				}
+				cpuVMI := libvmi.NewAlpine(
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithDedicatedCPUPlacement(),
+					libvmi.WithCPUCount(3, 1, 1),
+					libvmi.WithNUMAGuestMappingPassthrough(),
+					libvmi.WithHugepages("2Mi"),
+				)
 
 				By("Starting a VirtualMachineInstance")
 				cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
@@ -3077,7 +3058,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient,
+			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 				pod,
 				"compute",
 				[]string{"virsh", "vcpupin", fmt.Sprintf("%s_%s", vmi.GetNamespace(), vmi.GetName())})
@@ -3102,7 +3083,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
 			}
 
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient,
+			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 				pod,
 				"compute",
 				[]string{"cat", cpusetPath})
@@ -3201,7 +3182,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("determining cgroups version")
-			cgroupVersion = getVMIsCgroupVersion(vmi, virtClient)
+			cgroupVersion = getVMIsCgroupVersion(vmi)
 
 			By("ensuring the VMI started on the correct node")
 			Expect(vmi.Status.NodeName).To(Equal(nodes[0].Name))
@@ -3285,7 +3266,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 	It("should update MigrationState's MigrationConfiguration of VMI status", func() {
 		By("Starting a VMI")
-		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi := libvmi.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 		By("Starting a Migration")
@@ -3303,7 +3288,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	Context("with a live-migration in flight", func() {
 		It("there should always be a single active migration per VMI", func() {
 			By("Starting a VMI")
-			vmi := libvmi.NewCirros(
+			vmi := libvmi.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -3528,11 +3513,10 @@ func temporaryTLSConfig() *tls.Config {
 	}
 }
 
-func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
+func libvirtDomainIsPersistent(vmi *v1.VirtualMachineInstance) (bool, error) {
 	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
-		virtClient,
 		vmiPod,
 		libpod.LookupComputeContainer(vmiPod).Name,
 		[]string{"virsh", "--quiet", "list", "--persistent", "--name"},
@@ -3543,20 +3527,19 @@ func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.Virtua
 	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
 }
 
-func libvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
+func libvirtDomainIsPaused(vmi *v1.VirtualMachineInstance) (bool, error) {
 	namespace := testsuite.GetTestNamespace(vmi)
-	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
 
-	vmiPod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
+	vmiPod, err := libpod.GetRunningPodByLabel(kubevirt.Client(), string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 	if err != nil {
 		return false, err
 	}
 
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
-		virtClient,
 		vmiPod,
 		libpod.LookupComputeContainer(vmiPod).Name,
 		[]string{"virsh", "--quiet", "domstate", vmi.Namespace + "_" + vmi.Name},
@@ -3567,15 +3550,15 @@ func libvirtDomainIsPaused(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 	return strings.Contains(stdout, "paused"), nil
 }
 
-func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance) cgroup.CgroupVersion {
+	pod, err := libpod.GetRunningPodByLabel(kubevirt.Client(), string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 	Expect(err).ToNot(HaveOccurred())
 
-	return getPodsCgroupVersion(pod, virtClient)
+	return getPodsCgroupVersion(pod)
 }
 
-func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgroup.CgroupVersion {
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient,
+func getPodsCgroupVersion(pod *k8sv1.Pod) cgroup.CgroupVersion {
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		pod,
 		"compute",
 		[]string{"stat", "/sys/fs/cgroup/", "-f", "-c", "%T"})

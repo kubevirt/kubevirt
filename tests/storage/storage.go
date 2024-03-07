@@ -620,7 +620,6 @@ var _ = SIGDescribe("Storage", func() {
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 						nodeName = vmiPod.Spec.NodeName
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir(hostDiskName), "-name", diskName, "-size", "1G", "-o", "-size", "+1G"},
@@ -649,7 +648,6 @@ var _ = SIGDescribe("Storage", func() {
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 						nodeName = vmiPod.Spec.NodeName
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-size", "1G", "-o", "-size", "+1G"},
@@ -659,7 +657,6 @@ var _ = SIGDescribe("Storage", func() {
 
 						By("Checking if disk.img has been created")
 						output, err = exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir(hostDiskName), "-size", "1G", "-o", "-size", "+1G"},
@@ -703,7 +700,6 @@ var _ = SIGDescribe("Storage", func() {
 						By("Checking if disk.img exists")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir(hostDiskName), "-name", diskName},
@@ -789,7 +785,6 @@ var _ = SIGDescribe("Storage", func() {
 						By("Checking if disk.img exists")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", diskImgName, "-size", "1G", "-o", "-size", "+1G"},
@@ -837,7 +832,7 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Determining the size of the mounted directory")
-					diskSizeStr, _, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, []string{tests.BinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
+					diskSizeStr, _, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, []string{tests.BinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
 					Expect(err).ToNot(HaveOccurred())
 					diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
 					diskSize = diskSize * 1000 // byte to kilobyte

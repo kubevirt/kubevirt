@@ -1837,7 +1837,7 @@ status:
 		)
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomVMI()
+			vmi = libvmi.NewGuestless()
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			Expect(vm.Finalizers).To(BeEmpty())
 			vm.Finalizers = append(vm.Finalizers, customFinalizer)

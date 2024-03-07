@@ -97,7 +97,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {
 		output, err = exec.ExecuteCommandOnPod(
-			virtClient,
 			pod,
 			"compute",
 			[]string{"cat", cgroupV2MemoryUsagePath},
@@ -108,7 +107,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		}
 
 		output, err = exec.ExecuteCommandOnPod(
-			virtClient,
 			pod,
 			"compute",
 			[]string{"cat", cgroupV1MemoryUsagePath},
@@ -1069,7 +1067,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				// Get a hugepages statistics from virt-launcher pod
 				output, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
 					[]string{"cat", fmt.Sprintf("%s/nr_hugepages", hugepagesDir)},
@@ -1080,7 +1077,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				output, err = exec.ExecuteCommandOnPod(
-					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
 					[]string{"cat", fmt.Sprintf("%s/free_hugepages", hugepagesDir)},
@@ -1091,7 +1087,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				output, err = exec.ExecuteCommandOnPod(
-					virtClient,
 					&pods.Items[0],
 					pods.Items[0].Spec.Containers[0].Name,
 					[]string{"cat", fmt.Sprintf("%s/resv_hugepages", hugepagesDir)},
@@ -2743,9 +2738,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				emulator = filepath.Base(emulator)
 
-				virtClient := kubevirt.Client()
 				pidCmd := []string{"pidof", emulator}
-				qemuPid, err := exec.ExecuteCommandOnPod(virtClient, readyPod, "compute", pidCmd)
+				qemuPid, err := exec.ExecuteCommandOnPod(readyPod, "compute", pidCmd)
 				// do not check for kvm-pit thread if qemu is not in use
 				if err != nil {
 					return
@@ -3253,7 +3247,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var stdout, stderr string
 			errorMassageFormat := "failed after running the `ps` command with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 			Eventually(func() error {
-				stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, &pods.Items[0], "compute",
+				stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(&pods.Items[0], "compute",
 					[]string{
 						"ps",
 						"--no-header",
@@ -3413,10 +3407,7 @@ func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
 }
 
 func listCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
-	virtClient := kubevirt.Client()
-
 	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
 		pod,
 		"compute",
 		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
@@ -3427,7 +3418,6 @@ func listCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
 		return
 	}
 	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
 		pod,
 		"compute",
 		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
@@ -3436,11 +3426,8 @@ func listCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
 }
 
 func getProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
-	virtClient := kubevirt.Client()
-
 	fPath := "/proc/" + pid + "/comm"
 	output, err = exec.ExecuteCommandOnPod(
-		virtClient,
 		pod,
 		"compute",
 		[]string{"cat", fPath},

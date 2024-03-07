@@ -19,7 +19,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests"
@@ -38,13 +37,10 @@ const testString = "GuestConsoleTest3413254123535234523"
 var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func() {
 
 	var (
-		virtClient kubecli.KubevirtClient
-		cirrosVmi  *v1.VirtualMachineInstance
+		cirrosVmi *v1.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-
 		cirrosVmi = libvmi.NewCirros()
 		cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(true)
 		cirrosVmi.Spec.Domain.Devices.LogSerialConsole = pointer.P(true)
@@ -142,7 +138,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				By("Getting logs with logs API and ensure the logs are correctly ordered with no unexpected line breaks")
 
 				Eventually(func(g Gomega) bool {
-					logs, err := getConsoleLogs(virtClient, virtlauncherPod)
+					logs, err := getConsoleLogs(virtlauncherPod)
 					g.Expect(err).ToNot(HaveOccurred())
 					return strings.Contains(logs, cirrosLogo)
 				}, cirrosStartupTimeout*time.Second, 2*time.Second).Should(BeTrue())
@@ -155,7 +151,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				}, 240)).To(Succeed())
 
 				By("Ensuring that log fetching is not breaking an open console")
-				expecter, errChan, eerr := console.NewExpecter(virtClient, vmi, 90*time.Second)
+				expecter, errChan, eerr := console.NewExpecter(kubevirt.Client(), vmi, 90*time.Second)
 				Expect(eerr).ToNot(HaveOccurred())
 				if eerr == nil {
 					defer func() {
@@ -166,7 +162,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 
 				Consistently(errChan).ShouldNot(Receive())
 
-				logs, err := getConsoleLogs(virtClient, virtlauncherPod)
+				logs, err := getConsoleLogs(virtlauncherPod)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Ensuring that logs contain the login attempt")
@@ -192,11 +188,11 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				generateHugeLogData(vmi, 9)
 
 				By("Ensuring that log fetching is not failing")
-				_, err = getConsoleLogs(virtClient, virtlauncherPod)
+				_, err = getConsoleLogs(virtlauncherPod)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Ensuring that we have 4 rotated log files (+term one)")
-				outputString, err := exec.ExecuteCommandOnPod(virtClient, virtlauncherPod, "guest-console-log", []string{"/bin/ls", "-l", fmt.Sprintf("/var/run/kubevirt-private/%v", vmi.UID)})
+				outputString, err := exec.ExecuteCommandOnPod(virtlauncherPod, "guest-console-log", []string{"/bin/ls", "-l", fmt.Sprintf("/var/run/kubevirt-private/%v", vmi.UID)})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4 + 1))
 			})
@@ -224,7 +220,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				generateHugeLogData(vmi, 1)
 
 				By("Ensuring that log fetching is not failing")
-				logs, err := getConsoleLogs(virtClient, virtlauncherPod)
+				logs, err := getConsoleLogs(virtlauncherPod)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that log lines are sequential with no gaps")
@@ -258,7 +254,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 						virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 						if err == nil {
 							artifactsDir, _ := os.LookupEnv("ARTIFACTS")
-							outputString, err := exec.ExecuteCommandOnPod(virtClient, virtlauncherPod, "guest-console-log", []string{"/bin/bash", "-c", "/bin/tail -v -n +1 " + fmt.Sprintf("/var/run/kubevirt-private/%v/virt-serial*-log*", vmi.UID)})
+							outputString, err := exec.ExecuteCommandOnPod(virtlauncherPod, "guest-console-log", []string{"/bin/bash", "-c", "/bin/tail -v -n +1 " + fmt.Sprintf("/var/run/kubevirt-private/%v/virt-serial*-log*", vmi.UID)})
 							if err == nil {
 								lpath := filepath.Join(artifactsDir, fmt.Sprintf("serial_logs_content_%v.txt", vmi.UID))
 								_, _ = fmt.Fprintf(GinkgoWriter, "Serial console log failed, serial console logs dump from virt-launcher pod collected at file at %s\n", lpath)
@@ -293,8 +289,8 @@ func generateHugeLogData(vmi *v1.VirtualMachineInstance, mb int) {
 	}, 240)).To(Succeed())
 }
 
-func getConsoleLogs(virtClient kubecli.KubevirtClient, virtlauncherPod *k8sv1.Pod) (string, error) {
-	logsRaw, err := virtClient.CoreV1().
+func getConsoleLogs(virtlauncherPod *k8sv1.Pod) (string, error) {
+	logsRaw, err := kubevirt.Client().CoreV1().
 		Pods(virtlauncherPod.Namespace).
 		GetLogs(virtlauncherPod.Name, &k8sv1.PodLogOptions{
 			Container: "guest-console-log",

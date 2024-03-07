@@ -85,6 +85,23 @@ func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return New(alpineOpts...)
 }
 
+func NewGuestless(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	opts = append(
+		[]Option{WithResourceMemory(qemuMinimumMemory())},
+		opts...)
+	return New(opts...)
+}
+
+func qemuMinimumMemory() string {
+	if isARM64() {
+		// required to start qemu on ARM with UEFI firmware
+		// https://github.com/kubevirt/kubevirt/pull/11366#issuecomment-1970247448
+		const armMinimalBootableMemory = "128Mi"
+		return armMinimalBootableMemory
+	}
+	return "1Mi"
+}
+
 func cirrosMemory() string {
 	if isARM64() {
 		return "256Mi"
