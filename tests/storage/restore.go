@@ -184,16 +184,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		return dv
 	}
 
-	waitPVCReady := func(pvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
-		Eventually(func() bool {
-			var err error
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return pvc.Annotations["cdi.kubevirt.io/storage.pod.phase"] == string(corev1.PodSucceeded)
-		}, 180*time.Second, time.Second).Should(BeTrue())
-		return pvc
-	}
-
 	deleteVM := func(vm *v1.VirtualMachine) {
 		err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
@@ -1173,9 +1163,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				dv = waitDVReady(dv)
 
 				vm, vmi = createAndStartVM(vm)
+				dv = waitDVReady(dv)
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
@@ -1204,33 +1194,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a PVC", func(restoreToNewVM bool) {
-				quantity, err := resource.ParseQuantity("1Gi")
-				Expect(err).ToNot(HaveOccurred())
-				pvc := &corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "restore-pvc-" + rand.String(12),
-						Namespace: testsuite.GetTestNamespace(nil),
-						Annotations: map[string]string{
-							"cdi.kubevirt.io/storage.import.source":   "registry",
-							"cdi.kubevirt.io/storage.import.endpoint": cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-						},
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								"storage": quantity,
-							},
-						},
-						StorageClassName: &snapshotStorageClass,
-					},
-				}
+				dv := libdv.NewDataVolume(
+					libdv.WithName("restore-pvc-"+rand.String(12)),
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+				)
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				pvc = waitPVCReady(pvc)
 
-				originalPVCName := pvc.Name
+				originalPVCName := dv.Name
 
 				memory := "128Mi"
 				if checks.IsARM64(testsuite.Arch) {
@@ -1241,7 +1214,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithResourceMemory(memory),
-					libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
+					libvmi.WithPersistentVolumeClaim("disk0", originalPVCName),
 					libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
 				)
 				vm = libvmi.NewVirtualMachine(vmi)
@@ -1617,6 +1590,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By(creatingSnapshot)
+				targetVM = tests.StartVirtualMachine(targetVM)
 				snapshot = createSnapshot(targetVM)
 				newVM = tests.StopVirtualMachine(targetVM)
 
@@ -1873,9 +1847,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					defer libstorage.DeleteDataVolume(&dv)
-					waitDVReady(dv)
 
 					vm, vmi = createAndStartVM(vm)
+					waitDVReady(dv)
 
 					checkCloneAnnotations(vm, true)
 					if deleteSourcePVC {
