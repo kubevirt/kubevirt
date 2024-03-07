@@ -382,9 +382,9 @@ func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	return causes
 }
 
-// TODO: Assuming here that PVC name == DV name which might not be the case in the future.
 func checkDataVolumeReference(field *k8sfield.Path, idx int, dataVolume v1.DataVolumeTemplateSpec, volumes []v1.Volume) bool {
 	for _, volume := range volumes {
+		// TODO: Assuming here that PVC name == DV name which might not be the case in the future.
 		if volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == dataVolume.Name {
 			return true
 		} else if volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolume.Name {
