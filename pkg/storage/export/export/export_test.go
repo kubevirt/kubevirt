@@ -974,8 +974,7 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			Expect(secret.GetName()).To(Equal(controller.getExportSecretName(testExportPod)))
 			Expect(secret.GetNamespace()).To(Equal(testNamespace))
-			secret.Name = "something"
-			return true, secret, errors.NewAlreadyExists(schema.GroupResource{}, "already exists")
+			return true, nil, errors.NewAlreadyExists(schema.GroupResource{}, secret.Name)
 		})
 		err = controller.createCertSecret(testVMExport, testExportPod)
 		Expect(err).ToNot(HaveOccurred())
