@@ -2651,7 +2651,6 @@ var _ = Describe("VirtualMachine", func() {
 				test := `{ "op": "test", "path": "/spec/volumes", "value": [{"name":"testPVC","memoryDump":{"claimName":"testPVC","hotpluggable":true}}]}`
 				update := `{ "op": "replace", "path": "/spec/volumes", "value": []}`
 				patch := fmt.Sprintf("[%s, %s]", test, update)
-				fmt.Println(patch)
 
 				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
 			}

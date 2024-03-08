@@ -1371,8 +1371,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			} else {
 				Expect(err).ToNot(HaveOccurred())
 			}
-
-			fmt.Println(patch)
 			Expect(patch).To(Equal(expectedPatch))
 		},
 			Entry("add memory dump request with no existing request",
