@@ -20,7 +20,6 @@
 package main
 
 import (
-	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	virt_operator "kubevirt.io/kubevirt/pkg/virt-operator"
 )
 

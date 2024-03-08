@@ -14,7 +14,6 @@ go_library(
         "//pkg/monitoring/domainstats/prometheus:go_default_library",
         "//pkg/monitoring/metrics/virt-handler:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
-        "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",

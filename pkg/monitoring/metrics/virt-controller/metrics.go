@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/reflector"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -73,6 +74,10 @@ func SetupMetrics(
 	}
 
 	if err := reflector.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := workqueue.SetupMetrics(); err != nil {
 		return err
 	}
 

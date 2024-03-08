@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-operator",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/virt-operator:go_default_library",
     ],
 )
