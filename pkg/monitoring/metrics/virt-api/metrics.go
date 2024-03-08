@@ -23,10 +23,15 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 )
 
 func SetupMetrics() error {
 	if err := client.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := workqueue.SetupMetrics(); err != nil {
 		return err
 	}
 
