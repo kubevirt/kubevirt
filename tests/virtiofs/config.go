@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -77,7 +78,9 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Checking if ConfigMap has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			podOutput, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", configMapName),
@@ -133,7 +136,9 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Checking if Secret has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			podOutput, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", secretName),
@@ -174,7 +179,9 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Checking if ServiceAccount has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			namespace, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
@@ -231,7 +238,9 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Checking if DownwardAPI has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			podOutput, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", downwardAPIName),

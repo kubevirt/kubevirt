@@ -315,7 +315,9 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration for iteration")
-			sourcePod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			By("Checking VMI, confirm migration state")
@@ -715,7 +717,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					Eventually(func() error {
 						newvmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(newvmi, vmi.Namespace)
+						Expect(err).NotTo(HaveOccurred())
 						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
 					}, 180*time.Second, time.Second).Should(Succeed(), "Should have updated IP and IPs fields")
 				}
@@ -794,6 +797,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				// ensure the libvirt domain is persistent
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				persistent, err := libvirtDomainIsPersistent(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should list libvirt domains successfully")
 				Expect(persistent).To(BeTrue(), "The VMI was not found in the list of libvirt persistent domains")
@@ -2225,7 +2230,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-				sourcePod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -2501,7 +2507,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				By("Ensuring that target pod has correct nodeSelector label")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				Expect(vmiPod.Spec.NodeSelector).To(HaveKey(v1.SupportedHostModelMigrationCPU+hostModel),
 					"target pod is expected to have correct nodeSelector label defined")
 
@@ -2967,7 +2977,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			labelsBeforeMigration := make(map[string]string)
 			labelsAfterMigration := make(map[string]string)
 			By("Fetching virt-launcher pod")
-			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmiToMigrate, vmiToMigrate.Namespace)
+			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmiToMigrate, vmiToMigrate.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 			for key, value := range virtLauncherPod.Spec.NodeSelector {
 				if strings.HasPrefix(key, v1.CPUFeatureLabel) {
 					labelsBeforeMigration[key] = value
@@ -2982,7 +2993,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 			By("Fetching virt-launcher pod")
-			virtLauncherPod = tests.GetRunningPodByVirtualMachineInstance(vmiToMigrate, vmiToMigrate.Namespace)
+			virtLauncherPod, err = libpod.GetPodByVirtualMachineInstance(vmiToMigrate, vmiToMigrate.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 			for key, value := range virtLauncherPod.Spec.NodeSelector {
 				if strings.HasPrefix(key, v1.CPUFeatureLabel) {
 					labelsAfterMigration[key] = value
@@ -3055,7 +3067,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 
 		getLibvirtDomainCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
-			pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+			pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
 			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
@@ -3094,7 +3106,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 
 		getVirtLauncherCPUSet := func(vmi *v1.VirtualMachineInstance) []int {
-			pod, err := libpod.GetRunningPodByLabel(virtClient, string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+			pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
 
 			return getPodCPUSet(pod)
@@ -3514,7 +3526,8 @@ func temporaryTLSConfig() *tls.Config {
 }
 
 func libvirtDomainIsPersistent(vmi *v1.VirtualMachineInstance) (bool, error) {
-	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).NotTo(HaveOccurred())
 
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		vmiPod,
@@ -3534,7 +3547,7 @@ func libvirtDomainIsPaused(vmi *v1.VirtualMachineInstance) (bool, error) {
 		return false, err
 	}
 
-	vmiPod, err := libpod.GetRunningPodByLabel(kubevirt.Client(), string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
+	vmiPod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 	if err != nil {
 		return false, err
 	}
@@ -3551,7 +3564,7 @@ func libvirtDomainIsPaused(vmi *v1.VirtualMachineInstance) (bool, error) {
 }
 
 func getVMIsCgroupVersion(vmi *v1.VirtualMachineInstance) cgroup.CgroupVersion {
-	pod, err := libpod.GetRunningPodByLabel(kubevirt.Client(), string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
+	pod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace, vmi.Status.NodeName)
 	Expect(err).ToNot(HaveOccurred())
 
 	return getPodsCgroupVersion(pod)

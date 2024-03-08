@@ -224,13 +224,7 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 		return nil, err
 	}
 
-	return libpod.GetRunningPodByLabel(virtCli, string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
-func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
-	pod, err := getRunningPodByVirtualMachineInstance(vmi, namespace)
-	util2.PanicOnError(err)
-	return pod
+	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
 
 func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
@@ -1376,7 +1370,12 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 }
 
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
-	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).ToNot(HaveOccurred())
+
 	podOutput, err := exec.ExecuteCommandOnPod(
 		vmiPod,
 		vmiPod.Spec.Containers[0].Name,

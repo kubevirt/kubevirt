@@ -36,10 +36,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -53,7 +53,8 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 	Describe("Status", func() {
 		AssertReportedIP := func(vmi *v1.VirtualMachineInstance) {
 			By("Getting pod of the VMI")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Making sure IP/s reported on the VMI matches the ones on the pod")
 			Expect(libnet.ValidateVMIandPodIPMatch(vmi, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
@@ -96,12 +97,15 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 
 					vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 					Expect(err).NotTo(HaveOccurred())
+
 					libwait.WaitForSuccessfulVMIStart(vmi)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
 
 				It("should report PodIP/s on interface status", func() {
-					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).NotTo(HaveOccurred())
+
 					Eventually(vmiIP, 2*time.Minute, 5*time.Second).Should(Equal(vmiPod.Status.PodIP), "should contain VMI Status IP as Pod status ip")
 					var podIPs []string
 					for _, ip := range vmiPod.Status.PodIPs {
@@ -143,7 +147,9 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				})
 
 				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {
-					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).NotTo(HaveOccurred())
+
 					Consistently(func() error {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 						if err != nil {

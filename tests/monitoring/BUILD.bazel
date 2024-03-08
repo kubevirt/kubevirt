@@ -26,6 +26,7 @@ go_library(
         "//tests/libmonitoring:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libpod:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",

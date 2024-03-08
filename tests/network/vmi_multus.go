@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -363,7 +364,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, testsuite.GetTestNamespace(vmiOne))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podInterfaceName := "e31d7ce2712-nic"
 				out, err := exec.ExecuteCommandOnPod(
 					vmiPod,
@@ -473,7 +476,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Expect(vmiIfaceStatusByName[linuxBridgeInterfaceWithCustomMac.Name].MAC).To(Equal(customMacAddress), "should set linux bridge interface with the custom MAC address at VMI")
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podInterfaceName := "72ad293a5c9-nic"
 				out, err := exec.ExecuteCommandOnPod(
 					vmiPod,
@@ -525,7 +530,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 			It("should have the correct MTU on the secondary interface with no dhcp server", func() {
 				getPodInterfaceMtu := func(vmi *v1.VirtualMachineInstance) string {
-					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).NotTo(HaveOccurred())
+
 					output, err := exec.ExecuteCommandOnPod(
 						vmiPod,
 						"compute",
