@@ -100,6 +100,13 @@ func SynchronizedBeforeTestSetup() []byte {
 	return nil
 }
 
+func addTestAnnotation(vmi *v1.VirtualMachineInstance) {
+	if vmi.Annotations == nil {
+		vmi.Annotations = map[string]string{}
+	}
+	vmi.Annotations["kubevirt.io/created-by-test"] = GinkgoT().Name()
+}
+
 func BeforeTestSuiteSetup(_ []byte) {
 
 	worker := GinkgoParallelProcess()
@@ -137,6 +144,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 
 	libvmi.RegisterArchitecture(Arch)
+	libvmi.RegisterDefaultOption(addTestAnnotation)
 }
 
 func EnsureKubevirtReady() {

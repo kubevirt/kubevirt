@@ -380,7 +380,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
-			Expect(newVmi.Annotations).To(BeNil())
+			Expect(newVmi.Annotations).To(Equal(vmi.Annotations))
 
 			label, ok := vmi.Labels[overrideKey]
 			Expect(ok).To(BeTrue())

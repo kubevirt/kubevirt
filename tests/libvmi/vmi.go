@@ -46,6 +46,12 @@ func New(opts ...Option) *v1.VirtualMachineInstance {
 	return vmi
 }
 
+var defaultOptions []Option
+
+func RegisterDefaultOption(opt Option) {
+	defaultOptions = append(defaultOptions, opt)
+}
+
 // randName returns a random name for a virtual machine
 func randName() string {
 	const randomPostfixLen = 5
@@ -263,5 +269,10 @@ func baseVmi(name string) *v1.VirtualMachineInstance {
 		APIVersion: v1.GroupVersion.String(),
 		Kind:       "VirtualMachineInstance",
 	}
+
+	for _, opt := range defaultOptions {
+		opt(vmi)
+	}
+
 	return vmi
 }
