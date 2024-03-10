@@ -29,6 +29,7 @@ go_test(
     srcs = [
         "hotplug_test.go",
         "multus_annotations_test.go",
+        "network_suite_test.go",
         "render_test.go",
     ],
     embed = [":go_default_library"],
@@ -37,6 +38,7 @@ go_test(
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//tests/libvmi:go_default_library",
         "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
