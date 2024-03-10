@@ -29,6 +29,10 @@ func PendingPopulation() types.GomegaMatcher {
 	}
 }
 
+func WaitForFirstConsumer() types.GomegaMatcher {
+	return Or(BeInPhase("WaitForFirstConsumer"), PendingPopulation())
+}
+
 func BeInPhase(phase interface{}) types.GomegaMatcher {
 	return phaseMatcher{
 		expectedPhase: phase,

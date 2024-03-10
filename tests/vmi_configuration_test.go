@@ -2061,7 +2061,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Skip("Skip test when Block storage is not present")
 			}
 
-			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 		})
 
 		AfterEach(func() {
@@ -2193,7 +2193,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Skip("Skip test when Block storage is not present")
 			}
 
-			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
@@ -2231,7 +2231,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Skip("Skip test when Block storage is not present")
 			}
 
-			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 			vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 

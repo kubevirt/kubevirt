@@ -1127,7 +1127,7 @@ var _ = SIGDescribe("Storage", func() {
 					Skip("Skip test when Block storage is not present")
 				}
 
-				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), PendingPopulation(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 			})
 
 			AfterEach(func() {
@@ -1270,7 +1270,7 @@ var _ = SIGDescribe("Storage", func() {
 					Skip("Skip test when Block storage is not present")
 				}
 
-				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), PendingPopulation(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi = nil
 			})
 
