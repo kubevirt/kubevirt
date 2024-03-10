@@ -52,6 +52,7 @@ var _ = SIGDescribe("Subdomain", func() {
 		subdomain          = "testsubdomain"
 		selectorLabelKey   = "expose"
 		selectorLabelValue = "this"
+		hostname           = "testhostname"
 	)
 
 	BeforeEach(func() {
@@ -71,12 +72,18 @@ var _ = SIGDescribe("Subdomain", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom string) {
+		DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom string, hostname string) {
 			vmiSpec := f()
-			var expectedFQDN string
+			var expectedFQDN, domain string
 			if subdom != "" {
 				vmiSpec.Spec.Subdomain = subdom
-				expectedFQDN = fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdom, util.NamespaceTestDefault)
+				if hostname != "" {
+					domain = hostname
+					vmiSpec.Spec.Hostname = domain
+				} else {
+					domain = vmiSpec.Name
+				}
+				expectedFQDN = fmt.Sprintf("%s.%s.%s.svc.cluster.local", domain, subdom, util.NamespaceTestDefault)
 			} else {
 				expectedFQDN = vmiSpec.Name
 			}
@@ -88,10 +95,10 @@ var _ = SIGDescribe("Subdomain", func() {
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		},
-			Entry("with Masquerade binding and subdomain", fedoraMasqueradeVMI, subdomain),
-			Entry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain),
-			Entry("with Masquerade binding without subdomain", fedoraMasqueradeVMI, ""),
-			Entry("with Bridge binding without subdomain", fedoraBridgeBindingVMI, ""),
+			Entry("with Masquerade binding and subdomain and hostname", fedoraMasqueradeVMI, subdomain, hostname),
+			Entry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain, ""),
+			Entry("with Masquerade binding without subdomain", fedoraMasqueradeVMI, "", ""),
+			Entry("with Bridge binding without subdomain", fedoraBridgeBindingVMI, "", ""),
 		)
 
 		It("VMI with custom DNSPolicy should have the expected FQDN", func() {
