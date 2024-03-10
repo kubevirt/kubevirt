@@ -994,7 +994,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				value, ok := pod.Annotations[networkv1.NetworkAttachmentAnnot]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := "[" +
 					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
@@ -1036,7 +1036,7 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations["v1.multus-cni.io/default-network"]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("default"))
-				value, ok = pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				value, ok = pod.Annotations[networkv1.NetworkAttachmentAnnot]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("[{\"name\":\"test1\",\"namespace\":\"default\",\"interface\":\"pod1b4f0e98519\"}]"))
 			})
@@ -1079,7 +1079,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				value, ok := pod.Annotations[networkv1.NetworkAttachmentAnnot]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := "[" +
 					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
@@ -1127,7 +1127,7 @@ var _ = Describe("Template", func() {
 					targetPod, err := svc.RenderMigrationManifest(vmi, sourcePod)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(targetPod.Annotations[MultusNetworksAnnotation]).To(MatchJSON(expectedTargetPodMultusNetworksAnnotation[MultusNetworksAnnotation]))
+					Expect(targetPod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedTargetPodMultusNetworksAnnotation[networkv1.NetworkAttachmentAnnot]))
 				},
 				Entry("when the migration source Multus network-status annotation has ordinal naming",
 					map[string]string{
@@ -1138,7 +1138,7 @@ var _ = Describe("Template", func() {
 						]`,
 					},
 					map[string]string{
-						MultusNetworksAnnotation: `[
+						networkv1.NetworkAttachmentAnnot: `[
 							{"interface":"net1", "name":"test1", "namespace":"default"},
 							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
 						]`,
@@ -1152,7 +1152,7 @@ var _ = Describe("Template", func() {
 						]`,
 					},
 					map[string]string{
-						MultusNetworksAnnotation: `[
+						networkv1.NetworkAttachmentAnnot: `[
 							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
 							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
 						]`,

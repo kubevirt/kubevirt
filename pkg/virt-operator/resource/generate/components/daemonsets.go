@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -67,7 +69,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			podTemplateSpec.ObjectMeta.Annotations = make(map[string]string)
 		}
 		// Join the pod to the migration network and name the corresponding interface "migration0"
-		podTemplateSpec.ObjectMeta.Annotations["k8s.v1.cni.cncf.io/networks"] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
+		podTemplateSpec.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
 	}
 
 	daemonset := &appsv1.DaemonSet{
