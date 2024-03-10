@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libpod"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -233,8 +234,9 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			vm = tests.RunVMIAndExpectLaunch(vm, 30)
 
 			k8sClient := clientcmd.GetK8sCmdClient()
-
-			output, _, err := clientcmd.RunCommand(k8sClient, "logs", tests.GetPodByVirtualMachineInstance(vm).Name)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vm, vm.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			output, _, err := clientcmd.RunCommand(k8sClient, "logs", pod.Name)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(output).To(ContainSubstring("component"))

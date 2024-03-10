@@ -105,8 +105,8 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				Expect(err).ToNot(HaveOccurred())
 				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
-				virtLauncherPod := tests.GetPodByVirtualMachineInstance(reEnlightenmentVMI)
-
+				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(reEnlightenmentVMI, reEnlightenmentVMI.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				foundNodeSelector := false
 				for key, _ := range virtLauncherPod.Spec.NodeSelector {
 					if strings.HasPrefix(key, topology.TSCFrequencySchedulingLabel+"-") {

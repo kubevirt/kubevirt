@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/watcher"
 
 	expect "github.com/google/goexpect"
@@ -399,8 +400,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			}
 
 			callVeleroHook := func(vmi *v1.VirtualMachineInstance, annoContainer, annoCommand string) (string, string, error) {
-				pod := tests.GetPodByVirtualMachineInstance(vmi)
-
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				command := pod.Annotations[annoCommand]
 				command = strings.Trim(command, "[]")
 				commandSlice := []string{}

@@ -227,32 +227,6 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
 
-func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
-	pods, err := getPodsByLabel(string(vmi.GetUID()), v1.CreatedByLabel, vmi.Namespace)
-	util2.PanicOnError(err)
-
-	if len(pods.Items) != 1 {
-		util2.PanicOnError(fmt.Errorf("found wrong number of pods for VMI '%v', count: %d", vmi, len(pods.Items)))
-	}
-
-	return &pods.Items[0]
-}
-
-func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) {
-	virtCli := kubevirt.Client()
-
-	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
-
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(),
-		metav1.ListOptions{LabelSelector: labelSelector},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return pods, nil
-}
-
 func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
 	pscmd := `ps -LC ` + emulator + ` -o lwp,comm | grep "CPU ` + cpu + `"  | cut -f1 -dC`
 	args := []string{BinBash, "-c", pscmd}
