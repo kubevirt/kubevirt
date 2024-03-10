@@ -2532,7 +2532,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDV(dv, 600, HaveSucceeded())
+				libstorage.EventuallyDV(dv, 600, Or(HaveSucceeded(), PendingPopulation()))
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 				tests.AddUserData(vmi, "disk1", "#!/bin/bash\n echo hello\n")
 				return vmi
