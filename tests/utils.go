@@ -417,29 +417,6 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 	return vm, true
 }
 
-// NewRandomVMWithDataVolumeAndUserDataInStorageClass
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl))),
-	)
-	vm := libvmi.NewVirtualMachine(
-		libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithDataVolume("disk0", dataVolume.Name),
-			libvmi.WithResourceMemory("1Gi"),
-			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libvmi.WithCloudInitNoCloudEncodedUserData(userData),
-		),
-		libvmi.WithDataVolumeTemplate(dataVolume),
-	)
-
-	return vm
-}
-
 // NewRandomVMIWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly
