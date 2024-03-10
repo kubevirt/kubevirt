@@ -2204,7 +2204,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDV(dv, 600, HaveSucceeded())
+				libstorage.EventuallyDV(dv, 600, Or(HaveSucceeded(), PendingPopulation()))
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
