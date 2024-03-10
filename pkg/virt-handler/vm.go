@@ -338,6 +338,20 @@ type virtLauncherCriticalSecurebootError struct {
 
 func (e *virtLauncherCriticalSecurebootError) Error() string { return e.msg }
 
+type vmiIrrecoverableError struct {
+	msg string
+}
+
+func (e *vmiIrrecoverableError) Error() string { return e.msg }
+
+func formatIrrecoverableErrorMessage(domain *api.Domain) string {
+	msg := "unknown reason"
+	if domainPausedFailedPostCopy(domain) {
+		msg = "VMI is irrecoverable due to failed post-copy migration"
+	}
+	return msg
+}
+
 func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
 
 	fdChan := make(chan net.Conn, 100)
@@ -576,6 +590,13 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 		}
 		return nil
 	})
+}
+
+func domainPausedFailedPostCopy(domain *api.Domain) bool {
+	if domain != nil && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedPostcopyFailed {
+		return true
+	}
+	return false
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -1463,6 +1484,11 @@ func handleSyncError(vmi *v1.VirtualMachineInstance, condManager *controller.Vir
 		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
+
+	if _, ok := syncError.(*vmiIrrecoverableError); ok {
+		log.Log.Errorf("virt-launcher reached an irrecoverable error. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 }
 
@@ -1853,6 +1879,8 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	shouldUpdate := false
 	// set true to ensure that no updates to the current VirtualMachineInstance state will occur
 	forceIgnoreSync := false
+	// set to true when unrecoverable domain needs to be destroyed non-gracefully.
+	forceShutdownIrrecoverable := false
 
 	log.Log.V(3).Infof("Processing event %v", key)
 
@@ -1873,6 +1901,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		domain.Status.Status != ""
 
 	domainMigrated := domainExists && domainMigrated(domain)
+	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
 	gracefulShutdown := d.hasGracefulShutdownTrigger(domain)
 	if gracefulShutdown && vmi.IsRunning() {
@@ -1985,6 +2014,13 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	case shouldShutdown:
 		log.Log.Object(vmi).V(3).Info("Processing shutdown.")
 		syncErr = d.processVmShutdown(vmi, domain)
+	case forceShutdownIrrecoverable:
+		msg := formatIrrecoverableErrorMessage(domain)
+		log.Log.Object(vmi).V(3).Infof("Processing a destruction of an irrecoverable domain - %s.", msg)
+		syncErr = d.processVmDestroy(vmi, domain)
+		if syncErr == nil {
+			syncErr = &vmiIrrecoverableError{msg}
+		}
 	case shouldDelete:
 		log.Log.Object(vmi).V(3).Info("Processing deletion.")
 		syncErr = d.processVmDelete(vmi)
@@ -2301,7 +2337,17 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	return client, nil
 }
 
+func (d *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	tryGracefully := false
+	return d.helperVmShutdown(vmi, domain, tryGracefully)
+}
+
 func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	tryGracefully := true
+	return d.helperVmShutdown(vmi, domain, tryGracefully)
+}
+
+func (d *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain, tryGracefully bool) error {
 
 	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
 	client, err := d.getVerifiedLauncherClient(vmi)
@@ -2310,7 +2356,7 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 	}
 
 	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-	if isACPIEnabled(vmi, domain) {
+	if isACPIEnabled(vmi, domain) && tryGracefully {
 		if expired, timeLeft := d.hasGracePeriodExpired(domain); !expired {
 			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
