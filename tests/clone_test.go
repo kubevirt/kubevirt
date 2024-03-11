@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/storage"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -527,11 +529,9 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 			}
 
 			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
-				vm := NewRandomVMWithDataVolumeWithRegistryImport(
+				vm := storage.NewVMWithDataVolumeWithURL(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
 					storageClass,
-					k8sv1.ReadWriteOnce,
 				)
 				vm.Spec.Running = pointer.Bool(running)
 
@@ -668,11 +668,9 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						preference, err := virtClient.VirtualMachinePreference(ns).Create(context.Background(), preference, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						sourceVM = NewRandomVMWithDataVolumeWithRegistryImport(
+						sourceVM = storage.NewVMWithDataVolumeWithURL(
 							cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-							ns,
 							snapshotStorageClass,
-							k8sv1.ReadWriteOnce,
 						)
 
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}

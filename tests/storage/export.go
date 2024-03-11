@@ -1441,13 +1441,13 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+		vm := NewVMWithDataVolumeWithURL(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-			testsuite.GetTestNamespace(nil),
 			sc,
-			k8sv1.ReadWriteOnce)
+		)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
+
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
@@ -1785,9 +1785,13 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm := NewVMWithDataVolumeWithURL(
+			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+			sc,
+		)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
+
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
 		token := createExportTokenSecret(vm.Name, vm.Namespace)
@@ -1820,7 +1824,10 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm := NewVMWithDataVolumeWithURL(
+			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+			sc,
+		)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -2204,11 +2211,10 @@ var _ = SIGDescribe("Export", func() {
 
 		It("Create succeeds using VM source", func() {
 			// Create a populated VM
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+			vm := NewVMWithDataVolumeWithURL(
 				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-				testsuite.GetTestNamespace(nil),
 				sc,
-				k8sv1.ReadWriteOnce)
+			)
 			vm.Spec.Running = pointer.Bool(true)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2381,11 +2387,10 @@ var _ = SIGDescribe("Export", func() {
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm := NewVMWithDataVolumeWithURL(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
 					sc,
-					k8sv1.ReadWriteOnce)
+				)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2562,11 +2567,10 @@ var _ = SIGDescribe("Export", func() {
 		Context("Get export manifest from vmexport", func() {
 			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				vm := NewVMWithDataVolumeWithURL(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
 					sc,
-					k8sv1.ReadWriteOnce)
+				)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
