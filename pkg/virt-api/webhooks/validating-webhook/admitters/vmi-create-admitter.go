@@ -150,7 +150,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
 	causes = append(causes, validateMemoryLimitsNegativeOrNull(field, spec)...)
 	causes = append(causes, validateHugepagesMemoryRequests(field, spec)...)
-	causes = append(causes, validateGuestMemoryLimit(field, spec)...)
+	causes = append(causes, validateGuestMemoryLimit(field, spec, config)...)
 	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
 	causes = append(causes, validateFirmwareSerial(field, spec)...)
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
@@ -1378,7 +1378,11 @@ func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 	return causes
 }
 
-func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if config.IsVMRolloutStrategyLiveUpdate() {
+		return
+	}
+
 	if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
 		limits := spec.Domain.Resources.Limits.Memory().Value()
 		guest := spec.Domain.Memory.Guest.Value()
