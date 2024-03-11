@@ -77,8 +77,6 @@ const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
 const virtiofsDebugLogs = "virtiofsdDebugLogs"
 
-const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
-
 const qemuTimeoutJitterRange = 120
 
 const (
@@ -1331,7 +1329,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		return nil, err
 	}
 	if multusAnnotation != "" {
-		annotationsSet[MultusNetworksAnnotation] = multusAnnotation
+		annotationsSet[networkv1.NetworkAttachmentAnnot] = multusAnnotation
 	}
 
 	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
