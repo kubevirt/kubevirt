@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libdv"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -29,6 +31,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
@@ -525,12 +528,25 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 			}
 
 			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
-				vm := NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					storageClass,
-					k8sv1.ReadWriteOnce,
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(storageClass),
+						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+					),
 				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+
 				vm.Spec.Running = pointer.Bool(running)
 
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
@@ -660,12 +676,25 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						preference, err := virtClient.VirtualMachinePreference(ns).Create(context.Background(), preference, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						sourceVM = NewRandomVMWithDataVolumeWithRegistryImport(
-							cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-							ns,
-							snapshotStorageClass,
-							k8sv1.ReadWriteOnce,
+						dataVolume := libdv.NewDataVolume(
+							libdv.WithRegistryURLSourceAndPullMethod(
+								cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+								cdiv1.RegistryPullNode,
+							),
+							libdv.WithPVC(
+								libdv.PVCWithStorageClass(snapshotStorageClass),
+								libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+								libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+							),
 						)
+						vmi := libvmi.New(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNamespace(ns),
+							libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+							libvmi.WithDataVolume("disk0", dataVolume.Name),
+							libvmi.WithResourceMemory("1Gi"),
+						)
+						sourceVM = libvmi.NewVirtualMachine(vmi)
 
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{

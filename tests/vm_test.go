@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libdv"
+
 	"kubevirt.io/kubevirt/tests/libpod"
 
 	expect "github.com/google/goexpect"
@@ -47,7 +49,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -668,9 +669,24 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Creating a VM with a DataVolume cloned from an invalid source")
 			// Registry URL scheme validated in CDI
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
-				testsuite.GetTestNamespace(nil), storageClassName, k8sv1.ReadWriteOnce)
-			vm.Spec.Running = pointer.BoolPtr(true)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(
+					"docker://no.such/image",
+					cdiv1.RegistryPullNode,
+				),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(storageClassName),
+					libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+				),
+			)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+			)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 

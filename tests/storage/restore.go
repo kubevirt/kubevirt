@@ -1537,11 +1537,26 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore an online vm snapshot that boots from a datavolumetemplate with guest agent", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
+
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1554,11 +1569,25 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should restore vm spec at startup without new changes", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1603,11 +1632,25 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("should restore an already cloned virtual machine", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
 
 				targetVMName := vm.Name + "-clone"
 				cloneVM(vm.Name, targetVMName)
@@ -1629,11 +1672,25 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1714,11 +1771,25 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				DescribeTable("should not restore memory dump volume", func(restoreToNewVM bool) {
-					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-						testsuite.GetTestNamespace(nil),
-						snapshotStorageClass,
-						corev1.ReadWriteOnce))
+					dataVolume := libdv.NewDataVolume(
+						libdv.WithRegistryURLSourceAndPullMethod(
+							cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+							cdiv1.RegistryPullNode,
+						),
+						libdv.WithPVC(
+							libdv.PVCWithStorageClass(snapshotStorageClass),
+							libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+							libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+						),
+					)
+					vmi := libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithDataVolume("disk0", dataVolume.Name),
+						libvmi.WithResourceMemory("1Gi"),
+					)
+					vm := libvmi.NewVirtualMachine(vmi)
+					vm, vmi = createAndStartVM(vm)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					By("Get VM memory dump")
