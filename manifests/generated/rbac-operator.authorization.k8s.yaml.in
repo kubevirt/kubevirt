@@ -710,7 +710,6 @@ rules:
   resources:
   - nodes
   verbs:
-  - patch
   - list
   - watch
   - get
@@ -753,6 +752,21 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - shadownodes
+  verbs:
+  - get
+  - create
+  - patch
+  - update
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - selfsubjectaccessreviews
+  verbs:
+  - create
 - apiGroups:
   - ""
   resources:

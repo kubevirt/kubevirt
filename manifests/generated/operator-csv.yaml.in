@@ -770,7 +770,6 @@ spec:
           resources:
           - nodes
           verbs:
-          - patch
           - list
           - watch
           - get
@@ -813,6 +812,21 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - shadownodes
+          verbs:
+          - get
+          - create
+          - patch
+          - update
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - selfsubjectaccessreviews
+          verbs:
+          - create
         - apiGroups:
           - ""
           resources:

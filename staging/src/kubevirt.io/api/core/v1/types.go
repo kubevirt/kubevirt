@@ -2988,3 +2988,28 @@ type SEVSecretOptions struct {
 	// Base64 encoded encrypted launch secret.
 	Secret string `json:"secret,omitempty"`
 }
+
+// TODO
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +genclient
+// +genclient:nonNamespaced
+type ShadowNode struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ShadowNodeSpec   `json:"spec" valid:"required"`
+	Status            ShadowNodeStatus `json:"status,omitempty"`
+}
+
+type ShadowNodeSpec struct{}
+
+type ShadowNodeStatus struct{}
+
+// TODO
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ShadowNodeList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ShadowNode `json:"items"`
+}

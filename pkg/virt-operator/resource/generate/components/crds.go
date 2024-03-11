@@ -67,6 +67,7 @@ var (
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
+	SHADOWNODE                       = "shadownodes." + virtv1.ShadowNodeGroupVersionKind.Group
 	PreserveUnknownFieldsFalse       = false
 )
 
@@ -211,6 +212,27 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 
 	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewShadowNode() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = SHADOWNODE
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group:    virtv1.ShadowNodeGroupVersionKind.Group,
+		Versions: newCRDVersions(),
+		Scope:    extv1.ClusterScoped,
+
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:   "shadownodes",
+			Singular: "shadownode",
+			Kind:     virtv1.ShadowNodeGroupVersionKind.Kind,
+		},
+	}
+	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil

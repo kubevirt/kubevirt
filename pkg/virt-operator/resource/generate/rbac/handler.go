@@ -89,7 +89,6 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"nodes",
 				},
 				Verbs: []string{
-					"patch",
 					"list",
 					"watch",
 					"get",
@@ -154,6 +153,28 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"shadownodes",
+				},
+				Verbs: []string{
+					"get", "create", "patch", "update",
+				},
+			},
+			{
+				APIGroups: []string{
+					"authorization.k8s.io",
+				},
+				Resources: []string{
+					"selfsubjectaccessreviews",
+				},
+				Verbs: []string{
+					"create",
 				},
 			},
 		},

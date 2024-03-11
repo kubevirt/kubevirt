@@ -28,10 +28,11 @@ import (
 	"strconv"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	kubevirtv1 "kubevirt.io/api/core/v1"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -115,14 +116,14 @@ func getKsmPages() (int, error) {
 }
 
 // Inspired from https://github.com/oVirt/mom/blob/master/doc/ksm.rules
-func calculateNewRunSleepAndPages(node *v1.Node, running bool) (ksmState, error) {
-	pagesBoost := getIntParam(node, kubevirtv1.KSMPagesBoostOverride, pagesBoostDefault, 0, math.MaxInt)
-	pagesDecay := getIntParam(node, kubevirtv1.KSMPagesDecayOverride, pagesDecayDefault, math.MinInt, 0)
-	nPagesMin := getIntParam(node, kubevirtv1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
-	nPagesMax := getIntParam(node, kubevirtv1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
-	nPagesInit := getIntParam(node, kubevirtv1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
-	sleepMsBaseline := uint64(getIntParam(node, kubevirtv1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
-	freePercent := getFloatParam(node, kubevirtv1.KSMFreePercentOverride, freePercentDefault, 0, 1)
+func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, error) {
+	pagesBoost := getIntParam(node, v1.KSMPagesBoostOverride, pagesBoostDefault, 0, math.MaxInt)
+	pagesDecay := getIntParam(node, v1.KSMPagesDecayOverride, pagesDecayDefault, math.MinInt, 0)
+	nPagesMin := getIntParam(node, v1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
+	nPagesMax := getIntParam(node, v1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
+	nPagesInit := getIntParam(node, v1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
+	sleepMsBaseline := uint64(getIntParam(node, v1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
+	freePercent := getFloatParam(node, v1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 	ksm := ksmState{running: running}
 	total, available, err := getTotalAndAvailableMem()
 	if err != nil {
@@ -216,7 +217,7 @@ func boundCheck[T int | float32](value, defaultValue, lowerBound, upperBound T, 
 	return value
 }
 
-func getFloatParam(node *v1.Node, param string, defaultValue, lowerBound, upperBound float32) float32 {
+func getFloatParam(node *k8sv1.Node, param string, defaultValue, lowerBound, upperBound float32) float32 {
 	override, ok := node.Annotations[param]
 	if !ok {
 		return defaultValue
@@ -230,7 +231,7 @@ func getFloatParam(node *v1.Node, param string, defaultValue, lowerBound, upperB
 	return boundCheck(float32(value), defaultValue, lowerBound, upperBound, fmt.Sprintf("%s override value out of bounds", param))
 }
 
-func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBound int) int {
+func getIntParam(node *k8sv1.Node, param string, defaultValue, lowerBound, upperBound int) int {
 	override, ok := node.Annotations[param]
 	if !ok {
 		return defaultValue
@@ -248,7 +249,7 @@ func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBou
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs bool) {
+func handleKSM(node *k8sv1.Node, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs bool) {
 	available, enabled := loadKSM()
 	if !available {
 		return false, false
@@ -291,8 +292,8 @@ func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (ksmLabel
 	return true, ksm.running
 }
 
-func disableKSM(node *v1.Node) {
-	if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
+func disableKSM(node *k8sv1.Node) {
+	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == "true" {
 		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
 		if err != nil {
 			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())

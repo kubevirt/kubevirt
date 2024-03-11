@@ -3,18 +3,21 @@ package topology
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	nodeutils "kubevirt.io/kubevirt/pkg/util/nodes"
 
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/client-go/log"
 )
 
@@ -47,7 +50,7 @@ func (n *nodeTopologyUpdater) Run(interval time.Duration, stopChan <-chan struct
 	}, interval, 1.2, true, stopChan)
 }
 
-func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
+func (n *nodeTopologyUpdater) sync(nodes []*k8sv1.Node) *updateStats {
 	requiredFrequencies, err := n.requiredFrequencies()
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Skipping TSC frequency updates on all nodes")
@@ -62,9 +65,15 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 			continue
 		}
 		if !equality.Semantic.DeepEqual(node.Labels, nodeCopy.Labels) {
-			if err := nodeutils.PatchNode(n.client, node, nodeCopy); err != nil {
+			var patch []byte
+			if patch, err = nodeutils.CreateNodePatch(node, nodeCopy); err != nil {
 				stats.error++
-				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for node")
+				log.DefaultLogger().Object(node).Reason(err).Error("Could not create TSC frequencies patch for node")
+				continue
+			}
+			if _, err := n.client.ShadowNodeClient().Patch(context.Background(), node.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+				stats.error++
+				log.DefaultLogger().Object(node).Reason(err).Error("Could not patch TSC frequencies for shadowNode")
 				continue
 			}
 			stats.updated++
@@ -75,7 +84,7 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 	return stats
 }
 
-func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64) (modified *v1.Node, err error) {
+func calculateNodeLabelChanges(original *k8sv1.Node, requiredFrequencies []int64) (modified *k8sv1.Node, err error) {
 	nodeFreq, scalable, err := TSCFrequencyFromNode(original)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Object(original).Error("Can't determine TSC frequency of the original")

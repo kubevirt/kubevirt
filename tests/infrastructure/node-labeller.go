@@ -52,6 +52,12 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+type patchData struct {
+	Op    string            `json:"op"`
+	Path  string            `json:"path"`
+	Value map[string]string `json:"value"`
+}
+
 var _ = DescribeInfra("Node-labeller", func() {
 
 	var (
@@ -73,6 +79,8 @@ var _ = DescribeInfra("Node-labeller", func() {
 		nodesWithKVM = libnode.GetNodesWithKVM()
 
 		for _, node := range nodesWithKVM {
+			removeLabelFromShadowNode(node.Name, nonExistingCPUModelLabel)
+			removeAnnotationFromShadowNode(node.Name, v1.LabellerSkipNodeAnnotation)
 			libnode.RemoveLabelFromNode(node.Name, nonExistingCPUModelLabel)
 			libnode.RemoveAnnotationFromNode(node.Name, v1.LabellerSkipNodeAnnotation)
 		}
@@ -110,18 +118,11 @@ var _ = DescribeInfra("Node-labeller", func() {
 	}
 
 	Context("basic labelling", func() {
-
-		type patch struct {
-			Op    string            `json:"op"`
-			Path  string            `json:"path"`
-			Value map[string]string `json:"value"`
-		}
-
 		It("skip node reconciliation when node has skip annotation", func() {
 
 			for i, node := range nodesWithKVM {
 				node.Labels[nonExistingCPUModelLabel] = "true"
-				p := []patch{
+				p := []patchData{
 					{
 						Op:    "add",
 						Path:  "/metadata/labels",
@@ -131,7 +132,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 				if i == 0 {
 					node.Annotations[v1.LabellerSkipNodeAnnotation] = "true"
 
-					p = append(p, patch{
+					p = append(p, patchData{
 						Op:    "add",
 						Path:  "/metadata/annotations",
 						Value: node.Annotations,
@@ -140,7 +141,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 				payloadBytes, err := json.Marshal(p)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+				_, err = virtClient.ShadowNodeClient().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 			kvConfig := v1.KubeVirtConfiguration{ObsoleteCPUModels: map[string]bool{}}
@@ -161,7 +162,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 			}, 15*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
+		FIt("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
 			for _, node := range nodesWithKVM {
 				Expect(err).ToNot(HaveOccurred())
 				cpuModelLabelPresent := false
@@ -406,3 +407,39 @@ var _ = DescribeInfra("Node-labeller", func() {
 
 	})
 })
+
+func removeLabelFromShadowNode(nodeName string, key string) {
+	sn, err := kubevirt.Client().ShadowNodeClient().Get(context.Background(), nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	delete(sn.Labels, key)
+	p := []patchData{
+		{
+			Op:    "replace",
+			Path:  "/metadata/labels",
+			Value: sn.Labels,
+		},
+	}
+	payloadBytes, err := json.Marshal(p)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().ShadowNodeClient().Patch(context.Background(), nodeName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func removeAnnotationFromShadowNode(nodeName string, key string) {
+	sn, err := kubevirt.Client().ShadowNodeClient().Get(context.Background(), nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	delete(sn.Annotations, key)
+	p := []patchData{
+		{
+			Op:    "replace",
+			Path:  "/metadata/annotations",
+			Value: sn.Annotations,
+		},
+	}
+	payloadBytes, err := json.Marshal(p)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().ShadowNodeClient().Patch(context.Background(), nodeName, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}

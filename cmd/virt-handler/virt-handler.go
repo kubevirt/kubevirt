@@ -33,7 +33,10 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	virthandlerauth "kubevirt.io/kubevirt/pkg/virt-handler/authorization"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -124,6 +127,9 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+
+	defaultPodName = ""
+	defaultPodUID  = ""
 )
 
 type virtHandlerApp struct {
@@ -164,6 +170,8 @@ type virtHandlerApp struct {
 	clusterConfig         *virtconfig.ClusterConfig
 	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
 	caManager             kvtls.ClientCAManager
+	podName               string
+	podUID                string
 }
 
 var (
@@ -178,10 +186,29 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 }
 
 func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
+	var err error
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
-	_, err := app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+
+	// TODO: Patching the node can be safely removed once we do not support upgrade from a version that does not have Shadow Node
+	nodePatchAllowed, err := virthandlerauth.CanPatchNode(app.virtCli.AuthorizationV1(), app.HostOverride)
 	if err != nil {
-		logger.Reason(err).Error("Unable to mark node as unschedulable")
+		logger.Reason(err).Error("failed to perform SelfSubjectAccessReview")
+	}
+	if nodePatchAllowed {
+		_, err = app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		if err != nil {
+			if errors.IsForbidden(err) {
+				// there is a small window where patching the node RBAC just got removed.
+				logger.Reason(err).Info("if this error occurred once during upgrade, please disregard")
+			} else {
+				logger.Reason(err).Error("Unable to mark node as unschedulable")
+			}
+		}
+	}
+
+	_, err = app.virtCli.ShadowNodeClient().Patch(context.TODO(), app.HostOverride, types.MergePatchType, data, metav1.PatchOptions{})
+	if err != nil {
+		logger.Reason(err).Error("Unable to mark node as unschedulable using the shadowNode object")
 	}
 }
 
@@ -223,6 +250,23 @@ func (app *virtHandlerApp) Run() {
 	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
+	}
+
+	_, err = app.virtCli.ShadowNodeClient().Create(context.TODO(), &v1.ShadowNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: app.HostOverride,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       app.podName,
+					UID:        types.UID(app.podUID),
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		panic(fmt.Sprintf("Failed to register shadow node, %s", err))
 	}
 
 	app.markNodeAsUnschedulable(logger)
@@ -319,7 +363,7 @@ func (app *virtHandlerApp) Run() {
 	var capabilities *api.Capabilities
 	var hostCpuModel string
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli.CoreV1().Nodes(), app.HostOverride, nodeLabellerrecorder)
+	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli.CoreV1().Nodes(), app.virtCli.ShadowNodeClient(), app.virtCli.AuthorizationV1(), app.HostOverride, nodeLabellerrecorder)
 	if err != nil {
 		panic(err)
 	}
@@ -648,6 +692,12 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.gracefulShutdownSeconds, "graceful-shutdown-seconds", defaultGracefulShutdownSeconds,
 		"The number of seconds to wait for existing migration connections to close before shutting down virt-handler.")
+
+	flag.StringVar(&app.podName, "pod-name", defaultPodName,
+		"The pod name")
+
+	flag.StringVar(&app.podUID, "pod-uid", defaultPodUID,
+		"The pod uid")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {

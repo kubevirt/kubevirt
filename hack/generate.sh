@@ -50,7 +50,7 @@ fi
 
 client-gen --clientset-name versioned \
     --input-base kubevirt.io/api \
-    --input export/v1alpha1,snapshot/v1alpha1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1 \
+    --input core/v1,export/v1alpha1,snapshot/v1alpha1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package ${CLIENT_GEN_BASE}/kubevirt/clientset \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt

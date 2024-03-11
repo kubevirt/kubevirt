@@ -79,6 +79,7 @@ var (
 	VirtualMachineGroupVersionKind                   = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 	VirtualMachineInstanceMigrationGroupVersionKind  = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
 	KubeVirtGroupVersionKind                         = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
+	ShadowNodeGroupVersionKind                       = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "ShadowNode"}
 )
 
 var (
@@ -105,6 +106,8 @@ func AddKnownTypesGenerator(groupVersions []schema.GroupVersion) func(scheme *ru
 				&VirtualMachineList{},
 				&KubeVirt{},
 				&KubeVirtList{},
+				&ShadowNode{},
+				&ShadowNodeList{},
 			)
 			metav1.AddToGroupVersion(scheme, groupVersion)
 		}
