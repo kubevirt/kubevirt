@@ -91,6 +91,10 @@ var _ = Describe("Streamer", func() {
 		validateVMICalled = false
 		dialCalled = false
 	})
+	AfterEach(func() {
+		emptyAndCloseChannel(streamToClientCalled)
+		emptyAndCloseChannel(streamToServerCalled)
+	})
 	It("fetches a VirtualMachineInstance", func() {
 		streamer.Handle(req, resp)
 		Expect(fetchVMICalled).To(BeTrue())
@@ -370,6 +374,12 @@ var _ = Describe("Streamer", func() {
 		Eventually(streamToServerCalled, defaultTestTimeout).Should(Receive())
 	})
 	It("closes the result channel after both streams have returned", func() {
+		// This test is mutually exclusive with the `-race` flag, as there is no other way to check
+		// if a write-only channel is closed than to write to it and catch the panic.
+		if raceDetectorEnabled {
+			Skip("Data Race Detector is enabled")
+		}
+
 		var results chan<- streamFuncResult
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			result <- goerrors.New("done")
@@ -410,6 +420,14 @@ func streamFuncResultChannelIsClosed(channel chan<- streamFuncResult, timeout ti
 	}()
 
 	return <-closed
+}
+
+func emptyAndCloseChannel(channel chan struct{}) {
+	select {
+	case <-channel:
+	default:
+	}
+	close(channel)
 }
 
 func testWebsocketDial(handler http.HandlerFunc) (*httptest.Server, *websocket.Conn, *http.Response, error) {
