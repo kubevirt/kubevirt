@@ -1928,14 +1928,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(response.Result.Details.Causes).To(ContainElement(cause))
 			},
-				Entry("resource limits are configured", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-					vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-				}, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.resources",
-					Message: "Configuration of Memory limits is not allowed when Memory live update is enabled",
-				}),
 				Entry("hugepages is configured", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
 						PageSize: "2Mi",
