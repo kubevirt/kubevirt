@@ -19,6 +19,7 @@
 package tests_test
 
 import (
+	"context"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -33,7 +34,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
-
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -43,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -96,7 +99,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
@@ -153,8 +158,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				for _, configMap := range configMaps {
-					tests.DeleteConfigMap(configMap, testsuite.GetTestNamespace(nil))
+				for _, configMapIface := range configMaps {
+					if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapIface, metav1.DeleteOptions{}); err != nil {
+						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+					}
 				}
 				configMaps = nil
 			})
@@ -191,7 +198,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
@@ -247,7 +256,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			AfterEach(func() {
 				for _, secret := range secrets {
-					tests.DeleteSecret(secret, testsuite.GetTestNamespace(nil))
+					if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secret, metav1.DeleteOptions{}); err != nil {
+						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+					}
 				}
 				secrets = nil
 			})
@@ -351,8 +362,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				tests.DeleteConfigMap(configMapName, testsuite.GetTestNamespace(nil))
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", func() {
@@ -472,7 +487,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			AfterEach(func() {
-				tests.DeleteSecret(secretName, testsuite.GetTestNamespace(nil))
+				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+				}
 			})
 
 			It("[test_id:778]Should be the fs layout the same for a pod and vmi", func() {
