@@ -1249,6 +1249,39 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
+
+		It("should reject virtiofs filesystems PVC when feature gate is disabled", func() {
+			vmi := libvmi.New(libvmi.WithFilesystemPVC("sharedtestdisk"))
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems"))
+		})
+
+		It("should allow virtiofs filesystems PVC when feature gate is enabled", func() {
+			enableFeatureGate(virtconfig.VirtIOFSPVCGate)
+			vmi := libvmi.New(libvmi.WithFilesystemPVC("sharedtestdisk"))
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject virtiofs filesystems config maps when feature gate is disabled", func() {
+			vmi := libvmi.New(libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap"))
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems"))
+		})
+
+		It("should allow virtiofs filesystems config maps when feature gate is disabled", func() {
+			enableFeatureGate(virtconfig.VirtIOFSConfigVolumesGate)
+			vmi := libvmi.New(libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap"))
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
 		It("should reject host devices when feature gate is disabled", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{

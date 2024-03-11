@@ -47,6 +47,11 @@ var _ = Describe("virtiofs container", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 	}
 
+	BeforeEach(func() {
+		enableFeatureGate(virtconfig.VirtIOFSPVCGate)
+		enableFeatureGate(virtconfig.VirtIOFSConfigVolumesGate)
+	})
+
 	AfterEach(func() {
 		disableFeatureGates()
 	})
