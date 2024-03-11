@@ -44,7 +44,7 @@ import (
 
 const (
 	maxConnectAttempts   = 6
-	maxRequestsPerSecond = 5
+	maxRequestsPerSecond = 1
 	maxRequestsBurst     = 1 // must be >= 1, otherwise `rateLimiter.Wait()` will fail
 	invalidRequest       = "INVALID REQUEST\n\n"
 	emptyMetrics         = "<metrics><!-- host metrics not available --><!-- VM metrics not available --></metrics>"
