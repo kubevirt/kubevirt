@@ -95,18 +95,6 @@ const (
 	DiskCustomHostPath     = "disk-custom-host-path"
 )
 
-func CreateConfigMap(name, namespace string, data map[string]string) {
-	virtCli := kubevirt.Client()
-	_, err := virtCli.CoreV1().ConfigMaps(namespace).Create(context.Background(), &k8sv1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Data:       data,
-	}, metav1.CreateOptions{})
-
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
 func CreateSecret(name, namespace string, data map[string]string) {
 	virtCli := kubevirt.Client()
 

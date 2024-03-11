@@ -20,6 +20,7 @@
 package virtiofs
 
 import (
+	"context"
 	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -27,11 +28,14 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -64,7 +68,11 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				"option2": "value2",
 				"option3": "value3",
 			}
-			tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
+			_, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+				Data:       data,
+			}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {
