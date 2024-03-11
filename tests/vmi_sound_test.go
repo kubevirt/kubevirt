@@ -30,6 +30,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -97,7 +99,7 @@ func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.
 			Model: model,
 		}
 	}
-	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVmi)
+	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVmi, metav1.CreateOptions{})
 }
 
 func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, model string) {

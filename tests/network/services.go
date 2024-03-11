@@ -75,7 +75,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)
 			var err error
-			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
@@ -148,7 +148,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)...)
 			var err error
-			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)

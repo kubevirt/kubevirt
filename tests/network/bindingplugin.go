@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests"
@@ -76,7 +78,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 
 			var err error
 			namespace := testsuite.GetTestNamespace(nil)
-			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi = libwait.WaitUntilVMIReady(
@@ -130,7 +132,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 					*libvmi.InterfaceWithMac(&macvtapIface, chosenMAC)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
 
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(
 				vmi,

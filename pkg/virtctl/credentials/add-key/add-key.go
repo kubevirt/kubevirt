@@ -108,7 +108,7 @@ func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSshKeyFl
 func addSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlags *addSshKeyFlags, vm *v1.VirtualMachine, sshKey string) (err error) {
 	if !cmdFlags.Force {
 		// Only create a secret if VM is not running.
-		_, err := cli.VirtualMachineInstance(vm.Namespace).Get(cmd.Context(), vm.Name, &metav1.GetOptions{})
+		_, err := cli.VirtualMachineInstance(vm.Namespace).Get(cmd.Context(), vm.Name, metav1.GetOptions{})
 		if err == nil {
 			return fmt.Errorf("virtual machine %s is running. Use --force flag to update a running VM, it will take effect after restart", vm.Name)
 		}

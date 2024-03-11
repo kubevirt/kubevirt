@@ -146,7 +146,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
@@ -212,8 +212,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 				"at this point the node should has use more memory than totalMemKib "+
 					"we check this to insure we migrated into memory overcommited node")
 			By("Deleting the VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmiToFillTargetNodeMem.Namespace).Delete(context.Background(), vmiToFillTargetNodeMem.Name, &metav1.DeleteOptions{})).To(Succeed())
-			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmiToFillTargetNodeMem.Namespace).Delete(context.Background(), vmiToFillTargetNodeMem.Name, metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMIs to disappear")
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)
@@ -259,7 +259,7 @@ func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTh
 func confirmMigrationMode(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
 	var err error
 	By("Retrieving the VMI post migration")
-	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
 
 	By("Verifying the VMI's migration mode")

@@ -153,7 +153,7 @@ func (c *command) run(args []string) error {
 }
 
 func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
-	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

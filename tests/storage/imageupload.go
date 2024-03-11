@@ -133,17 +133,17 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			if startVM {
 				By("Start VM")
 				vmi := tests.NewRandomVMIWithDataVolume(targetName)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
-					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithFailOnWarnings(false),
 					libwait.WithTimeout(180),
 				)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
@@ -270,10 +270,10 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 			By("Start VM")
 			vmi := tests.NewRandomVMIWithDataVolume("target-dv")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			defer func() {
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}()
 

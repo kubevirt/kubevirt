@@ -244,7 +244,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(vm.Namespace).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 				vm = tests.StartVirtualMachine(vm)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -256,7 +256,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Restart VM")
 				vm = tests.StopVirtualMachine(vm)
 				tests.StartVirtualMachine(vm)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -350,7 +350,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(console.RunCommand(vmi, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
 
 			// Expect that the secret is not present on the vmi itself
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
 			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
@@ -436,7 +436,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "network-config", testNetworkData)
 
 				// Expect that the secret is not present on the vmi itself
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
@@ -493,7 +493,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Tags:    []string{"specialNet"},
 					},
 				}
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -579,7 +579,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 
 				// Expect that the secret is not present on the vmi itself
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkDataBase64).To(BeEmpty())
@@ -658,7 +658,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				CheckCloudInitFile(vmi, "openstack/latest/user_data", testUserData)
 
 				// Expect that the secret is not present on the vmi itself
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.UserData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.UserDataBase64).To(BeEmpty())

@@ -35,8 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -287,62 +285,6 @@ func (v *vmis) Unpause(ctx context.Context, name string, unpauseOptions *v1.Unpa
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unpause")
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
-}
-
-func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	vmi, err = v.VirtualMachineInstanceInterface.Get(ctx, name, opts)
-	vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
-	return
-}
-
-func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
-	opts := k8smetav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	vmiList, err = v.VirtualMachineInstanceInterface.List(ctx, opts)
-	for i := range vmiList.Items {
-		vmiList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
-	}
-
-	return
-}
-
-func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
-	result, err = v.VirtualMachineInstanceInterface.Create(ctx, vmi, metav1.CreateOptions{})
-	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
-	return
-}
-
-func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
-	result, err = v.VirtualMachineInstanceInterface.Update(ctx, vmi, metav1.UpdateOptions{})
-	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
-	return
-}
-
-func (v *vmis) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return v.VirtualMachineInstanceInterface.Delete(ctx, name, opts)
-}
-
-func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
-	opts := k8smetav1.PatchOptions{}
-	if patchOptions != nil {
-		opts = *patchOptions
-	}
-	return v.VirtualMachineInstanceInterface.Patch(ctx, name, pt, data, opts, subresources...)
-}
-
-func (v *vmis) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	opts.Watch = true
-	return v.VirtualMachineInstanceInterface.Watch(ctx, opts)
 }
 
 // enrichError checks the response body for a k8s Status object and extracts the error from it.

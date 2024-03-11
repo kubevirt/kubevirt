@@ -25,6 +25,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
@@ -65,7 +67,7 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(macvtapNetName), mac)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetName, macvtapNetAttachDefName)),
 		)
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 

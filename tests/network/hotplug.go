@@ -61,7 +61,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 		migrate(vmi)
 	}
 
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
@@ -78,7 +78,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 	}, 30*time.Second).Should(
 		ConsistOf(interfaceStatusFromInterfaceNames(queueCount, secondaryNetworksNames...)))
 
-	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	return vmi
 }
@@ -86,7 +86,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	EventuallyWithOffset(1, func() []v1.Network {
 		var err error
-		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		return vmi.Spec.Networks
 	}, 30*time.Second).Should(
@@ -103,7 +103,7 @@ func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.Virt
 }
 
 func vmiCurrentInterfaces(vmiNamespace, vmiName string) []v1.VirtualMachineInstanceNetworkInterface {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmiNamespace).Get(context.Background(), vmiName, &metav1.GetOptions{})
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmiNamespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	return secondaryInterfaces(vmi)
 }

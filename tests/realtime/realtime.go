@@ -62,7 +62,7 @@ func newFedoraRealtime(realtimeMask string) *v1.VirtualMachineInstance {
 func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) *v1.VirtualMachineInstance {
 	By("Starting a VirtualMachineInstance")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return libwait.WaitForSuccessfulVMIStart(vmi)
 }
@@ -120,7 +120,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			Expect(canConvert).To(BeTrue())
 			Expect(hardLimit).To(BeNumerically(">", requested))
 			By("checking if the guest is still running")
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.Phase).To(Equal(v1.Running))
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -157,7 +157,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			Expect(slice[1]).To(Equal("TS 1/KVM"))
 
 			By("checking if the guest is still running")
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.Phase).To(Equal(v1.Running))
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

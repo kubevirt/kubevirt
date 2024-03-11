@@ -104,9 +104,9 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 		var err error
 		ns := testsuite.GetTestNamespace(nil)
-		serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI)
+		serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		clientVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), clientVMI)
+		clientVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), clientVMI, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
@@ -130,7 +130,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 				libvmi.WithNetwork(libvmi.MultusNetwork("test", macvtapNetworkName)),
 			)
 			var err error
-			clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
+			clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "should create VMI successfully")
 			clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 		})
@@ -163,7 +163,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 					libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 				)
 				var err error
-				serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI)
+				serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "should create VMI successfully")
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
@@ -209,7 +209,7 @@ func waitForPodCompleted(podNamespace string, podName string) error {
 func waitVMMacvtapIfaceIPReport(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 	var vmiIP string
 	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

@@ -235,7 +235,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
@@ -264,7 +264,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
@@ -276,7 +276,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi2, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi2)).Create(context.Background(), vmi2)
+			vmi2, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi2)).Create(context.Background(), vmi2, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi2,
 				libwait.WithFailOnWarnings(false),

@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/libssh"
 
@@ -82,7 +83,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmi.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloudUserData(libssh.RenderUserDataWithKey(pub)))
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)

@@ -83,13 +83,13 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7628]delete a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Virtual Machine")
@@ -98,22 +98,22 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &opts)
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually deleted")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7629]update a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a Virtual Machine")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -124,14 +124,14 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			})
 
 			By("Check that no update actually took place")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Labels["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7630]patch a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
@@ -140,7 +140,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -241,7 +241,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmim = libmigration.New(vmi.Name, vmi.Namespace)
 		})

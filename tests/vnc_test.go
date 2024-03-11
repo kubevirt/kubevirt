@@ -33,6 +33,8 @@ import (
 	"path/filepath"
 	"time"
 
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"github.com/mitchellh/go-vnc"
@@ -66,7 +68,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 		BeforeEach(func() {
 			var err error
 			vmi = libvmi.NewGuestless()
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 		})

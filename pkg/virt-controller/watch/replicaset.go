@@ -281,7 +281,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 			go func(idx int) {
 				defer wg.Done()
 				deleteCandidate := vmis[idx]
-				err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, metav1.DeleteOptions{})
 				// Don't log an error if it is already deleted
 				if err != nil {
 					// We can't observe a delete if it was not accepted by the server
@@ -310,7 +310,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 				vmi.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
 				vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
-				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(context.Background(), vmi)
+				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				if err != nil {
 					c.expectations.CreationObserved(rsKey)
 					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
@@ -814,7 +814,7 @@ func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceRepli
 		go func(idx int) {
 			defer wg.Done()
 			deleteCandidate := vmis[idx]
-			err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, &metav1.DeleteOptions{})
+			err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(context.Background(), deleteCandidate.ObjectMeta.Name, metav1.DeleteOptions{})
 			// Don't log an error if it is already deleted
 			if err != nil {
 				// We can't observe a delete if it was not accepted by the server

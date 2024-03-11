@@ -67,7 +67,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
 				var err error
-				hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
+				hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
 				return err
 			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
@@ -91,7 +91,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			Expect(vmIfaceSpec.MacAddress).NotTo(BeEmpty(), "VM iface spec should have MAC address")
 
 			Eventually(func(g Gomega) {
-				updatedVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.Namespace).Get(context.Background(), hotPluggedVMI.Name, &metav1.GetOptions{})
+				updatedVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.Namespace).Get(context.Background(), hotPluggedVMI.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(updatedVMI.Status.Interfaces, ifaceName)
@@ -118,7 +118,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 
 			By("asserting a new VMI is created, and running")
 			Eventually(func() v1.VirtualMachineInstancePhase {
-				newVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.Name, &metav1.GetOptions{})
+				newVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
 				if err != nil || hotPluggedVMI.UID == newVMI.UID {
 					hotPluggedVMI.GetNamespace()
 					return v1.VmPhaseUnset
@@ -126,11 +126,11 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 				return newVMI.Status.Phase
 			}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 			var err error
-			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
+			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
 
-			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
+			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
@@ -185,7 +185,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 				libvmi.WithNetwork(&net),
 				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ip2+subnetMask)),
 				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName))
-			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi)
+			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			libwait.WaitUntilVMIReady(anotherVmi, console.LoginToFedora)
 
@@ -209,7 +209,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			By("wait for the second network to appear in the VMI spec")
 			EventuallyWithOffset(1, func() []v1.Network {
 				var err error
-				hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.GetNamespace()).Get(context.Background(), hotPluggedVMI.GetName(), &metav1.GetOptions{})
+				hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.GetNamespace()).Get(context.Background(), hotPluggedVMI.GetName(), metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return hotPluggedVMI.Spec.Networks
 			}, 30*time.Second).Should(
@@ -271,7 +271,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				return err
 			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -284,7 +284,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 			By("wait for requested interface VMI spec to have 'absent' state or to be removed")
 			Eventually(func() bool {
 				var err error
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
 				return iface == nil || iface.State == v1.InterfaceStateAbsent
@@ -388,7 +388,7 @@ func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) 
 	var err error
 	var vmi *v1.VirtualMachineInstance
 	Eventually(func(g Gomega) {
-		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).WithOffset(1).NotTo(HaveOccurred())
 		assertInterfaceUnplugedFromVMI(g, vmi, netName)
 	}, 30*time.Second, 3*time.Second).WithOffset(1).Should(Succeed())

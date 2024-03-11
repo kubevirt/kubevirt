@@ -399,7 +399,7 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
 	clientVMI := libvmi.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking()...)
 	var err error
-	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI)
+	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +424,7 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 		)...,
 	)
 	serverVMI.Labels = serverVMILabels
-	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), serverVMI)
+	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -356,7 +356,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		},
