@@ -1083,25 +1083,45 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	if err := l.syncDiskHotplug(domain, oldSpec, dom, vmi); err != nil {
+		return nil, err
+	}
+
+	if err := l.syncNetworkHotplug(domain, oldSpec, dom, vmi, options); err != nil {
+		return nil, err
+	}
+
+	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
+	return oldSpec, nil
+}
+
+func (l *LibvirtDomainManager) syncDiskHotplug(
+	domain *api.Domain,
+	spec *api.DomainSpec,
+	dom cli.VirDomain,
+	vmi *v1.VirtualMachineInstance,
+) error {
+	logger := log.Log.Object(vmi)
+
 	// Look up all the disks to detach
-	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
+	for _, detachDisk := range getDetachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
-			return nil, err
+			return err
 		}
 		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
-			return nil, err
+			return err
 		}
 	}
 	// Look up all the disks to attach
-	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
+	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !allowAttach {
 			continue
@@ -1110,22 +1130,22 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		// set drivers cache mode
 		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		err = converter.SetOptimalIOMode(&attachDisk)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")
-			return nil, err
+			return err
 		}
 		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("attaching device")
-			return nil, err
+			return err
 		}
 	}
 
@@ -1134,7 +1154,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		if shouldExpandOnline(dom, disk) {
 			possibleGuestSize, ok := possibleGuestSize(disk)
 			if !ok {
-				logger.Reason(err).Warningf("Failed to get possible guest size from disk %v", disk)
+				logger.Warningf("Failed to get possible guest size from disk %v", disk)
 				break
 			}
 			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
@@ -1144,12 +1164,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
-	if err := l.syncNetworkHotplug(domain, oldSpec, dom, vmi, options); err != nil {
-		return nil, err
-	}
-
-	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
-	return oldSpec, nil
+	return nil
 }
 
 func (l *LibvirtDomainManager) syncNetworkHotplug(
