@@ -3,13 +3,13 @@ package components
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
-
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -42,8 +42,8 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(util.RootUser),
-			Privileged: pointer.Bool(true),
+			RunAsUser:  pointer.P(int64(util.RootUser)),
+			Privileged: pointer.P(true),
 		},
 	}
 }
@@ -123,7 +123,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				"node-labeller.sh",
 			},
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: pointer.Bool(true),
+				Privileged: pointer.P(true),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -193,7 +193,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{
-		Privileged: pointer.Bool(true),
+		Privileged: pointer.P(true),
 		SELinuxOptions: &corev1.SELinuxOptions{
 			Level: "s0",
 		},

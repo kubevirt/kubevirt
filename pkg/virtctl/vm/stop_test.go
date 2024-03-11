@@ -22,12 +22,13 @@ package vm_test
 import (
 	"context"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -55,7 +56,7 @@ var _ = Describe("Stop command", func() {
 
 	It("with dry-run parameter should not stop VM", func() {
 		vm := kubecli.NewMinimalVM(vmName)
-		vm.Spec.Running = pointer.Bool(true)
+		vm.Spec.Running = pointer.P(true)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Stop(context.Background(), vm.Name, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
@@ -103,12 +104,12 @@ var _ = Describe("Stop command", func() {
 			"stop", vmName),
 		Entry("with spec:running:false",
 			func(vm *v1.VirtualMachine) {
-				vm.Spec.Running = pointer.Bool(true)
+				vm.Spec.Running = pointer.P(true)
 			},
 			"stop", vmName),
 		Entry("with spec:running:false when it's false already",
 			func(vm *v1.VirtualMachine) {
-				vm.Spec.Running = pointer.Bool(false)
+				vm.Spec.Running = pointer.P(false)
 			},
 			"stop", vmName),
 	)

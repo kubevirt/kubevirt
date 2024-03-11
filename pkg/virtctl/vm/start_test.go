@@ -22,12 +22,13 @@ package vm_test
 import (
 	"context"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -55,7 +56,7 @@ var _ = Describe("Start command", func() {
 
 	It("with dry-run parameter should not start VM", func() {
 		vm := kubecli.NewMinimalVM(vmName)
-		vm.Spec.Running = pointer.Bool(false)
+		vm.Spec.Running = pointer.P(false)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
@@ -80,7 +81,7 @@ var _ = Describe("Start command", func() {
 
 		It("with spec:running:true", func() {
 			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = pointer.Bool(false)
+			vm.Spec.Running = pointer.P(false)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 			vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{Paused: false, DryRun: nil}).Return(nil).Times(1)

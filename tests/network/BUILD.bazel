@@ -39,6 +39,7 @@ go_library(
         "//pkg/network/netbinding:go_default_library",
         "//pkg/network/setup:go_default_library",
         "//pkg/network/vmispec:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
@@ -92,6 +93,5 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )
