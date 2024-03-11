@@ -4754,6 +4754,48 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 		})
 	})
+
+	Context("hyperV passthrough", func() {
+
+		const useExplicitHyperV, useHyperVPassthrough = true, true
+		const doNotUseExplicitHyperV, doNotUseHyperVPassthrough = false, false
+
+		DescribeTable("Use of hyperV combined with hyperV passthrough is forbidden", func(explicitHyperv, hypervPassthrough, expectValid bool) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{}
+
+			if explicitHyperv {
+				vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+			}
+			if hypervPassthrough {
+				vmi.Spec.Domain.Features.HypervPassthrough = &v1.HyperVPassthrough{}
+			}
+
+			vmiBytes, _ := json.Marshal(&vmi)
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+			resp := vmiCreateAdmitter.Admit(ar)
+
+			if expectValid {
+				Expect(resp.Allowed).To(BeTrue())
+			} else {
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(ContainSubstring("hyperv"))
+			}
+		},
+			Entry("explicit + passthrough", useExplicitHyperV, useHyperVPassthrough, false),
+			Entry("passthrough only", doNotUseExplicitHyperV, useHyperVPassthrough, true),
+			Entry("explicit only", useExplicitHyperV, doNotUseHyperVPassthrough, true),
+			Entry("no hyperv use", doNotUseExplicitHyperV, doNotUseHyperVPassthrough, true),
+		)
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
