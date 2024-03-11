@@ -1144,24 +1144,38 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
-	if vmi.IsRunning() {
-		var domainAttachments map[string]string
-		if options != nil {
-			domainAttachments = options.GetInterfaceDomainAttachment()
-		}
-
-		networkInterfaceManager := newVirtIOInterfaceManager(
-			dom, netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments)))
-		if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
-			return nil, err
-		}
-		if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
-			return nil, err
-		}
+	if err := l.syncNetworkHotplug(domain, oldSpec, dom, vmi, options); err != nil {
+		return nil, err
 	}
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
+}
+
+func (l *LibvirtDomainManager) syncNetworkHotplug(
+	domain *api.Domain,
+	oldSpec *api.DomainSpec,
+	dom cli.VirDomain,
+	vmi *v1.VirtualMachineInstance,
+	options *cmdv1.VirtualMachineOptions,
+) error {
+	if !vmi.IsRunning() {
+		return nil
+	}
+	var domainAttachments map[string]string
+	if options != nil {
+		domainAttachments = options.GetInterfaceDomainAttachment()
+	}
+
+	networkConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(domainAttachments))
+	networkInterfaceManager := newVirtIOInterfaceManager(dom, networkConfigurator)
+	if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
+		return err
+	}
+	if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (l *LibvirtDomainManager) startDomain(
