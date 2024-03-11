@@ -33,11 +33,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 
-	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -182,15 +177,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		migrationBandwidthLimit = resource.MustParse("1Ki")
 	})
 
-	confirmMigrationMode := func(vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode) {
-		By("Retrieving the VMI post migration")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Verifying the VMI's migration mode")
-		Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode))
-	}
-
 	getVirtqemudPid := func(pod *k8sv1.Pod) string {
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "compute",
 			[]string{
@@ -266,79 +252,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance ", func() {
-		guestAgentMigrationTestFunc := func(pvName string, memoryRequestSize string, migrationPolicy *migrationsv1.MigrationPolicy) {
-			By("Creating the VMI")
-
-			// add userdata for guest agent and service account mount
-			mountSvcAccCommands := fmt.Sprintf(`#!/bin/bash
-					mkdir /mnt/servacc
-					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
-				`, secretDiskSerial)
-			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithPersistentVolumeClaim("disk0", pvName),
-				libvmi.WithResourceMemory(memoryRequestSize),
-				libvmi.WithRng(),
-				libvmi.WithCloudInitNoCloudEncodedUserData(mountSvcAccCommands),
-				libvmi.WithServiceAccountDisk("default"),
-			)
-
-			mode := v1.MigrationPreCopy
-			if migrationPolicy != nil && migrationPolicy.Spec.AllowPostCopy != nil && *migrationPolicy.Spec.AllowPostCopy {
-				mode = v1.MigrationPostCopy
-			}
-
-			// postcopy needs a privileged namespace
-			if mode == v1.MigrationPostCopy {
-				vmi.Namespace = testsuite.NamespacePrivileged
-			}
-
-			disks := vmi.Spec.Domain.Devices.Disks
-			disks[len(disks)-1].Serial = secretDiskSerial
-
-			if migrationPolicy != nil {
-				AlignPolicyAndVmi(vmi, migrationPolicy)
-				migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
-			}
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-
-			// Wait for cloud init to finish and start the agent inside the vmi.
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-			By("Checking that the VirtualMachineInstance console has expected output")
-			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
-
-			if mode == v1.MigrationPostCopy {
-				By("Running stress test to allow transition to post-copy")
-				runStressTest(vmi, stressLargeVMSize, stressDefaultSleepDuration)
-			}
-
-			// execute a migration, wait for finalized state
-			By("Starting the Migration for iteration")
-			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-
-			migration := libmigration.New(vmi.Name, vmi.Namespace)
-			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-			By("Checking VMI, confirm migration state")
-			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-			Expect(vmi.Status.MigrationState.SourcePod).To(Equal(sourcePod.Name))
-			confirmMigrationMode(vmi, mode)
-
-			By("Is agent connected after migration")
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-			By("Checking that the migrated VirtualMachineInstance console has expected output")
-			Expect(console.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
-
-			By("Checking that the service account is mounted")
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
-				&expect.BExp{R: vmi.Namespace},
-			}, 30)).To(Succeed(), "Should be able to access the mounted service account file")
-		}
-
 		Context("with a bridge network interface", func() {
 			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
 				vmi := libvmifact.NewAlpine(
@@ -1255,7 +1168,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
-				guestAgentMigrationTestFunc(dv.Name, fedoraVMSize, nil)
+				VMIMigrationWithGuestaAgent(virtClient, dv.Name, fedoraVMSize, nil)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
@@ -1681,111 +1594,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 					Expect(tlsErrorFound).To(BeTrue())
 				})
-			})
-		})
-
-		Context("migration postcopy", func() {
-
-			var migrationPolicy *migrationsv1.MigrationPolicy
-
-			BeforeEach(func() {
-				By("Allowing post-copy and limit migration bandwidth")
-				policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
-				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
-				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
-				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
-			})
-
-			Context("with datavolume", func() {
-				var dv *cdiv1.DataVolume
-
-				BeforeEach(func() {
-					sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-					if !foundSC {
-						Skip("Skip test when Filesystem storage is not present")
-					}
-
-					dv = libdv.NewDataVolume(
-						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
-						libdv.WithPVC(
-							libdv.PVCWithStorageClass(sc),
-							libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
-							libdv.PVCWithReadWriteManyAccessMode(),
-						),
-					)
-
-					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				AfterEach(func() {
-					libstorage.DeleteDataVolume(&dv)
-				})
-
-				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-					guestAgentMigrationTestFunc(dv.Name, "1Gi", migrationPolicy)
-				})
-
-			})
-
-			Context("should migrate using for postcopy", func() {
-
-				applyMigrationPolicy := func(vmi *v1.VirtualMachineInstance) {
-					AlignPolicyAndVmi(vmi, migrationPolicy)
-					migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
-				}
-
-				applyKubevirtCR := func() {
-					config := getCurrentKvConfig(virtClient)
-					config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
-					config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
-					config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
-					tests.UpdateKubeVirtConfigValueAndWait(config)
-				}
-
-				type applySettingsType string
-				const (
-					applyWithMigrationPolicy applySettingsType = "policy"
-					applyWithKubevirtCR      applySettingsType = "kubevirt"
-				)
-
-				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
-					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-					vmi.Namespace = testsuite.NamespacePrivileged
-
-					switch settingsType {
-					case applyWithMigrationPolicy:
-						applyMigrationPolicy(vmi)
-					case applyWithKubevirtCR:
-						applyKubevirtCR()
-					}
-
-					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-
-					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-					// Need to wait for cloud init to finish and start the agent inside the vmi.
-					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-					runStressTest(vmi, "350M", stressDefaultSleepDuration)
-
-					// execute a migration, wait for finalized state
-					By("Starting the Migration")
-					migration := libmigration.New(vmi.Name, vmi.Namespace)
-					migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, 150)
-
-					// check VMI, confirm migration state
-					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-					confirmMigrationMode(vmi, v1.MigrationPostCopy)
-				},
-					Entry("a migration policy", applyWithMigrationPolicy),
-					Entry("[Serial] Kubevirt CR", Serial, applyWithKubevirtCR),
-				)
 			})
 		})
 
