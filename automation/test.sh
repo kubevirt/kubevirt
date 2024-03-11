@@ -86,6 +86,7 @@ elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+  export KUBEVIRT_STORAGE="rook-ceph-default"
 elif [[ $TARGET =~ sig-operator ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
   export KUBEVIRT_WITH_CNAO=true
