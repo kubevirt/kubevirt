@@ -1063,32 +1063,18 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
-	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-		err = l.generateCloudInitISO(vmi, &dom)
-		if err != nil {
+	switch {
+	case cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal():
+		if err := l.startDomain(vmi, dom); err != nil {
 			return nil, err
 		}
-		createFlags := getDomainCreateFlags(vmi)
-		err = dom.CreateWithFlags(createFlags)
-		if err != nil {
-			logger.Reason(err).
-				Errorf("Failed to start VirtualMachineInstance with flags %v.", createFlags)
-			return nil, err
-		}
-		logger.Info("Domain started.")
-		if vmi.ShouldStartPaused() {
-			l.paused.add(vmi.UID)
-		}
-	} else if cli.IsPaused(domState) && !l.paused.contains(vmi.UID) {
+	case cli.IsPaused(domState) && !l.paused.contains(vmi.UID):
 		// TODO: if state change reason indicates a system error, we could try something smarter
-		err := dom.Resume()
-		if err != nil {
+		if err := dom.Resume(); err != nil {
 			logger.Reason(err).Error("unpausing the VirtualMachineInstance failed.")
 			return nil, err
 		}
 		logger.Info("Domain unpaused.")
-	} else {
-		// Nothing to do
 	}
 
 	oldSpec, err := getDomainSpec(dom)
@@ -1176,6 +1162,29 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
+}
+
+func (l *LibvirtDomainManager) startDomain(
+	vmi *v1.VirtualMachineInstance,
+	dom cli.VirDomain,
+) error {
+	logger := log.Log.Object(vmi)
+	if err := l.generateCloudInitISO(vmi, &dom); err != nil {
+		return err
+	}
+
+	createFlags := getDomainCreateFlags(vmi)
+	if err := dom.CreateWithFlags(createFlags); err != nil {
+		logger.Reason(err).
+			Errorf("Failed to start VirtualMachineInstance with flags %v.", createFlags)
+		return err
+	}
+
+	logger.Info("Domain started.")
+	if vmi.ShouldStartPaused() {
+		l.paused.add(vmi.UID)
+	}
+	return nil
 }
 
 func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
