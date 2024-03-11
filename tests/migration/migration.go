@@ -129,7 +129,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			"config1": "value1",
 			"config2": "value2",
 		}
-		tests.CreateConfigMap(name, namespace, data)
+		_, err := kubevirt.Client().CoreV1().ConfigMaps(namespace).Create(context.Background(), &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Data:       data,
+		}, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
 		return name
 	}
 
@@ -1884,7 +1889,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					"password": "community",
 				}
 
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
+				_, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+					Data:       config_data,
+				}, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
