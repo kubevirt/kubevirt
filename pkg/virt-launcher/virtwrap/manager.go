@@ -1049,35 +1049,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// Set defaults which are not coming from the cluster
 	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 
-	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
+	dom, err := l.lookupOrCreateVirDomain(domain, vmi, options)
 	if err != nil {
-		// We need the domain but it does not exist, so create it
-		if domainerrors.IsNotFound(err) {
-			domain, err = l.preStartHook(vmi, domain, false, options)
-			if err != nil {
-				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
-				return nil, err
-			}
-
-			dom, err = withNetworkIfacesResources(
-				vmi, &domain.Spec,
-				func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
-					return l.setDomainSpecWithHooks(v, s)
-				},
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			l.metadataCache.UID.Set(vmi.UID)
-			l.metadataCache.GracePeriod.Set(
-				api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
-			)
-			logger.Info("Domain defined.")
-		} else {
-			logger.Reason(err).Error(failedGetDomain)
-			return nil, err
-		}
+		return nil, err
 	}
 	defer dom.Free()
 	domState, _, err := dom.GetState()
@@ -1202,6 +1176,45 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
+}
+
+func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
+	domain *api.Domain,
+	vmi *v1.VirtualMachineInstance,
+	options *cmdv1.VirtualMachineOptions,
+) (cli.VirDomain, error) {
+	logger := log.Log.Object(vmi)
+
+	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
+	if err == nil {
+		return dom, nil
+	}
+
+	if !domainerrors.IsNotFound(err) {
+		logger.Reason(err).Error(failedGetDomain)
+		return nil, err
+	}
+
+	// We need the domain but it does not exist, so create it
+	if _, err = l.preStartHook(vmi, domain, false, options); err != nil {
+		logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
+		return nil, err
+	}
+
+	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+		return l.setDomainSpecWithHooks(v, s)
+	}
+
+	if dom, err = withNetworkIfacesResources(vmi, &domain.Spec, setDomainFn); err != nil {
+		return nil, err
+	}
+
+	l.metadataCache.UID.Set(vmi.UID)
+	l.metadataCache.GracePeriod.Set(
+		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
+	)
+	logger.Info("Domain defined.")
+	return dom, err
 }
 
 func getSourceFile(disk api.Disk) string {
