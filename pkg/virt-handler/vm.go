@@ -593,17 +593,11 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 }
 
 func domainPausedFailedPostCopy(domain *api.Domain) bool {
-	if domain != nil && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedPostcopyFailed {
-		return true
-	}
-	return false
+	return domain != nil && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedPostcopyFailed
 }
 
 func domainMigrated(domain *api.Domain) bool {
-	if domain != nil && domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonMigrated {
-		return true
-	}
-	return false
+	return domain != nil && domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonMigrated
 }
 
 func canUpdateToMounted(currentPhase v1.VolumePhase) bool {

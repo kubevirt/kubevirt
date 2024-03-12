@@ -28,6 +28,8 @@ import (
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -46,7 +48,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -78,7 +80,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 		By("Waiting until migration status")
 		EventuallyWithOffset(2, func() v1.MigrationMode {
 			By("Retrieving the VMI post migration")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if vmi.Status.MigrationState != nil {
 				return vmi.Status.MigrationState.Mode
@@ -130,7 +132,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				})
 
 				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-					VMIMigrationWithGuestaAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
+					VMIMigrationWithGuestAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
 				})
 
 			})
@@ -157,7 +159,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				)
 
 				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
-					vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 					vmi.Namespace = testsuite.NamespacePrivileged
@@ -187,7 +189,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 
 					// check VMI, confirm migration state
 					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-					confirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
+					libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 				},
 					Entry("a migration policy", applyWithMigrationPolicy),
 					Entry("[Serial] Kubevirt CR", Serial, applyWithKubevirtCR),
@@ -199,11 +201,12 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						createdPods = []string{}
 					})
 
-					createLargeVirtualMachine := func(namespace string) *v1.VirtualMachine {
-						vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
-						vmi.Namespace = namespace
-						vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("3Gi")
-						vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+					createLargeVirtualMachine := func() *v1.VirtualMachine {
+						vmi := libvmifact.NewFedora(
+							append(libnet.WithMasqueradeNetworking(),
+								libvmi.WithResourceMemory("3Gi"),
+								libvmi.WithRng())...,
+						)
 						vm := libvmi.NewVirtualMachine(vmi)
 
 						vm, err := virtClient.VirtualMachine(testsuite.NamespacePrivileged).Create(context.Background(), vm)
@@ -256,7 +259,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					It("should make sure that VM restarts after failure", func() {
 
 						By("creating a large VM with RunStrategyRerunOnFailure")
-						vm := createLargeVirtualMachine(testsuite.NamespacePrivileged)
+						vm := createLargeVirtualMachine()
 
 						// update the migration policy to ensure slow pre-copy migration progress instead of an immidiate cancelation.
 						migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
@@ -265,7 +268,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 
 						By("Starting the VirtualMachine")
 						vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyRerunOnFailure)
-						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Checking that the VirtualMachineInstance console has expected output")
@@ -283,12 +286,12 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						// check VMI, confirm migration state
 						waitUntilMigrationMode(vmi, v1.MigrationPostCopy, 300)
 
-						// launch killer pod on every node that isn't the vmi's node
+						// launch a migration killer pod on the node
 						By("Starting migration killer pods")
 						runMigrationKillerPod(vmi.Status.NodeName)
 
 						By("Making sure that post-copy migration failed")
-                        Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(BeInPhase(v1.MigrationFailed))
+						Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(BeInPhase(v1.MigrationFailed))
 
 						By("Removing migration killer pods")
 						removeMigrationKillerPod()
@@ -302,7 +305,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 	})
 })
 
-func VMIMigrationWithGuestaAgent(virtClient kubecli.KubevirtClient, pvName string, memoryRequestSize string, migrationPolicy *migrationsv1.MigrationPolicy) {
+func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string, memoryRequestSize string, migrationPolicy *migrationsv1.MigrationPolicy) {
 	By("Creating the VMI")
 
 	// add userdata for guest agent and service account mount
@@ -360,7 +363,7 @@ func VMIMigrationWithGuestaAgent(virtClient kubecli.KubevirtClient, pvName strin
 	By("Checking VMI, confirm migration state")
 	vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 	Expect(vmi.Status.MigrationState.SourcePod).To(Equal(sourcePod.Name))
-	confirmMigrationMode(virtClient, vmi, mode)
+	libmigration.ConfirmMigrationMode(virtClient, vmi, mode)
 
 	By("Is agent connected after migration")
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -373,13 +376,4 @@ func VMIMigrationWithGuestaAgent(virtClient kubecli.KubevirtClient, pvName strin
 		&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
 		&expect.BExp{R: vmi.Namespace},
 	}, 30)).To(Succeed(), "Should be able to access the mounted service account file")
-}
-
-func confirmMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode) {
-	By("Retrieving the VMI post migration")
-	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	By("Verifying the VMI's migration mode")
-	Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode))
 }

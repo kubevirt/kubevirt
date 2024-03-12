@@ -2109,4 +2109,3 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 
 	return vm
 }
-

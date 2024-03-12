@@ -22,12 +22,11 @@ package matcher
 import (
 	v1 "kubevirt.io/api/core/v1"
 
-    "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
-
 )
 
 func BeCreated() gomegatypes.GomegaMatcher {

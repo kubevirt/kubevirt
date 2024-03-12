@@ -15,9 +15,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 
-	"github.com/onsi/gomega/gstruct"
-	gomegatypes "github.com/onsi/gomega/types"
-
 	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/flags"

@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -1168,7 +1169,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
-				VMIMigrationWithGuestaAgent(virtClient, dv.Name, fedoraVMSize, nil)
+				VMIMigrationWithGuestAgent(virtClient, dv.Name, fedoraVMSize, nil)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
