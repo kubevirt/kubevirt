@@ -3176,7 +3176,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			Expect(vmi.Spec.Domain.Devices.Disks).Should(HaveLen(numOfDevices))
 
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("[Serial][test_id:5269]across all available PCI root bus slots", Serial, 2, numOfSlotsToTest, false),

@@ -1072,7 +1072,7 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Update(arg0, arg1, arg2
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Delete(ctx context.Context, name string, options *v12.DeleteOptions) error {
+func (_m *MockVirtualMachineInstanceInterface) Delete(ctx context.Context, name string, options v12.DeleteOptions) error {
 	ret := _m.ctrl.Call(_m, "Delete", ctx, name, options)
 	ret0, _ := ret[0].(error)
 	return ret0

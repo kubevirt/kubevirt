@@ -709,7 +709,7 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 	virtClient := kubevirt.Client()
 
 	GinkgoWriter.Println("sriov:", vmi.Name, "deletion started")
-	if err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
+	if err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, k8smetav1.DeleteOptions{}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}

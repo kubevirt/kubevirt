@@ -226,7 +226,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("should receive Terminal signal on VMI deletion", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
 
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func(g Gomega) {
