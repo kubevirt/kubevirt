@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand"
 	"strconv"
@@ -694,11 +695,11 @@ func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv
 	var ops []string
 
 	if vm.Spec.Template.Spec.NodeSelector != nil {
-		vmNodeSelector := make(map[string]string)
-		// copy the node selector map
-		for k, v := range vm.Spec.Template.Spec.NodeSelector {
-			vmNodeSelector[k] = v
+		vmNodeSelector := maps.Clone(vm.Spec.Template.Spec.NodeSelector)
+		if vmNodeSelector == nil {
+			vmNodeSelector = make(map[string]string)
 		}
+
 		vmNodeSelectorJson, err := json.Marshal(vmNodeSelector)
 		if err != nil {
 			return err

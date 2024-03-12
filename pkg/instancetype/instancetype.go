@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 
@@ -1048,11 +1049,7 @@ func applyNodeSelector(field *k8sfield.Path, instancetypeSpec *instancetypev1bet
 		return Conflicts{field.Child("nodeSelector")}
 	}
 
-	// TODO: This should be eventually moved to `maps` package (https://pkg.go.dev/maps@master).
-	vmiSpec.NodeSelector = make(map[string]string, len(instancetypeSpec.NodeSelector))
-	for k, v := range instancetypeSpec.NodeSelector {
-		vmiSpec.NodeSelector[k] = v
-	}
+	vmiSpec.NodeSelector = maps.Clone(instancetypeSpec.NodeSelector)
 
 	return nil
 }

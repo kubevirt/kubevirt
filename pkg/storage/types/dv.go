@@ -22,6 +22,7 @@ package types
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,22 +112,15 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 	newDataVolume := &cdiv1.DataVolume{}
 	newDataVolume.Spec = *dataVolumeTemplate.Spec.DeepCopy()
 	newDataVolume.ObjectMeta = *dataVolumeTemplate.ObjectMeta.DeepCopy()
-
-	labels := map[string]string{}
-	for k, v := range dataVolumeTemplate.Labels {
-		labels[k] = v
+	newDataVolume.ObjectMeta.Labels = maps.Clone(dataVolumeTemplate.Labels)
+	if newDataVolume.ObjectMeta.Labels == nil {
+		newDataVolume.ObjectMeta.Labels = make(map[string]string)
 	}
-	newDataVolume.ObjectMeta.Labels = labels
-
-	annotations := map[string]string{}
-	for k, v := range dataVolumeTemplate.Annotations {
-		annotations[k] = v
+	newDataVolume.ObjectMeta.Annotations = maps.Clone(dataVolumeTemplate.Annotations)
+	if newDataVolume.ObjectMeta.Annotations == nil {
+		newDataVolume.ObjectMeta.Annotations = make(map[string]string, 1)
 	}
-
-	// passed to PVC by DataVolume controller
-	annotations[allowClaimAdoptionAnnotation] = "true"
-
-	newDataVolume.ObjectMeta.Annotations = annotations
+	newDataVolume.ObjectMeta.Annotations[allowClaimAdoptionAnnotation] = "true"
 
 	if newDataVolume.Spec.PriorityClassName == "" && priorityClassName != "" {
 		newDataVolume.Spec.PriorityClassName = priorityClassName
