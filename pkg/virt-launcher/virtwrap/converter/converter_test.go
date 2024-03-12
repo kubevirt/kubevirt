@@ -56,6 +56,7 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -1680,7 +1681,7 @@ var _ = Describe("Converter", func() {
 		)
 	})
 
-	Context("HyperV features", func() {
+	Context("HyperV", func() {
 		DescribeTable("should convert hyperv features", func(hyperV *v1.FeatureHyperv, result *api.FeatureHyperv) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -1732,6 +1733,26 @@ var _ = Describe("Converter", func() {
 				VAPIC: &api.FeatureState{State: "on"},
 			}),
 		)
+
+		It("should convert hyperv passthrough", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Features: &v1.Features{
+							HypervPassthrough: &v1.HyperVPassthrough{Enabled: virtpointer.P(true)},
+						},
+					},
+				},
+			}
+
+			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true})
+			Expect(domain.Spec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
+		})
 	})
 
 	Context("serial console", func() {

@@ -1117,6 +1117,10 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 		if err != nil {
 			return nil
 		}
+	} else if source.HypervPassthrough != nil && *source.HypervPassthrough.Enabled {
+		features.Hyperv = &api.FeatureHyperv{
+			Mode: api.HypervModePassthrough,
+		}
 	}
 	if source.KVM != nil {
 		features.KVM = &api.FeatureKVM{
