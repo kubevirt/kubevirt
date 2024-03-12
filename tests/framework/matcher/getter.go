@@ -73,7 +73,7 @@ func ThisVMWith(namespace string, name string) func() (*virtv1.VirtualMachine, e
 func AllVMIs(namespace string) func() ([]virtv1.VirtualMachineInstance, error) {
 	return func() (p []virtv1.VirtualMachineInstance, err error) {
 		virtClient := kubevirt.Client()
-		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &k8smetav1.ListOptions{})
+		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), k8smetav1.ListOptions{})
 		return list.Items, err
 	}
 }

@@ -285,7 +285,7 @@ func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 
 func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout time.Duration) {
 	Eventually(func() int {
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(context.Background(), &metav1.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		running := 0
 		for _, vmi := range vmis.Items {

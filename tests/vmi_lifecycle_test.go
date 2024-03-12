@@ -1744,7 +1744,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			}, 120*time.Second, 1*time.Second).Should(Equal(replicas))
 
 			By("Ensuring that VMI replicas are scheduled to seperate nodes")
-			vmiSet, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).List(context.Background(), &metav1.ListOptions{
+			vmiSet, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", vmLabelKey, vmLabelValue),
 			})
 			Expect(err).ToNot(HaveOccurred(), "Should find VMIs by label")

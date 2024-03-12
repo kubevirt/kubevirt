@@ -72,7 +72,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	waitForVMIs := func(namespace string, expectedCount int) {
 		Eventually(func() error {
-			vmis, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &v12.ListOptions{})
+			vmis, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(vmis.Items) != expectedCount {
 				return fmt.Errorf("Only %d vmis exist, expected %d", len(vmis.Items), expectedCount)
