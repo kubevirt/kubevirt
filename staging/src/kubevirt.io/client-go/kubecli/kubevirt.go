@@ -40,7 +40,6 @@ import (
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -50,6 +49,7 @@ import (
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	vmexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
@@ -244,13 +244,7 @@ type StreamInterface interface {
 }
 
 type VirtualMachineInstanceInterface interface {
-	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.VirtualMachineInstance, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
-	Create(ctx context.Context, virtualMachineInstance *v1.VirtualMachineInstance, opts metav1.CreateOptions) (*v1.VirtualMachineInstance, error)
-	Update(ctx context.Context, virtualMachineInstance *v1.VirtualMachineInstance, opts metav1.UpdateOptions) (*v1.VirtualMachineInstance, error)
-	Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error)
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+	kvcorev1.VirtualMachineInstanceInterface
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	USBRedir(vmiName string) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
