@@ -1082,7 +1082,7 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Delete(arg0, arg1, arg2
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *v12.PatchOptions, subresources ...string) (*v120.VirtualMachineInstance, error) {
+func (_m *MockVirtualMachineInstanceInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions v12.PatchOptions, subresources ...string) (*v120.VirtualMachineInstance, error) {
 	_s := []interface{}{ctx, name, pt, data, patchOptions}
 	for _, _x := range subresources {
 		_s = append(_s, _x)

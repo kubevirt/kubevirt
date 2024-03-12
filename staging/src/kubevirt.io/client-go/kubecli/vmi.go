@@ -319,12 +319,8 @@ func (v *vmis) Delete(ctx context.Context, name string, options metav1.DeleteOpt
 	return v.VirtualMachineInstanceInterface.Delete(ctx, name, options)
 }
 
-func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
-	opts := metav1.PatchOptions{}
-	if patchOptions != nil {
-		opts = *patchOptions
-	}
-	return v.VirtualMachineInstanceInterface.Patch(ctx, name, pt, data, opts, subresources...)
+func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+	return v.VirtualMachineInstanceInterface.Patch(ctx, name, pt, data, patchOptions, subresources...)
 }
 
 func (v *vmis) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {

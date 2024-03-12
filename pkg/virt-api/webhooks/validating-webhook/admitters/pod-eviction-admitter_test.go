@@ -158,7 +158,7 @@ var _ = Describe("Pod eviction admitter", func() {
 					vmi.Name,
 					types.JSONPatchType,
 					[]byte(data),
-					&metav1.PatchOptions{}).
+					metav1.PatchOptions{}).
 				Return(nil, fmt.Errorf("err"))
 
 			resp := podEvictionAdmitter.Admit(ar)
@@ -214,7 +214,7 @@ var _ = Describe("Pod eviction admitter", func() {
 					vmi.Name,
 					types.JSONPatchType,
 					[]byte(data),
-					&metav1.PatchOptions{}).
+					metav1.PatchOptions{}).
 				Return(nil, fmt.Errorf("err")).AnyTimes()
 
 			resp := podEvictionAdmitter.Admit(ar)
@@ -265,7 +265,7 @@ var _ = Describe("Pod eviction admitter", func() {
 						vmi.Name,
 						types.JSONPatchType,
 						[]byte(data),
-						&metav1.PatchOptions{}).
+						metav1.PatchOptions{}).
 					Return(nil, nil)
 			}
 			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
@@ -431,7 +431,7 @@ var _ = Describe("Pod eviction admitter", func() {
 					vmi.Name,
 					types.JSONPatchType,
 					[]byte(data),
-					&metav1.PatchOptions{}).
+					metav1.PatchOptions{}).
 				Return(nil, nil)
 		}
 		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
