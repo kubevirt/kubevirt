@@ -351,16 +351,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	It("should accept valid vmi spec on create", func() {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
-		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "testdisk",
-			VolumeSource: v1.VolumeSource{
-				ContainerDisk: testutils.NewFakeContainerDiskSource(),
-			},
-		})
+		vmi := newBaseVmi(libvmi.WithContainerDisk("testdisk", "testimage"))
 		vmiBytes, _ := json.Marshal(&vmi)
 
 		ar := &admissionv1.AdmissionReview{
