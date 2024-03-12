@@ -2491,16 +2491,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with AccessCredentials", func() {
 		It("should accept a valid ssh access credential with configdrive propagation", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk",
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "testdisk",
-				VolumeSource: v1.VolumeSource{
-					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{UserData: " "},
-				},
-			})
+			vmi := newBaseVmi(libvmi.WithCloudInitConfigDriveUserData(" "))
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
