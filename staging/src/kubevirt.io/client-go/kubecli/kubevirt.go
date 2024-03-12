@@ -244,7 +244,7 @@ type StreamInterface interface {
 }
 
 type VirtualMachineInstanceInterface interface {
-	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachineInstance, error)
+	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.VirtualMachineInstance, error)
 	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
 	Create(ctx context.Context, virtualMachineInstance *v1.VirtualMachineInstance, opts metav1.CreateOptions) (*v1.VirtualMachineInstance, error)
 	Update(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)

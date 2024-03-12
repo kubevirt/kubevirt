@@ -259,7 +259,7 @@ func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTh
 func confirmMigrationMode(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
 	var err error
 	By("Retrieving the VMI post migration")
-	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
 
 	By("Verifying the VMI's migration mode")

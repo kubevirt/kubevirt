@@ -149,7 +149,7 @@ var _ = Describe("Pod eviction admitter", func() {
 				return true, pod, nil
 			})
 
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
 
 			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 			vmiClient.
@@ -205,7 +205,7 @@ var _ = Describe("Pod eviction admitter", func() {
 				return true, pod, nil
 			})
 
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
 
 			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 			vmiClient.
@@ -268,7 +268,7 @@ var _ = Describe("Pod eviction admitter", func() {
 						&metav1.PatchOptions{}).
 					Return(nil, nil)
 			}
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
 
 			resp := podEvictionAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -340,7 +340,7 @@ var _ = Describe("Pod eviction admitter", func() {
 					return true, pod, nil
 				})
 
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
 
 				if markVMI {
 					vmiClient.EXPECT().Update(context.Background(), gomock.Any()).Return(nil, nil).AnyTimes()
@@ -434,7 +434,7 @@ var _ = Describe("Pod eviction admitter", func() {
 					&metav1.PatchOptions{}).
 				Return(nil, nil)
 		}
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
 
 		return ar
 	}

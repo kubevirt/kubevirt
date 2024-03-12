@@ -143,7 +143,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 					libwait.WithFailOnWarnings(false),
 					libwait.WithTimeout(180),
 				)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},

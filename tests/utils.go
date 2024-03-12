@@ -219,7 +219,7 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	virtCli := kubevirt.Client()
 
 	var err error
-	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +669,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	}
 
 	// get current vmi
-	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get vmi, %s", err)
 	}
@@ -737,7 +737,7 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 	virtClient := kubevirt.Client()
 
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	fieldSelectorStr := "status.phase!=" + string(k8sv1.PodFailed) +
@@ -833,7 +833,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
 	Eventually(func() error {
-		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		return err
 	}, timeout, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The vmi did not disappear")
 	By("VM has not the running condition")
@@ -865,7 +865,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 	By("VMI has the running condition")
@@ -1344,7 +1344,7 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 }
 
 func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1386,7 +1386,7 @@ func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMa
 
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
-		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 

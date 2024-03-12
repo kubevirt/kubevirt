@@ -193,7 +193,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				By("Pinging virt-handler Pod from Windows VMI")
 
 				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
+				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
@@ -231,7 +231,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 func winrnLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error
-	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
+	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	vmiIp := windowsVMI.Status.Interfaces[0].IP
