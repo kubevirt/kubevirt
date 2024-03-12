@@ -49,6 +49,7 @@ func main() {
 	exportServerSha := flag.String("exportServerSha", "", "virt-exportserver image sha. "+shaEnvDeprecationMsg)
 	gsSha := flag.String("gsSha", "", "libguestfs-tools image sha")
 	prHelperSha := flag.String("prHelperSha", "", "pr-helper image sha")
+	sidecarShimSha := flag.String("sidecarShimSha", "", "sidecar-shim image sha")
 	runbookURLTemplate := flag.String("", "", "")
 	kubeVirtLogo := flag.String("kubevirtLogo", "", "kubevirt logo data in base64")
 	csvVersion := flag.String("csvVersion", "", "the CSV version being generated")
@@ -64,6 +65,7 @@ func main() {
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for gs. "+customImageExample)
+	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
 
 	flag.Parse()
 
@@ -84,6 +86,7 @@ func main() {
 		VirtExportServerSha:   *exportServerSha,
 		GsSha:                 *gsSha,
 		PrHelperSha:           *prHelperSha,
+		SidecarShimSha:        *sidecarShimSha,
 		RunbookURLTemplate:    *runbookURLTemplate,
 		ReplacesCsvVersion:    *replacesCsvVersion,
 		IconBase64:            *kubeVirtLogo,
@@ -98,6 +101,7 @@ func main() {
 		VirtExportServerImage: *virtExportServerImage,
 		GsImage:               *gsImage,
 		PrHelperImage:         *prHelperImage,
+		SidecarShimImage:      *sidecarShimImage,
 	}
 
 	operatorCsv, err := csv.NewClusterServiceVersion(&csvData)
