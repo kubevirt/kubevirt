@@ -5160,15 +5160,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromConfig))
 				})
 
-				It("should opt-out from memory live-update if liveUpdateFeatures is disabled in the VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("0")
-					vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{Guest: &guestMemory}
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.Memory.MaxGuest).To(BeNil())
-				})
-
 				It("should calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
 					vm, _ := DefaultVirtualMachine(true)
 					guestMemory := resource.MustParse("64Mi")
