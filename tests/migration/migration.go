@@ -534,7 +534,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 				vmi.Spec.Hostname = string(cd.ContainerDiskAlpine)
 				By("Starting the VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(240))
 
@@ -2851,7 +2851,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			)
 
 			By("Starting hugepages VMI")
-			_, err = virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Create(context.Background(), hugepagesVmi)
+			_, err = virtClient.VirtualMachineInstance(hugepagesVmi.Namespace).Create(context.Background(), hugepagesVmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
 
@@ -2882,7 +2882,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			)
 
 			By("Starting a VirtualMachineInstance")
-			cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
+			cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(cpuVMI)
 
@@ -2907,7 +2907,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting a VirtualMachineInstance")
-				cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI)
+				cpuVMI, err = virtClient.VirtualMachineInstance(cpuVMI.Namespace).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(cpuVMI)
 
@@ -3183,7 +3183,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libvmi.WithResourceMemory("512Mi"),
 				libvmi.WithNodeAffinityForLabel(testLabel1, "true"),
 			)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting until the VirtualMachineInstance starts")

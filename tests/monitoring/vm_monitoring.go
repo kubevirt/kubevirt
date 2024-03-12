@@ -295,7 +295,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		It("should fire VMCannotBeEvicted alert", func() {
 			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
 			vmi := libvmi.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for VMCannotBeEvicted alert")

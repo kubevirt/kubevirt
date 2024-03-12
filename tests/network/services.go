@@ -35,6 +35,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -75,7 +76,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)
 			var err error
-			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
@@ -148,7 +149,7 @@ var _ = SIGDescribe("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)...)
 			var err error
-			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI)
+			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)

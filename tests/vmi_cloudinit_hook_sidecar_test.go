@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
@@ -106,13 +108,13 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 		Context("with CloudInit hook sidecar", func() {
 			It("[test_id:3167]should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("[test_id:3168]should call Collect and PreCloudInitIso on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				logs := func() string { return GetCloudInitHookSidecarLogs(virtClient, vmi) }
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -127,7 +129,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 			})
 
 			It("[test_id:3169]should have cloud-init user-data from sidecar", func() {
-				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				By("mouting cloudinit iso")

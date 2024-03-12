@@ -171,7 +171,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
 				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -217,7 +217,7 @@ var _ = SIGDescribe("Storage", func() {
 					}
 				}
 
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -557,7 +557,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithNamespace(testsuite.NamespacePrivileged),
 				)
 				virtClient := kubevirt.Client()
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
 			})
@@ -731,7 +731,7 @@ var _ = SIGDescribe("Storage", func() {
 								break
 							}
 						}
-						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -747,7 +747,7 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -879,7 +879,7 @@ var _ = SIGDescribe("Storage", func() {
 						libvmi.WithNamespace(testsuite.NamespacePrivileged),
 					)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Checking events")
@@ -976,7 +976,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithResourceMemory("128Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", pvcName),
 				)
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
@@ -1307,7 +1307,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Creating VMI with LUN disk")
 				vmi := libvmi.NewAlpine()
 				addLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1341,7 +1341,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Creating VMI with LUN disk")
 				vmi := libvmi.NewCirros(libvmi.WithResourceMemory("512M"))
 				addDataVolumeLunDisk(vmi, "lun0", dv.Name)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,

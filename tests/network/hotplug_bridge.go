@@ -185,7 +185,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 				libvmi.WithNetwork(&net),
 				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ip2+subnetMask)),
 				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName))
-			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi)
+			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			libwait.WaitUntilVMIReady(anotherVmi, console.LoginToFedora)
 

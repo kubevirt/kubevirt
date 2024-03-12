@@ -89,7 +89,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7628]delete a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Virtual Machine")
@@ -108,7 +108,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7629]update a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a Virtual Machine")
@@ -131,7 +131,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7630]patch a VirtualMachineInstance", func() {
 			By("Create a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
@@ -241,7 +241,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmim = libmigration.New(vmi.Name, vmi.Namespace)
 		})

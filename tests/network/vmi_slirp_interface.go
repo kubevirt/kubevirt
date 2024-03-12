@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -111,7 +112,7 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 
 		DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
@@ -170,7 +171,7 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 
 		DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
 			vmi := *vmiRef
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi,
 				libwait.WithFailOnWarnings(false),
@@ -216,7 +217,7 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 			vmi.Spec.Networks = nil
 			tests.AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).To(HaveOccurred())
 		})
 	})
