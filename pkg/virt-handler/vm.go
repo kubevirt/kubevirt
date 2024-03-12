@@ -703,7 +703,7 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi)
+		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
@@ -812,7 +812,7 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 	if !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmiCopy)
+		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmiCopy, metav1.UpdateOptions{})
 		if err != nil {
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
@@ -1438,7 +1438,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi)
+		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err

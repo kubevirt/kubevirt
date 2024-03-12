@@ -309,8 +309,8 @@ func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance, opts 
 	return
 }
 
-func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
-	result, err = v.VirtualMachineInstanceInterface.Update(ctx, vmi, metav1.UpdateOptions{})
+func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance, opts metav1.UpdateOptions) (result *v1.VirtualMachineInstance, err error) {
+	result, err = v.VirtualMachineInstanceInterface.Update(ctx, vmi, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
