@@ -94,6 +94,7 @@ for arg in $args; do
         --pr-helper-sha=${PR_HELPER_SHA} \
         --quay-repository=${QUAY_REPOSITORY} \
         --runbook-url-template=${runbook_url_template} \
+        --sidecar-shim-sha=${SIDECAR_SHIM_SHA} \
         --verbosity=${verbosity} \
         --virt-api-sha=${VIRT_API_SHA} \
         --virt-controller-sha=${VIRT_CONTROLLER_SHA} \

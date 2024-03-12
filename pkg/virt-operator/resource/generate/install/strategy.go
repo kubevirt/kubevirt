@@ -539,7 +539,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
-	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
+	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}

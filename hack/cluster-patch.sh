@@ -26,6 +26,7 @@ source ./hack/parse-shasums.sh
 _kubectl set env deployment -n $namespace virt-operator \
     GS_SHASUM=$GS_SHA \
     PR_HELPER_SHASUM=$PR_HELPER_SHASUM \
+    SIDECAR_SHIM_SHASUM=$SIDECAR_SHIM_SHASUM \
     VIRT_HANDLER_SHASUM=$VIRT_HANDLER_SHA \
     VIRT_LAUNCHER_SHASUM=$VIRT_LAUNCHER_SHA \
     VIRT_CONTROLLER_SHASUM=$VIRT_CONTROLLER_SHA \
