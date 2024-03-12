@@ -1109,6 +1109,10 @@ spec:
                     default: false
                     description: Disable mediated devices handling on KubeVirt
                     type: boolean
+                  downwardMetrics:
+                    description: Allow to expose a limited set of host metrics to
+                      guests.
+                    type: boolean
                   enableApplicationAwareQuota:
                     default: false
                     description: EnableApplicationAwareQuota if true, enables the

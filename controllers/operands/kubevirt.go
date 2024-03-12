@@ -85,9 +85,6 @@ const (
 	// Allow assigning host devices to virtual machines
 	kvHostDevicesGate = "HostDevices"
 
-	// Add downwardMetrics volume to expose a limited set of host metrics to guests
-	kvDownwardMetricsGate = "DownwardMetrics"
-
 	// Expand disks to the largest size
 	kvExpandDisksGate = "ExpandDisks"
 
@@ -129,7 +126,6 @@ var (
 		kvExpandDisksGate,
 		kvGPUGate,
 		kvHostDevicesGate,
-		kvDownwardMetricsGate,
 		kvNUMA,
 		kvVMExportGate,
 		kvDisableCustomSELinuxPolicyGate,
@@ -162,6 +158,7 @@ var (
 
 // KubeVirt feature gates that are exposed in HCO API
 const (
+	kvDownwardMetrics        = "DownwardMetrics"
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
 	kvRoot                   = "Root"
 	kvDisableMDevConfig      = "DisableMDEVConfiguration"
@@ -755,6 +752,10 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, infrastructur
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) []string {
 	fgs := make([]string, 0, 2)
 
+	if featureGates.DownwardMetrics == nil || *featureGates.DownwardMetrics {
+		fgs = append(fgs, kvDownwardMetrics)
+	}
+
 	if featureGates.WithHostPassthroughCPU != nil && *featureGates.WithHostPassthroughCPU {
 		fgs = append(fgs, kvWithHostPassthroughCPU)
 	}
@@ -884,8 +885,11 @@ func getMandatoryKvFeatureGates(isKVMEmulation bool) []string {
 // get list of feature gates or KV FG list
 func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	checks := getFeatureGateChecks(fgs)
+
 	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates)+1)
+
 	res = append(res, mandatoryKvFeatureGates...)
+
 	res = append(res, checks...)
 
 	return res

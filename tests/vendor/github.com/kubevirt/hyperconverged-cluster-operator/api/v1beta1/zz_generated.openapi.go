@@ -231,6 +231,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 				Description: "HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled by default yet.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"downwardMetrics": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow to expose a limited set of host metrics to guests.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"withHostPassthroughCPU": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here",

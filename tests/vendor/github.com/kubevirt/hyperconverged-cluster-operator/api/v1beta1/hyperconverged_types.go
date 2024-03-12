@@ -393,6 +393,10 @@ type VirtualMachineOptions struct {
 // by default yet.
 // +k8s:openapi-gen=true
 type HyperConvergedFeatureGates struct {
+	// Allow to expose a limited set of host metrics to guests.
+	// +optional
+	DownwardMetrics *bool `json:"downwardMetrics,omitempty"`
+
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional

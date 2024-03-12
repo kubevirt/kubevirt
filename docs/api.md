@@ -151,6 +151,7 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
+| downwardMetrics | Allow to expose a limited set of host metrics to guests. | *bool |  | false |
 | withHostPassthroughCPU | Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here | *bool | false | false |
 | enableCommonBootImageImport | Opt-in to automatic delivery/updates of the common data import cron templates. There are two sources for the data import cron templates: hard coded list of common templates, and custom templates that can be added to the dataImportCronTemplates field. This feature gates only control the common templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field. | *bool | true | false |
 | deployTektonTaskResources | deploy resources (kubevirt tekton tasks and example pipelines) in SSP operator | *bool | false | false |

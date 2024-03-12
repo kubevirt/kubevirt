@@ -130,6 +130,17 @@ or new features that are not enabled by default.
 To enable a feature, add its name to the `featureGates` list and set it to `true`. Missing or `false` feature gates
 disables the feature.
 
+### downwardMetrics Feature Gate
+Set the `downwardMetrics` feature gate in order to allow exposing a limited set of VM and host metrics to the guest.
+The format is compatible with [vhostmd](https://github.com/vhostmd/vhostmd).
+These metrics allow third-parties diagnosing issues.
+DownwardMetrics may be exposed to the guest through a `volume` or a `virtio-serial port`.
+
+By default, if the `downwardMetrics` is not set to `false`, the metrics will be available to the guests.
+This means that updates from previous versions will not require any special configuration.
+
+**Note**: In future versions, the feature gate will be disabled by default.
+
 ### withHostPassthroughCPU Feature Gate
 Set the `withHostPassthroughCPU` feature gate in order to allow migrating a virtual machine with CPU host-passthrough
 mode. This can provide slightly better CPU performance, but should be enabled only when the Cluster is homogeneous from
