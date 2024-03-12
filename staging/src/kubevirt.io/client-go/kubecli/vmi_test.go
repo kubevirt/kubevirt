@@ -141,7 +141,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, vmiPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
 		))
-		updatedVMI, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Update(context.Background(), vmi)
+		updatedVMI, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Update(context.Background(), vmi, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
