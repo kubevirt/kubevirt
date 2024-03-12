@@ -136,7 +136,9 @@ aliases:
   # Owns bazel, and ensures that kubevirt can be build.
   #
   sig-buildsystem-approvers:
+    - brianmcarey
     - dhiller
+    - xpivarc
   sig-buildsystem-reviewers:
     - brianmcarey
     - enp0s3
