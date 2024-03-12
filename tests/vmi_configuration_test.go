@@ -1658,7 +1658,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
 
 				By("Checking for presence of runtimeClassName")
-				pod := tests.GetPodByVirtualMachineInstance(vmi)
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
 				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
 			})
@@ -1686,7 +1687,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			getComputeMemoryRequest := func(vmi *virtv1.VirtualMachineInstance) resource.Quantity {
-				launcherPod := tests.GetPodByVirtualMachineInstance(vmi)
+				launcherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				computeContainer := libpod.LookupComputeContainer(launcherPod)
 				return computeContainer.Resources.Requests[kubev1.ResourceMemory]
 			}
@@ -3326,7 +3328,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			By("Ensuring that pod has expected topologySpreadConstraints")
-			pod := tests.GetPodByVirtualMachineInstance(vmi)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(pod.Spec.TopologySpreadConstraints).To(Equal(tsc))
 		})
 	})
