@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -26,7 +30,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -307,7 +313,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			// make sure that another mdev explicitly turned off its display
-			By("Maiking sure that a boot display is disabled")
+			By("Making sure that a boot display is disabled")
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should not be enabled")
 			Expect(domXml).ToNot(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should not be enabled")
 		})
@@ -353,6 +359,174 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			By("Verifying that an expected amount of devices has been created")
 			Eventually(checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
+		})
+		It("should successfully create VMI when guest memory is less than or equal to request memory", func() {
+			By("Creating a Fedora VMI")
+			networkData := cloudinit.CreateDefaultCloudInitNetworkData()
+			vGPU := v1.GPU{
+				Name:       "gpu1",
+				DeviceName: deviceName,
+			}
+
+			vmi = libvmi.New(
+				libvmi.WithRng(),
+				libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithGuestMemory("512Mi"),
+				withGPUDevice(vGPU),
+			)
+
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+			vmi = createdVmi
+			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+		})
+		It("should ignore memory-overcommit if the resulting request memory is less than guest memory", func() {
+			By("Applying cluster memory-overcommit")
+			config.DeveloperConfiguration.MemoryOvercommit = 200
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+
+			By("Creating a Fedora VMI")
+			networkData := cloudinit.CreateDefaultCloudInitNetworkData()
+			vGPU := v1.GPU{
+				Name:       "gpu1",
+				DeviceName: deviceName,
+			}
+
+			vmi = libvmi.New(
+				libvmi.WithRng(),
+				libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloudNetworkData(networkData),
+				libvmi.WithGuestMemory("512Mi"),
+				withGPUDevice(vGPU),
+			)
+
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+			vmi = createdVmi
+			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("4096M"))
+		})
+		It("consume hugepages when page size is greater than request memory", func() {
+			var hugepagesVmi *v1.VirtualMachineInstance
+
+			verifyHugepagesConsumption := func() bool {
+				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
+				// https://github.com/kubernetes/kubernetes/issues/64691
+				pods, err := virtClient.CoreV1().Pods(hugepagesVmi.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(hugepagesVmi))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pods.Items).To(HaveLen(1))
+
+				hugepagesSize := resource.MustParse(hugepagesVmi.Spec.Domain.Memory.Hugepages.PageSize)
+				hugepagesDir := fmt.Sprintf("/sys/kernel/mm/hugepages/hugepages-%dkB", hugepagesSize.Value()/int64(1024))
+
+				// Get a hugepages statistics from virt-launcher pod
+				output, err := exec.ExecuteCommandOnPod(
+					virtClient,
+					&pods.Items[0],
+					pods.Items[0].Spec.Containers[0].Name,
+					[]string{"cat", fmt.Sprintf("%s/nr_hugepages", hugepagesDir)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				totalHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
+				Expect(err).ToNot(HaveOccurred())
+
+				output, err = exec.ExecuteCommandOnPod(
+					virtClient,
+					&pods.Items[0],
+					pods.Items[0].Spec.Containers[0].Name,
+					[]string{"cat", fmt.Sprintf("%s/free_hugepages", hugepagesDir)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				freeHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
+				Expect(err).ToNot(HaveOccurred())
+
+				output, err = exec.ExecuteCommandOnPod(
+					virtClient,
+					&pods.Items[0],
+					pods.Items[0].Spec.Containers[0].Name,
+					[]string{"cat", fmt.Sprintf("%s/resv_hugepages", hugepagesDir)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				resvHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
+				Expect(err).ToNot(HaveOccurred())
+
+				// Verify that the VM memory equals to a number of consumed hugepages
+				vmHugepagesConsumption := int64(totalHugepages-freeHugepages+resvHugepages) * hugepagesSize.Value()
+				vmMemory := hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+				if hugepagesVmi.Spec.Domain.Memory != nil && hugepagesVmi.Spec.Domain.Memory.Guest != nil {
+					vmMemory = *hugepagesVmi.Spec.Domain.Memory.Guest
+				}
+
+				if vmHugepagesConsumption == vmMemory.Value() {
+					return true
+				}
+				return false
+			}
+
+			By("Creating a Fedora VMI")
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
+			vGPUs := []v1.GPU{
+				{
+					Name:       "gpu1",
+					DeviceName: deviceName,
+				},
+			}
+			vmi.Spec.Domain.Devices.GPUs = vGPUs
+
+			hugepageSize := "2Mi"
+			memory := "64Mi"
+			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
+			v, err := cluster.GetKubernetesVersion()
+			Expect(err).ShouldNot(HaveOccurred())
+			if strings.Contains(v, "1.16") {
+				hugepagesVmi.Annotations = map[string]string{
+					v1.MemfdMemoryBackend: "false",
+				}
+				log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
+			}
+
+			nodeWithHugepages := libnode.GetNodeWithHugepages(virtClient, hugepageType)
+			if nodeWithHugepages == nil {
+				Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
+			}
+
+			hugepagesVmi.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity: &k8sv1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+							{
+								MatchExpressions: []k8sv1.NodeSelectorRequirement{
+									{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
+								},
+							},
+						},
+					},
+				},
+			}
+			hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(memory)
+
+			hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{PageSize: hugepageSize},
+			}
+
+			hugepagesVmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(hugepagesVmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+			hugepagesVmi = createdVmi
+			libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
+			Expect(console.LoginToFedora(hugepagesVmi)).To(Succeed())
+
+			By("Checking that the VM memory equals to a number of consumed hugepages")
+			Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 		})
 	})
 	Context("with generic mediated devices", func() {
@@ -501,3 +675,9 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		})
 	})
 })
+
+func withGPUDevice(vGPU v1.GPU) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, vGPU)
+	}
+}

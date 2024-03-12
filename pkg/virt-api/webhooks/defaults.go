@@ -153,8 +153,10 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 
 	if _, exists := resources.Requests[k8sv1.ResourceMemory]; !exists {
 		var memory *resource.Quantity
+		var guestMemory bool
 		if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
 			memory = spec.Domain.Memory.Guest
+			guestMemory = true
 		}
 		if memory == nil && spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
 			if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
@@ -170,7 +172,13 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 				resources.Requests[k8sv1.ResourceMemory] = *memory
 			} else {
 				value := (memory.Value() * int64(100)) / int64(overcommit)
-				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
+				newMemory := resource.NewQuantity(value, memory.Format)
+				if guestMemory && util.IsVFIOVMI(spec) && memory.Cmp(*newMemory) > 0 {
+					resources.Requests[k8sv1.ResourceMemory] = *memory
+					log.Log.V(4).Info("Resulting memory-request from memory-overcommit is less than guest memory. Ignoring memory-overcommit.")
+				} else {
+					resources.Requests[k8sv1.ResourceMemory] = *newMemory
+				}
 			}
 			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
 			log.Log.V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
