@@ -335,7 +335,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the windows VirtualMachineInstance")
-			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
+			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(windowsVMI,

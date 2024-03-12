@@ -40,6 +40,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -703,7 +704,7 @@ func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanc
 	virtClient := kubevirt.Client()
 
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -804,7 +805,7 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 	vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIndex].MacAddress = mac.String()
 
 	virtCli := kubevirt.Client()
-	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi, nil
 }

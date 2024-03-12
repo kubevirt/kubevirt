@@ -158,7 +158,7 @@ var istioTests = func(vmType VmType) {
 			By("Creating VMI")
 			vmi, err = newVMIWithIstioSidecar(vmiPorts, vmType)
 			Expect(err).ShouldNot(HaveOccurred())
-			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
@@ -219,7 +219,7 @@ var istioTests = func(vmType VmType) {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 				)
 
-				bastionVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), bastionVMI)
+				bastionVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), bastionVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				bastionVMI = libwait.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
 			})

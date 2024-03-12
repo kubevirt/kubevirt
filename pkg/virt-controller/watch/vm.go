@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -1189,7 +1190,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	}
 
 	c.expectations.ExpectCreations(vmKey, 1)
-	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi)
+	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s", controller.NamespacedKey(vmi.Namespace, vmi.Name))
 		c.expectations.CreationObserved(vmKey)

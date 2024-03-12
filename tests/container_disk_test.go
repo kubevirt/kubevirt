@@ -105,7 +105,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 				By("Starting the VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				startedVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.ObjectMeta.Name, &metav1.GetOptions{})
@@ -126,7 +126,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmi.NewCirros()
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
 				Eventually(func() bool {
@@ -152,7 +152,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// Provide 1Mi of memory to prevent VMIs from actually booting.
 					// We only care about the volume containers inside the virt-launcher Pod.
 					vmi := libvmi.NewCirros(libvmi.WithResourceMemory("1Mi"))
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					vmis = append(vmis, vmi)
 				}

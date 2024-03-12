@@ -29,6 +29,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -104,9 +105,9 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 		var err error
 		ns := testsuite.GetTestNamespace(nil)
-		serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI)
+		serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		clientVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), clientVMI)
+		clientVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
@@ -130,7 +131,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 				libvmi.WithNetwork(libvmi.MultusNetwork("test", macvtapNetworkName)),
 			)
 			var err error
-			clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
+			clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "should create VMI successfully")
 			clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 		})
@@ -163,7 +164,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 					libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 				)
 				var err error
-				serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI)
+				serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "should create VMI successfully")
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 

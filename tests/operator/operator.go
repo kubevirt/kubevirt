@@ -777,7 +777,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 				libwait.WaitForSuccessfulVMIStart(vmi)
 			}
@@ -1357,7 +1357,7 @@ spec:
 
 			By("starting a VM")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -1520,7 +1520,7 @@ spec:
 
 			By("Starting a VMI")
 			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -1569,7 +1569,7 @@ spec:
 
 			By("Starting a VMI")
 			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -1978,7 +1978,7 @@ spec:
 				}, 60*time.Second, time.Second).ShouldNot(HaveOccurred())
 
 				By("creating a simple VMI")
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting KubeVirt object")
@@ -2064,7 +2064,7 @@ spec:
 
 			By("Verifying VMs are working")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -2336,7 +2336,7 @@ spec:
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -2911,7 +2911,7 @@ spec:
 				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewCirros())
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewCirros(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				fetchVMI := matcher.ThisVMI(vmi)
 				psaRelatedErrorDetected := false

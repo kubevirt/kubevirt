@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -170,7 +171,7 @@ func createCirrosVMIWithPortsAndBlockUntilReady(virtClient kubecli.KubevirtClien
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 	)
 
-	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+	vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 

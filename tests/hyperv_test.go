@@ -83,7 +83,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			It("should be able to migrate", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
@@ -98,7 +98,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			It("should have TSC frequency set up in label and domain", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
@@ -147,7 +147,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			It("should be able to start successfully", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
@@ -156,7 +156,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			It("should be marked as non-migratable", func() {
 				var err error
 				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
+				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
@@ -242,7 +242,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 					Hyperv: &features,
 				}
 
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI when using %v", label)
 				libwait.WaitForSuccessfulVMIStart(vmi)
 

@@ -384,7 +384,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 			vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
 
 			By("Starting the VirtualMachineInstance")
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the VMI failed")

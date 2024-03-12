@@ -61,7 +61,7 @@ func newFedoraRealtime(realtimeMask string) *v1.VirtualMachineInstance {
 func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) *v1.VirtualMachineInstance {
 	By("Starting a VirtualMachineInstance")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return libwait.WaitForSuccessfulVMIStart(vmi)
 }

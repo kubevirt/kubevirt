@@ -77,7 +77,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
 			By("Creating and starting the VMI")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -104,7 +104,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			tests.AddEphemeralDisk(vmi, "disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
@@ -141,7 +141,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 

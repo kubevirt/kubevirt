@@ -70,7 +70,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -103,7 +103,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			tests.AddEphemeralDisk(vmi, "shr2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -164,7 +164,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 
 			By("Creating VMI with 2 dedicated and 4 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -247,7 +247,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
 
 			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 

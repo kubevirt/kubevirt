@@ -84,7 +84,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitUntilVMIReady(
 			vmi,
@@ -115,7 +115,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 
-				serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI)
+				serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = libwait.WaitUntilVMIReady(
 					serverVMI,
@@ -166,7 +166,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 
-					clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
+					clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					clientVMI = libwait.WaitUntilVMIReady(clientVMI,
 						console.LoginToAlpine,
@@ -257,7 +257,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 						libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
-					clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
+					clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					clientVMI = libwait.WaitUntilVMIReady(clientVMI,
 						console.LoginToAlpine,
@@ -296,7 +296,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi,
 				console.LoginToAlpine,
@@ -325,7 +325,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				libvmi.WithAnnotation("kubevirt.io/libvirt-log-filters", "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi,
 				console.LoginToAlpine,
@@ -417,7 +417,7 @@ func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInst
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData),
 	)
-	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	vmi = libwait.WaitUntilVMIReady(vmi,
 		console.LoginToFedora,

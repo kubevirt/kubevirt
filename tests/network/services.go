@@ -77,7 +77,7 @@ var _ = SIGDescribe("Services", func() {
 	}
 
 	readyVMI := func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+		createdVMI, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		return libwait.WaitUntilVMIReady(createdVMI, loginTo)

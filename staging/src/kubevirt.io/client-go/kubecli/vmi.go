@@ -312,8 +312,8 @@ func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiLis
 	return
 }
 
-func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
-	result, err = v.VirtualMachineInstanceInterface.Create(ctx, vmi, metav1.CreateOptions{})
+func (v *vmis) Create(ctx context.Context, vmi *v1.VirtualMachineInstance, opts metav1.CreateOptions) (result *v1.VirtualMachineInstance, err error) {
+	result, err = v.VirtualMachineInstanceInterface.Create(ctx, vmi, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }

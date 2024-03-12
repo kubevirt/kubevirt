@@ -114,7 +114,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("checking that the PDB appeared")
@@ -136,7 +136,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				By("creating the VMI")
 				strategy := v1.EvictionStrategyLiveMigrateIfPossible
 				vmi.Spec.EvictionStrategy = &strategy
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
@@ -154,7 +154,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
 				By("creating the VMI")
-				createdVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+				createdVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for VMI")
 				libwait.WaitForSuccessfulVMIStart(createdVMI,
@@ -510,7 +510,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				By("starting four VMIs on that node")
 				for _, vmi := range vmis {
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 

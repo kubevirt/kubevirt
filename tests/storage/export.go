@@ -1141,7 +1141,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createVMI := func(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachineInstance {
-		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+		vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, volume := range vmi.Spec.Volumes {
 			if volume.DataVolume != nil {

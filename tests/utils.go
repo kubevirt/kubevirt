@@ -195,7 +195,7 @@ func DeleteSecret(name, namespace string) {
 }
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	By(waitingVMInstanceStart)
 	return libwait.WaitForVMIPhase(vmi,
@@ -205,7 +205,7 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 }
 
 func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until the DataVolume is ready")
 	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
@@ -219,7 +219,7 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 }
 
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	By(waitingVMInstanceStart)
 	return libwait.WaitForSuccessfulVMIStart(vmi,
@@ -234,7 +234,7 @@ func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.
 }
 
 func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until the VirtualMachineInstance will be scheduled")
 	return libwait.WaitForVMIPhase(vmi,

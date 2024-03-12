@@ -80,7 +80,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 
 		Eventually(func() error {
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			return err
 		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 

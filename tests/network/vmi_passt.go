@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
@@ -59,7 +60,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 
 		var err error
 		namespace := testsuite.GetTestNamespace(nil)
-		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi)
+		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = libwait.WaitUntilVMIReady(
