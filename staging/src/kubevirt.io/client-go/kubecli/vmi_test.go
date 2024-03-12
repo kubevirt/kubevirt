@@ -99,7 +99,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMIList(*vmi)),
 		))
-		fetchedVMIList, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).List(context.Background(), &k8smetav1.ListOptions{})
+		fetchedVMIList, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
 		apiVersion, kind := v1.VirtualMachineInstanceGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))

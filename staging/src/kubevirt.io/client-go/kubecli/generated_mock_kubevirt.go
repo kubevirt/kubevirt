@@ -1039,7 +1039,7 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Get(arg0, arg1, arg2 in
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) List(ctx context.Context, opts *v12.ListOptions) (*v120.VirtualMachineInstanceList, error) {
+func (_m *MockVirtualMachineInstanceInterface) List(ctx context.Context, opts v12.ListOptions) (*v120.VirtualMachineInstanceList, error) {
 	ret := _m.ctrl.Call(_m, "List", ctx, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceList)
 	ret1, _ := ret[1].(error)

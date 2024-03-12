@@ -136,7 +136,7 @@ func CleanNamespaces() {
 
 		// Remove all VMIs
 		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error())
-		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), &metav1.ListOptions{})
+		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), metav1.ListOptions{})
 		util.PanicOnError(err)
 		for _, vmi := range vmis.Items {
 			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {

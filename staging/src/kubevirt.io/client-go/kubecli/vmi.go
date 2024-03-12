@@ -294,12 +294,8 @@ func (v *vmis) Get(ctx context.Context, name string, options metav1.GetOptions) 
 	return
 }
 
-func (v *vmis) List(ctx context.Context, options *metav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
-	opts := metav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	vmiList, err = v.VirtualMachineInstanceInterface.List(ctx, opts)
+func (v *vmis) List(ctx context.Context, options metav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
+	vmiList, err = v.VirtualMachineInstanceInterface.List(ctx, options)
 	for i := range vmiList.Items {
 		vmiList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	}

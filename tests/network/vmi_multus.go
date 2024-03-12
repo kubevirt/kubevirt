@@ -170,9 +170,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 		// Multus tests need to ensure that old VMIs are gone
 		Eventually(func() []v1.VirtualMachineInstance {
-			list1, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), &v13.ListOptions{})
+			list1, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			list2, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestAlternative).List(context.Background(), &v13.ListOptions{})
+			list2, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestAlternative).List(context.Background(), v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return append(list1.Items, list2.Items...)
 		}, 6*time.Minute, 1*time.Second).Should(BeEmpty())

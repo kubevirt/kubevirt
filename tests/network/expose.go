@@ -533,7 +533,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			// TODO: add label to list options
 			// check size of list
 			// remove check for owner
-			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(context.Background(), &k8smetav1.ListOptions{})
+			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(context.Background(), k8smetav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
