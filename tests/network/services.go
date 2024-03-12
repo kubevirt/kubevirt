@@ -85,7 +85,7 @@ var _ = SIGDescribe("Services", func() {
 
 	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 		By("Deleting the VMI")
-		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.GetName(), &k8smetav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.GetName(), k8smetav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for the VMI to be gone")
 		Eventually(func() error {

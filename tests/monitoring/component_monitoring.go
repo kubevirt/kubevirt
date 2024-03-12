@@ -227,7 +227,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 			Eventually(func(g Gomega) {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
 				g.Expect(checkAlertExists(virtClient, virtController.restErrorsBurtsAlert)).To(BeTrue())
 				g.Expect(checkAlertExists(virtClient, virtController.restErrorsHighAlert)).To(BeTrue())
@@ -242,7 +242,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 			Eventually(func(g Gomega) {
 				_, _ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				_ = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
 				g.Expect(checkAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
 				g.Expect(checkAlertExists(virtClient, virtHandler.restErrorsHighAlert)).To(BeTrue())

@@ -198,7 +198,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Removing the VMI")
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the PVC gets deleted")
