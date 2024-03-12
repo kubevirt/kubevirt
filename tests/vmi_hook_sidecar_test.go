@@ -289,17 +289,24 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
-			It("should update domain XML with SM BIOS properties", func() {
+			DescribeTable("should update domain XML with SM BIOS properties", func(withImage bool) {
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMap(hooksv1alpha2.Version, cm.Name)
+				if withImage {
+					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapPlusImage(hooksv1alpha2.Version, cm.Name)
+				} else {
+					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
+				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
 				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
-			})
+			},
+				Entry("when sidecar image is specified", true),
+				Entry("when sidecar image is not specified", false),
+			)
 		})
 
 		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
@@ -348,10 +355,17 @@ func RenderInvalidSMBiosSidecar() map[string]string {
 	}
 }
 
-func RenderSidecarWithConfigMap(version, name string) map[string]string {
+func RenderSidecarWithConfigMapPlusImage(version, name string) map[string]string {
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "image":"%s/%s:%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
-			version, flags.KubeVirtUtilityRepoPrefix, sidecarShimImage, flags.KubeVirtUtilityVersionTag, name, configMapKey),
+			version, flags.KubeVirtUtilityRepoPrefix, sidecarShimImage, flags.KubeVirtVersionTag, name, configMapKey),
+	}
+}
+
+func RenderSidecarWithConfigMapWithoutImage(version, name string) map[string]string {
+	return map[string]string{
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+			version, name, configMapKey),
 	}
 }
 
