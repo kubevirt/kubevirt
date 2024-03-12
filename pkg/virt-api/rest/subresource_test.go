@@ -615,7 +615,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 						return &vmi, nil
@@ -793,7 +793,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				if addOpts != nil {
 					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 							return vmi, nil
@@ -801,7 +801,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					app.VMIAddVolumeRequestHandler(request, response)
 				} else {
 					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+						func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 							//check that dryRun option has been propagated to patch request
 							Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 							return vmi, nil
@@ -1619,7 +1619,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			if graceperiod != nil {
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 						return vm, nil
@@ -2311,7 +2311,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			expectVMI(NotRunning, UnPaused, withSEVAttestation, withScheduledPhase)
 			vmiClient.EXPECT().Patch(context.Background(), testVMIName, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+				func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 					patch := []byte(`[{"op":"test","path":"/spec/domain/launchSecurity/sev","value":{"attestation":{}}},{"op":"replace","path":"/spec/domain/launchSecurity/sev","value":{"attestation":{},"session":"AAABBB","dhCert":"CCCDDD"}}]`)
 					Expect(body).To(Equal(patch))
 					return nil, nil

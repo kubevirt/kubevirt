@@ -200,13 +200,13 @@ var _ = Describe("VirtualMachine", func() {
 
 		shouldExpectGracePeriodPatched := func(expectedGracePeriod int64, vmi *virtv1.VirtualMachineInstance) {
 			patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, expectedGracePeriod)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
 		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
@@ -1535,7 +1535,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				patch := `[{ "op": "test", "path": "/metadata/annotations", "value": {} }, { "op": "replace", "path": "/metadata/annotations", "value": {"kubevirt.io/vm-generation":"4"} }]`
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 
 				err := controller.patchVmGenerationAnnotationOnVmi(4, vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1617,7 +1617,7 @@ var _ = Describe("VirtualMachine", func() {
 						ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 						ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
 
-						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Return(vmi, nil)
+						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Return(vmi, nil)
 					} else {
 						// Should not be called
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -1819,7 +1819,7 @@ var _ = Describe("VirtualMachine", func() {
 					ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 					ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
 
-					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Times(1).Return(vmi, nil)
+					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Times(1).Return(vmi, nil)
 				} else {
 					// Should not be called
 					vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -1926,7 +1926,7 @@ var _ = Describe("VirtualMachine", func() {
 						ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 						ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
 
-						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Times(1).Return(vmi, nil)
+						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Times(1).Return(vmi, nil)
 					} else {
 						// Should not be called
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -2279,7 +2279,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Get(context.Background(), vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), &metav1.PatchOptions{})
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), metav1.PatchOptions{})
 
 			sanityExecute(vm)
 		})
@@ -2644,7 +2644,7 @@ var _ = Describe("VirtualMachine", func() {
 				update := `{ "op": "add", "path": "/spec/volumes", "value": [{"name":"testPVC","memoryDump":{"claimName":"testPVC","hotpluggable":true}}]}`
 				patch := fmt.Sprintf("[%s, %s]", test, update)
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			}
 
 			shouldExpectVMIVolumesRemovePatched := func(vmi *virtv1.VirtualMachineInstance) {
@@ -2653,7 +2653,7 @@ var _ = Describe("VirtualMachine", func() {
 				patch := fmt.Sprintf("[%s, %s]", test, update)
 				fmt.Println(patch)
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			}
 
 			applyVMIMemoryDumpVol := func(spec *virtv1.VirtualMachineInstanceSpec) *virtv1.VirtualMachineInstanceSpec {
@@ -5263,7 +5263,7 @@ var _ = Describe("VirtualMachine", func() {
 						GuestRequested: &guestMemory,
 					}
 
-					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Do(
+					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Do(
 						func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{},
 						) {
 							originalVMIBytes, err := json.Marshal(vmi)

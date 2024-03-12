@@ -90,7 +90,7 @@ func (admitter *PodEvictionAdmitter) markVMI(ar *admissionv1.AdmissionReview, vm
 				vmiName,
 				types.JSONPatchType,
 				[]byte(data),
-				&metav1.PatchOptions{})
+				metav1.PatchOptions{})
 	}
 
 	return err
