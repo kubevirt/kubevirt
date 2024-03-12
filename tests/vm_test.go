@@ -36,8 +36,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
-	gomegatypes "github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -396,7 +394,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Expect(virtClient.VirtualMachineInstance(vm.Namespace).Delete(context.Background(), vm.Name, k8smetav1.DeleteOptions{})).To(Succeed())
 
-			Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+			Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 		})
 
 		It("[test_id:1524]should recreate VirtualMachineInstance if the VirtualMachineInstance's pod gets deleted", func() {
@@ -420,7 +418,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			// Wait on the VMI controller to create a new VirtualMachineInstance
 			By("Waiting for a new VirtualMachineInstance to spawn")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(beRestarted(firstVMI.UID))
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRestarted(firstVMI.UID))
 
 			// sanity check that the test ran correctly by
 			// verifying a different Pod backs the VMI as well.
@@ -503,7 +501,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240)).To(Succeed())
 
 				By("waiting for the controller to replace the shut-down vmi with a new instance")
-				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 
 				By("VMI should run the VirtualMachineInstance again")
 			}
@@ -690,7 +688,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(startCommand()).To(Succeed())
 
 				By("Getting the status of the VM")
-				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 				By("Getting the running VirtualMachineInstance")
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
@@ -708,7 +706,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(stopCommand()).To(Succeed())
 
 				By("Ensuring VM is not running")
-				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(And(Not(beCreated()), Not(beReady())))
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(And(Not(BeCreated()), Not(BeReady())))
 
 				By("Ensuring the VirtualMachineInstance is removed")
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
@@ -726,7 +724,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(startCommand()).To(Succeed())
 
 				By("Getting the status of the VM")
-				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beCreated())
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeCreated())
 
 				By("Getting running VirtualMachineInstance with paused condition")
 				Eventually(func() bool {
@@ -764,7 +762,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return ""
 				}, 120*time.Second, 1*time.Second).Should(ContainSubstring("failed to find pod"))
 
-				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 
 				By("Comparing the new UID and CreationTimeStamp with the old one")
 				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
@@ -823,7 +821,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Invoking virtctl stop")
 					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
@@ -844,7 +842,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Getting VMI's UUID")
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
@@ -855,7 +853,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(restartCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is restarted")
-					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -864,7 +862,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
-					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
 				})
 
 				It("[test_id:3165]should restart a succeeded VMI", func() {
@@ -872,7 +870,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -886,7 +884,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 10)).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is restarted")
-					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 				})
 
 				It("[test_id:4119]should migrate a running VM", func() {
@@ -898,7 +896,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Invoking virtctl migrate")
 					migrateCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_MIGRATE, "--namespace", vm.Namespace, vm.Name)
@@ -921,7 +919,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Invoking virtctl migrate with dry-run option")
 					migrateCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_MIGRATE, "--dry-run", "--namespace", vm.Namespace, vm.Name)
@@ -941,7 +939,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Invoking virtctl stop")
 					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
@@ -963,7 +961,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Getting VMI's UUID")
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
@@ -974,7 +972,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(restartCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is restarted")
-					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -984,7 +982,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Ensuring stateChangeRequests list gets cleared")
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
-					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
 				})
 
 				It("[test_id:2188] should remove a succeeded VMI", func() {
@@ -992,7 +990,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
 					By("Waiting for VMI to be ready")
-					Eventually(ThisVM(vm), time.Minute, time.Second).Should(beReady())
+					Eventually(ThisVM(vm), time.Minute, time.Second).Should(BeReady())
 
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1017,7 +1015,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
 					By("Waiting for VM to exist")
-					Eventually(ThisVM(vm), time.Minute, time.Second).Should(beReady())
+					Eventually(ThisVM(vm), time.Minute, time.Second).Should(BeReady())
 
 					By("Waiting for VM to start")
 					Eventually(func() v1.VirtualMachinePrintableStatus {
@@ -1060,7 +1058,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1077,7 +1075,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1092,7 +1090,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Consistently(ThisVMI(vmi), 60*time.Second, 5*time.Second).Should(BeInPhase(v1.Failed))
 
 					By("Ensuring the VirtualMachine remains Ready=false")
-					Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(beReady()))
+					Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(BeReady()))
 				})
 
 				It("Should leave a succeeded VMI", func() {
@@ -1100,7 +1098,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1119,7 +1117,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Consistently(ThisVMI(vmi), 60*time.Second, 5*time.Second).Should(HaveSucceeded())
 
 					By("Ensuring the VirtualMachine remains Ready=false")
-					Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(beReady()))
+					Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(BeReady()))
 				})
 			})
 
@@ -1132,7 +1130,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1150,7 +1148,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
 					Expect(stopCommand()).To(Succeed())
@@ -1159,7 +1157,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
 
 					By("Ensuring stateChangeRequests list is cleared")
-					Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
 				})
 
 				It("[test_id:6311]should start in paused state", func() {
@@ -1171,7 +1169,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Getting the status of the VM")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beCreated())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeCreated())
 
 					By("Getting running VirtualMachineInstance with paused condition")
 					Eventually(func() bool {
@@ -1198,22 +1196,22 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Invoking virtctl stop")
 					Expect(stopCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is stopped")
-					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(beCreated()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(BeCreated()))
 
 					By("Waiting state change request to clear for stopped VM")
-					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
 
 					By("Invoking virtctl start")
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					By("Getting VMI's UUID")
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
@@ -1223,7 +1221,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(restartCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is restarted")
-					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 
 					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1233,7 +1231,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Ensuring stateChangeRequests list gets cleared")
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
-					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
 				})
 
 				It("[test_id:2190] should not remove a succeeded VMI", func() {
@@ -1244,7 +1242,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -1267,10 +1265,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(restartCommand()).To(Succeed())
 
 					By("Waiting for StartRequest to be cleared")
-					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 				})
 				DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
 					// The estimated execution time of one test is 400 seconds.
@@ -1780,7 +1778,7 @@ status:
 			))
 
 			By("waiting for crash loop state")
-			Eventually(ThisVM(vm), 60*time.Second, 5*time.Second).Should(beInCrashLoop())
+			Eventually(ThisVM(vm), 60*time.Second, 5*time.Second).Should(BeInCrashLoop())
 
 			By("Testing that the failure count is within the expected range over a period of time")
 			maxExpectedFailCount := 3
@@ -1809,7 +1807,7 @@ status:
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			By("Waiting on crash loop status to be removed.")
-			Eventually(ThisVM(vm), 300*time.Second, 5*time.Second).Should(notBeInCrashLoop())
+			Eventually(ThisVM(vm), 300*time.Second, 5*time.Second).Should(NotBeInCrashLoop())
 		})
 
 		It("should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
@@ -1819,14 +1817,14 @@ status:
 			))
 
 			By("waiting for crash loop state")
-			Eventually(ThisVM(vm), 60*time.Second, 5*time.Second).Should(beInCrashLoop())
+			Eventually(ThisVM(vm), 60*time.Second, 5*time.Second).Should(BeInCrashLoop())
 
 			By("Invoking virtctl stop while in a crash loop")
 			stopCmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, vm.Name, "--namespace", vm.Namespace)
 			Expect(stopCmd()).To(Succeed())
 
 			By("Waiting on crash loop status to be removed.")
-			Eventually(ThisVM(vm), 120*time.Second, 5*time.Second).Should(notBeInCrashLoop())
+			Eventually(ThisVM(vm), 120*time.Second, 5*time.Second).Should(NotBeInCrashLoop())
 		})
 	})
 
@@ -2003,7 +2001,7 @@ status:
 			// These timeouts are low on purpose. The VMI should be marked as Failed and be recreated fast.
 			// In case this fails, do not increase the timeouts.
 			By("The VM should not be Ready")
-			Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).ShouldNot(beReady())
+			Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).ShouldNot(BeReady())
 
 			// This is only possible if the VMI has been in Phase Failed
 			By("Check if the VMI has been recreated")
@@ -2079,7 +2077,7 @@ func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtu
 	Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(BeRunning())
 
 	By("Waiting for VM to be ready")
-	Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+	Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 
 	vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -2104,7 +2102,7 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 	Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
 
 	By("Waiting for VM to not be ready")
-	Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(beReady()))
+	Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 
 	vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -2112,56 +2110,3 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 	return vm
 }
 
-func beCreated() gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Created": BeTrue(),
-		}),
-	}))
-}
-
-func beReady() gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Ready": BeTrue(),
-		}),
-	}))
-}
-
-func beRestarted(oldUID types.UID) gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"UID": Not(Equal(oldUID)),
-		}),
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Phase": Equal(v1.Running),
-		}),
-	}))
-}
-
-func beInCrashLoop() gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"PrintableStatus": Equal(v1.VirtualMachineStatusCrashLoopBackOff),
-			"StartFailure": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"ConsecutiveFailCount": BeNumerically(">", 0),
-			})),
-		}),
-	}))
-}
-
-func notBeInCrashLoop() gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"StartFailure": BeNil(),
-		}),
-	}))
-}
-
-func haveStateChangeRequests() gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"StateChangeRequests": Not(BeEmpty()),
-		}),
-	}))
-}

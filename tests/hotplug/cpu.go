@@ -105,7 +105,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 200m CPU")
@@ -204,7 +204,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 2 CPU")
@@ -279,12 +279,4 @@ func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kvName, types.JSONPatchType, data, &k8smetav1.PatchOptions{})
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-}
-
-func beReady() gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Ready": BeTrue(),
-		}),
-	}))
 }

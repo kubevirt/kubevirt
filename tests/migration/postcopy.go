@@ -40,13 +40,10 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gstruct"
-	gomegatypes "github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -297,24 +294,13 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						removeMigrationKillerPod()
 
 						By("Ensuring the VirtualMachineInstance is restarted")
-						Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
+						Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
 					})
 				})
 			})
 		})
 	})
 })
-
-func beRestarted(oldUID types.UID) gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"ObjectMeta": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"UID": Not(Equal(oldUID)),
-		}),
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Phase": Equal(v1.Running),
-		}),
-	}))
-}
 
 func VMIMigrationWithGuestaAgent(virtClient kubecli.KubevirtClient, pvName string, memoryRequestSize string, migrationPolicy *migrationsv1.MigrationPolicy) {
 	By("Creating the VMI")
