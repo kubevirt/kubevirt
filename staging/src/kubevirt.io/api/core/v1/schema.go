@@ -543,7 +543,7 @@ type SoundDevice struct {
 }
 
 type TPMDevice struct {
-	// Persistent indicates the state of the TPM device should be kept accross reboots
+	// Persistent indicates the state of the TPM device should be kept across reboots
 	// Defaults to false
 	Persistent *bool `json:"persistent,omitempty"`
 }

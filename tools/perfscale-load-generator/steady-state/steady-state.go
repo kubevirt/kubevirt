@@ -148,7 +148,7 @@ func (b *SteadyStateJob) DeleteWorkloads(count int) {
 	log.Log.V(2).Infof("Deleting %d objects for job %s", count, jobUUID)
 	objUtil.DeleteNObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadUUIDLabel, jobUUID), count)
 
-	// Wait all objects be Deleted. In the case of VMI, deleted means the succeded phase.
+	// Wait all objects be Deleted. In the case of VMI, deleted means the succeeded phase.
 	for objType, objWatcher := range b.watchers {
 		log.Log.Infof("Wait for obj(s) %s to be deleted", objType)
 		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)

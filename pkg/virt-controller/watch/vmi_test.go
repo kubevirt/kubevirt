@@ -2936,7 +2936,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should not get any fs overhead if the PVC has volumeMode block", k8sv1.PersistentVolumeBlock, "default", cdiv1.Percent("0")),
 			Entry("should return global fs overhead if there's no storageClassName", k8sv1.PersistentVolumeFilesystem, "", cdiv1.Percent("0.5")),
 			Entry("should return global fs overhead if the storageClassName is invalid", k8sv1.PersistentVolumeFilesystem, "nonValid", cdiv1.Percent("0.5")),
-			Entry("should return the appropiate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", cdiv1.Percent("0.8")),
+			Entry("should return the appropriate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", cdiv1.Percent("0.8")),
 		)
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {

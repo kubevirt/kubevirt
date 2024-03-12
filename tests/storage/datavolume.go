@@ -170,7 +170,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		Context("[Serial]without fsgroup support", Serial, func() {
 			size := "1Gi"
 
-			It("should succesfully start", func() {
+			It("should successfully start", func() {
 				// Create DV and alter permission of disk.img
 				sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 				if !foundSC {
@@ -1007,7 +1007,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestAlternative).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// We check if the VM is succesfully created
+				// We check if the VM is successfully created
 				By("Creating VM")
 				Eventually(func() bool {
 					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)

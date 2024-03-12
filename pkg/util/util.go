@@ -196,7 +196,7 @@ func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	return fmt.Sprintf("%s_%s", prefix, varName)
 }
 
-// Checks if kernel boot is defined in a valid way
+// HasKernelBootContainerImage checks if kernel boot is defined in a valid way
 func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	if vmi == nil {
 		return false
