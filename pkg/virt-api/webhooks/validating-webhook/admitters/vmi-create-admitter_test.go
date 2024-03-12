@@ -2319,8 +2319,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi = api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+			vmi = newBaseVmi(libvmi.WithDedicatedCPUPlacement())
 			enableFeatureGate(virtconfig.NUMAFeatureGate)
 		})
 		It("should reject NUMA passthrough without DedicatedCPUPlacement without the NUMA feature gate", func() {
