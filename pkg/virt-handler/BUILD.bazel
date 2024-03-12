@@ -92,6 +92,7 @@ go_test(
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/errors:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/unsafepath:go_default_library",
