@@ -70,3 +70,12 @@ func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
+
+func ContainerDiskSizeBySourceURL(url string) string {
+	if url == DataVolumeImportUrlForContainerDisk(ContainerDiskFedoraTestTooling) ||
+		url == DataVolumeImportUrlForContainerDisk(ContainerDiskFedoraRealtime) {
+		return FedoraVolumeSize
+	}
+
+	return CirrosVolumeSize
+}

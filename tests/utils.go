@@ -275,7 +275,7 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 		libdv.WithPVC(
 			libdv.PVCWithStorageClass(sc),
-			libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl)),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
 			libdv.PVCWithAccessMode(accessMode),
 			libdv.PVCWithVolumeMode(volMode),
 		),
@@ -372,7 +372,7 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 		libdv.WithPVC(
 			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl)),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
 			libdv.PVCWithAccessMode(accessMode),
 		),
 	)
@@ -423,7 +423,7 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl))),
+		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl))),
 	)
 	vm := libvmi.NewVirtualMachine(
 		libvmi.New(
@@ -1351,23 +1351,6 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 	}
 }
 
-func GetIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-	Expect(err).ToNot(HaveOccurred())
-
-	podOutput, err := exec.ExecuteCommandOnPod(
-		vmiPod,
-		vmiPod.Spec.Containers[0].Name,
-		[]string{"id", "-u"},
-	)
-	Expect(err).NotTo(HaveOccurred())
-
-	return strings.TrimSpace(podOutput)
-}
-
 func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, nodeName string, command []string) (stdout string, stderr string, err error) {
 	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
 	if err != nil {
@@ -1415,13 +1398,4 @@ func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
 		}
 	}
 	return hostModel
-}
-
-func dvSizeBySourceURL(url string) string {
-	if url == cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling) ||
-		url == cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraRealtime) {
-		return cd.FedoraVolumeSize
-	}
-
-	return cd.CirrosVolumeSize
 }
