@@ -331,7 +331,7 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 
 	By("VMI has the guest agent connected condition")
 	Eventually(func() []v1.VirtualMachineInstanceCondition {
-		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return agentVMI.Status.Conditions
 	}, 240*time.Second, 1*time.Second).Should(ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition")

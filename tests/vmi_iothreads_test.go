@@ -78,7 +78,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
 
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -112,7 +112,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
@@ -173,7 +173,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
@@ -255,7 +255,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")

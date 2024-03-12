@@ -87,7 +87,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, v1.GetOptions{})
 				return err
 			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
 
@@ -162,7 +162,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &v1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &v1.GetOptions{})
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, v1.GetOptions{})
 				return err
 			}, 60*time.Second, 3*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VMI Should be successfully deleted")
 

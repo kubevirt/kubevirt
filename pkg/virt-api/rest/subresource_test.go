@@ -248,7 +248,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			f(&vmi)
 		}
 
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 
 		expectHandlerPod()
 	}
@@ -299,7 +299,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		Context("VNC", func() {
 			It("should fail with no 'name' path param", func() {
 
-				vmiClient.EXPECT().Get(context.Background(), "", &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
+				vmiClient.EXPECT().Get(context.Background(), "", k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
@@ -309,7 +309,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				request.PathParameters()["name"] = testVMIName
 
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no namespace defined")))
+				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no namespace defined")))
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
@@ -320,7 +320,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachine"), testVMIName))
+				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachine"), testVMIName))
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
@@ -331,7 +331,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]", testVMIName)))
+				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]", testVMIName)))
 
 				app.VNCRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
@@ -346,7 +346,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &autoattachGraphicsDevice
 
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vmi, nil)
 
 				app.VNCRequestHandler(request, response)
 
@@ -360,7 +360,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		Context("PortForward", func() {
 			It("should fail with no 'name' path param", func() {
 
-				vmiClient.EXPECT().Get(context.Background(), "", &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
+				vmiClient.EXPECT().Get(context.Background(), "", k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no name defined")))
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
@@ -370,7 +370,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				request.PathParameters()["name"] = testVMIName
 
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no namespace defined")))
+				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("no namespace defined")))
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
@@ -381,7 +381,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachine"), testVMIName))
+				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachine"), testVMIName))
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
@@ -392,7 +392,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMIName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vmiClient.EXPECT().Get(context.Background(), testVMIName, &k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]", testVMIName)))
+				vmiClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]", testVMIName)))
 
 				app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
@@ -410,7 +410,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
 
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 
 				app.ConsoleRequestHandler(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
@@ -492,7 +492,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				podList.Items = append(podList.Items, *pod)
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
@@ -540,7 +540,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					return true, &podList, nil
 				})
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
 
 				app.RestartVMRequestHandler(request, response)
@@ -561,7 +561,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
 
 				app.RestartVMRequestHandler(request, response)
@@ -578,7 +578,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmi := newVirtualMachineInstanceInPhase(v1.Running)
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
 
 				app.RestartVMRequestHandler(request, response)
@@ -613,7 +613,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
@@ -662,7 +662,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := newVirtualMachineInstanceInPhase(v1.Failed)
 
 			vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
 
 			app.RestartVMRequestHandler(request, response)
@@ -681,7 +681,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name)).AnyTimes()
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name)).AnyTimes()
 
 			app.RestartVMRequestHandler(request, response)
 
@@ -789,7 +789,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					app.VMRemoveVolumeRequestHandler(request, response)
 				}
 			} else {
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
+				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 
 				if addOpts != nil {
 					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -1270,7 +1270,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			if statusCode == http.StatusAccepted || (pvc != nil && pvc.Spec.Resources.Requests[k8sv1.ResourceStorage] == resource.MustParse("1Gi")) {
 				virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 			}
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 					return patchedVM, nil
@@ -1326,7 +1326,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(ok).To(BeTrue())
 				return true, createTestPVC("2Gi", fs, notReadOnly), nil
 			})
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 					return patchedVM, nil
@@ -1490,7 +1490,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).DoAndReturn(func(ctx context.Context, name string, opts *k8smetav1.GetOptions) (interface{}, interface{}) {
+				vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).DoAndReturn(func(ctx context.Context, name string, opts k8smetav1.GetOptions) (interface{}, interface{}) {
 					if status == http.StatusNotFound {
 						return vmi, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName)
 					}
@@ -1523,7 +1523,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				}
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 						Expect(opts.DryRun).To(BeNil())
@@ -1553,7 +1553,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName))
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName))
 			if !expectError {
 				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
@@ -1593,7 +1593,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := newVirtualMachineInstanceInPhase(v1.Unknown)
 
 			vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 
 			app.StopVMRequestHandler(request, response)
 
@@ -1615,7 +1615,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 
 			if graceperiod != nil {
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -1651,7 +1651,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := newVirtualMachineInstanceInPhase(v1.Running)
 
 			vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 
 			if runStrategy == v1.RunStrategyManual || runStrategy == v1.RunStrategyRerunOnFailure {
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
@@ -1699,7 +1699,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
 
 			app.MigrateVMRequestHandler(request, response)
 
@@ -1726,7 +1726,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			vmClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
 			migrateClient.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, errors.NewInternalError(fmt.Errorf("error creating object")))
 			app.MigrateVMRequestHandler(request, response)
 
@@ -1753,7 +1753,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			migration := v1.VirtualMachineInstanceMigration{}
 
 			vmClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
 
 			migrateClient.EXPECT().Create(gomock.Any(), gomock.Any()).Do(
 				func(obj interface{}, opts *k8smetav1.CreateOptions) {
@@ -1776,7 +1776,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-			vmiClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName))
+			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName))
 
 			fn(request, response)
 
@@ -1795,7 +1795,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vmi := v1.VirtualMachineInstance{}
 
-			vmiClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
 
 			fn(request, response)
 
@@ -1819,7 +1819,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 			}
 
-			vmiClient.EXPECT().Get(context.Background(), testVMName, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
 
 			fn(request, response)
 
@@ -2185,7 +2185,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 			vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(&vm, nil)
-			vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(&vmi, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts *k8smetav1.PatchOptions) (interface{}, interface{}) {
 					//check that dryRun option has been propagated to patch request
@@ -2215,7 +2215,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmi := newVirtualMachineInstanceInPhase(v1.Succeeded)
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil)
-				vmiClient.EXPECT().Get(context.Background(), vm.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
 
 				app.StartVMRequestHandler(request, response)

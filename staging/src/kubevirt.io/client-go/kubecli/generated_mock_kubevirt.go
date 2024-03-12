@@ -1028,7 +1028,7 @@ func (_m *MockVirtualMachineInstanceInterface) EXPECT() *_MockVirtualMachineInst
 	return _m.recorder
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Get(ctx context.Context, name string, options *v12.GetOptions) (*v120.VirtualMachineInstance, error) {
+func (_m *MockVirtualMachineInstanceInterface) Get(ctx context.Context, name string, options v12.GetOptions) (*v120.VirtualMachineInstance, error) {
 	ret := _m.ctrl.Call(_m, "Get", ctx, name, options)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstance)
 	ret1, _ := ret[1].(error)

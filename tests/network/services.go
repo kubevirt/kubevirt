@@ -89,7 +89,7 @@ var _ = SIGDescribe("Services", func() {
 
 		By("Waiting for the VMI to be gone")
 		Eventually(func() error {
-			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.GetName(), &k8smetav1.GetOptions{})
+			_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.GetName(), k8smetav1.GetOptions{})
 			return err
 		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 	}

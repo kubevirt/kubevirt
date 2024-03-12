@@ -138,7 +138,7 @@ var _ = SIGDescribe("Infosource", func() {
 			// and then we can compare the rest of the expected info.
 			Eventually(func() bool {
 				var err error
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				return dummyInterfaceExists(vmi)

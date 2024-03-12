@@ -33,7 +33,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/api/errors"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -289,18 +288,14 @@ func (v *vmis) Unpause(ctx context.Context, name string, unpauseOptions *v1.Unpa
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	vmi, err = v.VirtualMachineInstanceInterface.Get(ctx, name, opts)
+func (v *vmis) Get(ctx context.Context, name string, options metav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
+	vmi, err = v.VirtualMachineInstanceInterface.Get(ctx, name, options)
 	vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	return
 }
 
-func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
-	opts := k8smetav1.ListOptions{}
+func (v *vmis) List(ctx context.Context, options *metav1.ListOptions) (vmiList *v1.VirtualMachineInstanceList, err error) {
+	opts := metav1.ListOptions{}
 	if options != nil {
 		opts = *options
 	}
@@ -324,16 +319,16 @@ func (v *vmis) Update(ctx context.Context, vmi *v1.VirtualMachineInstance) (resu
 	return
 }
 
-func (v *vmis) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
+func (v *vmis) Delete(ctx context.Context, name string, options *metav1.DeleteOptions) error {
+	opts := metav1.DeleteOptions{}
 	if options != nil {
 		opts = *options
 	}
 	return v.VirtualMachineInstanceInterface.Delete(ctx, name, opts)
 }
 
-func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
-	opts := k8smetav1.PatchOptions{}
+func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+	opts := metav1.PatchOptions{}
 	if patchOptions != nil {
 		opts = *patchOptions
 	}
@@ -352,7 +347,7 @@ func enrichError(httpErr error, resp *http.Response) error {
 		return httpErr
 	}
 	httpErr = fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, httpErr)
-	status := &k8smetav1.Status{}
+	status := &metav1.Status{}
 
 	if resp.Header.Get("Content-Type") != "application/json" {
 		return httpErr
@@ -370,7 +365,7 @@ func enrichError(httpErr error, resp *http.Response) error {
 		return err
 	}
 	if status.Kind == "Status" && status.APIVersion == "v1" {
-		if status.Status != k8smetav1.StatusSuccess {
+		if status.Status != metav1.StatusSuccess {
 			return errors.FromObject(status)
 		}
 	}
