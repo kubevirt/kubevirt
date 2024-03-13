@@ -1621,15 +1621,15 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) List(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInterface) Create(ctx context.Context, vm *v120.VirtualMachine) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "Create", ctx, vm)
+func (_m *MockVirtualMachineInterface) Create(ctx context.Context, vm *v120.VirtualMachine, opts v12.CreateOptions) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Create", ctx, vm, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1)
+func (_mr *_MockVirtualMachineInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInterface) Update(ctx context.Context, vm *v120.VirtualMachine) (*v120.VirtualMachine, error) {

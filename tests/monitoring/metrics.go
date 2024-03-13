@@ -137,7 +137,7 @@ func setupVM(virtClient kubecli.KubevirtClient) {
 func createRunningVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vmi := libvmifact.NewGuestless(libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
 	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {

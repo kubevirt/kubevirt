@@ -64,7 +64,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			By("Creating a VM")
 			hotPluggedVM = newVMWithOneInterface()
 			var err error
-			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM)
+			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
 				var err error
@@ -269,7 +269,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
 			var err error
-			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
 				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -328,7 +328,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 			vm = libvmi.NewVirtualMachine(vmi)
 
 			var err error
-			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		})
 

@@ -120,7 +120,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, vm),
 		))
-		createdVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(context.Background(), vm)
+		createdVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

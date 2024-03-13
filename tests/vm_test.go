@@ -184,7 +184,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
 
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			return vm
@@ -671,7 +671,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport("docker://no.such/image",
 				testsuite.GetTestNamespace(nil), storageClassName, k8sv1.ReadWriteOnce)
 			vm.Spec.Running = pointer.BoolPtr(true)
-			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying that the VM status eventually gets set to DataVolumeError")
@@ -1285,7 +1285,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
 						v1.KeepLauncherAfterFailureAnnotation: keepLauncher,
 					}
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Starting the VMI with virtctl")
@@ -1871,7 +1871,7 @@ status:
 
 		It("should be added when the vm is created and removed when the vm is being deleted", func() {
 			By("Creating VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega) {
@@ -1923,7 +1923,7 @@ status:
 					Domain: v1.DomainSpec{},
 				},
 			}
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting until the VirtualMachine has the VirtualMachineControllerFinalizer, customFinalizer and revisionName")
@@ -2047,7 +2047,7 @@ func waitForResourceDeletion(k8sClient string, resourceType string, resourceName
 func createVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 	By("Creating stopped VirtualMachine")
 	vm := libvmi.NewVirtualMachine(template)
-	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
 }
@@ -2055,7 +2055,7 @@ func createVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInst
 func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 	By("Creating running VirtualMachine")
 	vm := libvmi.NewVirtualMachine(template, libvmi.WithRunning())
-	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
 }
