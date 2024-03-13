@@ -3246,7 +3246,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
-		It("Should reject disk with DedicatedIOThread and SATA bus", func() {
+		DescribeTable("Should reject disk with DedicatedIOThread and non-virtio bus", func(bus v1.DiskBus) {
 			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
@@ -3254,7 +3254,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name:              "disk-with-dedicated-io-thread-and-sata",
 					DedicatedIOThread: pointer.Bool(true),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
-						Bus: v1.DiskBusSATA,
+						Bus: bus,
 					}},
 				},
 				v1.Disk{
@@ -3277,9 +3277,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1)) // Only first disk should fail
 			Expect(string(causes[0].Type)).To(Equal("FieldValueNotSupported"))
 			Expect(causes[0].Field).To(ContainSubstring("domain.devices.disks"))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a SATA bus")))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus)))
 
-		})
+		},
+			Entry("SATA bus", v1.DiskBusSATA),
+			Entry("SCSI bus", v1.DiskBusSCSI),
+			Entry("USB bus", v1.DiskBusUSB),
+		)
 
 		Context("With block size", func() {
 

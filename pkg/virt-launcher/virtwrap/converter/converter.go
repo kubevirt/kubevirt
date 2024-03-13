@@ -1686,7 +1686,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		if useIOThreads {
-			if _, ok := c.HotplugVolumes[disk.Name]; !ok {
+			bus := getBusFromDisk(disk)
+			switch bus {
+			// Only disks with virtio bus support IOThreads
+			case v1.DiskBusVirtio:
 				ioThreadId := defaultIOThread
 				dedicatedThread := false
 				if disk.DedicatedIOThread != nil {
@@ -1703,8 +1706,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
 				}
 				newDisk.Driver.IOThread = &ioThreadId
-			} else {
+
+			// We can find a workaround by adding IOThreads to the SCSI controller
+			case v1.DiskBusSCSI:
 				newDisk.Driver.IO = v1.IOThreads
+
+			default:
+				// TODO: if possible, find a workaround for SATA and USB buses.
+				log.Log.Infof("IOthreads not available for disk %s: Bus %s not supported", disk.Name, bus)
 			}
 		}
 
@@ -1761,20 +1770,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if isUSBNeeded(c, vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:  "usb",
-			Index: "0",
-			Model: "qemu-xhci",
-		})
-	} else {
-		// disable usb controller
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:  "usb",
-			Index: "0",
-			Model: "none",
-		})
+	// Creating USB controller, disabled by default
+	usbController := api.Controller{
+		Type:  "usb",
+		Index: "0",
+		Model: "none",
 	}
+	if isUSBNeeded(c, vmi) {
+		usbController.Model = "qemu-xhci"
+	}
+	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
 		scsiController := api.Controller{
@@ -2091,17 +2096,24 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 
 func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
-		if disk.LUN != nil && disk.LUN.Bus == "scsi" {
-			return true
-		}
-		if disk.Disk != nil && disk.Disk.Bus == "scsi" {
-			return true
-		}
-		if disk.CDRom != nil && disk.CDRom.Bus == "scsi" {
+		if getBusFromDisk(disk) == v1.DiskBusSCSI {
 			return true
 		}
 	}
 	return !vmi.Spec.Domain.Devices.DisableHotplug
+}
+
+func getBusFromDisk(disk v1.Disk) v1.DiskBus {
+	if disk.LUN != nil {
+		return disk.LUN.Bus
+	}
+	if disk.Disk != nil {
+		return disk.Disk.Bus
+	}
+	if disk.CDRom != nil {
+		return disk.CDRom.Bus
+	}
+	return ""
 }
 
 func getPrefixFromBus(bus v1.DiskBus) string {
