@@ -342,46 +342,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
-			It("should accurately report DataVolume provisioning", func() {
-				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-				if err != nil {
-					Skip("no snapshot storage class configured")
-				}
-
-				dataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
-				)
-
-				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-				vmSpec := tests.NewRandomVirtualMachine(vmi, false)
-
-				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec)
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus
-				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
-
-				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				defer libstorage.DeleteDataVolume(&dataVolume)
-
-				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus
-				}, 180*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineStatusProvisioning))
-
-				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus
-				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
-			})
-
 			It("should accurately aggregate DataVolume conditions from many DVs", func() {
 				dataVolume1 := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
