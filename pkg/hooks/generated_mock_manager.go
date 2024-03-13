@@ -8,9 +8,9 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v1 "kubevirt.io/api/core/v1"
+	libvirtxml "libvirt.org/go/libvirtxml"
 
 	cloud_init "kubevirt.io/kubevirt/pkg/cloud-init"
-	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // Mock of Manager interface
@@ -44,7 +44,7 @@ func (_mr *_MockManagerRecorder) Collect(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Collect", arg0, arg1)
 }
 
-func (_m *MockManager) OnDefineDomain(_param0 *api.DomainSpec, _param1 *v1.VirtualMachineInstance) (string, error) {
+func (_m *MockManager) OnDefineDomain(_param0 *libvirtxml.Domain, _param1 *v1.VirtualMachineInstance) (string, error) {
 	ret := _m.ctrl.Call(_m, "OnDefineDomain", _param0, _param1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)

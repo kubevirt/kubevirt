@@ -26,7 +26,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 
-	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -36,7 +36,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 type vmConfigurator interface {
@@ -172,60 +171,67 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 	return domainInterfaces
 }
 
-type SetDomainFunc func(*v1.VirtualMachineInstance, *api.DomainSpec) (cli.VirDomain, *api.DomainSpec, error)
+type SetDomainFunc func(*v1.VirtualMachineInstance, *libvirtxml.Domain) (cli.VirDomain, *libvirtxml.Domain, error)
 
 // withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
 // to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f SetDomainFunc) (cli.VirDomain, *api.DomainSpec, error) {
-	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
-	dom, err := f(vmi, domainSpecWithIfacesResource)
+func withNetworkIfacesResources(
+	vmi *v1.VirtualMachineInstance,
+	domainSpec *libvirtxml.Domain,
+	f SetDomainFunc,
+) (cli.VirDomain, *libvirtxml.Domain, error) {
+	domainSpec, originalInterfaces := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
+	dom, newSpec, err := f(vmi, domainSpec)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if len(domainSpec.Devices.Interfaces) == len(domainSpecWithIfacesResource.Devices.Interfaces) {
-		return dom, domainSpec, nil
+	if len(newSpec.Devices.Interfaces) == len(originalInterfaces) {
+		return dom, newSpec, nil
 	}
 
-	domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-	if err != nil {
-		return nil, nil, err
-	}
-	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
-	// Only the devices are taken into account because some parameters are not assured to be returned when
-	// getting the domain spec (e.g. the `qemu:commandline` section).
-	domainSpecWithoutIfacePlaceholders.Devices.DeepCopyInto(&domainSpec.Devices)
-
-	return f(vmi, domainSpec)
+	// restore original interfaces
+	newSpec.Devices.Interfaces = originalInterfaces
+	return f(vmi, newSpec)
 }
 
-func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
+// return original interface slice in case we want to restore it
+func appendPlaceholderInterfacesToTheDomain(
+	vmi *v1.VirtualMachineInstance,
+	domainSpec *libvirtxml.Domain,
+) (*libvirtxml.Domain, []libvirtxml.DomainInterface) {
 	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
-		return domainSpec
+		return domainSpec, domainSpec.Devices.Interfaces
 	}
 	if val := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]; val == "true" {
-		return domainSpec
+		return domainSpec, domainSpec.Devices.Interfaces
 	}
-	domainSpecWithIfacesResource := domainSpec.DeepCopy()
+
+	original := domainSpec.Devices.Interfaces
+	domainSpec.Devices.Interfaces = make([]libvirtxml.DomainInterface, ReservedInterfaces)
+	copy(domainSpec.Devices.Interfaces, original)
+
 	interfacePlaceholderCount := ReservedInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
 	for i := 0; i < interfacePlaceholderCount; i++ {
-		domainSpecWithIfacesResource.Devices.Interfaces = append(
-			domainSpecWithIfacesResource.Devices.Interfaces,
+		domainSpec.Devices.Interfaces = append(
+			domainSpec.Devices.Interfaces,
 			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional)),
 		)
 	}
-	return domainSpecWithIfacesResource
+	return domainSpec, original
 }
 
-func newInterfacePlaceholder(index int, modelType string) api.Interface {
-	return api.Interface{
-		Type:  "ethernet",
-		Model: &api.Model{Type: modelType},
-		Target: &api.InterfaceTarget{
-			Device:  fmt.Sprintf("placeholder-%d", index),
+func newInterfacePlaceholder(index int, modelType string) libvirtxml.DomainInterface {
+	return libvirtxml.DomainInterface{
+		Source: &libvirtxml.DomainInterfaceSource{
+			Ethernet: &libvirtxml.DomainInterfaceSourceEthernet{},
+		},
+		Model: &libvirtxml.DomainInterfaceModel{Type: modelType},
+		Target: &libvirtxml.DomainInterfaceTarget{
+			Dev:     fmt.Sprintf("placeholder-%d", index),
 			Managed: "no",
 		},
 	}

@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"libvirt.org/go/libvirtxml"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
@@ -40,7 +41,6 @@ import (
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
-	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
@@ -59,7 +59,7 @@ var once sync.Once
 type (
 	Manager interface {
 		Collect(uint, time.Duration) error
-		OnDefineDomain(*virtwrapApi.DomainSpec, *v1.VirtualMachineInstance) (string, error)
+		OnDefineDomain(*libvirtxml.Domain, *v1.VirtualMachineInstance) (string, error)
 		PreCloudInitIso(*v1.VirtualMachineInstance, *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error)
 		Shutdown() error
 	}
@@ -197,7 +197,7 @@ func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callBackClien
 	}
 }
 
-func (m *hookManager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (string, error) {
+func (m *hookManager) OnDefineDomain(domainSpec *libvirtxml.Domain, vmi *v1.VirtualMachineInstance) (string, error) {
 	domainSpecXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 	if err != nil {
 		return "", fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)

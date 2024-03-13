@@ -20,6 +20,8 @@
 package libvirtxml
 
 import (
+	"encoding/xml"
+	"fmt"
 	"strconv"
 
 	"libvirt.org/go/libvirtxml"
@@ -302,4 +304,34 @@ func ConvertKubeVirtFeaturesToDomainFeatureList(features *api.Features) *libvirt
 	f.KVM = ConverKubeVirtFeatureKVMToDomainFeatureKVM(features.KVM)
 	return f
 
+}
+
+func ConvertKubeVirtDomainSpecToDomain(apiDomainSpec *api.DomainSpec) (*libvirtxml.Domain, error) {
+	if apiDomainSpec == nil {
+		return nil, fmt.Errorf("can't convert: apiDomainSpec is nil")
+	}
+
+	bytes, err := xml.Marshal(&apiDomainSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	var libvirtDomain libvirtxml.Domain
+	err = xml.Unmarshal(bytes, &libvirtDomain)
+	return &libvirtDomain, err
+}
+
+func ConvertDomainToKubeVirtDomainSpec(libvirtDomain *libvirtxml.Domain) (*api.DomainSpec, error) {
+	if libvirtDomain == nil {
+		return nil, fmt.Errorf("can't convert: libvirtDomain is nil")
+	}
+
+	bytes, err := xml.Marshal(libvirtDomain)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiDomainSpec api.DomainSpec
+	err = xml.Unmarshal(bytes, &apiDomainSpec)
+	return &apiDomainSpec, err
 }

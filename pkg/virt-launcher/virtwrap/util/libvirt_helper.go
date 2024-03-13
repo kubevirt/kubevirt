@@ -22,6 +22,7 @@ import (
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
@@ -139,7 +140,11 @@ func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wa
 	return dom, nil
 }
 
-func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, *api.DomainSpec, error) {
+func SetDomainSpecStrWithHooks(
+	virConn cli.Connection,
+	vmi *v1.VirtualMachineInstance,
+	wantedSpec *libvirtxml.Domain,
+) (cli.VirDomain, *libvirtxml.Domain, error) {
 	hooksManager := getHookManager()
 	domainSpec, err := hooksManager.OnDefineDomain(wantedSpec, vmi)
 	if err != nil {
@@ -147,11 +152,10 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 	}
 
 	// update wantedSpec to reflect changes made to domain spec by hooks
-	domainSpecObj := &api.DomainSpec{}
+	domainSpecObj := &libvirtxml.Domain{}
 	if err = xml.Unmarshal([]byte(domainSpec), domainSpecObj); err != nil {
 		return nil, nil, err
 	}
-	domainSpecObj.DeepCopyInto(wantedSpec)
 
 	dom, err := SetDomainSpecStr(virConn, vmi, domainSpec)
 	if err != nil {

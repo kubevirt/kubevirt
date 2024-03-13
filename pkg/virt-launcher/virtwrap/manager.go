@@ -60,6 +60,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
+	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -86,6 +87,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
@@ -1239,12 +1241,24 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 		return nil, err
 	}
 
-	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, *api.DomainSpec, error) {
+	libvirtDomain, err := convxml.ConvertKubeVirtDomainSpecToDomain(&domain.Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	setDomainFn := func(v *v1.VirtualMachineInstance, s *libvirtxml.Domain) (cli.VirDomain, *libvirtxml.Domain, error) {
 		return util.SetDomainSpecStrWithHooks(l.virConn, v, s)
 	}
 
-	if dom, _, err = withNetworkIfacesResources(vmi, &domain.Spec, setDomainFn); err != nil {
+	dom, libvirtDomain, err = withNetworkIfacesResources(vmi, libvirtDomain, setDomainFn)
+	if err != nil {
 		return nil, err
+	}
+
+	if newSpec, err := convxml.ConvertDomainToKubeVirtDomainSpec(libvirtDomain); err != nil {
+		return nil, err
+	} else {
+		newSpec.DeepCopyInto(&domain.Spec)
 	}
 
 	l.metadataCache.UID.Set(vmi.UID)
