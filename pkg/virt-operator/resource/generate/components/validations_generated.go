@@ -958,6 +958,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: boolean
               type: object
             emulatedMachines:
+              description: Deprecated. Use architectureConfiguration instead.
               items:
                 type: string
               type: array
@@ -1264,6 +1265,7 @@ var CRDsValidation map[string]string = map[string]string{
                 type: boolean
               type: object
             ovmfPath:
+              description: Deprecated. Use architectureConfiguration instead.
               type: string
             permittedHostDevices:
               description: PermittedHostDevices holds information about devices allowed

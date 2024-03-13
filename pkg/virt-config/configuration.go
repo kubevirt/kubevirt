@@ -176,7 +176,6 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		Product:      SmbiosConfigDefaultProduct,
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
-	DefaultOVMFPath, _, emulatedMachinesDefault := getCPUArchSpecificDefault(cpuArch)
 	defaultDiskVerification := &v1.DiskVerification{
 		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
 	}
@@ -212,8 +211,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			AllowAutoConverge:                 &allowAutoConverge,
 			AllowPostCopy:                     &allowPostCopy,
 		},
-		CPURequest:       &cpuRequestDefault,
-		EmulatedMachines: emulatedMachinesDefault,
+		CPURequest: &cpuRequestDefault,
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			NetworkInterface:                  defaultNetworkInterface,
 			PermitSlirpInterface:              pointer.P(DefaultPermitSlirpInterface),
@@ -222,7 +220,6 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		SMBIOSConfig:                SmbiosDefaultConfig,
 		SELinuxLauncherType:         DefaultSELinuxLauncherType,
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
-		OVMFPath:                    DefaultOVMFPath,
 		MemBalloonStatsPeriod:       &defaultMemBalloonStatsPeriod,
 		APIConfiguration: &v1.ReloadableComponentConfiguration{
 			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
