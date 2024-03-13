@@ -167,7 +167,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
-	causes = append(causes, validateSinglePodNetwork(field, spec)...)
+	causes = append(causes, netadmitter.ValidateSinglePodNetwork(field, spec)...)
 
 	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
 	causes = append(causes, newCauses...)
@@ -222,17 +222,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
 
 	return causes
-}
-
-func validateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	if getNumberOfPodInterfaces(spec) > 1 {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueDuplicate,
-			Message: fmt.Sprintf("more than one interface is connected to a pod network in %s", field.Child("interfaces").String()),
-			Field:   field.Child("interfaces").String(),
-		}}
-	}
-	return nil
 }
 
 func validateDownwardMetrics(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {

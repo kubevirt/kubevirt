@@ -83,3 +83,24 @@ func hasInterfaceBindingMethod(iface v1.Interface) bool {
 		iface.InterfaceBindingMethod.Macvtap != nil ||
 		iface.InterfaceBindingMethod.Passt != nil
 }
+
+func ValidateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	if countPodNetworks(spec.Networks) > 1 {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: fmt.Sprintf("more than one interface is connected to a pod network in %s", field.Child("interfaces").String()),
+			Field:   field.Child("interfaces").String(),
+		}}
+	}
+	return nil
+}
+
+func countPodNetworks(networks []v1.Network) int {
+	count := 0
+	for _, net := range networks {
+		if net.Pod != nil {
+			count++
+		}
+	}
+	return count
+}
