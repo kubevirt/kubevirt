@@ -139,21 +139,25 @@ func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wa
 	return dom, nil
 }
 
-func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, error) {
+func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, *api.DomainSpec, error) {
 	hooksManager := getHookManager()
 	domainSpec, err := hooksManager.OnDefineDomain(wantedSpec, vmi)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// update wantedSpec to reflect changes made to domain spec by hooks
 	domainSpecObj := &api.DomainSpec{}
 	if err = xml.Unmarshal([]byte(domainSpec), domainSpecObj); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	domainSpecObj.DeepCopyInto(wantedSpec)
 
-	return SetDomainSpecStr(virConn, vmi, domainSpec)
+	dom, err := SetDomainSpecStr(virConn, vmi, domainSpec)
+	if err != nil {
+		return nil, nil, err
+	}
+	return dom, domainSpecObj, nil
 }
 
 // GetDomainSpecWithRuntimeInfo return the active domain XML with runtime information embedded

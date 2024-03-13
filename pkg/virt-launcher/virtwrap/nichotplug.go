@@ -172,27 +172,27 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 	return domainInterfaces
 }
 
-type SetDomainFunc func(*v1.VirtualMachineInstance, *api.DomainSpec) (cli.VirDomain, error)
+type SetDomainFunc func(*v1.VirtualMachineInstance, *api.DomainSpec) (cli.VirDomain, *api.DomainSpec, error)
 
 // withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
 // to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f SetDomainFunc) (cli.VirDomain, error) {
+func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f SetDomainFunc) (cli.VirDomain, *api.DomainSpec, error) {
 	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
 	dom, err := f(vmi, domainSpecWithIfacesResource)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if len(domainSpec.Devices.Interfaces) == len(domainSpecWithIfacesResource.Devices.Interfaces) {
-		return dom, nil
+		return dom, domainSpec, nil
 	}
 
 	domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
 	// Only the devices are taken into account because some parameters are not assured to be returned when

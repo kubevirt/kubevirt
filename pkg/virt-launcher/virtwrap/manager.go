@@ -1239,11 +1239,11 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 		return nil, err
 	}
 
-	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
-		return l.setDomainSpecWithHooks(v, s)
+	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, *api.DomainSpec, error) {
+		return util.SetDomainSpecStrWithHooks(l.virConn, v, s)
 	}
 
-	if dom, err = withNetworkIfacesResources(vmi, &domain.Spec, setDomainFn); err != nil {
+	if dom, _, err = withNetworkIfacesResources(vmi, &domain.Spec, setDomainFn); err != nil {
 		return nil, err
 	}
 
@@ -1883,10 +1883,6 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 	}
 
 	return list, nil
-}
-
-func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInstance, origSpec *api.DomainSpec) (cli.VirDomain, error) {
-	return util.SetDomainSpecStrWithHooks(l.virConn, vmi, origSpec)
 }
 
 func (l *LibvirtDomainManager) GetQemuVersion() (string, error) {
