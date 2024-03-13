@@ -19126,7 +19126,8 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"emulatedMachines": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Deprecated. Use architectureConfiguration instead.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -19165,8 +19166,9 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"ovmfPath": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated. Use architectureConfiguration instead.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"selinuxLauncherType": {
