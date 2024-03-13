@@ -1294,11 +1294,18 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := createVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+		vm := tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 			testsuite.GetTestNamespace(nil),
 			bashHelloScript,
-			sc))
+			sc)
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			// In WFFC need to start the VM in order for the
+			// dv to get populated
+			vm.Spec.Running = pointer.Bool(true)
+		}
+		vm = createVM(vm)
+		stopVM(vm)
 		snapshot := createAndVerifyVMSnapshot(vm)
 		Expect(snapshot).ToNot(BeNil())
 		defer deleteSnapshot(snapshot)
@@ -1373,6 +1380,11 @@ var _ = SIGDescribe("Export", func() {
 			sc)
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+			// In WFFC need to start the VM in order for the
+			// dv to get populated
+			vm.Spec.Running = pointer.Bool(true)
+		}
 		vm = createVM(vm)
 		stopVM(vm)
 		snapshot := createAndVerifyVMSnapshot(vm)
@@ -2149,7 +2161,13 @@ var _ = SIGDescribe("Export", func() {
 				sc)
 			libstorage.AddDataVolumeTemplate(vm, blankDv)
 			addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				// In WFFC need to start the VM in order for the
+				// dv to get populated
+				vm.Spec.Running = pointer.Bool(true)
+			}
 			vm = createVM(vm)
+			vm = stopVM(vm)
 			snapshot := createAndVerifyVMSnapshot(vm)
 			Expect(snapshot).ToNot(BeNil())
 			defer deleteSnapshot(snapshot)
@@ -2299,7 +2317,13 @@ var _ = SIGDescribe("Export", func() {
 					sc)
 				libstorage.AddDataVolumeTemplate(vm, blankDv)
 				addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+					// In WFFC need to start the VM in order for the
+					// dv to get populated
+					vm.Spec.Running = pointer.Bool(true)
+				}
 				vm = createVM(vm)
+				vm = stopVM(vm)
 				snapshot := createAndVerifyVMSnapshot(vm)
 				Expect(snapshot).ToNot(BeNil())
 				defer deleteSnapshot(snapshot)

@@ -27,6 +27,12 @@ func HaveSucceeded() types.GomegaMatcher {
 	}
 }
 
+func PendingPopulation() types.GomegaMatcher {
+	return phaseMatcher{
+		expectedPhase: "PendingPopulation",
+	}
+}
+
 func BeInPhase(phase interface{}) types.GomegaMatcher {
 	return phaseMatcher{
 		expectedPhase: phase,
