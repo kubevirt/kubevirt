@@ -351,8 +351,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("should accurately report DataVolume provisioning", func() {
 				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-				if err != nil {
-					Skip("no snapshot storage class configured")
+				Expect(err).ToNot(HaveOccurred())
+
+				if sc == "" {
+					Skip("Skiping test, no VolumeSnapshot support")
 				}
 
 				dataVolume := libdv.NewDataVolume(
