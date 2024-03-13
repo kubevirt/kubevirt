@@ -2,9 +2,14 @@ package tests_test
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
 	"strings"
 	"time"
+
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/libnet"
 
@@ -278,6 +283,22 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
 		)
 	})
+
+	Context("VMI with HyperV passthrough", func() {
+		It("should be usable and non-migratable", func() {
+			vmi := libvmi.NewCirros(withHypervPassthrough())
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			domSpec := &api.DomainSpec{}
+			Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+			Expect(domSpec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
+
+			Eventually(matcher.ThisVMI(vmi), 60*time.Second, 1*time.Second).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
+		})
+	})
 })
 
 func withReEnlightenment() libvmi.Option {
@@ -290,5 +311,17 @@ func withReEnlightenment() libvmi.Option {
 		}
 
 		vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+	}
+}
+
+func withHypervPassthrough() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.HypervPassthrough == nil {
+			vmi.Spec.Domain.Features.HypervPassthrough = &v1.HyperVPassthrough{}
+		}
+		vmi.Spec.Domain.Features.HypervPassthrough.Enabled = virtpointer.P(true)
 	}
 }
