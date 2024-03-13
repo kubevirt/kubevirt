@@ -423,39 +423,6 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 			},
 		},
 		{
-			Alert: "KubeVirtComponentExceedsRequestedMemory",
-			Expr: intstr.FromString(
-				// In 'container_memory_working_set_bytes', 'container=""' filters the accumulated metric for the pod slice to measure total Memory usage for all containers within the pod
-				fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_working_set_bytes{container="",namespace="%s"}) < 0`, ns, ns)),
-			For: "5m",
-			Annotations: map[string]string{
-				"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory usage exceeds the memory requested",
-				"summary":     "The container is using more memory than what is defined in the containers resource requests",
-				"runbook_url": fmt.Sprintf(runbookURLTemplate, "KubeVirtComponentExceedsRequestedMemory"),
-			},
-			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "none",
-			},
-		},
-		{
-			Alert: "KubeVirtComponentExceedsRequestedCPU",
-			Expr: intstr.FromString(
-				// In 'container_cpu_usage_seconds_total', 'container=""' filters the accumulated metric for the pod slice to measure total CPU usage for all containers within the pod
-				fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="cpu"}) - on(pod) sum(rate(container_cpu_usage_seconds_total{container="",namespace="%s"}[5m])) by (pod)) < 0`, ns, ns),
-			),
-			For: "5m",
-			Annotations: map[string]string{
-				"description": "Pod {{ $labels.pod }} cpu usage exceeds the CPU requested",
-				"summary":     "The containers in the pod are using more CPU than what is defined in the containers resource requests",
-				"runbook_url": fmt.Sprintf(runbookURLTemplate, "KubeVirtComponentExceedsRequestedCPU"),
-			},
-			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "none",
-			},
-		},
-		{
 			Alert: "KubeVirtVMIExcessiveMigrations",
 			Expr:  intstr.FromString("sum by (vmi) (max_over_time(kubevirt_migrate_vmi_succeeded[1d])) >= 12"),
 			Annotations: map[string]string{
