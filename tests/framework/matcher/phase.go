@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	. "github.com/onsi/gomega"
+
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
