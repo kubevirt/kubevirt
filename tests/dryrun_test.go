@@ -176,7 +176,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7632]delete a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Virtual Machine")
@@ -195,7 +195,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7633]update a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a Virtual Machine")
@@ -219,7 +219,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7634]patch a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
@@ -546,7 +546,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			vm := libvmi.NewVirtualMachine(vmi)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			snap = newVMSnapshot(vm)
@@ -637,7 +637,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			vm := libvmi.NewVirtualMachine(vmi)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			snap := newVMSnapshot(vm)

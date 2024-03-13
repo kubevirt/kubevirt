@@ -142,7 +142,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				}
 			}
 			vm := libvmi.NewVirtualMachine(vmi)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Namespace = vm.Namespace
 

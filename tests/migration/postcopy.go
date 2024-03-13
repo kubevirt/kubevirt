@@ -209,7 +209,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						)
 						vm := libvmi.NewVirtualMachine(vmi)
 
-						vm, err := virtClient.VirtualMachine(testsuite.NamespacePrivileged).Create(context.Background(), vm)
+						vm, err := virtClient.VirtualMachine(testsuite.NamespacePrivileged).Create(context.Background(), vm, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return vm
 					}

@@ -53,7 +53,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM)()
 
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out))
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).ToNot(BeEmpty())
@@ -179,7 +179,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			)()
 
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out))
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))
@@ -290,7 +290,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			)()
 
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out))
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))
@@ -392,7 +392,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 
 			By("Creating the VM")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Asserting that matchers were cleared and memory was kept")
@@ -427,7 +427,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 		)()
 
 		Expect(err).ToNot(HaveOccurred())
-		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out))
+		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out), metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vm.Name).To(Equal(vmName))
@@ -567,7 +567,7 @@ func createVMWithRWOVolume(vmSpec []byte, virtClient kubecli.KubevirtClient) *v1
 		k8sv1.ReadWriteOnce,
 	}
 
-	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), unmarshaledVm)
+	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), unmarshaledVm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(HaveConditionTrue(v1.VirtualMachineReady))
 

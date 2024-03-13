@@ -239,7 +239,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting VirtualMachine")

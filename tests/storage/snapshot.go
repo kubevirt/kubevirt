@@ -235,7 +235,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		BeforeEach(func() {
 			var err error
 			vm = libvmi.NewVirtualMachine(libvmifact.NewCirros())
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -336,7 +336,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 				var vmi *v1.VirtualMachineInstance
 				vm.Spec.Running = pointer.BoolPtr(true)
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1047,7 +1047,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					vm.Spec.Running = pointer.BoolPtr(false)
 				}
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
@@ -1390,7 +1390,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					vm.Spec.Running = pointer.BoolPtr(false)
 				}
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
@@ -1474,7 +1474,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 				vm = libvmi.NewVirtualMachine(vmi)
 
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineStatus {
@@ -1540,7 +1540,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 				vm = libvmi.NewVirtualMachine(vmi)
 
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineStatus {
@@ -1603,7 +1603,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 				vm.Spec.Running = pointer.BoolPtr(true)
 				By("Starting the VM and expecting it to run")
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
 

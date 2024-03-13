@@ -206,7 +206,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			)
 			vmi.Namespace = util.NamespaceTestDefault
 			vm = libvmi.NewVirtualMachine(vmi)
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v12.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm = tests.StartVirtualMachine(vm)
 		})
