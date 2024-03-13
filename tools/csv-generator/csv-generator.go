@@ -64,7 +64,7 @@ func main() {
 	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
-	prHelperImage := flag.String("pr-helper-image", "", "custom image for gs. "+customImageExample)
+	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
 
 	flag.Parse()
