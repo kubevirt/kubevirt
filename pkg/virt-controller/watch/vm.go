@@ -3223,17 +3223,37 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	newMemoryReq := vm.Spec.Template.Spec.Domain.Memory.Guest.DeepCopy()
-	newMemoryReq.Sub(*vmi.Status.Memory.GuestCurrent)
-	newMemoryReq.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+	memoryDelta := resource.NewQuantity(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()-vmi.Status.Memory.GuestCurrent.Value(), resource.BinarySI)
 
-	guestTest := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/memory/guest", "value": "%s"}`, vmi.Spec.Domain.Memory.Guest.String())
-	updateGuest := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/memory/guest", "value": "%s"}`, vm.Spec.Template.Spec.Domain.Memory.Guest.String())
-	MemoryReqTest := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Requests.Memory().String())
-	updateMemoryReq := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, newMemoryReq.String())
-	patch := fmt.Sprintf(`[%s, %s, %s, %s]`, guestTest, updateGuest, MemoryReqTest, updateMemoryReq)
+	newMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory().DeepCopy()
+	newMemoryReq.Add(*memoryDelta)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+	// checking if the new memory req are at least equal to the memory being requested in the handleMemoryHotplugRequest
+	// this is necessary as weirdness can arise after hot-unplugs as not all memory is guaranteed to be released when doing hot-unplug.
+	if newMemoryReq.Cmp(*vm.Spec.Template.Spec.Domain.Memory.Guest) == -1 {
+		newMemoryReq = *vm.Spec.Template.Spec.Domain.Memory.Guest
+		// adjusting memoryDelta too for the new limits computation (if required)
+		memoryDelta = resource.NewQuantity(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()-newMemoryReq.Value(), resource.BinarySI)
+	}
+
+	patches := []string{
+		fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/memory/guest", "value": "%s"}`, vmi.Spec.Domain.Memory.Guest.String()),
+		fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/memory/guest", "value": "%s"}`, vm.Spec.Template.Spec.Domain.Memory.Guest.String()),
+		fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Requests.Memory().String()),
+		fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, newMemoryReq.String()),
+	}
+
+	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Memory().IsZero() {
+		newMemoryLimit := vmi.Spec.Domain.Resources.Limits.Memory().DeepCopy()
+		newMemoryLimit.Add(*memoryDelta)
+
+		patches = append(patches, fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/limits/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Limits.Memory().String()))
+		patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/limits/memory", "value": "%s"}`, newMemoryLimit.String()))
+	}
+
+	memoryPatch := controller.GeneratePatchBytes(patches)
+
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, memoryPatch, &v1.PatchOptions{})
 	if err != nil {
 		return err
 	}

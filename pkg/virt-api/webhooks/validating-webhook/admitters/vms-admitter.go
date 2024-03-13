@@ -470,14 +470,6 @@ func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes 
 }
 
 func validateLiveUpdateMemory(field *k8sfield.Path, domain *v1.DomainSpec, architecture string) (causes []metav1.StatusCause) {
-	if hasMemoryLimits(&domain.Resources) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Configuration of Memory limits is not allowed when Memory live update is enabled"),
-			Field:   field.Child("template", "spec", "domain", "resources").String(),
-		})
-	}
-
 	if domain.CPU != nil &&
 		domain.CPU.Realtime != nil {
 		causes = append(causes, metav1.StatusCause{
@@ -825,9 +817,4 @@ func hasCPURequestsOrLimits(rr *v1.ResourceRequirements) bool {
 	}
 
 	return false
-}
-
-func hasMemoryLimits(rr *v1.ResourceRequirements) bool {
-	_, ok := rr.Limits[corev1.ResourceMemory]
-	return ok
 }
