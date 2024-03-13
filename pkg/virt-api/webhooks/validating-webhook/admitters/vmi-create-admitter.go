@@ -181,6 +181,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
 	}
 
+	causes = append(causes, netadmitter.ValidateSlirpBinding(field, spec, config)...)
 	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
 	causes = append(causes, newCauses...)
 	if done {
@@ -312,10 +313,6 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
 	if !networkExists {
 		causes = appendStatusCauseForNetworkNotFound(field, causes, idx, iface)
-	} else if iface.Slirp != nil && networkData.Pod == nil {
-		causes = appendStatusCauseForSlirpWithoutPodNetwork(field, causes, idx)
-	} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
-		causes = appendStatusCauseForSlirpNotEnabled(field, causes, idx)
 	} else if iface.Masquerade != nil && networkData.Pod == nil {
 		causes = appendStatusCauseForMasqueradeWithoutPodNetwork(field, causes, idx)
 	} else if iface.Masquerade != nil && link.IsReserved(iface.MacAddress) {
@@ -570,23 +567,6 @@ func appendStatusCauseForMasqueradeWithoutPodNetwork(field *k8sfield.Path, cause
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
 	return causes
-}
-
-func appendStatusCauseForSlirpNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Slirp interface is not enabled in kubevirt-config",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForSlirpWithoutPodNetwork(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Slirp interface only implemented with pod network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
 }
 
 func appendStatusCauseForNetworkNotFound(field *k8sfield.Path, causes []metav1.StatusCause, idx int, iface v1.Interface) []metav1.StatusCause {
