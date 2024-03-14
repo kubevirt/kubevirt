@@ -17809,6 +17809,7 @@
       "$ref": "#/definitions/v1.DeveloperConfiguration"
      },
      "emulatedMachines": {
+      "description": "Deprecated. Use architectureConfiguration instead.",
       "type": "array",
       "items": {
        "type": "string",
@@ -17867,6 +17868,7 @@
       }
      },
      "ovmfPath": {
+      "description": "Deprecated. Use architectureConfiguration instead.",
       "type": "string"
      },
      "permittedHostDevices": {
