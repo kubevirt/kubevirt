@@ -4047,6 +4047,7 @@ func now() *metav1.Time {
 }
 
 func markAsReady(vmi *virtv1.VirtualMachineInstance) {
+	vmi.Status.Phase = "Running"
 	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
 }
 

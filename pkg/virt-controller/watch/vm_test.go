@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -88,15 +87,6 @@ var _ = Describe("VirtualMachine", func() {
 		var virtClient *kubecli.MockKubevirtClient
 		var config *virtconfig.ClusterConfig
 		var kvInformer cache.SharedIndexInformer
-
-		syncCaches := func() {
-			Expect(cache.WaitForCacheSync(stop,
-				vmiInformer.HasSynced,
-				vmInformer.HasSynced,
-				dataVolumeInformer.HasSynced,
-				crInformer.HasSynced,
-			)).To(BeTrue())
-		}
 
 		asInt64Ptr := func(i int64) *int64 {
 			return &i
@@ -212,13 +202,23 @@ var _ = Describe("VirtualMachine", func() {
 		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).DoAndReturn(
+				func(_, _, _, _, _ any, _ ...any) (*virtv1.VirtualMachine, error) {
+					vm := vm.DeepCopy()
+					vm.Finalizers = append(vm.Finalizers, virtv1.VirtualMachineControllerFinalizer)
+					return vm, nil
+				})
 		}
 
 		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).DoAndReturn(
+				func(_, _, _, _, _ any, _ ...any) (*virtv1.VirtualMachine, error) {
+					vm := vm.DeepCopy()
+					vm.Finalizers = []string{}
+					return vm, nil
+				})
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -334,15 +334,8 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		addVirtualMachine := func(vm *virtv1.VirtualMachine) {
-			syncCaches()
 			mockQueue.ExpectAdds(1)
 			vmSource.Add(vm)
-			mockQueue.Wait()
-		}
-
-		modifyVirtualMachine := func(vm *virtv1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Modify(vm)
 			mockQueue.Wait()
 		}
 
@@ -350,6 +343,22 @@ var _ = Describe("VirtualMachine", func() {
 			added := vm.DeepCopy()
 			controller.Execute()
 			Expect(equality.Semantic.DeepEqual(vm, added)).To(BeTrue(), "A cached VM was modified")
+		}
+
+		expectOnlyInitializedConditionToBeChanged := func(vm *virtv1.VirtualMachine) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vmArg *virtv1.VirtualMachine) (interface{}, error) {
+				vm1 := vmArg.DeepCopy()
+
+				conditions := []virtv1.VirtualMachineCondition{}
+				for _, condition := range vm1.Status.Conditions {
+					if condition.Type != virtv1.VirtualMachineInitialized {
+						conditions = append(conditions, condition)
+					}
+				}
+				vm1.Status.Conditions = conditions
+				Expect(equality.Semantic.DeepEqual(vm1.Status, vm.Status)).To(BeTrue())
+				return vmArg, nil
+			})
 		}
 
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
@@ -460,13 +469,13 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
-			}).Return(vm, nil)
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+				return vm, nil
+			})
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				// vol request shouldn't be cleared until update status observes the new volume change
-				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(vm, nil)
 
 			sanityExecute(vm)
@@ -475,6 +484,292 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("that is running", true),
 			Entry("that is not running", false),
 		)
+
+		Context("add volume request", func() {
+			It("should not be cleared when hotplug fails on Running VM", func() {
+				By("Running VM")
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				By("Simulate a failure in hotplug")
+				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(fmt.Errorf("error"))
+
+				By("Expecting to not clear volume requests")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(vm, nil)
+
+				By("Not expecting to see a status update")
+				sanityExecute(vm)
+			})
+
+			It("should not be cleared when VM update fails on Running VM", func() {
+				By("Running VM")
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+				By("Simulate hotplug")
+				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(nil)
+
+				By("Simulate update failure")
+				vmInterface.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("conflict"))
+				By("Expecting Volume request not to be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(vm, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should be cleared when hotplug on Stopped VM", func() {
+				By("Stopped VM")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Expecting Volume to be added to VM")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+					return vm, nil
+				})
+
+				By("Expecting Volume request to be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(BeEmpty(),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should not be cleared when hotplug fails on Stopped VM", func() {
+				By("Stopped VM")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Simulate a conflict on Update")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+					return nil, fmt.Errorf("conflict")
+				})
+
+				By("Expecting Volume request to not be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+		})
+
+		Context("remove volume request", func() {
+			It("should not be cleared when hotplug fails on Running VM", func() {
+				By("Running VM with a disk and matching volume")
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				volume := virtv1.Volume{
+					Name: "vol1",
+					VolumeSource: virtv1.VolumeSource{
+						ContainerDisk: &virtv1.ContainerDiskSource{
+							Image: "random",
+						},
+					},
+				}
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+
+				disk := virtv1.Disk{
+					Name: "vol1",
+					DiskDevice: virtv1.DiskDevice{
+						Disk: &virtv1.DiskTarget{},
+					},
+				}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
+							Name: "vol1",
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+				By("Simulate a un-hotplug failure")
+				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions).Return(fmt.Errorf("error"))
+
+				By("Expecting Volume request to not be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(vm, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should be cleared when hotplug on Stopped VM", func() {
+				By("Stopped VM with a disk and matching volume")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+					virtv1.Volume{
+						Name: "vol1",
+						VolumeSource: virtv1.VolumeSource{
+							ContainerDisk: &virtv1.ContainerDiskSource{
+								Image: "random",
+							},
+						},
+					},
+				)
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+					virtv1.Disk{
+						Name: "vol1",
+						DiskDevice: virtv1.DiskDevice{
+							Disk: &virtv1.DiskTarget{},
+						},
+					},
+				)
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
+							Name: "vol1",
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Expect the volume to be cleared")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					return vm, nil
+				})
+
+				By("Expect the volume request to be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(BeEmpty(),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should not be cleared when hotplug fails on Stopped VM", func() {
+				By("Stopped VM with a disk and matching volume")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+					virtv1.Volume{
+						Name: "vol1",
+						VolumeSource: virtv1.VolumeSource{
+							ContainerDisk: &virtv1.ContainerDiskSource{
+								Image: "random",
+							},
+						},
+					},
+				)
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+					virtv1.Disk{
+						Name: "vol1",
+						DiskDevice: virtv1.DiskDevice{
+							Disk: &virtv1.DiskTarget{},
+						},
+					},
+				)
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
+							Name: "vol1",
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Simulate a conflict on VM update")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					return nil, fmt.Errorf("conflict")
+				})
+
+				By("Expecting a Volume request to not be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+		})
 
 		DescribeTable("should unhotplug a vm", func(isRunning bool) {
 			vm, vmi := DefaultVirtualMachine(isRunning)
@@ -509,13 +804,13 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-			}).Return(vm, nil)
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+				return vm, nil
+			})
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				// vol request shouldn't be cleared until update status observes the new volume change occured
-				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(vm, nil)
 
 			sanityExecute(vm)
@@ -934,6 +1229,7 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -980,7 +1276,8 @@ var _ = Describe("VirtualMachine", func() {
 				initFunc()
 			}
 
-			controller.Execute()
+			expectOnlyInitializedConditionToBeChanged(vm)
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(expectedCreations))
 			if expectedCreations > 0 {
 				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1017,6 +1314,7 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreationPriorityClass(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, expectedPriorityClass, &createCount)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1405,6 +1703,10 @@ var _ = Describe("VirtualMachine", func() {
 
 					return true, "", nil
 				}
+				if !fail {
+					expectOnlyInitializedConditionToBeChanged(vm)
+				}
+
 				sanityExecute(vm)
 				if fail {
 					Expect(createCount).To(Equal(0))
@@ -2261,6 +2563,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
 			vmiSource.Add(nonMatchingVMI)
+			syncCache(controller.vmiIndexer)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(2).Return(vm, nil).AnyTimes()
@@ -2600,6 +2903,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 		})
 
@@ -2615,6 +2919,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 		})
 
@@ -2630,6 +2935,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
+			expectOnlyInitializedConditionToBeChanged(vm)
 			sanityExecute(vm)
 		})
 
@@ -2707,9 +3013,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIVolumesAddPatched(vmi)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-				}).Return(vm, nil)
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(
+					func(_ any, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+						Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
+						return vm, nil
+					})
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 				sanityExecute(vm)
@@ -2922,10 +3230,13 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-				}).Return(vm, nil)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					return vm, nil
+				})
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).DoAndReturn(func(_ any, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					return vm, nil
+				})
 
 				sanityExecute(vm)
 			})
@@ -3059,6 +3370,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmi.Status.Phase = virtv1.Running
 					vmiFeeder.Add(vmi)
 				}
+				vmiInterface.EXPECT().Create(gomock.Any(), gomock.Any()).AnyTimes()
 
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
@@ -5422,7 +5734,6 @@ var _ = Describe("VirtualMachine", func() {
 					})
 
 					vm, vmi := DefaultVirtualMachine(true)
-					addVirtualMachine(vm)
 
 					affinity := k8sv1.Affinity{
 						PodAffinity: &k8sv1.PodAffinity{
@@ -5438,6 +5749,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}
 					vm.Spec.Template.Spec.Affinity = affinity.DeepCopy()
+					addVirtualMachine(vm)
 					Expect(vmiInformer.GetIndexer().Add(vmi)).To(Succeed())
 
 					By("Expecting to see patch for the VMI with new affinity")
@@ -5530,21 +5842,8 @@ var _ = Describe("VirtualMachine", func() {
 			var vm *virtv1.VirtualMachine
 			var vmi *virtv1.VirtualMachineInstance
 			var kv *virtv1.KubeVirt
-			var crList appsv1.ControllerRevisionList
-			var crListLock sync.Mutex
 
 			restartRequired := false
-
-			expectVMUpdate := func() {
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (interface{}, error) {
-					for _, condition := range vm.Status.Conditions {
-						if condition.Type == virtv1.VirtualMachineRestartRequired {
-							restartRequired = condition.Status == k8sv1.ConditionTrue
-						}
-					}
-					return vm, nil
-				}).AnyTimes()
-			}
 
 			expectVMStatusUpdate := func() {
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (interface{}, error) {
@@ -5557,73 +5856,13 @@ var _ = Describe("VirtualMachine", func() {
 				}).AnyTimes()
 			}
 
-			expectVMICreation := func() {
-				vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, arg interface{}) (interface{}, error) {
-					return arg, nil
-				}).AnyTimes()
-			}
-
-			expectVMIPatch := func() {
-				vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(vmi, nil).AnyTimes()
-			}
-
-			expectControllerRevisionList := func() {
-				k8sClient.Fake.PrependReactor("list", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					crListLock.Lock()
-					defer crListLock.Unlock()
-					return true, crList.DeepCopy(), nil
-				})
-			}
-
-			expectControllerRevisionDelete := func() {
-				k8sClient.Fake.PrependReactor("delete", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					deleted, ok := action.(testing.DeleteAction)
-					Expect(ok).To(BeTrue())
-
-					crListLock.Lock()
-					defer crListLock.Unlock()
-					for i, obj := range crList.Items {
-						if obj.Name == deleted.GetName() && obj.Namespace == deleted.GetNamespace() {
-							crList.Items = append(crList.Items[:i], crList.Items[i+1:]...)
-							return true, nil, nil
-						}
-					}
-					return true, nil, fmt.Errorf("not found")
-				})
-			}
-
-			expectControllerRevisionCreation := func() {
-				k8sClient.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					created, ok := action.(testing.CreateAction)
-					Expect(ok).To(BeTrue())
-
-					createObj, ok := created.GetObject().(*appsv1.ControllerRevision)
-					Expect(ok).To(BeTrue())
-
-					crListLock.Lock()
-					defer crListLock.Unlock()
-					crList.Items = append(crList.Items, *createObj)
-					crSource.Add(createObj)
-
-					return true, created.GetObject(), nil
-				})
-			}
-
-			crFor := func(uid string) string {
-				crListLock.Lock()
-				defer crListLock.Unlock()
-				for _, cr := range crList.Items {
-					if strings.Contains(cr.Name, uid) {
-						return cr.Name
-					}
-				}
-				return ""
-			}
-
 			BeforeEach(func() {
 				k8sClient.Fake.ClearActions()
-				crList = appsv1.ControllerRevisionList{}
 				vm, vmi = DefaultVirtualMachine(true)
+				vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineInitialized,
+					Status: k8score.ConditionTrue,
+				})
 				vm.ObjectMeta.UID = types.UID(uuid.NewString())
 				vmi.ObjectMeta.UID = vm.ObjectMeta.UID
 				vm.Generation = 1
@@ -5648,39 +5887,26 @@ var _ = Describe("VirtualMachine", func() {
 				restartRequired = false
 			})
 
-			AfterEach(func() {
-				k8sClient.Fake.ClearActions()
-			})
-
 			It("should appear when changing a non-live-updatable field", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
-				By("Creating a VM with hostname a")
+				By("Creating a VMI with hostname 'a'")
 				vm.Spec.Template.Spec.Hostname = "a"
+				vmi = controller.setupVMIFromVM(vm)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
+
+				By("Creating a Controller Revision with the hostname 'a'")
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer)
+
+				By("Changing the hostname to 'b'")
+				vm.Spec.Template.Spec.Hostname = "b"
 				addVirtualMachine(vm)
 
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
-				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
-				sanityExecute(vm)
-				syncCaches()
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-
-				By("Bumping the VM sockets above the cluster maximum")
-				vm.Spec.Template.Spec.Hostname = "b"
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
-
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectControllerRevisionDelete()
-				expectVMUpdate()
+				expectVMStatusUpdate()
 				sanityExecute(vm)
-				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
@@ -5692,111 +5918,109 @@ var _ = Describe("VirtualMachine", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = 8
-				addVirtualMachine(vm)
+				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
+				crSource.Add(createVMRevision(vm))
 
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
+				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
-				sanityExecute(vm)
-				syncCaches()
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
 
 				By("Bumping the VM sockets above the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
+				addVirtualMachine(vm)
 
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
+				expectVMStatusUpdate()
 				sanityExecute(vm)
-				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
 			It("should appear when VM doesn't specify maxGuest and guest memory goes above cluster-wide maxGuest", func() {
 				var maxGuest = resource.MustParse("256Mi")
 
-				By("Setting a cluster-wide CPU maxGuest value")
+				By("Setting a cluster-wide Memory maxGuest value")
 				kv.Spec.Configuration.LiveUpdateConfiguration.MaxGuest = &maxGuest
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
-				addVirtualMachine(vm)
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer)
 
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
+				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
-				sanityExecute(vm)
-				syncCaches()
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
 				vmi.Status.Memory = &virtv1.MemoryStatus{
 					GuestAtBoot:  &maxGuest,
 					GuestCurrent: &maxGuest,
 				}
-				vmiFeeder.Add(vmi)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
 
 				By("Bumping the VM guest memory above the cluster maximum")
 				bigGuest := resource.MustParse("257Mi")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &bigGuest
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
+				addVirtualMachine(vm)
 
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
+				expectVMStatusUpdate()
 				sanityExecute(vm)
-				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
 
 			DescribeTable("when changing a live-updatable field", func(fgs []string, strat *virtv1.VMRolloutStrategy, expectCond bool) {
+				// Add necessary stuff to reflect running VM
+				// TODO: This should be done in more places
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.PrintableStatus = "Running"
+				virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+					Type:   virtv1.VirtualMachineReady,
+					Status: k8sv1.ConditionTrue,
+				})
 				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 				kv.Spec.Configuration.VMRolloutStrategy = strat
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
-				addVirtualMachine(vm)
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer)
 
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
+				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
-				sanityExecute(vm)
-				syncCaches()
-				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
 				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer)
 
 				By("Bumping the VM sockets to a reasonable value")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 4
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
+				addVirtualMachine(vm)
 
 				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
-				if !expectCond {
-					expectVMIPatch()
+				if expectCond {
+					expectVMStatusUpdate()
+				} else {
+					vmiInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+						Do(func(_ context.Context, _ string, _ types.PatchType, data []byte, _ *metav1.PatchOptions, subresources ...string) {
+							type P struct {
+								Op    string
+								Path  string
+								Value int
+							}
+							patches := []P{}
+
+							Expect(json.Unmarshal(data, &patches)).To(Succeed())
+							Expect(patches).To(HaveLen(2))
+							Expect(patches).To(ContainElement(P{
+								Op:    "replace",
+								Path:  "/spec/domain/cpu/sockets",
+								Value: 4,
+							}))
+						})
 				}
 				sanityExecute(vm)
-				syncCaches()
-				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
 				Eventually(restartRequired, 10*time.Second).Should(Equal(expectCond), "restart required")
 			},
 				Entry("should appear if the feature gate is not set",
@@ -5919,4 +6143,11 @@ func DefaultVirtualMachine(started bool) (*virtv1.VirtualMachine, *virtv1.Virtua
 
 func markVmAsReady(vm *virtv1.VirtualMachine) {
 	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
+}
+
+func syncCache(store cache.Store) {
+	EventuallyWithOffset(1, func(g Gomega) {
+		keys := store.ListKeys()
+		g.Expect(keys).To(HaveLen(1))
+	}, 1*time.Second).Should(Succeed())
 }
