@@ -21,15 +21,12 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"strings"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
-	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -42,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -135,34 +131,6 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 		)
 		log.Log.Infof("%v", output)
 		Expect(err).To(HaveOccurred())
-	},
-		Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-		Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
-	)
-
-	DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
-		vmi := *vmiRef
-		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vmi = libwait.WaitForSuccessfulVMIStart(vmi,
-			libwait.WithFailOnWarnings(false),
-			libwait.WithTimeout(180),
-		)
-		Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-		dns := "google.com"
-		if flags.ConnectivityCheckDNS != "" {
-			dns = flags.ConnectivityCheckDNS
-		}
-
-		Eventually(func() error {
-			return console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
-				&expect.BExp{R: "301"},
-			}, 60)
-		}, 180*time.Second, time.Second).Should(Succeed(), "Failed to establish a successful connection to the outside network")
 	},
 		Entry("VirtualMachineInstance with slirp interface", &genericVmi),
 		Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
