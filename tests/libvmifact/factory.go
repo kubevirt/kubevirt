@@ -17,12 +17,14 @@
  *
  */
 
-package libvmi
+package libvmifact
 
 import (
 	kvirtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -35,61 +37,61 @@ const (
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, SR-IOV and more.
-func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	fedoraOptions := []Option{
-		WithResourceMemory("512Mi"),
-		WithRng(),
-		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
+func NewFedora(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
+	fedoraOptions := []libvmi.Option{
+		libvmi.WithResourceMemory("512Mi"),
+		libvmi.WithRng(),
+		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)),
 	}
 	opts = append(fedoraOptions, opts...)
-	return New(opts...)
+	return libvmi.New(opts...)
 }
 
 // NewCirros instantiates a new CirrOS based VMI configuration
-func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
+func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, Cirros image takes 230s to allow login
-	withNonEmptyUserData := WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
+	withNonEmptyUserData := libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
 
-	cirrosOpts := []Option{
-		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+	cirrosOpts := []libvmi.Option{
+		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
-		WithResourceMemory(cirrosMemory()),
+		libvmi.WithResourceMemory(cirrosMemory()),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
-	return New(cirrosOpts...)
+	return libvmi.New(cirrosOpts...)
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
-func NewAlpine(opts ...Option) *kvirtv1.VirtualMachineInstance {
+func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	alpineMemory := cirrosMemory
-	alpineOpts := []Option{
-		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		WithResourceMemory(alpineMemory()),
-		WithRng(),
+	alpineOpts := []libvmi.Option{
+		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
+		libvmi.WithResourceMemory(alpineMemory()),
+		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(alpineOpts...)
+	return libvmi.New(alpineOpts...)
 }
 
-func NewAlpineWithTestTooling(opts ...Option) *kvirtv1.VirtualMachineInstance {
+func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
-	withNonEmptyUserData := WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
+	withNonEmptyUserData := libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
 	alpineMemory := cirrosMemory
-	alpineOpts := []Option{
-		WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
+	alpineOpts := []libvmi.Option{
+		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		withNonEmptyUserData,
-		WithResourceMemory(alpineMemory()),
-		WithRng(),
+		libvmi.WithResourceMemory(alpineMemory()),
+		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
-	return New(alpineOpts...)
+	return libvmi.New(alpineOpts...)
 }
 
-func NewGuestless(opts ...Option) *kvirtv1.VirtualMachineInstance {
+func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	opts = append(
-		[]Option{WithResourceMemory(qemuMinimumMemory())},
+		[]libvmi.Option{libvmi.WithResourceMemory(qemuMinimumMemory())},
 		opts...)
-	return New(opts...)
+	return libvmi.New(opts...)
 }
 
 func qemuMinimumMemory() string {
@@ -109,18 +111,18 @@ func cirrosMemory() string {
 	return "128Mi"
 }
 
-func NewWindows(opts ...Option) *kvirtv1.VirtualMachineInstance {
+func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	const cpuCount = 2
 	const featureSpinlocks = 8191
-	windowsOpts := []Option{
-		WithTerminationGracePeriod(0),
-		WithCPUCount(cpuCount, cpuCount, cpuCount),
-		WithResourceMemory("2048Mi"),
-		WithEphemeralPersistentVolumeClaim(windowsDiskName, WindowsPVCName),
+	windowsOpts := []libvmi.Option{
+		libvmi.WithTerminationGracePeriod(0),
+		libvmi.WithCPUCount(cpuCount, cpuCount, cpuCount),
+		libvmi.WithResourceMemory("2048Mi"),
+		libvmi.WithEphemeralPersistentVolumeClaim(windowsDiskName, WindowsPVCName),
 	}
 
 	windowsOpts = append(windowsOpts, opts...)
-	vmi := New(windowsOpts...)
+	vmi := libvmi.New(windowsOpts...)
 
 	vmi.Spec.Domain.Features = &kvirtv1.Features{
 		ACPI: kvirtv1.FeatureState{},

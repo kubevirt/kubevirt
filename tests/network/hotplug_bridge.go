@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -41,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -178,7 +179,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 				},
 			}
 
-			anotherVmi := libvmi.NewFedora(
+			anotherVmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(iface),
@@ -264,7 +265,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
 			)
-			vmi = libvmi.NewAlpineWithTestTooling(opts...)
+			vmi = libvmifact.NewAlpineWithTestTooling(opts...)
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
 			var err error
@@ -323,7 +324,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
 			)
-			vmi = libvmi.NewAlpineWithTestTooling(opts...)
+			vmi = libvmifact.NewAlpineWithTestTooling(opts...)
 			vm = libvmi.NewVirtualMachine(vmi)
 
 			var err error

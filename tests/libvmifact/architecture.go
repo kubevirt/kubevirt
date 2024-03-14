@@ -17,7 +17,7 @@
  *
  */
 
-package libvmi
+package libvmifact
 
 var architecture string
 

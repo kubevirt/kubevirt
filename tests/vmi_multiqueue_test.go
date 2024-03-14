@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -67,7 +67,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		})
 
 		DescribeTable("should be able to successfully boot fedora to the login prompt with multi-queue without being blocked by selinux", func(interfaceModel string, expectedQueueCount int32) {
-			vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
@@ -136,7 +136,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		})
 
 		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
-			vmi := libvmi.NewCirros()
+			vmi := libvmifact.NewCirros()
 
 			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.Bool(true)

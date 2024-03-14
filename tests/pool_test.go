@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -46,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -160,7 +161,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		return createVirtualMachinePool(newPoolFromVMI(libvmi.NewCirros()))
+		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewCirros()))
 	}
 
 	DescribeTable("[Serial]pool should scale", Serial, func(startScale int, stopScale int) {

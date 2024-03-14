@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -41,6 +41,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 var _ = SIGDescribe("Guest Access Credentials", func() {
@@ -79,7 +81,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		It("[test_id:6220]should propagate public ssh keys", func() {
 			const secretID = "my-pub-key"
-			vmi := libvmi.NewFedora(withSSHPK(secretID, withQuestAgentPropagationMethod))
+			vmi := libvmifact.NewFedora(withSSHPK(secretID, withQuestAgentPropagationMethod))
 
 			By("Creating a secret with three ssh keys")
 			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
@@ -118,7 +120,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		It("[test_id:6221]should propagate user password", func() {
 			const secretID = "my-user-pass"
-			vmi := libvmi.NewFedora(withPassword(secretID))
+			vmi := libvmifact.NewFedora(withPassword(secretID))
 
 			customPassword := "imadethisup"
 
@@ -151,7 +153,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		It("[test_id:6222]should update guest agent for public ssh keys", func() {
 			const secretID = "my-pub-key"
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				withSSHPK(secretID, withQuestAgentPropagationMethod),
 				libvmi.WithCloudInitNoCloudUserData(
 					tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec"),
@@ -174,7 +176,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		It("[test_id:6223]should update guest agent for user password", func() {
 			const secretID = "my-user-pass"
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				withPassword(secretID),
 				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password")),
 			)
@@ -222,7 +224,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		DescribeTable("should have ssh-key under authorized keys added ", func(volumeCreationOption func(data string) libvmi.Option, propagationMethod v1.SSHPublicKeyAccessCredentialPropagationMethod) {
 			By("Creating a secret with three ssh keys")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				volumeCreationOption(userData),
 				withSSHPK(secretID, propagationMethod))
 			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{

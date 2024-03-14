@@ -35,11 +35,13 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -78,7 +80,7 @@ var _ = SIGDescribe("Infosource", func() {
 			defaultBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(primaryNetwork)
 			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
 			secondaryLinuxBridgeInterface2 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork2.Name)
-			vmiSpec := libvmi.NewFedora(
+			vmiSpec := libvmifact.NewFedora(
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&defaultBridgeInterface, primaryInterfaceMac)),
 				libvmi.WithNetwork(kvirtv1.DefaultPodNetwork()),
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&secondaryLinuxBridgeInterface1, secondaryInterface1Mac)),

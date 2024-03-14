@@ -32,6 +32,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -39,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -49,7 +51,7 @@ var _ = SIGDescribe("Slirp", decorators.Networking, func() {
 	BeforeEach(libnet.SkipWhenClusterNotSupportIpv4)
 
 	It("VMI with SLIRP interface, custom mac and port is configured correctly", func() {
-		vmi := libvmi.NewCirros(
+		vmi := libvmifact.NewCirros(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(
 				libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name, v1.Port{Name: "http", Port: 80}),

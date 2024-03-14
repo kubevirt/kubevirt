@@ -54,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 
 	"kubevirt.io/client-go/kubecli"
@@ -112,7 +112,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//The vmi should have more memory than memToUseInTheVmKib
 			vmiMemSizeMi := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTheVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 
-			vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Spec.Affinity = &v1.Affinity{
@@ -166,7 +166,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//The vmi should have more memory than memToUseInTheVm
 			vmiMemSize := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTargetNodeVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 			vmiMemReq := resource.MustParse(fmt.Sprintf("%dMi", vmMemoryRequestkib/bytesInKib))
-			vmiToFillTargetNodeMem := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmiToFillTargetNodeMem := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			//we want vmiToFillTargetNodeMem to land on the target node to achieve memory-overcommitment in target
 			affinityRuleForVmiToFill, err := getAffinityForTargetNode(targetNode)
 			Expect(err).ToNot(HaveOccurred())
@@ -183,7 +183,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			err = fillMemWithStressFedoraVMI(vmiToFillTargetNodeMem, memToUseInTargetNodeVmKib)
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-			vmiToMigrate := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmiToMigrate := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmiToMigrate.Spec.Affinity = &v1.Affinity{

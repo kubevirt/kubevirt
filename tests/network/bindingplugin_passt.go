@@ -34,6 +34,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -46,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -81,7 +82,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 		passtIface.Ports = []v1.Port{{Port: 1234, Protocol: "TCP"}}
 		passtIface.MacAddress = testMACAddr
 		passtIface.PciAddress = testPCIAddr
-		vmi := libvmi.NewAlpineWithTestTooling(
+		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithInterface(passtIface),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
@@ -112,7 +113,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 
 			startServerVMI := func(ports []v1.Port) {
 				passtIface := libvmi.InterfaceWithPasstBindingPlugin(ports...)
-				serverVMI = libvmi.NewAlpineWithTestTooling(
+				serverVMI = libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithInterface(passtIface),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
@@ -163,7 +164,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 				}
 
 				startClientVMI := func() {
-					clientVMI = libvmi.NewAlpineWithTestTooling(
+					clientVMI = libvmifact.NewAlpineWithTestTooling(
 						libvmi.WithPasstInterfaceWithPort(),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
@@ -255,7 +256,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 					vmnetserver.StartPythonUDPServer(serverVMI, SERVER_PORT, ipFamily)
 
 					By("Starting client VMI")
-					clientVMI = libvmi.NewAlpineWithTestTooling(
+					clientVMI = libvmifact.NewAlpineWithTestTooling(
 						libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
@@ -294,7 +295,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				dns = flags.ConnectivityCheckDNS
 			}
 
-			vmi := libvmi.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -321,7 +322,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				ipv6Address = flags.IPV6ConnectivityCheckAddress
 			}
 
-			vmi := libvmi.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithAnnotation("kubevirt.io/libvirt-log-filters", "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"),
@@ -343,11 +344,11 @@ EOL`, inetSuffix, serverIP, serverPort)
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			By("Starting a VMI")
-			migrateVMI := startPasstVMI(libvmi.NewFedora, console.LoginToFedora)
+			migrateVMI := startPasstVMI(libvmifact.NewFedora, console.LoginToFedora)
 			beforeMigNodeName := migrateVMI.Status.NodeName
 
 			By("Starting another VMI")
-			anotherVMI := startPasstVMI(libvmi.NewAlpine, console.LoginToAlpine)
+			anotherVMI := startPasstVMI(libvmifact.NewAlpine, console.LoginToAlpine)
 
 			By("Verify the VMIs can ping each other")
 			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
@@ -414,7 +415,7 @@ func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInst
 		),
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	vmi := libvmi.NewFedora(
+	vmi := libvmifact.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData),

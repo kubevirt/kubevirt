@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,6 +51,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -418,7 +420,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						libvmi.WithPreferredPodAffinity(podAffinityTerm),
 						libvmi.WithPreferredNodeAffinity(nodeAffinityTerm),
 					)
-					vmi_noevict := libvmi.NewAlpine(
+					vmi_noevict := libvmifact.NewAlpine(
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -594,7 +596,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 			Context("with no eviction strategy set", func() {
 				It("[test_id:10155]should block the eviction api and migrate", func() {
 					// no EvictionStrategy set
-					vmi := libvmi.NewAlpine(
+					vmi := libvmifact.NewAlpine(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
@@ -635,7 +637,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			Context("with eviction strategy set to 'None'", func() {
 				It("[test_id:10156]The VMI should get evicted", func() {
-					vmi := libvmi.NewAlpine(
+					vmi := libvmifact.NewAlpine(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithEvictionStrategy(v1.EvictionStrategyNone),
@@ -657,7 +659,7 @@ func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 	)
-	return libvmi.NewFedora(opts...)
+	return libvmifact.NewFedora(opts...)
 }
 
 func alpineVMIWithEvictionStrategy(additionalOpts ...libvmi.Option) *v1.VirtualMachineInstance {
@@ -668,7 +670,7 @@ func alpineVMIWithEvictionStrategy(additionalOpts ...libvmi.Option) *v1.VirtualM
 
 	opts = append(opts, additionalOpts...)
 
-	return libvmi.NewAlpine(opts...)
+	return libvmifact.NewAlpine(opts...)
 }
 
 func filterRunningMigrations(migrations []v1.VirtualMachineInstanceMigration) []v1.VirtualMachineInstanceMigration {

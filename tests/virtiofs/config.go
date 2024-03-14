@@ -22,7 +22,9 @@ package virtiofs
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
@@ -38,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, func() {
@@ -69,7 +71,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			expectedOutput := "value1value2value3"
 
 			By("Running VMI")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithConfigMapFs(configMapName, configMapName),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
@@ -127,7 +129,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			expectedOutput := "adminredhat"
 
 			By("Running VMI")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithSecretFs(secretName, secretName),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
@@ -170,7 +172,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			serviceAccountVolumeName := "default-disk"
 
 			By("Running VMI")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithServiceAccountFs("default", serviceAccountVolumeName),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
@@ -228,7 +230,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 		It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
 
 			By("Running VMI")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIFs(downwardAPIName),
 			)

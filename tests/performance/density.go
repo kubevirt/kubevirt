@@ -43,7 +43,9 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -201,7 +203,7 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 
 func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.KubevirtClient, vmCount int, instancetypeName, preferenceName string) {
 	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
-		vm := libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning())
+		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
 		vm.Spec.Template.Spec.Domain.Resources = kvv1.ResourceRequirements{}
 		vm.Spec.Instancetype = &kvv1.InstancetypeMatcher{
 			Name: instancetypeName,
@@ -272,7 +274,7 @@ func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.Vi
 func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 	cpuLimit := "100m"
 	memLimit := "90Mi"
-	vmi := libvmi.NewCirros(
+	vmi := libvmifact.NewCirros(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(kvv1.DefaultPodNetwork()),
 		libvmi.WithResourceMemory(memLimit),

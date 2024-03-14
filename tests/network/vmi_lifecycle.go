@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -54,7 +54,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		vmi = libvmi.NewAlpine()
+		vmi = libvmifact.NewAlpine()
 	})
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
@@ -92,7 +92,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				}, 50, 5).Should(Equal(k8sv1.PodSucceeded))
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
-				newVMI := libvmi.NewCirros()
+				newVMI := libvmifact.NewCirros()
 				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				Eventually(func() error {
 					newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Create(context.Background(), newVMI, metav1.CreateOptions{})
@@ -110,7 +110,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
-				bridgeVMI := libvmi.NewCirros()
+				bridgeVMI := libvmifact.NewCirros()
 				// Remove the masquerade interface to use the default bridge one
 				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
 				bridgeVMI.Spec.Networks = nil

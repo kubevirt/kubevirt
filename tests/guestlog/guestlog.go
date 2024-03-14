@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -41,7 +41,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 	)
 
 	BeforeEach(func() {
-		cirrosVmi = libvmi.NewCirros()
+		cirrosVmi = libvmifact.NewCirros()
 		cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(true)
 		cirrosVmi.Spec.Domain.Devices.LogSerialConsole = pointer.P(true)
 	})

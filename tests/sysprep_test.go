@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -229,7 +229,7 @@ func addExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
-	firmware := types.UID(libvmi.WindowsFirmware)
+	firmware := types.UID(libvmifact.WindowsFirmware)
 	_false := false
 	return v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,

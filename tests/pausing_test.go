@@ -33,7 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -45,6 +45,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -70,7 +72,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), cirrosStartupTimeout)
+			vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewCirros(), cirrosStartupTimeout)
 		})
 
 		When("paused via API", func() {
@@ -198,7 +200,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			vmi := libvmi.NewCirros(
+			vmi := libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -433,7 +435,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			By("Starting a Cirros VMI")
-			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewCirros(), cirrosStartupTimeout)
+			vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewCirros(), cirrosStartupTimeout)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())

@@ -9,7 +9,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/testsuite"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,7 +21,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -118,7 +120,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 
 		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, func(withTPM, withEFI bool, ops ...string) {
 			By("Creating a migratable Fedora VM with UEFI")
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCloudInitNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData()),
@@ -182,7 +184,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 		)
 		It("should remove persistent storage PVC if VMI is not owned by a VM", func() {
 			By("Creating a VMI with persistent TPM enabled")
-			vmi := libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 				Persistent: pointer.BoolPtr(true),
 			}

@@ -22,8 +22,9 @@ package libnet
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 func WithMasqueradeNetworking(ports ...v1.Port) []libvmi.Option {

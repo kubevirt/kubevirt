@@ -6,7 +6,7 @@ libvmi is a VMI manifest composer.
 
 ### Motivation
 
-While reading code, especially e2e test code, a difficulty has been
+While reading code, especially test code, a difficulty has been
 observed to understand in an easy and clear manner, what is the content
 of a VMI object. In a long chain of function call stack, different portions
 of the VMI got updated, sometime overriding previously set fields.
@@ -60,9 +60,6 @@ and should not be overused. It would be better to just ask to change the rules.
 - VMI: `vmi.go` contains the most basic tooling to start building VMI manifests.
   It contains the most basic factory (`New`), the definition of how the builders
   look like and any other helper that serves the whole libvmi package.
-- Factory: `factory.go` file contains commonly used base VMI specs.
-  Users will usually pick one factory to use and then add different
-  builders to continue building the spec.
 - Subject builders: Various files in which builders and defined.
   These files should group builders with some commonality, such that they
   can be easily found. With time, the grouping and naming may change

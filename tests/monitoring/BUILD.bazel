@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/virtctl/pause:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -27,7 +28,7 @@ go_library(
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libpod:go_default_library",
-        "//tests/libvmi:go_default_library",
+        "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",
         "//tests/util:go_default_library",

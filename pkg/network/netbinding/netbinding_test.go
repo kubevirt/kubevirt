@@ -31,9 +31,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
-
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("Network Binding", func() {

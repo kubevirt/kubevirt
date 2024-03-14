@@ -48,7 +48,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
@@ -219,7 +219,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				}
 
 				By("Running the VMI")
-				vmi = libvmi.NewFedora(libnet.WithMasqueradeNetworking()...)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("VMI has the guest agent connected condition")

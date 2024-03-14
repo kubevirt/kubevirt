@@ -17,6 +17,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/libnet",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/libvmi:go_default_library",
         "//pkg/virtctl/expose:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -24,7 +25,6 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libnet/cloudinit:go_default_library",
         "//tests/libnet/cluster:go_default_library",
-        "//tests/libvmi:go_default_library",
         "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

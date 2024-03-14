@@ -28,7 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -45,7 +45,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -108,7 +110,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                            `, virtiofsMountPath(pvc1), pvc1, virtiofsMountPath(pvc1), virtiofsTestFile(virtiofsMountPath(pvc1)),
 				virtiofsMountPath(pvc2), pvc2, virtiofsMountPath(pvc2), virtiofsTestFile(virtiofsMountPath(pvc2)))
 
-			vmi = libvmi.NewFedora(
+			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
 				libvmi.WithFilesystemPVC(pvc1),
 				libvmi.WithFilesystemPVC(pvc2),
@@ -220,7 +222,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                    touch %s
                            `, virtiofsMountPath, pvcName, virtiofsMountPath, virtiofsTestFile)
 
-			vmi = libvmi.NewFedora(
+			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
 				libvmi.WithFilesystemPVC(pvcName),
 				libvmi.WithNamespace(namespace),
@@ -324,7 +326,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                        touch %s
                                `, virtiofsMountPath, dataVolume.Name, virtiofsMountPath, virtiofsTestFile)
 
-			vmi = libvmi.NewFedora(
+			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
 				libvmi.WithFilesystemDV(dataVolume.Name),
 				libvmi.WithNamespace(namespace),

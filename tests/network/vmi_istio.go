@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -55,7 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -213,7 +214,7 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-				bastionVMI = libvmi.NewCirros(
+				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 				)
@@ -342,7 +343,7 @@ var istioTests = func(vmType VmType) {
 			BeforeEach(func() {
 				networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
-				serverVMI = libvmi.NewAlpineWithTestTooling(
+				serverVMI = libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
 					libvmi.WithLabel("version", "v1"),
@@ -505,7 +506,7 @@ func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineI
 
 func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
-	vmi := libvmi.NewAlpineWithTestTooling(
+	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
@@ -517,7 +518,7 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 }
 
 func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
-	vmi := libvmi.NewAlpineWithTestTooling(
+	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),

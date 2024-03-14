@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libnode"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -70,9 +71,9 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 	BeforeEach(func() {
 		const OSWindows = "windows"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, libvmi.WindowsPVCName)
+		checks.SkipIfMissingRequiredImage(virtClient, libvmifact.WindowsPVCName)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = libvmi.NewWindows(libnet.WithMasqueradeNetworking()...)
+		windowsVMI = libvmifact.NewWindows(libnet.WithMasqueradeNetworking()...)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
@@ -115,7 +116,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 					return err
 				}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
 				By("Checking that the Windows VirtualMachineInstance has expected UUID")
-				Expect(output).Should(ContainSubstring(strings.ToUpper(libvmi.WindowsFirmware)))
+				Expect(output).Should(ContainSubstring(strings.ToUpper(libvmifact.WindowsFirmware)))
 			})
 
 			It("[test_id:3159]should have default masquerade IP", func() {

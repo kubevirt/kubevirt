@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -43,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -63,7 +64,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 		vmiWithReEnlightenment := func() *v1.VirtualMachineInstance {
 			options := libnet.WithMasqueradeNetworking()
 			options = append(options, withReEnlightenment())
-			return libvmi.NewAlpine(options...)
+			return libvmifact.NewAlpine(options...)
 		}
 
 		BeforeEach(func() {
@@ -233,7 +234,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			}
 
 			for _, label := range supportedKVMInfoFeature {
-				vmi := libvmi.NewCirros()
+				vmi := libvmifact.NewCirros()
 				features := enableHyperVInVMI(label)
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &features,
@@ -250,7 +251,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 
 		DescribeTable("[Serial] the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", Serial, func(featureState *v1.FeatureState) {
 			tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
-			vmi := libvmi.NewCirros()
+			vmi := libvmifact.NewCirros()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
 					EVMCS: featureState,
@@ -286,7 +287,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 
 	Context("VMI with HyperV passthrough", func() {
 		It("should be usable and non-migratable", func() {
-			vmi := libvmi.NewCirros(withHypervPassthrough())
+			vmi := libvmifact.NewCirros(withHypervPassthrough())
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
