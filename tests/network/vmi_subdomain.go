@@ -33,6 +33,7 @@ import (
 	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -89,7 +90,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			}
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -117,7 +118,7 @@ var _ = SIGDescribe("Subdomain", func() {
 					"svc.cluster.local", "cluster.local", util.NamespaceTestDefault + ".this.is.just.a.very.long.dummy"},
 			}
 
-			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
+			vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
@@ -140,7 +141,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			Searches:    []string{"example.com"},
 		}
 
-		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec)
+		vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 

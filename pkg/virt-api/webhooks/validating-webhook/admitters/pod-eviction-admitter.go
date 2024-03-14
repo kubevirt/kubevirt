@@ -38,7 +38,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), domainName, &metav1.GetOptions{})
+	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), domainName, metav1.GetOptions{})
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
@@ -90,7 +90,7 @@ func (admitter *PodEvictionAdmitter) markVMI(ar *admissionv1.AdmissionReview, vm
 				vmiName,
 				types.JSONPatchType,
 				[]byte(data),
-				&metav1.PatchOptions{})
+				metav1.PatchOptions{})
 	}
 
 	return err

@@ -56,7 +56,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 		Expect(err).ToNot(HaveOccurred())
 		timestamp := libinfra.GetTimeFromMetrics(metrics)
 
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() int {
 			metrics, err = metricsGetter(vmi)

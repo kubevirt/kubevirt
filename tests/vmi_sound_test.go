@@ -24,6 +24,8 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
@@ -97,7 +99,7 @@ func createSoundVMI(virtClient kubecli.KubevirtClient, soundDevice string) (*v1.
 			Model: model,
 		}
 	}
-	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVmi)
+	return virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), randomVmi, metav1.CreateOptions{})
 }
 
 func checkXMLSoundCard(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, model string) {

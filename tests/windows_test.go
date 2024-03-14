@@ -94,7 +94,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
 				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
 
@@ -154,7 +154,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 				By("Starting the windows VirtualMachineInstance with subdomain")
 				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI)
 
@@ -179,7 +179,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				By("Starting Windows VirtualMachineInstance with bridge binding")
 				windowsVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)}
 				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
+				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(windowsVMI,
 					libwait.WithTimeout(420),
@@ -193,7 +193,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				By("Pinging virt-handler Pod from Windows VMI")
 
 				var err error
-				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
+				windowsVMI, err = virtClient.VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				getVirtHandlerPod := func() (*k8sv1.Pod, error) {
@@ -231,7 +231,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 func winrnLoginCommand(windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error
-	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
+	windowsVMI, err = kubevirt.Client().VirtualMachineInstance(windowsVMI.Namespace).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	vmiIp := windowsVMI.Status.Interfaces[0].IP

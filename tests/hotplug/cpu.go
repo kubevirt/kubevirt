@@ -148,7 +148,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return countDomCPUs(vmi)
 			}, 240*time.Second, time.Second).Should(Equal(cpuCount{
@@ -245,7 +245,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return countDomCPUs(vmi)
 			}, 30*time.Second, time.Second).Should(Equal(cpuCount{
