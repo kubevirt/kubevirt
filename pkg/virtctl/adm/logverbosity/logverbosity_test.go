@@ -385,7 +385,6 @@ func NewKubeVirtWithoutDeveloperConfiguration(namespace, name string) *v1.KubeVi
 			Name:      name,
 		},
 		Spec: v1.KubeVirtSpec{
-			ImageTag:      "devel",
 			Configuration: v1.KubeVirtConfiguration{},
 		},
 	}

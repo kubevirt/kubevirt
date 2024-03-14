@@ -47,19 +47,16 @@ var _ = Describe("Install Strategy", func() {
 
 	namespace := "fake-namespace"
 
-	getConfig := func(registry, version string) *util.KubeVirtDeploymentConfig {
+	getConfig := func() *util.KubeVirtDeploymentConfig {
 		return util.GetTargetConfigFromKV(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 			},
-			Spec: v1.KubeVirtSpec{
-				ImageRegistry: registry,
-				ImageTag:      version,
-			},
+			Spec: v1.KubeVirtSpec{},
 		})
 	}
 
-	config := getConfig("fake-registry", "v9.9.9")
+	config := getConfig()
 
 	Context("monitoring detection", func() {
 		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {

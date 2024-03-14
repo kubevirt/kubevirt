@@ -30,7 +30,7 @@ var _ = Describe("Apply CRDs", func() {
 	var kv *v1.KubeVirt
 	var stores util.Stores
 
-	config := getConfig("fake-registry", "v9.9.9")
+	config := getConfig()
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
