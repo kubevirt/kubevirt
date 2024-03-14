@@ -30,7 +30,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func ValidateSlirpBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+func ValidateSlirpBinding(
+	field *k8sfield.Path,
+	spec *v1.VirtualMachineInstanceSpec,
+	config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	for idx, ifaceSpec := range spec.Domain.Devices.Interfaces {
 		if ifaceSpec.Slirp == nil {
 			continue
