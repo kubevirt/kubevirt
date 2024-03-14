@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "fs.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem",
+    importpath = "github.com/siderolabs/go-blockdevice/blockdevice/filesystem",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/ext4:go_default_library",
+        "//vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/iso9660:go_default_library",
+        "//vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/luks:go_default_library",
+        "//vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/msdos:go_default_library",
+        "//vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/vfat:go_default_library",
+        "//vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/xfs:go_default_library",
+        "//vendor/github.com/siderolabs/go-retry/retry:go_default_library",
+    ],
+)

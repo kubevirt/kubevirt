@@ -2551,6 +2551,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(SeccompConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.VMStateVolumeMode != nil {
+		in, out := &in.VMStateVolumeMode, &out.VMStateVolumeMode
+		*out = new(corev1.PersistentVolumeMode)
+		**out = **in
+	}
 	if in.VirtualMachineOptions != nil {
 		in, out := &in.VirtualMachineOptions, &out.VirtualMachineOptions
 		*out = new(VirtualMachineOptions)

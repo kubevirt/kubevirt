@@ -7,9 +7,9 @@ source hack/bootstrap.sh
 source hack/config.sh
 
 LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:9.5.0-6.el9}
-QEMU_VERSION=${QEMU_VERSION:-17:8.0.0-13.el9}
+QEMU_VERSION=${QEMU_VERSION:-17:8.2.0-4.el9}
 SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.1-1.el9}
-EDK2_VERSION=${EDK2_VERSION:-0:20230524-3.el9}
+EDK2_VERSION=${EDK2_VERSION:-0:20231122-4.el9}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.50.1-6.el9}
 GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.50.1-3.el9}
 PASST_VERSION=${PASST_VERSION:-0:0^20230818.g0af928e-4.el9}
@@ -105,6 +105,7 @@ launcherbase_aarch64="
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
 "
 launcherbase_extra="
+  e2fsprogs
   ethtool
   findutils
   nftables
@@ -121,6 +122,7 @@ handlerbase_main="
   qemu-img-${QEMU_VERSION}
 "
 handlerbase_extra="
+  e2fsprogs
   findutils
   iproute
   nftables

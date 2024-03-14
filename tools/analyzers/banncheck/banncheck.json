@@ -37,6 +37,10 @@
         {
           "justification ": "for selinux labeling safepaths need to be deconstructed to hand them over to the virt-chroot binary",
           "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+        },
+        {
+          "justification ": "backend storage operations in virt-handler needs unsafepath to generate the absolute and relative path",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-handler/backendstorage"
         }
       ]
     }
