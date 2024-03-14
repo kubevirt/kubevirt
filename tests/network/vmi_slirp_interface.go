@@ -23,74 +23,54 @@ import (
 	"context"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
-	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/testsuite"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
+var _ = SIGDescribe("Slirp", decorators.Networking, func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
-	var container k8sv1.Container
+	BeforeEach(libnet.SkipWhenClusterNotSupportIpv4)
 
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-
-		libnet.SkipWhenClusterNotSupportIpv4()
-	})
-
-	var (
-		genericVmi  *v1.VirtualMachineInstance
-		deadbeafVmi *v1.VirtualMachineInstance
-		ports       []v1.Port
-	)
-
-	BeforeEach(func() {
-		ports = []v1.Port{{Name: "http", Port: 80}}
-		genericVmi = libvmi.NewCirros(
+	It("VMI with SLIRP interface, custom mac and port is configured correctly", func() {
+		vmi := libvmi.NewCirros(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(
-				libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name, ports...)))
-		deadbeafVmi = libvmi.NewCirros(
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithInterface(
-				libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name, ports...)))
-		deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
-	})
-
-	DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
-		vmi := *vmiRef
-		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name, v1.Port{Name: "http", Port: 80}),
+			),
+		)
+		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
+		var err error
+		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libwait.WaitForSuccessfulVMIStart(vmi,
 			libwait.WithFailOnWarnings(false),
 			libwait.WithTimeout(180),
 		)
+
 		tests.GenerateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
 
 		By("have containerPort in the pod manifest")
 		vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 
+		var container k8sv1.Container
 		for _, containerSpec := range vmiPod.Spec.Containers {
 			if containerSpec.Name == "compute" {
 				container = containerSpec
@@ -131,8 +111,5 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 		)
 		log.Log.Infof("%v", output)
 		Expect(err).To(HaveOccurred())
-	},
-		Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-		Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
-	)
+	})
 })
