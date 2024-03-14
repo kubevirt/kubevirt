@@ -25,15 +25,17 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	v1 "kubevirt.io/api/core/v1"
 )
+
+type slirpClusterConfigChecker interface {
+	IsSlirpInterfaceEnabled() bool
+}
 
 func ValidateSlirpBinding(
 	field *k8sfield.Path,
 	spec *v1.VirtualMachineInstanceSpec,
-	config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	configChecker slirpClusterConfigChecker) (causes []metav1.StatusCause) {
 	for idx, ifaceSpec := range spec.Domain.Devices.Interfaces {
 		if ifaceSpec.Slirp == nil {
 			continue
@@ -49,7 +51,7 @@ func ValidateSlirpBinding(
 				Message: "Slirp interface only implemented with pod network",
 				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 			})
-		} else if !config.IsSlirpInterfaceEnabled() {
+		} else if !configChecker.IsSlirpInterfaceEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Slirp interface is not enabled in kubevirt-config",

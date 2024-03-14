@@ -27,10 +27,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
@@ -48,8 +44,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
 
-		config, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{})
-
+		config := stubSlirpClusterConfigChecker{}
 		causes := admitter.ValidateSlirpBinding(k8sfield.NewPath("fake"), &vmi.Spec, config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("Slirp interface is not enabled in kubevirt-config"))
@@ -68,7 +63,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
 		}}
 
-		config := newFakeClusterConfigWithSlirpEnabled()
+		config := stubSlirpClusterConfigChecker{enabled: true}
 		causes := admitter.ValidateSlirpBinding(k8sfield.NewPath("fake"), &vmi.Spec, config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("Slirp interface only implemented with pod network"))
@@ -87,17 +82,15 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
 
-		config := newFakeClusterConfigWithSlirpEnabled()
+		config := stubSlirpClusterConfigChecker{enabled: true}
 		Expect(admitter.ValidateSlirpBinding(k8sfield.NewPath("fake"), &vmi.Spec, config)).To(BeEmpty())
 	})
 })
 
-func newFakeClusterConfigWithSlirpEnabled() *virtconfig.ClusterConfig {
-	var kv v1.KubeVirt
-	kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-		PermitSlirpInterface: pointer.P(true),
-	}
-	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(&kv)
-	testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &kv)
-	return config
+type stubSlirpClusterConfigChecker struct {
+	enabled bool
+}
+
+func (s stubSlirpClusterConfigChecker) IsSlirpInterfaceEnabled() bool {
+	return s.enabled
 }
