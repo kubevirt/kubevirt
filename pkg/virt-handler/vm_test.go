@@ -32,6 +32,8 @@ import (
 	"sync"
 	"time"
 
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -2906,6 +2908,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+		})
+
+		It("HyperV passthrough shouldn't be migratable", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: virtpointer.P(true)}}
+
+			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable))
 		})
 
 	})

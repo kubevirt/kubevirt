@@ -2,9 +2,14 @@ package tests_test
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
 	"strings"
 	"time"
+
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/libnet"
 
@@ -43,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, func() {
 
 	var (
 		virtClient kubecli.KubevirtClient
@@ -55,20 +60,9 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 	Context("VMI with HyperV re-enlightenment enabled", func() {
 		var reEnlightenmentVMI *v1.VirtualMachineInstance
 
-		withReEnlightenment := func(vmi *v1.VirtualMachineInstance) {
-			if vmi.Spec.Domain.Features == nil {
-				vmi.Spec.Domain.Features = &v1.Features{}
-			}
-			if vmi.Spec.Domain.Features.Hyperv == nil {
-				vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
-			}
-
-			vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
-		}
-
 		vmiWithReEnlightenment := func() *v1.VirtualMachineInstance {
 			options := libnet.WithMasqueradeNetworking()
-			options = append(options, withReEnlightenment)
+			options = append(options, withReEnlightenment())
 			return libvmi.NewAlpine(options...)
 		}
 
@@ -130,7 +124,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			})
 		})
 
-		When("TSC frequency is not exposed on the cluster", decorators.Reenlightenment, decorators.TscFrequencies, func() {
+		When("[Serial] TSC frequency is not exposed on the cluster", Serial, decorators.Reenlightenment, decorators.TscFrequencies, func() {
 
 			BeforeEach(func() {
 				if isTSCFrequencyExposed(virtClient) {
@@ -254,7 +248,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			}
 		})
 
-		DescribeTable("the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", func(featureState *v1.FeatureState) {
+		DescribeTable("[Serial] the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", Serial, func(featureState *v1.FeatureState) {
 			tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
 			vmi := libvmi.NewCirros()
 			vmi.Spec.Domain.Features = &v1.Features{
@@ -289,4 +283,45 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
 		)
 	})
+
+	Context("VMI with HyperV passthrough", func() {
+		It("should be usable and non-migratable", func() {
+			vmi := libvmi.NewCirros(withHypervPassthrough())
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			domSpec := &api.DomainSpec{}
+			Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+			Expect(domSpec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
+
+			Eventually(matcher.ThisVMI(vmi), 60*time.Second, 1*time.Second).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
+		})
+	})
 })
+
+func withReEnlightenment() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.Hyperv == nil {
+			vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+		}
+
+		vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+	}
+}
+
+func withHypervPassthrough() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		if vmi.Spec.Domain.Features.HypervPassthrough == nil {
+			vmi.Spec.Domain.Features.HypervPassthrough = &v1.HyperVPassthrough{}
+		}
+		vmi.Spec.Domain.Features.HypervPassthrough.Enabled = virtpointer.P(true)
+	}
+}

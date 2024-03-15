@@ -568,14 +568,21 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 	}
 }
 
+func (HyperVPassthrough) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "+optional",
+	}
+}
+
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"acpi":       "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
-		"apic":       "Defaults to the machine type setting.\n+optional",
-		"hyperv":     "Defaults to the machine type setting.\n+optional",
-		"smm":        "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
-		"kvm":        "Configure how KVM presence is exposed to the guest.\n+optional",
-		"pvspinlock": "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.\n+optional",
+		"acpi":              "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
+		"apic":              "Defaults to the machine type setting.\n+optional",
+		"hypervPassthrough": "This enables all supported hyperv flags automatically.\nBear in mind that if this enabled hyperV features cannot\nbe enabled explicitly. In addition, a Virtual Machine\nusing it will be non-migratable.\n+optional",
+		"hyperv":            "Defaults to the machine type setting.\n+optional",
+		"smm":               "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"kvm":               "Configure how KVM presence is exposed to the guest.\n+optional",
+		"pvspinlock":        "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.\n+optional",
 	}
 }
 

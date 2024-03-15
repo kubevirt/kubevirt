@@ -6284,6 +6284,15 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: boolean
                               type: object
                           type: object
+                        hypervPassthrough:
+                          description: This enables all supported hyperv flags automatically.
+                            Bear in mind that if this enabled hyperV features cannot
+                            be enabled explicitly. In addition, a Virtual Machine
+                            using it will be non-migratable.
+                          properties:
+                            enabled:
+                              type: boolean
+                          type: object
                         kvm:
                           description: Configure how KVM presence is exposed to the
                             guest.
@@ -10842,6 +10851,14 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                   type: object
+                hypervPassthrough:
+                  description: This enables all supported hyperv flags automatically.
+                    Bear in mind that if this enabled hyperV features cannot be enabled
+                    explicitly. In addition, a Virtual Machine using it will be non-migratable.
+                  properties:
+                    enabled:
+                      type: boolean
+                  type: object
                 kvm:
                   description: Configure how KVM presence is exposed to the guest.
                   properties:
@@ -13635,6 +13652,14 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                   type: object
+                hypervPassthrough:
+                  description: This enables all supported hyperv flags automatically.
+                    Bear in mind that if this enabled hyperV features cannot be enabled
+                    explicitly. In addition, a Virtual Machine using it will be non-migratable.
+                  properties:
+                    enabled:
+                      type: boolean
+                  type: object
                 kvm:
                   description: Configure how KVM presence is exposed to the guest.
                   properties:
@@ -15859,6 +15884,15 @@ var CRDsValidation map[string]string = map[string]string{
                                     to true.
                                   type: boolean
                               type: object
+                          type: object
+                        hypervPassthrough:
+                          description: This enables all supported hyperv flags automatically.
+                            Bear in mind that if this enabled hyperV features cannot
+                            be enabled explicitly. In addition, a Virtual Machine
+                            using it will be non-migratable.
+                          properties:
+                            enabled:
+                              type: boolean
                           type: object
                         kvm:
                           description: Configure how KVM presence is exposed to the
@@ -20254,6 +20288,16 @@ var CRDsValidation map[string]string = map[string]string{
                                             Defaults to true.
                                           type: boolean
                                       type: object
+                                  type: object
+                                hypervPassthrough:
+                                  description: This enables all supported hyperv flags
+                                    automatically. Bear in mind that if this enabled
+                                    hyperV features cannot be enabled explicitly.
+                                    In addition, a Virtual Machine using it will be
+                                    non-migratable.
+                                  properties:
+                                    enabled:
+                                      type: boolean
                                   type: object
                                 kvm:
                                   description: Configure how KVM presence is exposed
@@ -25430,6 +25474,16 @@ var CRDsValidation map[string]string = map[string]string{
                                                 on the guest. Defaults to true.
                                               type: boolean
                                           type: object
+                                      type: object
+                                    hypervPassthrough:
+                                      description: This enables all supported hyperv
+                                        flags automatically. Bear in mind that if
+                                        this enabled hyperV features cannot be enabled
+                                        explicitly. In addition, a Virtual Machine
+                                        using it will be non-migratable.
+                                      properties:
+                                        enabled:
+                                          type: boolean
                                       type: object
                                     kvm:
                                       description: Configure how KVM presence is exposed

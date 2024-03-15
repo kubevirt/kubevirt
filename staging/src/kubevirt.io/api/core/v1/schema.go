@@ -1054,6 +1054,11 @@ type HypervTimer struct {
 	Enabled *bool `json:"present,omitempty"`
 }
 
+type HyperVPassthrough struct {
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 type Features struct {
 	// ACPI enables/disables ACPI inside the guest.
 	// Defaults to enabled.
@@ -1062,6 +1067,12 @@ type Features struct {
 	// Defaults to the machine type setting.
 	// +optional
 	APIC *FeatureAPIC `json:"apic,omitempty"`
+	// This enables all supported hyperv flags automatically.
+	// Bear in mind that if this enabled hyperV features cannot
+	// be enabled explicitly. In addition, a Virtual Machine
+	// using it will be non-migratable.
+	// +optional
+	HypervPassthrough *HyperVPassthrough `json:"hypervPassthrough,omitempty"`
 	// Defaults to the machine type setting.
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`

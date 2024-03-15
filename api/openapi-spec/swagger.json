@@ -17108,6 +17108,10 @@
       "description": "Defaults to the machine type setting.",
       "$ref": "#/definitions/v1.FeatureHyperv"
      },
+     "hypervPassthrough": {
+      "description": "This enables all supported hyperv flags automatically. Bear in mind that if this enabled hyperV features cannot be enabled explicitly. In addition, a Virtual Machine using it will be non-migratable.",
+      "$ref": "#/definitions/v1.HyperVPassthrough"
+     },
      "kvm": {
       "description": "Configure how KVM presence is exposed to the guest.",
       "$ref": "#/definitions/v1.FeatureKVM"
@@ -17392,6 +17396,14 @@
      "pageSize": {
       "description": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
       "type": "string"
+     }
+    }
+   },
+   "v1.HyperVPassthrough": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "type": "boolean"
      }
     }
    },

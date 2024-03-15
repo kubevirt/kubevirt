@@ -314,7 +314,10 @@ type Features struct {
 	PMU        *FeatureState      `xml:"pmu,omitempty"`
 }
 
+const HypervModePassthrough = "passthrough"
+
 type FeatureHyperv struct {
+	Mode            string            `xml:"mode,attr,omitempty"`
 	Relaxed         *FeatureState     `xml:"relaxed,omitempty"`
 	VAPIC           *FeatureState     `xml:"vapic,omitempty"`
 	Spinlocks       *FeatureSpinlocks `xml:"spinlocks,omitempty"`
