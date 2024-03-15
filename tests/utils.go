@@ -372,26 +372,6 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	return vm
 }
 
-// NewRandomVMWithDataVolumeWithRegistryImport
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl)),
-			libdv.PVCWithAccessMode(accessMode),
-		),
-	)
-
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
-}
-
 // NewRandomVMWithDataVolume
 //
 // Deprecated: Use libvmi directly

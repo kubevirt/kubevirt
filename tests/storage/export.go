@@ -55,6 +55,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	routev1 "github.com/openshift/api/route/v1"
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -1435,13 +1436,26 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-			testsuite.GetTestNamespace(nil),
-			sc,
-			k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		dataVolume := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(
+				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+				cdiv1.RegistryPullNode,
+			),
+			libdv.WithPVC(
+				libdv.PVCWithStorageClass(sc),
+				libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+				libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+			),
+		)
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithDataVolume("disk0", dataVolume.Name),
+			libvmi.WithResourceMemory("1Gi"),
+		)
+		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 		vm = createVM(vm)
+
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
@@ -1767,9 +1781,27 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		dataVolume := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(
+				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+				cdiv1.RegistryPullNode,
+			),
+			libdv.WithPVC(
+				libdv.PVCWithStorageClass(sc),
+				libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+				libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+			),
+		)
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNamespace(util.NamespaceTestDefault),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithDataVolume("disk0", dataVolume.Name),
+			libvmi.WithResourceMemory("1Gi"),
+		)
+		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 		vm = createVM(vm)
+
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
 		token := createExportTokenSecret(vm.Name, vm.Namespace)
@@ -1802,8 +1834,25 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.Bool(true)
+		dataVolume := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(
+				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+				cdiv1.RegistryPullNode,
+			),
+			libdv.WithPVC(
+				libdv.PVCWithStorageClass(sc),
+				libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+				libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+			),
+		)
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNamespace(util.NamespaceTestDefault),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithDataVolume("disk0", dataVolume.Name),
+			libvmi.WithResourceMemory("1Gi"),
+		)
+		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
 		vm = stopVM(vm)
@@ -2177,12 +2226,24 @@ var _ = SIGDescribe("Export", func() {
 
 		It("Create succeeds using VM source", func() {
 			// Create a populated VM
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-				testsuite.GetTestNamespace(nil),
-				sc,
-				k8sv1.ReadWriteOnce)
-			vm.Spec.Running = pointer.Bool(true)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+					cdiv1.RegistryPullNode,
+				),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+				),
+			)
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+			)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -2352,12 +2413,24 @@ var _ = SIGDescribe("Export", func() {
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					sc,
-					k8sv1.ReadWriteOnce)
-				vm.Spec.Running = pointer.Bool(true)
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -2533,12 +2606,25 @@ var _ = SIGDescribe("Export", func() {
 		Context("Get export manifest from vmexport", func() {
 			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					sc,
-					k8sv1.ReadWriteOnce)
-				vm.Spec.Running = pointer.Bool(true)
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNamespace(util.NamespaceTestDefault),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})

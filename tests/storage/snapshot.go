@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/watcher"
@@ -466,7 +468,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				newMemory := resource.MustParse("1Gi")
 				Expect(newMemory).ToNot(Equal(initialMemory))
 
-				//update vm to make sure vm revision is saved in the snapshot
+				// update vm to make sure vm revision is saved in the snapshot
 				By("Updating the VM template spec")
 				patchData, err := patch.GenerateTestReplacePatch(
 					"/spec/template/spec/domain/resources/requests/"+string(corev1.ResourceMemory),
@@ -582,12 +584,25 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
-				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -612,12 +627,25 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6949]should unfreeze vm if snapshot fails when deadline exceeded", func() {
-				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -673,12 +701,25 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:7472]should succeed online snapshot with hot plug disk", func() {
-				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
+				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -868,16 +909,24 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			It("[test_id:9647]Calling Velero hooks should not error if no guest agent", func() {
 				const noGuestAgentString = "No guest agent, exiting"
 				By("Creating VM")
-				var vmi *v1.VirtualMachineInstance
-				running := false
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
 				)
-				vm.Spec.Running = &running
-
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
 				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
 					libwait.WithTimeout(300),
@@ -962,12 +1011,25 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 
 				It("[test_id:8922]should include memory dump in vm snapshot", func() {
-					var vmi *v1.VirtualMachineInstance
-					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-						testsuite.GetTestNamespace(nil),
-						snapshotStorageClass,
-						corev1.ReadWriteOnce))
+					dataVolume := libdv.NewDataVolume(
+						libdv.WithRegistryURLSourceAndPullMethod(
+							cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+							cdiv1.RegistryPullNode,
+						),
+						libdv.WithPVC(
+							libdv.PVCWithStorageClass(snapshotStorageClass),
+							libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+							libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+						),
+					)
+					vmi := libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithDataVolume("disk0", dataVolume.Name),
+						libvmi.WithResourceMemory("1Gi"),
+					)
+					vm := libvmi.NewVirtualMachine(vmi)
+					vm, vmi = createAndStartVM(vm)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1033,14 +1095,25 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		Context("With more complicated VM", func() {
 			BeforeEach(func() {
-				running := false
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
 				)
-				vm.Spec.Running = &running
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+				vm.Spec.Running = ptr.To(false)
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -1367,14 +1440,24 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			DescribeTable("should successfully create a snapshot", func(ttl *int32) {
 				libstorage.SetDataVolumeGC(virtClient, ttl)
 
-				running := false
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
 				)
-				vm.Spec.Running = &running
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm = libvmi.NewVirtualMachine(vmi)
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -1570,12 +1653,25 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
+				dataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(
+						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+						cdiv1.RegistryPullNode,
+					),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(snapshotStorageClass),
+						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+					),
 				)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dataVolume.Name),
+					libvmi.WithResourceMemory("1Gi"),
+				)
+				vm := libvmi.NewVirtualMachine(vmi)
+
 				vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: instancetype.Name,
