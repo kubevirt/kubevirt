@@ -575,7 +575,7 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 		}
 		newVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), newVM, metav1.CreateOptions{})
 	} else {
-		newVM, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(context.Background(), newVM)
+		newVM, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(context.Background(), newVM, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		return false, err

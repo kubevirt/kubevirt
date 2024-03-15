@@ -1079,7 +1079,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = pointer.P(false)
 		updatedVM.Spec.RunStrategy = nil
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1111,7 +1111,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = pointer.P(true)
 		updatedVM.Spec.RunStrategy = nil
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1659,7 +1659,7 @@ func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMa
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = nil
 		updatedVM.Spec.RunStrategy = &runStrategyAlways
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
