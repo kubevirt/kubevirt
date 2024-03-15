@@ -642,7 +642,7 @@ var _ = Describe("Restore controller", func() {
 					r.Status.Restores[i].DataVolumeName = &r.Status.Restores[i].PersistentVolumeClaimName
 				}
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), updatedVM).Return(updatedVM, nil)
+				vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
 					pvc.Status.Phase = corev1.ClaimBound
@@ -843,7 +843,7 @@ var _ = Describe("Restore controller", func() {
 					updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 					updatedVM.ResourceVersion = "1"
 
-					vmInterface.EXPECT().Update(context.Background(), updatedVM).Return(updatedVM, nil)
+					vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil)
 
 					By("Making sure right VMRestore update occurs")
 					updatedVMRestore := vmRestore.DeepCopy()
@@ -1036,9 +1036,9 @@ var _ = Describe("Restore controller", func() {
 				expectedUpdatedVM := vm.DeepCopy()
 				expectedUpdatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 				vmInterface.EXPECT().
-					Update(context.Background(), expectedUpdatedVM).
-					Do(func(ctx context.Context, objs ...interface{}) {
-						updatedVM := objs[0].(*kubevirtv1.VirtualMachine)
+					Update(context.Background(), expectedUpdatedVM, metav1.UpdateOptions{}).
+					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
+						updatedVM := obj.(*kubevirtv1.VirtualMachine)
 						Expect(*updatedVM).To(Equal(*expectedUpdatedVM))
 					}).Return(expectedUpdatedVM, nil)
 			}

@@ -86,8 +86,8 @@ func (v *vm) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualM
 }
 
 // Update the VirtualMachine instance in the cluster in given namespace
-func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	updatedVm, err := v.VirtualMachineInterface.Update(ctx, vm, k8smetav1.UpdateOptions{})
+func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine, opts k8smetav1.UpdateOptions) (*v1.VirtualMachine, error) {
+	updatedVm, err := v.VirtualMachineInterface.Update(ctx, vm, opts)
 	updatedVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return updatedVm, err

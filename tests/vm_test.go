@@ -258,7 +258,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.Template.ObjectMeta.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -283,7 +283,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -317,7 +317,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Updating the VM template spec")
 			vm.Spec.Template.ObjectMeta.Labels = map[string]string{"testkey": "testvalue"}
-			_, err := virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			validateGenerationState(vm, 3, 3, 2, 2)
@@ -327,7 +327,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Template.ObjectMeta.Labels["testkey2"] = "testvalue2"
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
+			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			validateGenerationState(vm, 4, 4, 2, 2)
@@ -459,7 +459,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("4096Ki"),
 			}
-			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting the old VirtualMachineInstance spec still running")
@@ -548,7 +548,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("4096Ki"),
 				}
-				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 				return err
 			}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
 
@@ -1802,7 +1802,7 @@ status:
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				delete(vm.Spec.Template.ObjectMeta.Annotations, v1.FuncTestLauncherFailFastAnnotation)
-				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
+				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -2068,7 +2068,7 @@ func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtu
 		vm.Spec.Running = nil
 		runStrategyAlways := v1.RunStrategyAlways
 		vm.Spec.RunStrategy = &runStrategyAlways
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 		return err
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -2093,7 +2093,7 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 		vm.Spec.Running = nil
 		runStrategyHalted := v1.RunStrategyHalted
 		vm.Spec.RunStrategy = &runStrategyHalted
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 		return err
 	})
 	Expect(err).ToNot(HaveOccurred())

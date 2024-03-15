@@ -301,7 +301,7 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(newPoolRevision)
 
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(0)
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).MaxTimes(1).Do(func(ctx context.Context, arg interface{}) {
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).MaxTimes(1).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				newVM := arg.(*v1.VirtualMachine)
 				revisionName := newVM.Labels[virtv1.VirtualMachinePoolRevisionName]
 				Expect(revisionName).To(Equal(newPoolRevision.Name))
