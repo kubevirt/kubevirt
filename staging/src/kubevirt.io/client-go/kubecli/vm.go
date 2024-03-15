@@ -108,15 +108,11 @@ func (v *vm) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.Virtu
 	return newVmList, err
 }
 
-func (v *vm) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
-	opts := k8smetav1.PatchOptions{}
-	if patchOptions != nil {
-		opts = *patchOptions
-	}
-	return v.VirtualMachineInterface.Patch(ctx, name, pt, data, opts, subresources...)
+func (v *vm) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
+	return v.VirtualMachineInterface.Patch(ctx, name, pt, data, patchOptions, subresources...)
 }
 
-func (v *vm) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v1.VirtualMachine, err error) {
+func (v *vm) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions) (result *v1.VirtualMachine, err error) {
 	return v.Patch(ctx, name, pt, data, patchOptions, "status")
 }
 
