@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -253,7 +254,7 @@ var _ = Describe("Status", func() {
 			By("checking the VirtualMachine resource")
 			vmUpdater := NewVMStatusUpdater(virtClient)
 			vm := &v1.VirtualMachine{Status: v1.VirtualMachineStatus{Ready: true}}
-			vmInterface.EXPECT().UpdateStatus(context.Background(), vm).Return(vm, nil).Times(1)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), vm, metav1.UpdateOptions{}).Return(vm, nil).Times(1)
 			Expect(vmUpdater.UpdateStatus(vm)).To(Succeed())
 
 			By("checking the VirtualMachineInstanceReplicaSet resource")

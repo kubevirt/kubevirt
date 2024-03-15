@@ -216,7 +216,7 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 	switch obj.(type) {
 	case *v1.VirtualMachine:
 		oldObj := obj.(*v1.VirtualMachine)
-		_, err = u.cli.VirtualMachine(a.GetNamespace()).UpdateStatus(context.Background(), oldObj)
+		_, err = u.cli.VirtualMachine(a.GetNamespace()).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	case *v1.VirtualMachineInstanceReplicaSet:
 		oldObj := obj.(*v1.VirtualMachineInstanceReplicaSet)
 		_, err = u.cli.ReplicaSet(a.GetNamespace()).UpdateStatus(oldObj)

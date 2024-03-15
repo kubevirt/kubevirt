@@ -116,8 +116,8 @@ func (v *vm) PatchStatus(ctx context.Context, name string, pt types.PatchType, d
 	return v.Patch(ctx, name, pt, data, patchOptions, "status")
 }
 
-func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result, err = v.VirtualMachineInterface.UpdateStatus(ctx, vmi, k8smetav1.UpdateOptions{})
+func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachine, err error) {
+	result, err = v.VirtualMachineInterface.UpdateStatus(ctx, vmi, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
 }
