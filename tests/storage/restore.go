@@ -356,7 +356,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
@@ -377,7 +377,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			It("[test_id:5257]should reject restore if VM running", func() {
 				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
@@ -1382,7 +1382,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					},
 				)
 				Expect(err).NotTo(HaveOccurred())
-				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
 
@@ -1518,7 +1518,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					},
 				)
 				Expect(err).NotTo(HaveOccurred())
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				By(creatingSnapshot)

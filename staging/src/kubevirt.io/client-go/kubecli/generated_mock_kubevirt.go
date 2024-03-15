@@ -1653,7 +1653,7 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Delete(arg0, arg1, arg2 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *v12.PatchOptions, subresources ...string) (*v120.VirtualMachine, error) {
+func (_m *MockVirtualMachineInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions v12.PatchOptions, subresources ...string) (*v120.VirtualMachine, error) {
 	_s := []interface{}{ctx, name, pt, data, patchOptions}
 	for _, _x := range subresources {
 		_s = append(_s, _x)
@@ -1680,7 +1680,7 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) UpdateStatus(arg0, arg1 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInterface) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *v12.PatchOptions) (*v120.VirtualMachine, error) {
+func (_m *MockVirtualMachineInterface) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions v12.PatchOptions) (*v120.VirtualMachine, error) {
 	ret := _m.ctrl.Call(_m, "PatchStatus", ctx, name, pt, data, patchOptions)
 	ret0, _ := ret[0].(*v120.VirtualMachine)
 	ret1, _ := ret[1].(error)

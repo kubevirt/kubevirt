@@ -298,9 +298,9 @@ type VirtualMachineInterface interface {
 	Create(ctx context.Context, vm *v1.VirtualMachine, opts metav1.CreateOptions) (*v1.VirtualMachine, error)
 	Update(ctx context.Context, vm *v1.VirtualMachine, opts metav1.UpdateOptions) (*v1.VirtualMachine, error)
 	Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
 	UpdateStatus(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.VirtualMachine, err error)
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.VirtualMachine, err error)
 	Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	Start(ctx context.Context, name string, startOptions *v1.StartOptions) error

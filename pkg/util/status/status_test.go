@@ -91,11 +91,11 @@ var _ = Describe("Status", func() {
 		Context("for PATCH operations", func() {
 			It("should continuously use the /status subresource if no errors occur", func() {
 				updater := NewVMStatusUpdater(virtClient)
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(2)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 			})
 
 			It("should fall back on a 404 error on the /status subresource to an ordinary update", func() {
@@ -103,43 +103,43 @@ var _ = Describe("Status", func() {
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				newVM := vm.DeepCopy()
 				newVM.SetResourceVersion("2")
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(2)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 			})
 
 			It("should fall back on a 404 error on the /status subresource to an ordinary update but keep in mind that objects may have disappeared", func() {
 				updater := NewVMStatusUpdater(virtClient)
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).ToNot(Succeed())
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 			})
 
 			It("should fall back on a 404 error on the /status subresource to an ordinary update but keep in mind that the subresource may get enabled directly afterwards", func() {
 				updater := NewVMStatusUpdater(virtClient)
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).ToNot(Succeed())
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 			})
 
 			It("should stick with /status if an arbitrary error occurs", func() {
 				updater := NewVMStatusUpdater(virtClient)
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, fmt.Errorf("I am not a 404 error")).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).ToNot(Succeed())
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 			})
 		})
 
@@ -195,10 +195,10 @@ var _ = Describe("Status", func() {
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				newVM := vm.DeepCopy()
 				newVM.SetResourceVersion("2")
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(2)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 			})
 
 			It("should stick with a normal update if we get a 404 error", func() {
@@ -207,10 +207,10 @@ var _ = Describe("Status", func() {
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				newVM := vm.DeepCopy()
 				newVM.SetResourceVersion("2")
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(2)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).ToNot(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).ToNot(Succeed())
 			})
 
 			It("should stick with a normal update if we get an arbitrary error", func() {
@@ -219,10 +219,10 @@ var _ = Describe("Status", func() {
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				newVM := vm.DeepCopy()
 				newVM.SetResourceVersion("2")
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, fmt.Errorf("I am an arbitrary error")).Times(2)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).ToNot(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).ToNot(Succeed())
 			})
 
 			It("should fall back to /status if the status did not change and stick to it", func() {
@@ -230,12 +230,12 @@ var _ = Describe("Status", func() {
 				updater.updater.subresource = false
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				newVM := vm.DeepCopy()
-				patchOptions := &v12.PatchOptions{}
+				patchOptions := v12.PatchOptions{}
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(1)
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(1)
-				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
+				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), &patchOptions)).To(Succeed())
 			})
 		})
 	})

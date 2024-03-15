@@ -121,7 +121,7 @@ func (u *updater) patchUnstructured(obj runtime.Object, patchType types.PatchTyp
 	switch obj.(type) {
 	case *v1.VirtualMachine:
 		oldObj := obj.(*v1.VirtualMachine)
-		newObj, err := u.cli.VirtualMachine(a.GetNamespace()).Patch(context.Background(), a.GetName(), patchType, data, patchOptions)
+		newObj, err := u.cli.VirtualMachine(a.GetNamespace()).Patch(context.Background(), a.GetName(), patchType, data, *patchOptions)
 		if err != nil {
 			return "", "", err
 		}
@@ -152,7 +152,7 @@ func (u *updater) patchStatusUnstructured(obj runtime.Object, patchType types.Pa
 	}
 	switch obj.(type) {
 	case *v1.VirtualMachine:
-		_, err = u.cli.VirtualMachine(a.GetNamespace()).PatchStatus(context.Background(), a.GetName(), patchType, data, patchOptions)
+		_, err = u.cli.VirtualMachine(a.GetNamespace()).PatchStatus(context.Background(), a.GetName(), patchType, data, *patchOptions)
 		return err
 	case *v1.KubeVirt:
 		_, err = u.cli.KubeVirt(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data, patchOptions)
