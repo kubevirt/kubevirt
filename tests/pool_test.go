@@ -281,7 +281,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("deleting a VM")
 		foreGround := metav1.DeletePropagationForeground
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, &k8smetav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
@@ -355,7 +355,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		name := vms.Items[1].Name
 
 		By("deleting a VM")
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, &k8smetav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {

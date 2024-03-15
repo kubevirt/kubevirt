@@ -124,7 +124,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		})
 		vm = nil
 	}

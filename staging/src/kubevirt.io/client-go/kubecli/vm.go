@@ -94,12 +94,8 @@ func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine, opts k8smetav1.U
 }
 
 // Delete the defined VirtualMachine in the cluster in defined namespace
-func (v *vm) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return v.VirtualMachineInterface.Delete(ctx, name, opts)
+func (v *vm) Delete(ctx context.Context, name string, options k8smetav1.DeleteOptions) error {
+	return v.VirtualMachineInterface.Delete(ctx, name, options)
 }
 
 // List all VirtualMachines in given namespace
