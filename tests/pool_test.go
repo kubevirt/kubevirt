@@ -106,7 +106,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			return pool.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
 
-		vms, err := virtClient.VirtualMachine(util.NamespaceTestDefault).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(util.NamespaceTestDefault).List(context.Background(), v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(notDeletedVMs(pool.Name, vms)).To(HaveLen(int(scale)))
 	}
@@ -214,7 +214,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		// Wait until VMs are gone
 		By("Waiting until all VMs are gone")
 		Eventually(func() int {
-			vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
 		}, 120*time.Second, 1*time.Second).Should(BeZero())
@@ -234,7 +234,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Waiting until all VMs are created")
 		Eventually(func() int {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
 		}, 60*time.Second, 1*time.Second).Should(Equal(2))
@@ -284,7 +284,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -345,7 +345,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Waiting until all VMs are created")
 		Eventually(func() int {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(vms.Items)
 		}, 120*time.Second, 1*time.Second).Should(Equal(3))
@@ -358,7 +358,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
-			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -388,7 +388,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		doScale(newPool.ObjectMeta.Name, 1)
 		waitForVMIs(newPool.Namespace, 1)
 
-		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(1))
@@ -446,7 +446,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		doScale(newPool.ObjectMeta.Name, 1)
 		waitForVMIs(newPool.Namespace, 1)
 
-		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(1))
@@ -510,7 +510,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		doScale(newPool.ObjectMeta.Name, 2)
 
 		// Check for owner reference
-		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 		Expect(vms.Items).To(HaveLen(2))
 		Expect(err).ToNot(HaveOccurred())
 		for _, vm := range vms.Items {
@@ -529,7 +529,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By("Checking if two VMs are orphaned and still exist")
-		vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), &v12.ListOptions{})
+		vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), v12.ListOptions{})
 		Expect(vms.Items).To(HaveLen(2))
 
 		By("Checking a VirtualMachine owner references")
