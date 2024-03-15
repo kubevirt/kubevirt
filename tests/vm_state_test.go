@@ -173,7 +173,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			By("Stopping and removing the VM")
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
+			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("TPM across migration and restart", true, false, "migrate", "restart"),

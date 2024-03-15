@@ -109,7 +109,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		})
 
 		AfterEach(func() {
-			virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		})
 
 		DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {

@@ -313,7 +313,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				Expect(vmClone.Status.SnapshotName).To(BeNil())
 				Expect(vmClone.Status.RestoreName).To(BeNil())
 
-				err = virtClient.VirtualMachine(targetVM.Namespace).Delete(context.Background(), targetVM.Name, &v1.DeleteOptions{})
+				err = virtClient.VirtualMachine(targetVM.Namespace).Delete(context.Background(), targetVM.Name, v1.DeleteOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				Eventually(func() error {
@@ -342,7 +342,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				// of snapshot tests scope.
 
 				By("Deleting VM")
-				err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
+				err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, v1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a clone with a snapshot source")
@@ -578,7 +578,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						snapshot = waitSnapshotReady(snapshot)
 
 						By("Deleting VM")
-						err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
+						err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, v1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Creating a clone and expecting error")

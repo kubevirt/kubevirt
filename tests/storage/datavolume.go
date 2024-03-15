@@ -694,7 +694,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("discard='unmap'"))
 				vm = tests.StopVirtualMachine(vm)
-				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})).To(Succeed())
+				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})).To(Succeed())
 			})
 
 			DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
@@ -750,7 +750,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// Delete the VM with orphan Propagation
 				orphanPolicy := metav1.DeletePropagationOrphan
 				Expect(virtClient.VirtualMachine(vm.Namespace).
-					Delete(context.Background(), vm.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
+					Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 
 				// Wait for the owner reference to disappear
 				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(Not(BeOwned()))

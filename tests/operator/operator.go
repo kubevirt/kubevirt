@@ -2365,7 +2365,7 @@ spec:
 				}
 
 				if vm != nil && vm.DeletionTimestamp == nil {
-					err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 				vm = nil

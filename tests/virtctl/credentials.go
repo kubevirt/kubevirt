@@ -82,7 +82,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 		vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			err := cli.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			err := cli.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				Satisfy(errors.IsNotFound),

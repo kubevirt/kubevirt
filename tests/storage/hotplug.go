@@ -108,7 +108,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) error {
-		return virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+		return virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	}
 
 	getAddVolumeOptions := func(volumeName string, bus v1.DiskBus, volumeSource *v1.HotplugVolumeSource, dryRun, useLUN bool, cache v1.DriverCache) *v1.AddVolumeOptions {
@@ -1279,7 +1279,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			AfterEach(func() {
 				if vm != nil {
-					err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+					err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					vm = nil
 				}
@@ -1363,7 +1363,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		AfterEach(func() {
 			if vm != nil {
-				err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+				err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm = nil
 			}

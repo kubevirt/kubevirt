@@ -177,7 +177,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &opts)
+			err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually deleted")
