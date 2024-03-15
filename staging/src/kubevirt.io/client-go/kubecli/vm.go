@@ -103,12 +103,8 @@ func (v *vm) Delete(ctx context.Context, name string, options *k8smetav1.DeleteO
 }
 
 // List all VirtualMachines in given namespace
-func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
-	opts := k8smetav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVmList, err := v.VirtualMachineInterface.List(ctx, opts)
+func (v *vm) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
+	newVmList, err := v.VirtualMachineInterface.List(ctx, options)
 	for i := range newVmList.Items {
 		newVmList.Items[i].SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	}
