@@ -185,7 +185,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	}
 
 	deleteVM := func(vm *v1.VirtualMachine) {
-		err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			err = nil
 		}

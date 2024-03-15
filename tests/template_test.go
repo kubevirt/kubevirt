@@ -131,7 +131,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 			return func() {
 				if vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{}); err == nil && vm.ObjectMeta.DeletionTimestamp == nil {
 					By("Deleting the VirtualMachine")
-					ExpectWithOffset(1, virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vmName, &metav1.DeleteOptions{})).To(Succeed(), "failed to delete VirtualMachine %q: %v", vmName, err)
+					ExpectWithOffset(1, virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vmName, metav1.DeleteOptions{})).To(Succeed(), "failed to delete VirtualMachine %q: %v", vmName, err)
 					EventuallyWithOffset(1, func() bool {
 						obj, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 						return k8serrors.IsNotFound(err) || obj.ObjectMeta.DeletionTimestamp != nil

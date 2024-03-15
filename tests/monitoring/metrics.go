@@ -128,7 +128,7 @@ func setupVM(virtClient kubecli.KubevirtClient) {
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 1)
 
 	By("Deleting the VirtualMachine")
-	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", -1)
