@@ -931,7 +931,7 @@ var _ = Describe("Restore controller", func() {
 					It("with changed name", func() {
 						r.Spec.Patches = []string{changeNamePatch}
 
-						vmInterface.EXPECT().Create(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, newVM *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+						vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).DoAndReturn(func(ctx context.Context, newVM *v1.VirtualMachine, options metav1.CreateOptions) (*v1.VirtualMachine, error) {
 							Expect(newVM.Name).To(Equal(newVmName), "the created VM should be the new VM")
 							return newVM, nil
 						}).Times(1)
@@ -946,7 +946,7 @@ var _ = Describe("Restore controller", func() {
 					It("with changed name and MAC address", func() {
 						r.Spec.Patches = []string{changeNamePatch, changeMacAddressPatch}
 
-						vmInterface.EXPECT().Create(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, newVM *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+						vmInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).DoAndReturn(func(ctx context.Context, newVM *v1.VirtualMachine, options metav1.CreateOptions) (*v1.VirtualMachine, error) {
 							Expect(newVM.Name).To(Equal(newVmName), "the created VM should be the new VM")
 
 							interfaces := newVM.Spec.Template.Spec.Domain.Devices.Interfaces
@@ -1027,8 +1027,8 @@ var _ = Describe("Restore controller", func() {
 				vm.ResourceVersion = ""
 				vm.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 				vmInterface.EXPECT().
-					Create(context.Background(), vm).
-					Do(func(ctx context.Context, newVM *v1.VirtualMachine) {
+					Create(context.Background(), vm, metav1.CreateOptions{}).
+					Do(func(ctx context.Context, newVM *v1.VirtualMachine, options metav1.CreateOptions) {
 						vm.UID = newVMUID
 					}).Return(vm, nil)
 			}
@@ -1070,8 +1070,8 @@ var _ = Describe("Restore controller", func() {
 				vm.ResourceVersion = ""
 				vm.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 				vmInterface.EXPECT().
-					Create(context.Background(), vm).
-					Do(func(ctx context.Context, newVM *v1.VirtualMachine) {
+					Create(context.Background(), vm, metav1.CreateOptions{}).
+					Do(func(ctx context.Context, newVM *v1.VirtualMachine, options metav1.CreateOptions) {
 						vm.UID = newVMUID
 					}).Return(vm, fmt.Errorf(vmCreationFailureMessage))
 			}

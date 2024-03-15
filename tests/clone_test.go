@@ -67,7 +67,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		vm.Spec.Template.ObjectMeta.Labels = vmi.Labels
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		return
@@ -533,7 +533,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				)
 				vm.Spec.Running = pointer.Bool(running)
 
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				if !running && libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
@@ -683,7 +683,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 							Kind: "VirtualMachinePreference",
 						}
 
-						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM)
+						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						for _, dvt := range sourceVM.Spec.DataVolumeTemplates {

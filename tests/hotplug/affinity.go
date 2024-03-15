@@ -109,7 +109,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -166,7 +166,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)

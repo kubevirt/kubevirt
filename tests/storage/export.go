@@ -1152,7 +1152,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		waitForDisksComplete(vm)
 		return vm
@@ -1704,7 +1704,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resCM).ToNot(BeNil())
 		Expect(resVM.Spec.Running).ToNot(BeNil())
 		*resVM.Spec.Running = true
-		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM)
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
 		waitForDisksComplete(resVM)
@@ -1768,7 +1768,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resCM).ToNot(BeNil())
 		Expect(resVM.Spec.Running).ToNot(BeNil())
 		*resVM.Spec.Running = true
-		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM)
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
 		waitForDisksComplete(resVM)
@@ -1985,7 +1985,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resCM).ToNot(BeNil())
 		Expect(resVM.Spec.Running).ToNot(BeNil())
 		*resVM.Spec.Running = true
-		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM)
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
 		waitForDisksComplete(resVM)

@@ -97,7 +97,7 @@ var _ = SIGDescribe("Memory dump", func() {
 	createAndStartVM := func() *v1.VirtualMachine {
 		By("Creating VirtualMachine")
 		vm := libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning())
-		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})

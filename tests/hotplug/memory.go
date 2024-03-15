@@ -75,7 +75,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
 			}
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			EventuallyWithOffset(1, ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)

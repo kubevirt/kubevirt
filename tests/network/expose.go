@@ -617,7 +617,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vm := libvmi.NewVirtualMachine(newLabeledVMI("vm"))
 
 			By("Creating the VM")
-			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			return vm, err
 		}
 

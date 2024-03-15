@@ -57,8 +57,8 @@ type vm struct {
 }
 
 // Create new VirtualMachine in the cluster to specified namespace
-func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	newVm, err := v.VirtualMachineInterface.Create(ctx, vm, k8smetav1.CreateOptions{})
+func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine, opts k8smetav1.CreateOptions) (*v1.VirtualMachine, error) {
+	newVm, err := v.VirtualMachineInterface.Create(ctx, vm, opts)
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return newVm, err
