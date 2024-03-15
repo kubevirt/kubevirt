@@ -6,7 +6,6 @@ aliases:
     - stu-gott
     - fabiand
     - AlonaKaplan
-    - dhiller
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -25,10 +24,10 @@ aliases:
     - codificat
     - ashleyschuett
     - zcahana
+    - dhiller # 2024-03-15
   code-reviewers:
     - stu-gott
     - vladikr
-    - dhiller
     - enp0s3
     - jean-edouard
     - AlonaKaplan
