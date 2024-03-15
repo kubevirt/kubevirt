@@ -2285,7 +2285,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Vir
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 	return vm, err
 }
 
@@ -2305,7 +2305,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Virtua
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 }
 
 // parseGeneration will parse for the last value after a '-'. It is assumed the

@@ -1852,7 +1852,7 @@ spec:
 					Expect(err).ToNot(HaveOccurred())
 
 					ops := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations", "value": %s }]`, string(annotationBytes))
-					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(ops), &metav1.PatchOptions{})
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
 					return err
 				}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 

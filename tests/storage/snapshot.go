@@ -269,7 +269,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		It("[test_id:4610]create a snapshot when VM is running should succeed", func() {
 			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*vm.Spec.Running).Should(BeTrue())
 
@@ -278,7 +278,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		It("should create a snapshot when VM runStrategy is Manual", func() {
 			patch := []byte("[{ \"op\": \"remove\", \"path\": \"/spec/running\"}, { \"op\": \"add\", \"path\": \"/spec/runStrategy\", \"value\": \"Manual\"}]")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).Should(Equal(v1.RunStrategyManual))
@@ -288,7 +288,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		It("VM should contain snapshot status for all volumes", func() {
 			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
@@ -473,7 +473,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				snapshot = newSnapshot()

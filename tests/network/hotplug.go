@@ -194,7 +194,7 @@ func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIf
 		return err
 	}
 
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
 }
 
@@ -206,6 +206,6 @@ func removeInterface(vm *v1.VirtualMachine, name string) error {
 	if err != nil {
 		return err
 	}
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
 }

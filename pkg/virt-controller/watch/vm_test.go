@@ -212,13 +212,13 @@ var _ = Describe("VirtualMachine", func() {
 		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vm, nil)
 		}
 
 		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vm, nil)
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -1152,7 +1152,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				if runStrategy == virtv1.RunStrategyRerunOnFailure {
 					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
 							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 						}).Return(vm, nil).Times(2)
 				}
@@ -1513,7 +1513,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				if runStrategy == virtv1.RunStrategyRerunOnFailure {
 					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
 							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 						}).Return(vm, nil).Times(1)
 				}
@@ -2052,7 +2052,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			if runStrategy == virtv1.RunStrategyRerunOnFailure {
 				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-					func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+					func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
 						Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 					}).Return(vm, nil).Times(1)
 			}
@@ -3072,7 +3072,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				if runStrategy == virtv1.RunStrategyRerunOnFailure {
 					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
 							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 						}).Return(vm, nil).Times(1)
 				}
@@ -3753,7 +3753,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -3930,7 +3930,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -3962,7 +3962,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4036,7 +4036,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4254,7 +4254,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4442,7 +4442,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4475,7 +4475,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4549,7 +4549,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4688,7 +4688,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4736,7 +4736,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4786,7 +4786,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4821,7 +4821,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4869,7 +4869,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
@@ -4916,7 +4916,7 @@ var _ = Describe("VirtualMachine", func() {
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
+					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
