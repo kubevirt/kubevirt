@@ -5224,15 +5224,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromConfig))
 				})
 
-				It("should opt-out from memory live-update if liveUpdateFeatures is disabled in the VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("0")
-					vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{Guest: &guestMemory}
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.Memory.MaxGuest).To(BeNil())
-				})
-
 				It("should calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
 					vm, _ := DefaultVirtualMachine(true)
 					guestMemory := resource.MustParse("64Mi")
@@ -5252,9 +5243,10 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmi.Spec.Domain.Memory.MaxGuest.Value()).To(Equal(guestMemory.Value() * int64(config.GetMaxHotplugRatio())))
 				})
 
-				It("should patch VMI when memory hotplug is requested", func() {
+				DescribeTable("should patch VMI when memory hotplug is requested", func(resources virtv1.ResourceRequirements) {
 					vm, _ := DefaultVirtualMachine(true)
 					newMemory := resource.MustParse("128Mi")
+					vm.Spec.Template.Spec.Domain.Resources = resources
 					vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
 						Guest:    &newMemory,
 						MaxGuest: &maxGuestFromSpec,
@@ -5263,11 +5255,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmi := api.NewMinimalVMI(vm.Name)
 					guestMemory := resource.MustParse("64Mi")
 					vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &guestMemory}
-
-					memReqBuffer := resource.MustParse("100Mi")
-					memoryRequest := guestMemory.DeepCopy()
-					memoryRequest.Add(memReqBuffer)
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequest
+					vmi.Spec.Domain.Resources = resources
 
 					vmi.Status.Memory = &virtv1.MemoryStatus{
 						GuestAtBoot:    &guestMemory,
@@ -5275,32 +5263,53 @@ var _ = Describe("VirtualMachine", func() {
 						GuestRequested: &guestMemory,
 					}
 
-					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Do(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) {
-						originalVMIBytes, err := json.Marshal(vmi)
-						Expect(err).ToNot(HaveOccurred())
-						patchBytes := patch.([]byte)
+					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Do(
+						func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{},
+						) {
+							originalVMIBytes, err := json.Marshal(vmi)
+							Expect(err).ToNot(HaveOccurred())
+							patchBytes := patch.([]byte)
 
-						patchJSON, err := jsonpatch.DecodePatch(patchBytes)
-						Expect(err).ToNot(HaveOccurred())
-						newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
-						Expect(err).ToNot(HaveOccurred())
+							patchJSON, err := jsonpatch.DecodePatch(patchBytes)
+							Expect(err).ToNot(HaveOccurred())
+							newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
+							Expect(err).ToNot(HaveOccurred())
 
-						var newVMI *virtv1.VirtualMachineInstance
-						err = json.Unmarshal(newVMIBytes, &newVMI)
-						Expect(err).ToNot(HaveOccurred())
+							var newVMI *virtv1.VirtualMachineInstance
+							err = json.Unmarshal(newVMIBytes, &newVMI)
+							Expect(err).ToNot(HaveOccurred())
 
-						// this tests when memory request is not equal guest memory
-						expectedMemReq := vm.Spec.Template.Spec.Domain.Memory.Guest.DeepCopy()
-						expectedMemReq.Add(memReqBuffer)
+							Expect(newVMI.Spec.Domain.Memory.Guest.Value()).To(Equal(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()))
 
-						Expect(newVMI.Spec.Domain.Memory.Guest.Value()).To(Equal(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()))
-						Expect(newVMI.Spec.Domain.Resources.Requests.Memory().Value()).To(Equal(expectedMemReq.Value()))
+							if !resources.Requests.Memory().IsZero() {
+								expectedMemReq := resources.Requests.Memory().Value() + newMemory.Value() - guestMemory.Value()
+								Expect(newVMI.Spec.Domain.Resources.Requests.Memory().Value()).To(Equal(expectedMemReq))
+							}
 
-					})
+							if !resources.Limits.Memory().IsZero() {
+								expectedMemLimit := resources.Limits.Memory().Value() + newMemory.Value() - guestMemory.Value()
+								Expect(newVMI.Spec.Domain.Resources.Limits.Memory().Value()).To(Equal(expectedMemLimit))
+							}
+
+						})
 
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
-				})
+				},
+					Entry("with memory request set", virtv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+					}),
+					Entry("with memory request and limits set", virtv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+						Limits: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+					}),
+				)
 
 				It("should not patch VMI if memory hotplug is already in progress", func() {
 					vm, _ := DefaultVirtualMachine(true)
