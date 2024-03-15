@@ -292,14 +292,8 @@ type VirtualMachineInstancePresetInterface interface {
 // VirtualMachineInterface provides convenience methods to work with
 // virtual machines inside the cluster
 type VirtualMachineInterface interface {
-	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.VirtualMachine, error)
+	kvcorev1.VirtualMachineInterface
 	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineList, error)
-	Create(ctx context.Context, vm *v1.VirtualMachine, opts metav1.CreateOptions) (*v1.VirtualMachine, error)
-	Update(ctx context.Context, vm *v1.VirtualMachine, opts metav1.UpdateOptions) (*v1.VirtualMachine, error)
-	Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
-	UpdateStatus(ctx context.Context, vm *v1.VirtualMachine, opts metav1.UpdateOptions) (*v1.VirtualMachine, error)
 	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.VirtualMachine, err error)
 	Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error

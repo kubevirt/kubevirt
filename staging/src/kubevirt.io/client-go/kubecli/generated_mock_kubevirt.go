@@ -1588,8 +1588,61 @@ func (_m *MockVirtualMachineInterface) EXPECT() *_MockVirtualMachineInterfaceRec
 	return _m.recorder
 }
 
-func (_m *MockVirtualMachineInterface) Get(ctx context.Context, name string, options v12.GetOptions) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "Get", ctx, name, options)
+func (_m *MockVirtualMachineInterface) Create(ctx context.Context, virtualMachine *v120.VirtualMachine, opts v12.CreateOptions) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Create", ctx, virtualMachine, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInterface) Update(ctx context.Context, virtualMachine *v120.VirtualMachine, opts v12.UpdateOptions) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Update", ctx, virtualMachine, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInterface) UpdateStatus(ctx context.Context, virtualMachine *v120.VirtualMachine, opts v12.UpdateOptions) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, virtualMachine, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInterface) Delete(ctx context.Context, name string, opts v12.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", ctx, name, opts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInterface) DeleteCollection(ctx context.Context, opts v12.DeleteOptions, listOpts v12.ListOptions) error {
+	ret := _m.ctrl.Call(_m, "DeleteCollection", ctx, opts, listOpts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteCollection", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInterface) Get(ctx context.Context, name string, opts v12.GetOptions) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Get", ctx, name, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -1597,17 +1650,6 @@ func (_m *MockVirtualMachineInterface) Get(ctx context.Context, name string, opt
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
-}
-
-func (_m *MockVirtualMachineInterface) GetWithExpandedSpec(ctx context.Context, name string) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "GetWithExpandedSpec", ctx, name)
-	ret0, _ := ret[0].(*v120.VirtualMachine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirtualMachineInterfaceRecorder) GetWithExpandedSpec(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetWithExpandedSpec", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInterface) List(ctx context.Context, opts v12.ListOptions) (*v120.VirtualMachineList, error) {
@@ -1621,40 +1663,19 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) List(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInterface) Create(ctx context.Context, vm *v120.VirtualMachine, opts v12.CreateOptions) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "Create", ctx, vm, opts)
-	ret0, _ := ret[0].(*v120.VirtualMachine)
+func (_m *MockVirtualMachineInterface) Watch(ctx context.Context, opts v12.ListOptions) (watch.Interface, error) {
+	ret := _m.ctrl.Call(_m, "Watch", ctx, opts)
+	ret0, _ := ret[0].(watch.Interface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
+func (_mr *_MockVirtualMachineInterfaceRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInterface) Update(ctx context.Context, vm *v120.VirtualMachine, opts v12.UpdateOptions) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "Update", ctx, vm, opts)
-	ret0, _ := ret[0].(*v120.VirtualMachine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirtualMachineInterfaceRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
-}
-
-func (_m *MockVirtualMachineInterface) Delete(ctx context.Context, name string, options v12.DeleteOptions) error {
-	ret := _m.ctrl.Call(_m, "Delete", ctx, name, options)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirtualMachineInterfaceRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
-}
-
-func (_m *MockVirtualMachineInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions v12.PatchOptions, subresources ...string) (*v120.VirtualMachine, error) {
-	_s := []interface{}{ctx, name, pt, data, patchOptions}
+func (_m *MockVirtualMachineInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions, subresources ...string) (*v120.VirtualMachine, error) {
+	_s := []interface{}{ctx, name, pt, data, opts}
 	for _, _x := range subresources {
 		_s = append(_s, _x)
 	}
@@ -1669,15 +1690,15 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Patch(arg0, arg1, arg2, arg3, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInterface) UpdateStatus(ctx context.Context, vm *v120.VirtualMachine, opts v12.UpdateOptions) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, vm, opts)
+func (_m *MockVirtualMachineInterface) GetWithExpandedSpec(ctx context.Context, name string) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "GetWithExpandedSpec", ctx, name)
 	ret0, _ := ret[0].(*v120.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1, arg2)
+func (_mr *_MockVirtualMachineInterfaceRecorder) GetWithExpandedSpec(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetWithExpandedSpec", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInterface) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions v12.PatchOptions) (*v120.VirtualMachine, error) {
