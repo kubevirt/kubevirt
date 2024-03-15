@@ -1867,7 +1867,7 @@ spec:
 						return false
 					}
 					vm.Spec.RunStrategy = &runStrategyHalted
-					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Update(context.Background(), vm)
+					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Update(context.Background(), vm, metav1.UpdateOptions{})
 					if err != nil {
 						return false
 					}

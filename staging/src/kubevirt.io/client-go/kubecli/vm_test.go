@@ -31,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -139,7 +140,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(context.Background(), vm)
+		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(context.Background(), vm, metav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
