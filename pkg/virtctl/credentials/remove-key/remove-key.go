@@ -72,7 +72,7 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSs
 		return fmt.Errorf("error getting kubevirt client: %w", err)
 	}
 
-	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, &metav1.GetOptions{})
+	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}

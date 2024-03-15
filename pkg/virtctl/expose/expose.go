@@ -176,7 +176,7 @@ func (o *Command) RunE(args []string) error {
 		delete(serviceSelector, virtv1.MigrationTargetNodeNameLabel)
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		// get the VM
-		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &options)
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, options)
 		if err != nil {
 			return fmt.Errorf("error fetching Virtual Machine: %v", err)
 		}

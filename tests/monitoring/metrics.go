@@ -141,7 +141,7 @@ func createRunningVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
 	}, 300*time.Second, 1*time.Second).Should(BeTrue())

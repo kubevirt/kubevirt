@@ -292,7 +292,7 @@ type VirtualMachineInstancePresetInterface interface {
 // VirtualMachineInterface provides convenience methods to work with
 // virtual machines inside the cluster
 type VirtualMachineInterface interface {
-	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachine, error)
+	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.VirtualMachine, error)
 	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
 	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineList, error)
 	Create(ctx context.Context, vm *v1.VirtualMachine, opts metav1.CreateOptions) (*v1.VirtualMachine, error)

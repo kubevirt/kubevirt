@@ -192,7 +192,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Checking the new guest memory base value")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
