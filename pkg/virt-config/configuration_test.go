@@ -163,31 +163,35 @@ var _ = Describe("test configuration", func() {
 		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", virtconfig.DefaultPPC64LEMachineType),
 	)
 
-	Context("when deprecated machineType is set", func() {
-		It("it should have higher priority than the architectureConfiguration", func() {
-			const machineType = "quantum-qc35"
-			const cpuArch = "amd64"
+	It("architectureConfiguration fields should not have higher priority when deprecated options are set", func() {
+		const machineType = "quantum-qc35"
+		const ovmfPath = "/usr/share/something"
+		const cpuArch = "amd64"
+		emulatedMachines := []string{"quantum-*", "old-something-*"}
 
-			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
-				},
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						MachineType: machineType,
-						ArchitectureConfiguration: &v1.ArchConfiguration{
-							Amd64: &v1.ArchSpecificConfiguration{MachineType: virtconfig.DefaultAMD64MachineType},
-						},
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType:      machineType,
+					EmulatedMachines: emulatedMachines,
+					OVMFPath:         ovmfPath,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: virtconfig.DefaultAMD64MachineType},
 					},
 				},
-				Status: v1.KubeVirtStatus{
-					Phase: "Deployed",
-				},
-			}, cpuArch)
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		}, cpuArch)
 
-			Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(machineType))
-		})
+		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(machineType))
+		Expect(clusterConfig.GetEmulatedMachines(cpuArch)).To(Equal(emulatedMachines))
+		Expect(clusterConfig.GetOVMFPath(cpuArch)).To(Equal(ovmfPath))
 	})
 
 	DescribeTable(" when cpuModel", func(value string, result string) {
