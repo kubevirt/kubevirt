@@ -1746,7 +1746,7 @@ spec:
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
 				Eventually(func() bool {
-					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if virtualMachine.Status.Ready {
 						return true
@@ -1786,7 +1786,7 @@ spec:
 					// We are using our internal client here on purpose to ensure we can interact
 					// with previously created objects that may have been created using a different
 					// api version from the latest one our client uses.
-					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if !virtualMachine.Status.Ready {
 						return false
@@ -1844,7 +1844,7 @@ spec:
 
 				By("Ensuring we can Modify the VM Spec")
 				Eventually(func() error {
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -1862,7 +1862,7 @@ spec:
 
 				// change run stategy to halted to be able to restore the vm
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					if err != nil {
 						return false
 					}
@@ -1871,7 +1871,7 @@ spec:
 					if err != nil {
 						return false
 					}
-					updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVM.Spec.Running == nil && updatedVM.Spec.RunStrategy != nil && *updatedVM.Spec.RunStrategy == runStrategyHalted
 				}, 30*time.Second, 3*time.Second).Should(BeTrue())
@@ -1895,7 +1895,7 @@ spec:
 
 				By("Waiting for VM to be removed")
 				Eventually(func() error {
-					_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					return err
 				}, 90*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			}
@@ -2365,7 +2365,7 @@ spec:
 		AfterEach(func() {
 
 			if vm != nil {
-				_, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				_, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil && !errors.IsNotFound(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}

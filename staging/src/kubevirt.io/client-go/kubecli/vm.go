@@ -65,12 +65,8 @@ func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine, opts k8smetav1.C
 }
 
 // Get the Virtual machine from the cluster by its name and namespace
-func (v *vm) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVm, err := v.VirtualMachineInterface.Get(ctx, name, opts)
+func (v *vm) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
+	newVm, err := v.VirtualMachineInterface.Get(ctx, name, options)
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return newVm, err

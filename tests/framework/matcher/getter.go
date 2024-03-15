@@ -61,7 +61,7 @@ func ThisVM(vm *virtv1.VirtualMachine) func() (*virtv1.VirtualMachine, error) {
 func ThisVMWith(namespace string, name string) func() (*virtv1.VirtualMachine, error) {
 	return func() (p *virtv1.VirtualMachine, err error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+		p, err = virtClient.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}

@@ -676,7 +676,7 @@ func createTestVMRestoreAdmitter(
 		}
 	}
 
-	vmInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string, getOptions *metav1.GetOptions) (*v1.VirtualMachine, error) {
+	vmInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string, getOptions metav1.GetOptions) (*v1.VirtualMachine, error) {
 		if vm != nil && name == vm.Name {
 			return vm, nil
 		}

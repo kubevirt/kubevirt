@@ -90,7 +90,7 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 			hotPluggedVMI = verifySriovDynamicInterfaceChange(hotPluggedVMI, migrationBased)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 
-			updatedVM, err := kubevirt.Client().VirtualMachine(hotPluggedVM.Namespace).Get(context.Background(), hotPluggedVM.Name, &metav1.GetOptions{})
+			updatedVM, err := kubevirt.Client().VirtualMachine(hotPluggedVM.Namespace).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			vmIfaceSpec := vmispec.LookupInterfaceByName(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces, ifaceName)
 			Expect(vmIfaceSpec).NotTo(BeNil(), "VM spec should contain the new interface")

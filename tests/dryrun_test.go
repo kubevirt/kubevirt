@@ -170,7 +170,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
@@ -189,7 +189,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually deleted")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -200,7 +200,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Make a Dry-Run request to update a Virtual Machine")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -212,7 +212,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -228,7 +228,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Labels["key"]).ToNot(Equal("42"))
 		})

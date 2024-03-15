@@ -189,7 +189,7 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, vmRest
 
 	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
 
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		// If the target VM does not exist it would be automatically created by the restore controller
 		return nil, nil, false, nil

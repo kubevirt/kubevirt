@@ -162,7 +162,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 
 			By("Ensuring the vm doesn't have a RestartRequired condition")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 

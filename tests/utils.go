@@ -713,14 +713,14 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	virtClient := kubevirt.Client()
 
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = pointer.P(false)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
 	Eventually(func() error {
@@ -729,7 +729,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	}, timeout, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The vmi did not disappear")
 	By("VM has not the running condition")
 	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
 	}, timeout, 1*time.Second).Should(BeFalse())
@@ -745,14 +745,14 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	virtClient := kubevirt.Client()
 
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = pointer.P(true)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
@@ -761,7 +761,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 	By("VMI has the running condition")
 	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
 	}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1246,7 +1246,7 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 	By("Starting the VirtualMachine")
 
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = nil
 		updatedVM.Spec.RunStrategy = &runStrategy
@@ -1254,7 +1254,7 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	// Observe the VirtualMachineInstance created
@@ -1265,7 +1265,7 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 
 	By("VMI has the running condition")
 	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
 	}, 300*time.Second, 1*time.Second).Should(BeTrue())
