@@ -127,7 +127,7 @@ func (vc *VirtCommand) Run(args []string) error {
 	case COMMAND_PAUSE:
 		switch resourceType {
 		case ARG_VM_LONG, ARG_VM_SHORT:
-			vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), resourceName, &v1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), resourceName, v1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
@@ -159,7 +159,7 @@ func (vc *VirtCommand) Run(args []string) error {
 	case COMMAND_UNPAUSE:
 		switch resourceType {
 		case ARG_VM_LONG, ARG_VM_SHORT:
-			vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), resourceName, &v1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), resourceName, v1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}

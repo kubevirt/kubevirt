@@ -841,7 +841,7 @@ func (app *SubresourceAPIApp) SoftRebootVMIRequestHandler(request *restful.Reque
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
 
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
@@ -866,7 +866,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string
 
 // FetchVirtualMachineInstanceForVM by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)

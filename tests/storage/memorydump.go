@@ -105,7 +105,7 @@ var _ = SIGDescribe("Memory dump", func() {
 				return false
 			}
 			Expect(err).ToNot(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vm.Status.Ready && vmi.Status.Phase == v1.Running
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -175,7 +175,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpCompletion := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -213,7 +213,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpDissociation := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -588,7 +588,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			memoryDumpVirtctlCreatePVCWithStorgeClass(vm.Name, vm.Namespace, memoryDumpPVCName, "no-exist")
 			By("Wait memory dump in progress")
 			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}

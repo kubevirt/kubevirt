@@ -230,7 +230,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			nameMap[volumeName] = true
 		}
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -442,7 +442,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning()), metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vm.Status.Ready
 		}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -790,7 +790,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunning()), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1331,7 +1331,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1416,7 +1416,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1485,7 +1485,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1742,7 +1742,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunning()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1792,7 +1792,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunning()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1847,7 +1847,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1961,7 +1961,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunning()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -2097,7 +2097,7 @@ func verifyVolumeAndDiskVMAdded(virtClient kubecli.KubevirtClient, vm *v1.Virtua
 	}
 	log.Log.Infof("Checking %d volumes", len(volumeNames))
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

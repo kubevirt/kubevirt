@@ -193,7 +193,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			var newSecretName string

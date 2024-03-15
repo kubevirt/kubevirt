@@ -292,7 +292,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
-				vm2, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm2, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By(fmt.Sprintf("VM Statuses: %+v", vm2.Status))
@@ -681,7 +681,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotGuestAgentIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
@@ -938,7 +938,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				waitMemoryDumpCompletion := func(vm *v1.VirtualMachine) {
 					Eventually(func() bool {
-						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						if updatedVM.Status.MemoryDumpRequest == nil ||
 							updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
@@ -970,7 +970,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 					snapshot = waitSnapshotSucceeded(snapshot.Name)
 
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(updatedVM.Status.MemoryDumpRequest).ToNot(BeNil())
 					contentName := *snapshot.Status.VirtualMachineSnapshotContentName
@@ -1102,14 +1102,14 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			It("VM should contain snapshot status for all volumes", func() {
 				volumes := len(vm.Spec.Template.Spec.Volumes)
 				Eventually(func() int {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					return len(vm.Status.VolumeSnapshotStatuses)
 				}, 180*time.Second, time.Second).Should(Equal(volumes))
 
 				Eventually(func() bool {
-					vm2, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm2, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By(fmt.Sprintf("VM Statuses: %+v", vm2.Status))
@@ -1238,7 +1238,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					"Phase": Equal(snapshotv1.InProgress),
 				})))
 
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*updatedVM.Status.SnapshotInProgress).To(Equal(snapshot.Name))
 
@@ -1476,7 +1476,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return len(vm.Status.VolumeSnapshotStatuses) == 1 &&
 						!vm.Status.VolumeSnapshotStatuses[0].Enabled
@@ -1486,7 +1486,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return len(vm.Status.VolumeSnapshotStatuses) == 1 &&
 						vm.Status.VolumeSnapshotStatuses[0].Enabled
@@ -1539,7 +1539,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						!volumeSnapshotStatuses[1].Enabled
 				}
 				Eventually(func() []v1.VolumeSnapshotStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.VolumeSnapshotStatuses
 				}, 180*time.Second, 3*time.Second).WithOffset(1).Should(Satisfy(volumeSnapshotStatusAsExpected))

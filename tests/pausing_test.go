@@ -292,7 +292,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("Checking status of VM")
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &v12.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeFalse())
