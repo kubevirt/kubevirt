@@ -204,7 +204,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err.Error()).To(ContainSubstring("admission webhook \"virtualmachinepool-validator.kubevirt.io\" denied the request: spec.virtualMachineTemplate.spec.template.spec.domain.devices.disks[2].Name 'testdisk' not found"))
 	})
 
-	It("[QUARANTINE] should remove VMs once they are marked for deletion", decorators.Quarantine, func() {
+	It("should remove VMs once they are marked for deletion", func() {
 		newPool := newVirtualMachinePool()
 		// Create a pool with two replicas
 		doScale(newPool.ObjectMeta.Name, 2)
@@ -441,7 +441,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 5*time.Second, 1*time.Second).Should(BeNil())
 	})
 
-	It("[QUARANTINE] should roll out VMI template changes and proactively roll out new VMIs", decorators.Quarantine, func() {
+	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, 1)
 		waitForVMIs(newPool.Namespace, 1)
