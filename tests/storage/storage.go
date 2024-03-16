@@ -1130,9 +1130,6 @@ var _ = SIGDescribe("Storage", func() {
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				labelKey := "testshareablekey"
-				labels := map[string]string{
-					labelKey: "",
-				}
 
 				// give an affinity rule to ensure the vmi's get placed on the same node.
 				affinityRule := &k8sv1.Affinity{
@@ -1155,11 +1152,20 @@ var _ = SIGDescribe("Storage", func() {
 						},
 					},
 				}
-
-				vmi1 = tests.NewRandomVMIWithDataVolume(dv.Name)
-				vmi2 = tests.NewRandomVMIWithDataVolume(dv.Name)
-				vmi1.Labels = labels
-				vmi2.Labels = labels
+				vmi1 = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dv.Name),
+					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithLabel(labelKey, ""),
+				)
+				vmi2 = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dv.Name),
+					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithLabel(labelKey, ""),
+				)
 
 				vmi1.Spec.Affinity = affinityRule
 				vmi2.Spec.Affinity = affinityRule

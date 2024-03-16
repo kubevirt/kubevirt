@@ -285,7 +285,13 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer), BeInPhase(cdiv1.PendingPopulation)))
-	return NewRandomVMIWithDataVolume(dv.Name), dv
+	return libvmi.New(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithDataVolume("disk0", dv.Name),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	), dv
 }
 
 // NewRandomVirtualMachineInstanceWithFileDisk
@@ -348,20 +354,6 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-// NewRandomVMIWithDataVolume
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	diskName := "disk0"
-
-	vmi = libstorage.AddDataVolumeDisk(vmi, diskName, dataVolumeName)
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	return vmi
-}
-
 // NewRandomVMWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly
@@ -385,7 +377,13 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 		),
 	)
 
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	vmi := libvmi.New(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithDataVolume("disk0", dataVolume.Name),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	)
 	vm := libvmi.NewVirtualMachine(vmi)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
@@ -406,7 +404,13 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 	)
 
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	vmi := libvmi.New(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithDataVolume("disk0", dataVolume.Name),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	)
 	vm := libvmi.NewVirtualMachine(vmi)
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
@@ -421,11 +425,18 @@ func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, use
 		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
 		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(dvSizeBySourceURL(imageUrl))),
 	)
-	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
-	AddUserData(vmi, "cloud-init", userData)
-	vm := libvmi.NewVirtualMachine(vmi)
+	vm := libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithDataVolume("disk0", dataVolume.Name),
+			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libvmi.WithCloudInitNoCloudEncodedUserData(userData),
+		),
+		libvmi.WithDataVolumeTemplate(dataVolume),
+	)
 
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
