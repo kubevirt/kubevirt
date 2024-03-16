@@ -354,16 +354,6 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-// NewRandomVMWithEphemeralDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	return vm
-}
-
 // NewRandomVMWithDataVolumeWithRegistryImport
 //
 // Deprecated: Use libvmi directly
