@@ -73,6 +73,7 @@ type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
 	maxFails     int
+	alwaysReport bool
 }
 
 type commands struct {
@@ -85,6 +86,15 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 		failureCount: 0,
 		artifactsDir: artifactsDir,
 		maxFails:     maxFailures,
+	}
+}
+
+func (r *KubernetesReporter) ConfigurePerSpecReporting(report Report) {
+	// we want to emit k8s logs anyhow if we focus tests by i.e. FIt
+	r.alwaysReport = report.SuiteHasProgrammaticFocus
+	_, err := fmt.Fprintf(GinkgoWriter, "ConfigurePerSpecReporting r.alwaysReport = %t", r.alwaysReport)
+	if err != nil {
+		GinkgoT().Error(err)
 	}
 }
 
@@ -104,13 +114,12 @@ func (r *KubernetesReporter) Report(report types.Report) {
 
 func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
-
-	if r.failureCount > r.maxFails {
+	if !r.alwaysReport && r.failureCount > r.maxFails {
 		return
 	}
 	if specReport.Failed() {
 		r.failureCount++
-	} else {
+	} else if !r.alwaysReport {
 		return
 	}
 
