@@ -185,6 +185,14 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					})
 
 				}
+				if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread {
+					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("hotplugged Disk %s can't use dedicated IOThread: scsi bus is unsupported.", k),
+						},
+					})
+				}
 			}
 		}
 	}

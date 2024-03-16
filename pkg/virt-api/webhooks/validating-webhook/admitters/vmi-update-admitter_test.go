@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 
@@ -383,6 +384,16 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
+	makeDisksWithIOThreads := func(indexes ...int) []v1.Disk {
+		res := makeDisks(indexes...)
+		for i, index := range indexes {
+			if i == len(indexes)-1 {
+				res[index].DedicatedIOThread = pointer.Bool(true)
+			}
+		}
+		return res
+	}
+
 	makeDisksInvalidBootOrder := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
 		bootOrder := uint(0)
@@ -539,6 +550,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeFilesystems(),
 			makeStatus(2, 1),
 			nil),
+		Entry("Should reject if we hotplug a volume with dedicated IOThreads",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksWithIOThreads(0, 1),
+			makeDisks(0),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			makeExpected("hotplugged Disk volume-name-1 can't use dedicated IOThread: scsi bus is unsupported.", "")),
 		Entry("Should reject if we add disk with invalid bus",
 			makeVolumes(0, 1),
 			makeVolumes(0),
