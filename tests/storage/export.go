@@ -199,7 +199,7 @@ var _ = SIGDescribe("Export", func() {
 		} else {
 			addFilesystemVolume(pod, volumeName)
 		}
-		return tests.RunPod(pod)
+		return libpod.RunPod(pod)
 	}
 
 	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
@@ -225,7 +225,7 @@ var _ = SIGDescribe("Export", func() {
 		} else {
 			addFilesystemVolume(pod, volumeName)
 		}
-		return tests.RunPod(pod)
+		return libpod.RunPod(pod)
 	}
 
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
@@ -1812,7 +1812,7 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = tests.RunPod(pod)
+		pod = libpod.RunPod(pod)
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
@@ -1845,7 +1845,7 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = tests.RunPod(pod)
+		pod = libpod.RunPod(pod)
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
@@ -1931,7 +1931,7 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = tests.RunPod(pod)
+		pod = libpod.RunPod(pod)
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
 		command := []string{
