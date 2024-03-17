@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "admit.go",
         "slirp.go",
+        "validator.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/admitter",
     visibility = ["//visibility:public"],

@@ -1768,25 +1768,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject specs with multiple pod interfaces", func() {
-			vm := api.NewMinimalVMI("testvm")
-			for i := 1; i < 3; i++ {
-				iface := v1.DefaultBridgeNetworkInterface()
-				net := v1.DefaultPodNetwork()
-
-				// make sure whatever the error we receive is not related to duplicate names
-				name := fmt.Sprintf("podnet%d", i)
-				iface.Name = name
-				net.Name = name
-
-				vm.Spec.Domain.Devices.Interfaces = append(vm.Spec.Domain.Devices.Interfaces, *iface)
-				vm.Spec.Networks = append(vm.Spec.Networks, *net)
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.interfaces"))
-		})
 
 		It("should accept valid MAC address", func() {
 			vmi := api.NewMinimalVMI("testvm")
