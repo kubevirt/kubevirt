@@ -16,6 +16,7 @@
  * Copyright 2019 Red Hat, Inc.
  *
  */
+
 package rbac
 
 import (

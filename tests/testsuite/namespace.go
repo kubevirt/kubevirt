@@ -60,7 +60,10 @@ var NamespaceTestOperator = "kubevirt-test-operator"
 // NamespacePrivileged is used for helper pods that requires to be privileged
 var NamespacePrivileged = "kubevirt-test-privileged"
 
-var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
+// NamespaceVirtctl is used for testing virtctl update machine-types independently.
+var NamespaceTestVirtctl = "kubevirt-test-virtctl"
+
+var TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged, NamespaceTestVirtctl}
 
 type IgnoreDeprecationWarningsLogger struct{}
 
@@ -396,10 +399,11 @@ func CalculateNamespaces() {
 	util.NamespaceTestDefault = fmt.Sprintf("%s%d", util.NamespaceTestDefault, worker)
 	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
 	NamespacePrivileged = fmt.Sprintf("%s%d", NamespacePrivileged, worker)
+	NamespaceTestVirtctl = fmt.Sprintf("%s%d", NamespaceTestVirtctl, worker)
 	// TODO, that is not needed, just a shortcut to not have to treat this namespace
 	// differently when running in parallel
 	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
-	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged}
+	TestNamespaces = []string{util.NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator, NamespacePrivileged, NamespaceTestVirtctl}
 }
 
 func GetTestNamespace(object metav1.Object) string {

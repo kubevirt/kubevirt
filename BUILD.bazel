@@ -195,6 +195,7 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
         "$(container_prefix)/$(image_prefix)network-passt-binding:$(container_tag)": "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
+        "$(container_prefix)/$(image_prefix)mass-machine-type-transition:$(container_tag)": "//cmd/convert-machine-type:mmtt-image",
         # container-disk images
         "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
@@ -230,6 +231,15 @@ container_bundle(
 load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 
 # we need to push virt images with the rule from container:container in order to get the digest file
+container_push(
+    name = "push-mmtt-image",
+    format = "Docker",
+    image = "//cmd/convert-machine-type:mmtt-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)mass-machine-type-transition",
+    tag = "$(container_tag)",
+)
+
 container_push(
     name = "push-virt-operator",
     format = "Docker",

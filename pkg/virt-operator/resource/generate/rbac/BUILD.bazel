@@ -6,6 +6,7 @@ go_library(
         "apiserver.go",
         "cluster.go",
         "controller.go",
+        "convertmachinetype.go",
         "exportproxy.go",
         "handler.go",
         "operator.go",

@@ -24,6 +24,7 @@ go_library(
         "//pkg/virtctl/softreboot:go_default_library",
         "//pkg/virtctl/ssh:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
+        "//pkg/virtctl/update:go_default_library",
         "//pkg/virtctl/usbredir:go_default_library",
         "//pkg/virtctl/version:go_default_library",
         "//pkg/virtctl/vm:go_default_library",
