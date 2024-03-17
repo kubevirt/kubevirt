@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func ValidateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		if iface.State != "" && iface.State != v1.InterfaceStateAbsent {
@@ -59,7 +59,7 @@ func ValidateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	return causes
 }
 
-func ValidateInterfaceBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateInterfaceBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		if iface.Binding != nil {
@@ -84,7 +84,7 @@ func hasInterfaceBindingMethod(iface v1.Interface) bool {
 		iface.InterfaceBindingMethod.Passt != nil
 }
 
-func ValidateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	if countPodNetworks(spec.Networks) > 1 {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueDuplicate,

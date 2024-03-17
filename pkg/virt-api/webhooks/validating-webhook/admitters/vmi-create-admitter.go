@@ -167,7 +167,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
-	causes = append(causes, netadmitter.ValidateSinglePodNetwork(field, spec)...)
+	netValidator := netadmitter.NewValidator(field, spec, config)
+	causes = append(causes, netValidator.Validate()...)
 
 	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
 	causes = append(causes, newCauses...)
@@ -181,7 +182,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
 	}
 
-	causes = append(causes, netadmitter.ValidateSlirpBinding(field, spec, config)...)
 	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
 	causes = append(causes, newCauses...)
 	if done {
@@ -189,8 +189,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
-	causes = append(causes, netadmitter.ValidateInterfaceStateValue(field, spec)...)
-	causes = append(causes, netadmitter.ValidateInterfaceBinding(field, spec)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
