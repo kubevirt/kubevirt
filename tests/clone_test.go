@@ -602,7 +602,13 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				})
 
 				It("with a simple clone", func() {
-					sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
+					running := false
+					if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass) {
+						// with wffc need to start the virtual machine
+						// in order for the pvc to be populated
+						running = true
+					}
+					sourceVM = createVMWithStorageClass(snapshotStorageClass, running)
 					vmClone = generateCloneFromVM()
 
 					createCloneAndWaitForFinish(vmClone)
@@ -732,7 +738,14 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						return vmclone
 					}
 
-					sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
+					running := false
+					wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
+					if wffcSC {
+						// with wffc need to start the virtual machine
+						// in order for the pvc to be populated
+						running = true
+					}
+					sourceVM = createVMWithStorageClass(snapshotStorageClass, running)
 					vmClone = generateCloneWithFilters(sourceVM, targetVMName)
 
 					createCloneAndWaitForFinish(vmClone)
@@ -740,6 +753,10 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
+					if wffcSC {
+						// run the virtual machine for the clone dv to be populated
+						expectVMRunnable(targetVM)
+					}
 
 					By("Creating another clone from the target VM")
 					const cloneFromCloneName = "vm-clone-from-clone"
