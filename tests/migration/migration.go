@@ -360,7 +360,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("InterfaceNotLiveMigratable"))
 			})
@@ -879,7 +879,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				var err error
 				Eventually(func() error {
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 					return err
 				}, 5, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 
@@ -941,7 +941,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Starting a Migration")
 				var err error
 				Eventually(func() error {
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 					return err
 				}, 5, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 
@@ -1097,7 +1097,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
@@ -1136,7 +1136,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Starting a first migration")
 				migration1 := libmigration.New(vmi.Name, vmi.Namespace)
-				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(migration1, &metav1.CreateOptions{})
+				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(context.Background(), migration1, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
@@ -1148,7 +1148,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 						defer GinkgoRecover()
 						defer wg.Done()
 						migration := libmigration.New(vmi.Name, vmi.Namespace)
-						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 						Expect(err).To(HaveOccurred(), fmt.Sprintf("Extra migration %d should have failed to create", n))
 						Expect(err.Error()).To(ContainSubstring(`admission webhook "migration-create-validator.kubevirt.io" denied the request: in-flight migration detected.`))
 					}(n)
@@ -1530,7 +1530,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 
 					By("Waiting for the proxy connection details to appear")
 					Eventually(func() bool {
@@ -1609,7 +1609,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the proxy connection details to appear")
@@ -2008,7 +2008,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				// execute a migration
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for Migration to reach Preparing Target Phase")
@@ -2088,7 +2088,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				// execute a migration
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for Migration to reach Preparing Target Phase")
@@ -2159,7 +2159,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
-				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
@@ -2302,7 +2302,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Starting a Migration")
 				const timeout = 180
 				Eventually(func() error {
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 					return err
 				}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -3312,7 +3312,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmim := libmigration.New(vmi.Name, vmi.Namespace)
 				// not checking err as the migration creation will be blocked immediately by virt-api's validating webhook
 				// if another one is currently running
-				vmim, err = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(vmim, &metav1.CreateOptions{})
+				vmim, err = virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 
 				labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
 				Expect(err).ToNot(HaveOccurred())

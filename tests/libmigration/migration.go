@@ -93,7 +93,7 @@ func RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient kubecli.Kubevi
 func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
 	By("Starting a Migration")
 
-	migrationCreated, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+	migrationCreated, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return migrationCreated
@@ -434,7 +434,7 @@ func RunAndCancelMigration(migration *v1.VirtualMachineInstanceMigration, vmi *v
 	virtClient := kubevirt.Client()
 	By("Starting a Migration")
 	Eventually(func() error {
-		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -466,7 +466,7 @@ func RunAndImmediatelyCancelMigration(migration *v1.VirtualMachineInstanceMigrat
 	virtClient := kubevirt.Client()
 	By("Starting a Migration")
 	Eventually(func() error {
-		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -487,7 +487,7 @@ func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration,
 	virtClient := kubevirt.Client()
 	By("Starting a Migration")
 	Eventually(func() error {
-		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	By("Waiting until the Migration Completes")

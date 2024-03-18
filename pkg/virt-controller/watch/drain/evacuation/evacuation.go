@@ -1,6 +1,7 @@
 package evacuation
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -446,7 +447,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(GenerateNewMigration(vmi.Name, node.Name), &v1.CreateOptions{})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi.Name, node.Name), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)

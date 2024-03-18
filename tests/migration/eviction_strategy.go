@@ -204,7 +204,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(migration, &metav1.CreateOptions{})
+				migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until we have two available pods")

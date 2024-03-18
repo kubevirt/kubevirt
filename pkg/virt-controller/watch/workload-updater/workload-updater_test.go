@@ -1,6 +1,7 @@
 package workloadupdater
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -143,7 +144,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -203,7 +204,7 @@ var _ = Describe("Workload Updater", func() {
 
 			}).Return(nil, nil).Times(1)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
 
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
@@ -245,7 +246,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
@@ -283,7 +284,7 @@ var _ = Describe("Workload Updater", func() {
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
 
 			controller.Execute()
 			testutils.ExpectEvents(recorder, reasons...)
@@ -309,7 +310,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
