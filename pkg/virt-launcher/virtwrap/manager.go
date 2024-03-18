@@ -678,7 +678,12 @@ func (l *LibvirtDomainManager) generateCloudInitEmptyISO(vmi *v1.VirtualMachineI
 //
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
-func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, generateEmptyIsos bool, options *cmdv1.VirtualMachineOptions) (*api.Domain, error) {
+func (l *LibvirtDomainManager) preStartHook(
+	vmi *v1.VirtualMachineInstance,
+	domain *api.Domain,
+	generateEmptyIsos bool,
+	options *cmdv1.VirtualMachineOptions,
+) error {
 	logger := log.Log.Object(vmi)
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
@@ -698,7 +703,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
-		return domain, fmt.Errorf("ReadCloudInitVolumeDataSource failed: %v", err)
+		return fmt.Errorf("ReadCloudInitVolumeDataSource failed: %v", err)
 	}
 
 	// Pass cloud-init data to PreCloudInitIso hook
@@ -706,14 +711,14 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	hooksManager := hooks.GetManager()
 	cloudInitData, err = hooksManager.PreCloudInitIso(vmi, cloudInitData)
 	if err != nil {
-		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
+		return fmt.Errorf("PreCloudInitIso hook failed: %v", err)
 	}
 
 	if cloudInitData != nil {
 		// need to prepare the local path for cloud-init in advance for proper
 		// detection of the disk driver cache mode
 		if err := cloudinit.PrepareLocalPath(vmi.Name, vmi.Namespace); err != nil {
-			return domain, fmt.Errorf("PrepareLocalPath failed: %v", err)
+			return fmt.Errorf("PrepareLocalPath failed: %v", err)
 		}
 		// store the generated cloud init metadata.
 		// cloud init ISO will be generated after the domain definition
@@ -726,7 +731,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 		err := ignition.GenerateIgnitionLocalData(vmi, vmi.Namespace)
 		if err != nil {
-			return domain, err
+			return err
 		}
 	}
 
@@ -740,67 +745,67 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, netsetup.WithDomainAttachments(interfaceDomainAttachments)).SetupPodNetworkPhase2(domain, nonAbsentNets)
 	if err != nil {
-		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
+		return fmt.Errorf("preparing the pod network failed: %v", err)
 	}
 
 	// Create ephemeral disk for container disks
 	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator, disksInfo)
 	if err != nil {
-		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
+		return fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
 	// Create images for volumes that are marked ephemeral.
 	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, domain)
 	if err != nil {
-		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
+		return fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
 	// create empty disks if they exist
 	if err := emptydisk.NewEmptyDiskCreator().CreateTemporaryDisks(vmi); err != nil {
-		return domain, fmt.Errorf("creating empty disks failed: %v", err)
+		return fmt.Errorf("creating empty disks failed: %v", err)
 	}
 	// create ConfigMap disks if they exists
 	if err := config.CreateConfigMapDisks(vmi, generateEmptyIsos); err != nil {
-		return domain, fmt.Errorf("creating config map disks failed: %v", err)
+		return fmt.Errorf("creating config map disks failed: %v", err)
 	}
 	// create Secret disks if they exists
 	if err := config.CreateSecretDisks(vmi, generateEmptyIsos); err != nil {
-		return domain, fmt.Errorf("creating secret disks failed: %v", err)
+		return fmt.Errorf("creating secret disks failed: %v", err)
 	}
 
 	// create Sysprep disks if they exists
 	if err := config.CreateSysprepDisks(vmi, generateEmptyIsos); err != nil {
-		return domain, fmt.Errorf("creating sysprep disks failed: %v", err)
+		return fmt.Errorf("creating sysprep disks failed: %v", err)
 	}
 
 	// create DownwardAPI disks if they exists
 	if err := config.CreateDownwardAPIDisks(vmi, generateEmptyIsos); err != nil {
-		return domain, fmt.Errorf("creating DownwardAPI disks failed: %v", err)
+		return fmt.Errorf("creating DownwardAPI disks failed: %v", err)
 	}
 	// create ServiceAccount disk if exists
 	if err := config.CreateServiceAccountDisk(vmi, generateEmptyIsos); err != nil {
-		return domain, fmt.Errorf("creating service account disk failed: %v", err)
+		return fmt.Errorf("creating service account disk failed: %v", err)
 	}
 	// create downwardMetric disk if exists
 	if err := downwardmetrics.CreateDownwardMetricDisk(vmi); err != nil {
-		return domain, fmt.Errorf("failed to craete downwardMetric disk: %v", err)
+		return fmt.Errorf("failed to craete downwardMetric disk: %v", err)
 	}
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
 		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
 		if err != nil {
-			return domain, err
+			return err
 		}
 		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
-		return domain, fmt.Errorf("Starting qemu agent access credential propagation failed: %v", err)
+		return fmt.Errorf("Starting qemu agent access credential propagation failed: %v", err)
 	}
 
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
-	return domain, err
+	return err
 }
 
 func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -1234,7 +1239,7 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	}
 
 	// We need the domain but it does not exist, so create it
-	if _, err = l.preStartHook(vmi, domain, false, options); err != nil {
+	if err = l.preStartHook(vmi, domain, false, options); err != nil {
 		logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 		return nil, err
 	}

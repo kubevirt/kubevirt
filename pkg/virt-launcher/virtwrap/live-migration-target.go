@@ -158,8 +158,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	dom, err := l.preStartHook(vmi, domain, true, options)
-	if err != nil {
+	if err = l.preStartHook(vmi, domain, true, options); err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
 
@@ -176,7 +175,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	// Right now we need to call OnDefineDomain, so that additional setup, which might be done
 	// by the hook can also be done for the new target pod
 	hooksManager := hooks.GetManager()
-	_, err = hooksManager.OnDefineDomain(&dom.Spec, vmi)
+	_, err = hooksManager.OnDefineDomain(&domain.Spec, vmi)
 	if err != nil {
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
