@@ -340,7 +340,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					expectVMIMigratedToAnotherNode(vmi.Name, node)
 
 					Consistently(func() error {
-						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(&metav1.ListOptions{})
+						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 						if err != nil {
 							return err
 						}
@@ -532,7 +532,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				By("waiting until migration kicks in")
 				Eventually(func() int {
-					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					runningMigrations := filterRunningMigrations(migrationList.Items)
@@ -548,7 +548,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						nodes = append(nodes, vmi.Status.NodeName)
 					}
 
-					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					runningMigrations := filterRunningMigrations(migrationList.Items)

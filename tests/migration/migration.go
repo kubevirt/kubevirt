@@ -1776,7 +1776,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					}, 10*time.Second, time.Second).Should(Succeed(), "Target pod should exit quickly after migration fails.")
 				}
 
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(&metav1.ListOptions{})
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(migrations.Items).To(HaveLen(5))
 			})
@@ -3145,10 +3145,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
 				Expect(err).ToNot(HaveOccurred())
-				listOptions := &metav1.ListOptions{
+				listOptions := metav1.ListOptions{
 					LabelSelector: labelSelector.String(),
 				}
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).List(listOptions)
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).List(context.Background(), listOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				activeMigrations := 0

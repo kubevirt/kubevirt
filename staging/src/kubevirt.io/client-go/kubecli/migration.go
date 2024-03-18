@@ -84,12 +84,8 @@ func (o *migration) Delete(name string, options *k8smetav1.DeleteOptions) error 
 }
 
 // List all VirtualMachineInstanceMigrations in given namespace
-func (o *migration) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error) {
-	opts := k8smetav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVmiMigrationList, err := o.VirtualMachineInstanceMigrationInterface.List(context.Background(), opts)
+func (o *migration) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error) {
+	newVmiMigrationList, err := o.VirtualMachineInstanceMigrationInterface.List(ctx, options)
 	for i := range newVmiMigrationList.Items {
 		newVmiMigrationList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 	}

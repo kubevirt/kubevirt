@@ -91,7 +91,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewMigrationList(*migration)),
 		))
-		fetchedMigrationList, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedMigrationList, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
 		apiVersion, kind := v1.VirtualMachineInstanceMigrationGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))

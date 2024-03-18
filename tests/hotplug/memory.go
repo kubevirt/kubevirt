@@ -125,7 +125,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
 			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(&k8smetav1.ListOptions{})
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, mig := range migrations.Items {
 					if mig.Spec.VMIName == vmi.Name {
