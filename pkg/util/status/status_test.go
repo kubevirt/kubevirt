@@ -298,7 +298,7 @@ var _ = Describe("Status", func() {
 			migrationUpdater := NewMigrationStatusUpdater(virtClient)
 			migrationUpdater.updater.subresource = false
 			migration := &v1.VirtualMachineInstanceMigration{Status: v1.VirtualMachineInstanceMigrationStatus{Phase: v1.MigrationPhaseUnset}}
-			migrationInterface.EXPECT().Update(migration).Return(migration, nil).Times(1)
+			migrationInterface.EXPECT().Update(context.Background(), migration, v12.UpdateOptions{}).Return(migration, nil).Times(1)
 			Expect(migrationUpdater.UpdateStatus(migration)).To(Succeed())
 		})
 	})

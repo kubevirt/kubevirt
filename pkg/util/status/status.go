@@ -184,7 +184,7 @@ func (u *updater) updateUnstructured(obj runtime.Object) (oldStatus interface{},
 		return oldObj.Status, newObj.Status, nil
 	case *v1.VirtualMachineInstanceMigration:
 		oldObj := obj.(*v1.VirtualMachineInstanceMigration)
-		newObj, err := u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).Update(oldObj)
+		newObj, err := u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, nil, err
 		}

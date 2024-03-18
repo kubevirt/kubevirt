@@ -315,7 +315,7 @@ func (c *MigrationController) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(migration)
 		// Ensure the migration contains our selector label
 		ensureSelectorLabelPresent(migration)
-		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migration)
+		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
 		return err
 	}
 
@@ -513,7 +513,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			return err
 		}
 	} else if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
-		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
+		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(context.Background(), migrationCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}

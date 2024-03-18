@@ -97,7 +97,7 @@ var _ = Describe("Migration watcher", func() {
 	var namespace k8sv1.Namespace
 
 	shouldExpectMigrationFinalizerRemoval := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Finalizers).To(BeEmpty())
 			return arg, nil
 		})
