@@ -68,3 +68,16 @@ func validateSingleNetworkSource(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	}
 	return causes
 }
+
+func validateMultusNetworkSource(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	for idx, net := range spec.Networks {
+		if net.Multus != nil && net.Multus.NetworkName == "" {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "CNI delegating plugin must have a networkName",
+				Field:   field.Child("networks").Index(idx).String(),
+			}}
+		}
+	}
+	return nil
+}
