@@ -1877,15 +1877,15 @@ func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Create(arg0, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceMigrationInterface) Update(_param0 *v120.VirtualMachineInstanceMigration) (*v120.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "Update", _param0)
+func (_m *MockVirtualMachineInstanceMigrationInterface) Update(ctx context.Context, virtualMachineInstanceMigration *v120.VirtualMachineInstanceMigration, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "Update", ctx, virtualMachineInstanceMigration, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceMigrationInterface) Delete(name string, options *v12.DeleteOptions) error {

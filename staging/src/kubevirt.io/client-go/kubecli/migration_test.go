@@ -133,7 +133,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
-		updatedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Update(migration)
+		updatedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Update(context.Background(), migration, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

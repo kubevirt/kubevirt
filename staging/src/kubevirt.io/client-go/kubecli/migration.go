@@ -63,8 +63,8 @@ func (o *migration) Get(ctx context.Context, name string, options k8smetav1.GetO
 }
 
 // Update the VirtualMachineInstanceMigration instance in the cluster in given namespace
-func (o *migration) Update(migration *v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error) {
-	updatedVm, err := o.VirtualMachineInstanceMigrationInterface.Update(context.Background(), migration, k8smetav1.UpdateOptions{})
+func (o *migration) Update(ctx context.Context, migration *v1.VirtualMachineInstanceMigration, opts k8smetav1.UpdateOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	updatedVm, err := o.VirtualMachineInstanceMigrationInterface.Update(ctx, migration, opts)
 	updatedVm.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return updatedVm, err
