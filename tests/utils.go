@@ -42,6 +42,7 @@ import (
 
 	v12 "k8s.io/api/apps/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	expect "github.com/google/goexpect"
@@ -53,6 +54,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
@@ -1458,4 +1460,16 @@ func GetDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeplo
 
 func GetDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
 	return components.NewExportProxyDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), "", "", "", config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+}
+
+func PatchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubecli.KubevirtClient, updateStrategy *v1.KubeVirtWorkloadUpdateStrategy, rolloutStrategy *v1.VMRolloutStrategy) {
+	patches := patch.New()
+	patches.Replace("/spec/workloadUpdateStrategy", updateStrategy)
+	patches.Replace("/spec/configuration/vmRolloutStrategy", rolloutStrategy)
+	patch, err := patches.GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+	EventuallyWithOffset(1, func() error {
+		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kvName, types.JSONPatchType, patch, &metav1.PatchOptions{})
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
