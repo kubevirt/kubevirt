@@ -309,13 +309,7 @@ type VirtualMachineInterface interface {
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error)
-	Create(ctx context.Context, migration *v1.VirtualMachineInstanceMigration, options metav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
-	Update(ctx context.Context, virtualMachineInstanceMigration *v1.VirtualMachineInstanceMigration, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceMigration, error)
-	Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
-	UpdateStatus(ctx context.Context, virtualMachineInstanceMigration *v1.VirtualMachineInstanceMigration, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceMigration, error)
+	kvcorev1.VirtualMachineInstanceMigrationInterface
 	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error)
 }
 

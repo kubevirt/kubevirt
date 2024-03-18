@@ -1844,6 +1844,59 @@ func (_m *MockVirtualMachineInstanceMigrationInterface) EXPECT() *_MockVirtualMa
 	return _m.recorder
 }
 
+func (_m *MockVirtualMachineInstanceMigrationInterface) Create(ctx context.Context, virtualMachineInstanceMigration *v120.VirtualMachineInstanceMigration, opts v12.CreateOptions) (*v120.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "Create", ctx, virtualMachineInstanceMigration, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInstanceMigrationInterface) Update(ctx context.Context, virtualMachineInstanceMigration *v120.VirtualMachineInstanceMigration, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "Update", ctx, virtualMachineInstanceMigration, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInstanceMigrationInterface) UpdateStatus(ctx context.Context, virtualMachineInstanceMigration *v120.VirtualMachineInstanceMigration, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, virtualMachineInstanceMigration, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInstanceMigrationInterface) Delete(ctx context.Context, name string, opts v12.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", ctx, name, opts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInstanceMigrationInterface) DeleteCollection(ctx context.Context, opts v12.DeleteOptions, listOpts v12.ListOptions) error {
+	ret := _m.ctrl.Call(_m, "DeleteCollection", ctx, opts, listOpts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteCollection", arg0, arg1, arg2)
+}
+
 func (_m *MockVirtualMachineInstanceMigrationInterface) Get(ctx context.Context, name string, opts v12.GetOptions) (*v120.VirtualMachineInstanceMigration, error) {
 	ret := _m.ctrl.Call(_m, "Get", ctx, name, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
@@ -1866,36 +1919,15 @@ func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) List(arg0, arg
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceMigrationInterface) Create(ctx context.Context, migration *v120.VirtualMachineInstanceMigration, options v12.CreateOptions) (*v120.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "Create", ctx, migration, options)
-	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
+func (_m *MockVirtualMachineInstanceMigrationInterface) Watch(ctx context.Context, opts v12.ListOptions) (watch.Interface, error) {
+	ret := _m.ctrl.Call(_m, "Watch", ctx, opts)
+	ret0, _ := ret[0].(watch.Interface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
-}
-
-func (_m *MockVirtualMachineInstanceMigrationInterface) Update(ctx context.Context, virtualMachineInstanceMigration *v120.VirtualMachineInstanceMigration, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "Update", ctx, virtualMachineInstanceMigration, opts)
-	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
-}
-
-func (_m *MockVirtualMachineInstanceMigrationInterface) Delete(ctx context.Context, name string, options v12.DeleteOptions) error {
-	ret := _m.ctrl.Call(_m, "Delete", ctx, name, options)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceMigrationInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions, subresources ...string) (*v120.VirtualMachineInstanceMigration, error) {
@@ -1912,17 +1944,6 @@ func (_m *MockVirtualMachineInstanceMigrationInterface) Patch(ctx context.Contex
 func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
-}
-
-func (_m *MockVirtualMachineInstanceMigrationInterface) UpdateStatus(ctx context.Context, virtualMachineInstanceMigration *v120.VirtualMachineInstanceMigration, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, virtualMachineInstanceMigration, opts)
-	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceMigrationInterface) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions) (*v120.VirtualMachineInstanceMigration, error) {
