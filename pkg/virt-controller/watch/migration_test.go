@@ -184,48 +184,48 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	shouldExpectGenericMigrationUpdate := func() {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			return arg, nil
 		})
 	}
 
 	shouldExpectMigrationSchedulingState := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(virtv1.MigrationScheduling))
 			return arg, nil
 		})
 	}
 
 	shouldExpectMigrationPreparingTargetState := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(virtv1.MigrationPreparingTarget))
 			return arg, nil
 		})
 	}
 
 	shouldExpectMigrationTargetReadyState := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(virtv1.MigrationTargetReady))
 			return arg, nil
 		})
 	}
 
 	shouldExpectMigrationRunningState := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(virtv1.MigrationRunning))
 			return arg, nil
 		})
 	}
 
 	shouldExpectMigrationCompletedState := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(virtv1.MigrationSucceeded))
 			return arg, nil
 		})
 	}
 
 	shouldExpectMigrationStateUpdatedAndFinalizerRemoved := func(migration *virtv1.VirtualMachineInstanceMigration, mState *virtv1.VirtualMachineInstanceMigrationState) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.MigrationState).To(Equal(mState))
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Finalizers).To(BeEmpty())
 			return arg, nil
@@ -233,7 +233,7 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	shouldExpectMigrationFailedState := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(virtv1.MigrationFailed))
 			return arg, nil
 		})
@@ -252,7 +252,7 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	shouldExpectMigrationCondition := func(migration *virtv1.VirtualMachineInstanceMigration, conditionType virtv1.VirtualMachineInstanceMigrationConditionType) {
-		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 			vmim := arg.(*virtv1.VirtualMachineInstanceMigration)
 			ExpectWithOffset(1, vmim.Name).To(Equal(migration.Name))
 
@@ -1018,7 +1018,7 @@ var _ = Describe("Migration watcher", func() {
 				finalizedMigrations++
 				shouldExpectMigrationDeletion("should-delete", finalizedMigrations-defaultFinalizedMigrationGarbageCollectionBuffer)
 			} else {
-				migrationInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes().DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+				migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).AnyTimes().DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
 					return arg, nil
 				})
 			}

@@ -1914,15 +1914,15 @@ func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Patch(arg0, ar
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInstanceMigrationInterface) UpdateStatus(_param0 *v120.VirtualMachineInstanceMigration) (*v120.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+func (_m *MockVirtualMachineInstanceMigrationInterface) UpdateStatus(ctx context.Context, virtualMachineInstanceMigration *v120.VirtualMachineInstanceMigration, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, virtualMachineInstanceMigration, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceMigrationInterface) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions) (*v120.VirtualMachineInstanceMigration, error) {

@@ -222,7 +222,7 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 		_, err = u.cli.ReplicaSet(a.GetNamespace()).UpdateStatus(oldObj)
 	case *v1.VirtualMachineInstanceMigration:
 		oldObj := obj.(*v1.VirtualMachineInstanceMigration)
-		_, err = u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).UpdateStatus(oldObj)
+		_, err = u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
 		_, err = u.cli.KubeVirt(a.GetNamespace()).UpdateStatus(oldObj)
