@@ -156,8 +156,8 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
 
-		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Patch(migration.Name, types.MergePatchType,
-			[]byte("{\"spec\":{\"vmiName\":something}}"))
+		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Patch(context.Background(), migration.Name, types.MergePatchType,
+			[]byte("{\"spec\":{\"vmiName\":something}}"), k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

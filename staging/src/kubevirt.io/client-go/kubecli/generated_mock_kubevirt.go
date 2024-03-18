@@ -1898,8 +1898,8 @@ func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Delete(arg0, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceMigrationInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v120.VirtualMachineInstanceMigration, error) {
-	_s := []interface{}{name, pt, data}
+func (_m *MockVirtualMachineInstanceMigrationInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions, subresources ...string) (*v120.VirtualMachineInstanceMigration, error) {
+	_s := []interface{}{ctx, name, pt, data, opts}
 	for _, _x := range subresources {
 		_s = append(_s, _x)
 	}
@@ -1909,8 +1909,8 @@ func (_m *MockVirtualMachineInstanceMigrationInterface) Patch(name string, pt ty
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
@@ -1925,15 +1925,15 @@ func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) UpdateStatus(a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
 }
 
-func (_m *MockVirtualMachineInstanceMigrationInterface) PatchStatus(name string, pt types.PatchType, data []byte) (*v120.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "PatchStatus", name, pt, data)
+func (_m *MockVirtualMachineInstanceMigrationInterface) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions) (*v120.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "PatchStatus", ctx, name, pt, data, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) PatchStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2)
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) PatchStatus(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2, arg3, arg4)
 }
 
 // Mock of KubeVirtInterface interface
