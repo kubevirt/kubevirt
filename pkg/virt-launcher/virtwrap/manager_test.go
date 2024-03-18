@@ -98,6 +98,9 @@ var _ = Describe("Manager", func() {
 	var testEphemeralDiskDir string
 	var metadataCache *metadata.Cache
 	var topology *cmdv1.Topology
+	const cpuModelWithDeprecatedFeature = "Skylake-Client-IBRS"
+	const deprecatedFeatureToDisable = "mpx"
+	cpuModelToFeatureToDisableMap := map[string]*cmdv1.FeaturesToDisable{cpuModelWithDeprecatedFeature: {Features: []string{deprecatedFeatureToDisable}}}
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
@@ -409,16 +412,17 @@ var _ = Describe("Manager", func() {
 		serialConsoleLogDisabled := clusterConfig.IsSerialConsoleLogDisabled()
 
 		c := &converter.ConverterContext{
-			Architecture:      runtime.GOARCH,
-			VirtualMachine:    vmi,
-			AllowEmulation:    true,
-			SMBios:            &cmdv1.SMBios{},
-			HotplugVolumes:    hotplugVolumes,
-			PermanentVolumes:  permanentVolumes,
-			FreePageReporting: isFreePageReportingEnabled(freePageReportingDisabled, vmi),
-			SerialConsoleLog:  isSerialConsoleLogEnabled(serialConsoleLogDisabled, vmi),
-			CPUSet:            []int{0, 1, 2, 3, 4, 5},
-			Topology:          topology,
+			Architecture:                runtime.GOARCH,
+			VirtualMachine:              vmi,
+			AllowEmulation:              true,
+			SMBios:                      &cmdv1.SMBios{},
+			HotplugVolumes:              hotplugVolumes,
+			PermanentVolumes:            permanentVolumes,
+			FreePageReporting:           isFreePageReportingEnabled(freePageReportingDisabled, vmi),
+			SerialConsoleLog:            isSerialConsoleLogEnabled(serialConsoleLogDisabled, vmi),
+			CPUSet:                      []int{0, 1, 2, 3, 4, 5},
+			Topology:                    topology,
+			CpuModelToFeaturesToDisable: cpuModelToFeatureToDisableMap,
 		}
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -431,6 +435,30 @@ var _ = Describe("Manager", func() {
 		mockDomain.EXPECT().Free()
 		return mockDomain, nil
 	}
+	DescribeTable("CPU features in CpuModelToFeaturesToDisable",
+		func(model string, vmiFeatures []v1.CPUFeature, expectDomainFeature []api.CPUFeature) {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: model, Features: vmiFeatures}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			domainSpec := expectedDomainFor(vmi)
+
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockConn.EXPECT().DomainDefineXML(string(xml)).DoAndReturn(mockDomainWithFreeExpectation)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, CpuModelToFeaturesToDisable: cpuModelToFeatureToDisableMap})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newspec).ToNot(BeNil())
+			Expect(newspec.CPU.Features).To(Equal(expectDomainFeature))
+
+		},
+		Entry("should be disabled if they are listed in the cpuFeaturesToDisable configuration with the relevant CPU Model", cpuModelWithDeprecatedFeature, []v1.CPUFeature{}, []api.CPUFeature{{Name: deprecatedFeatureToDisable, Policy: "disable"}}),
+		Entry("should be ignored if they conflict the configuration policy specified in VMI.Spec.Domain.CPU.Features", cpuModelWithDeprecatedFeature, []v1.CPUFeature{{Name: deprecatedFeatureToDisable, Policy: "require"}}, []api.CPUFeature{{Name: deprecatedFeatureToDisable, Policy: "require"}}),
+		Entry("should be ignored in case the CPU model doesn't match any key in the cpuFeaturesToDisable configuration", "Cooperlake", []v1.CPUFeature{}, nil),
+	)
 
 	Context("on successful VirtualMachineInstance sync", func() {
 		It("should define and start a new VirtualMachineInstance", func() {
