@@ -73,6 +73,8 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 			// As with the previous case, it is up to the user to issue a retry.
 			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
 		}
+
+		return denied(fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name))
 	}
 
 	// We can let the request go through because the pod is protected by a PDB if the VMI wants to be live-migrated on

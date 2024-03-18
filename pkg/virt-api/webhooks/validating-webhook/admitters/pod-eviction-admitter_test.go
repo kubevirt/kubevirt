@@ -101,7 +101,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 	})
 
-	DescribeTable("should trigger VMI Evacuation and allow the request", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
+	DescribeTable("should trigger VMI Evacuation and deny the request", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
 		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
@@ -130,11 +130,15 @@ var _ = Describe("Pod eviction admitter", func() {
 			VirtClient:    virtClient,
 		}
 
+		expectedAdmissionResponse := newDeniedAdmissionResponse(
+			fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name),
+		)
+
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
 		)
 
-		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is migratable",
@@ -388,7 +392,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 	})
 
-	It("should allow the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
+	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
 		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
 		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
 
@@ -416,6 +420,10 @@ var _ = Describe("Pod eviction admitter", func() {
 					DryRun: []string{metav1.DryRunAll},
 				}).Return(migratableVMI, nil)
 
+		expectedAdmissionResponse := newDeniedAdmissionResponse(
+			fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", migratableVMI.Namespace, migratableVMI.Name),
+		)
+
 		admitter := admitters.PodEvictionAdmitter{
 			ClusterConfig: newClusterConfig(nil),
 			VirtClient:    virtClient,
@@ -425,7 +433,7 @@ var _ = Describe("Pod eviction admitter", func() {
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, isDryRun),
 		)
 
-		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 	})
 })
