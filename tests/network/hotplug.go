@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +40,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 const (
@@ -153,7 +153,7 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 }
 
 func newVMWithOneInterface() *v1.VirtualMachine {
-	vm := libvmi.NewVirtualMachine(libvmi.NewAlpineWithTestTooling(), libvmi.WithRunning())
+	vm := libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling(), libvmi.WithRunning())
 	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	return vm

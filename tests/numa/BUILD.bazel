@@ -16,7 +16,7 @@ go_library(
         "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libnode:go_default_library",
-        "//tests/libvmi:go_default_library",
+        "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

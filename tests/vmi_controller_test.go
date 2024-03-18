@@ -14,7 +14,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func() {
@@ -26,7 +26,7 @@ var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func(
 
 	Context("with ephemeral disk", func() {
 		DescribeTable("a scsi controller", func(enabled bool) {
-			vmi := libvmi.NewCirros()
+			vmi := libvmifact.NewCirros()
 			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)

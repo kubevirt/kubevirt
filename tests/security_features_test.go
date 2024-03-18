@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -87,7 +87,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				config.SELinuxLauncherType = "container_t"
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = libvmi.NewCirros()
+				vmi = libvmifact.NewCirros()
 
 				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
 				// the `virt_launcher.process` selinux context
@@ -321,7 +321,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 	})
 	Context("The VMI SELinux context status", func() {
 		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
-			vmi := libvmi.NewAlpine(libnet.WithMasqueradeNetworking()...)
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking()...)
 
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})

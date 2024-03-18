@@ -38,10 +38,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -151,13 +153,13 @@ var _ = SIGDescribe("Subdomain", func() {
 })
 
 func fedoraMasqueradeVMI() *v1.VirtualMachineInstance {
-	return libvmi.NewFedora(
+	return libvmifact.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 
 func fedoraBridgeBindingVMI() *v1.VirtualMachineInstance {
-	return libvmi.NewFedora(
+	return libvmifact.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }

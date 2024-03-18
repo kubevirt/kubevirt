@@ -156,7 +156,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//tests/libvmi:go_default_library",
+        "//tests/libvmifact:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",

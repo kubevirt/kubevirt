@@ -36,10 +36,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -142,7 +144,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
 			By("Creating VMI with disk and kernel boot")
-			vmi := libvmi.NewAlpine(libvmi.WithResourceMemory("1Gi"))
+			vmi := libvmifact.NewAlpine(libvmi.WithResourceMemory("1Gi"))
 
 			utils.AddKernelBootToVMI(vmi)
 			// Remove initrd path from vmi spec

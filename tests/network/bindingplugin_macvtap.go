@@ -34,6 +34,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
@@ -45,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -100,8 +101,8 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 			libvmi.WithNodeAffinityFor(nodeName),
 		}
-		serverVMI := libvmi.NewAlpineWithTestTooling(opts...)
-		clientVMI := libvmi.NewAlpineWithTestTooling(opts...)
+		serverVMI := libvmifact.NewAlpineWithTestTooling(opts...)
+		clientVMI := libvmifact.NewAlpineWithTestTooling(opts...)
 
 		var err error
 		ns := testsuite.GetTestNamespace(nil)
@@ -125,7 +126,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 		BeforeEach(checks.SkipIfMigrationIsNotPossible)
 
 		BeforeEach(func() {
-			clientVMI = libvmi.NewAlpineWithTestTooling(
+			clientVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(
 					libvmi.InterfaceWithMacvtapBindingPlugin("test"), clientMAC)),
 				libvmi.WithNetwork(libvmi.MultusNetwork("test", macvtapNetworkName)),
@@ -156,7 +157,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 			const macvtapIfaceIPReportTimeout = 4 * time.Minute
 
 			BeforeEach(func() {
-				serverVMI = libvmi.NewFedora(
+				serverVMI = libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithInterface(*libvmi.InterfaceWithMac(
 						libvmi.InterfaceWithMacvtapBindingPlugin(macvtapNetworkName), serverMAC)),

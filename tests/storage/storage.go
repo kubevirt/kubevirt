@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -53,9 +53,11 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -170,7 +172,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
-				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
+				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
@@ -210,7 +212,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("should report IO errors in the guest with errorPolicy set to report", func() {
 				const diskName = "disk1"
 				By("Creating VMI with faulty disk")
-				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
+				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
 				for i, d := range vmi.Spec.Domain.Devices.Disks {
 					if d.Name == diskName {
 						vmi.Spec.Domain.Devices.Disks[i].ErrorPolicy = pointer.P(v1.DiskErrorPolicyReport)
@@ -325,7 +327,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = libvmi.NewCirros(
+				vmi = libvmifact.NewCirros(
 					libvmi.WithResourceMemory("512M"),
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusVirtio, resource.MustParse("1G")),
 				)
@@ -355,7 +357,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = libvmi.NewAlpineWithTestTooling(
+				vmi = libvmifact.NewAlpineWithTestTooling(
 					libnet.WithMasqueradeNetworking()...,
 				)
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -1016,7 +1018,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("With both SCSI and SATA devices", func() {
 			It("should successfully start with distinct device names", func() {
 
-				vmi = libvmi.NewAlpine(
+				vmi = libvmifact.NewAlpine(
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusSCSI, resource.MustParse("1Gi")),
 					libvmi.WithEmptyDisk("emptydisk2", v1.DiskBusSATA, resource.MustParse("1Gi")),
 				)
@@ -1039,7 +1041,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			Context("With a USB device", func() {
 				It("[test_id:9797]should successfully start and have the USB storage device attached", func() {
-					vmi = libvmi.NewAlpine(
+					vmi = libvmifact.NewAlpine(
 						libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusUSB, resource.MustParse("128Mi")),
 					)
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -1212,8 +1214,8 @@ var _ = SIGDescribe("Storage", func() {
 					},
 				}
 
-				vmi1 := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
-				vmi2 := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
+				vmi1 := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
+				vmi2 := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
 
 				vmi1.Labels = labels
 				vmi2.Labels = labels
@@ -1311,7 +1313,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 
 				By("Creating VMI with LUN disk")
-				vmi := libvmi.NewAlpine()
+				vmi := libvmifact.NewAlpine()
 				addLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
@@ -1345,7 +1347,7 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VMI with LUN disk")
-				vmi := libvmi.NewCirros(libvmi.WithResourceMemory("512M"))
+				vmi := libvmifact.NewCirros(libvmi.WithResourceMemory("512M"))
 				addDataVolumeLunDisk(vmi, "lun0", dv.Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)

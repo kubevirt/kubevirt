@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -397,7 +397,7 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	clientVMI := libvmi.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking()...)
+	clientVMI := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking()...)
 	var err error
 	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 	if err != nil {
@@ -409,7 +409,7 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
-	serverVMI := libvmi.NewAlpineWithTestTooling(
+	serverVMI := libvmifact.NewAlpineWithTestTooling(
 		libnet.WithMasqueradeNetworking(
 			v1.Port{
 				Name:     "http80",

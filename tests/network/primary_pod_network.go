@@ -36,11 +36,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -64,7 +66,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = setupVMI(virtClient, libvmi.NewAlpine())
+				vmi = setupVMI(virtClient, libvmifact.NewAlpine())
 			})
 
 			It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
@@ -120,7 +122,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				BeforeEach(func() {
 					vmi = setupVMI(
 						virtClient,
-						libvmi.NewAlpine(
+						libvmifact.NewAlpine(
 							libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						),
@@ -167,7 +169,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				BeforeEach(func() {
 					vmi = setupVMI(
 						virtClient,
-						libvmi.NewAlpine(
+						libvmifact.NewAlpine(
 							libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						),
@@ -195,7 +197,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
-	vmi := libvmi.NewFedora(
+	vmi := libvmifact.NewFedora(
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData),

@@ -49,10 +49,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 const (
@@ -97,7 +99,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	createAndStartVM := func() *v1.VirtualMachine {
 		By("Creating VirtualMachine")
-		vm := libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning())
+		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
 		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
