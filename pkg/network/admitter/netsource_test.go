@@ -79,4 +79,18 @@ var _ = Describe("Validate network source", func() {
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("should have a network type"))
 	})
+
+	It("should reject multus network source without networkName", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Message).To(Equal("CNI delegating plugin must have a networkName"))
+	})
 })

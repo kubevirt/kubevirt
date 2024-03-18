@@ -60,7 +60,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		}}
 		vmi.Spec.Networks = []v1.Network{{
 			Name:          "default",
-			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}},
 		}}
 
 		config := stubSlirpClusterConfigChecker{enabled: true}

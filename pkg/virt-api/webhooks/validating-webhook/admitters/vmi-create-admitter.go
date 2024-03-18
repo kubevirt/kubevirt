@@ -910,8 +910,6 @@ func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec,
 	for idx, network := range spec.Networks {
 
 		cniTypesCount := 0
-		// network name not needed by default
-		networkNameExistsOrNotNeeded := true
 
 		if network.Pod != nil {
 			cniTypesCount++
@@ -920,45 +918,14 @@ func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec,
 
 		if network.NetworkSource.Multus != nil {
 			cniTypesCount++
-			networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
 			if network.NetworkSource.Multus.Default {
 				multusDefaultCount++
 			}
 		}
 
-		if !networkNameExistsOrNotNeeded {
-			causes = appendStatusCauseForCNIPluginHasNoNetworkName(field, causes, idx)
-		}
-
 		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
 	}
 	return podExists, multusDefaultCount, causes
-}
-
-func appendStatusCauseForCNIPluginHasNoNetworkName(field *k8sfield.Path, incomingCauses []metav1.StatusCause, idx int) (causes []metav1.StatusCause) {
-	causes = append(incomingCauses, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueRequired,
-		Message: "CNI delegating plugin must have a networkName",
-		Field:   field.Child("networks").Index(idx).String(),
-	})
-	return causes
-}
-
-func validateNetworkHasOnlyOneType(field *k8sfield.Path, cniTypesCount int, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	if cniTypesCount == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "should have a network type",
-			Field:   field.Child("networks").Index(idx).String(),
-		})
-	} else if cniTypesCount > 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "should have only one network type",
-			Field:   field.Child("networks").Index(idx).String(),
-		})
-	}
-	return causes
 }
 
 func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
