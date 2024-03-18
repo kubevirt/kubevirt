@@ -1,7 +1,6 @@
 package selinux
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -57,51 +56,6 @@ var _ = Describe("selinux", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(present).To(BeTrue())
 			Expect(mode).To(Equal("enforcing"))
-		})
-	})
-
-	Context("installing the selinux policy", func() {
-
-		It("should fail if semanage exists but the command fails", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semodule"))
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return nil, fmt.Errorf("I failed")
-			}
-			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
-				return fmt.Errorf("someting went wrong")
-			}
-			Expect(selinux.InstallPolicy("whatever")).ToNot(Succeed())
-		})
-
-		It("should succeed if semanage exists and the command runs successful", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semodule"))
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("I succeeded"), nil
-			}
-			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
-				return nil
-			}
-			Expect(selinux.InstallPolicy("whatever")).To(Succeed())
-		})
-		It("should fail if the semanage command does not exist and selinux is enabled", func() {
-			selinux.mode = "enforcing"
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("I succeeded"), nil
-			}
-			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
-				return nil
-			}
-			Expect(selinux.InstallPolicy("whatever")).To(Not(Succeed()))
-		})
-		It("should succeed if the semanage command does not exist and selinux is permissive", func() {
-			selinux.mode = "permissive"
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("I succeeded"), nil
-			}
-			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
-				return nil
-			}
-			Expect(selinux.InstallPolicy("whatever")).To(Succeed())
 		})
 	})
 })

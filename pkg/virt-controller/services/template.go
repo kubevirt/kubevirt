@@ -128,8 +128,6 @@ const (
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
 )
 
-const customSELinuxType = "virt_launcher.process"
-
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
