@@ -926,8 +926,6 @@ func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec,
 			}
 		}
 
-		causes = validateNetworkHasOnlyOneType(field, cniTypesCount, causes, idx)
-
 		if !networkNameExistsOrNotNeeded {
 			causes = appendStatusCauseForCNIPluginHasNoNetworkName(field, causes, idx)
 		}
@@ -943,23 +941,6 @@ func appendStatusCauseForCNIPluginHasNoNetworkName(field *k8sfield.Path, incomin
 		Message: "CNI delegating plugin must have a networkName",
 		Field:   field.Child("networks").Index(idx).String(),
 	})
-	return causes
-}
-
-func validateNetworkHasOnlyOneType(field *k8sfield.Path, cniTypesCount int, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	if cniTypesCount == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "should have a network type",
-			Field:   field.Child("networks").Index(idx).String(),
-		})
-	} else if cniTypesCount > 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "should have only one network type",
-			Field:   field.Child("networks").Index(idx).String(),
-		})
-	}
 	return causes
 }
 
