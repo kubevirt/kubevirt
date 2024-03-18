@@ -93,4 +93,67 @@ var _ = Describe("Validate network source", func() {
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("CNI delegating plugin must have a networkName"))
 	})
+
+	It("should reject multiple multus networks with a multus default", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			*v1.DefaultBridgeNetworkInterface(),
+			*v1.DefaultBridgeNetworkInterface(),
+		}
+		const net1Name = "multus1"
+		const net2Name = "multus2"
+		spec.Domain.Devices.Interfaces[0].Name = net1Name
+		spec.Domain.Devices.Interfaces[1].Name = net2Name
+		spec.Networks = []v1.Network{
+			{
+				Name: net1Name,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+				},
+			},
+			{
+				Name: net2Name,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
+				},
+			},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(HaveLen(1))
+		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+		Expect(causes[0].Field).To(Equal("fake.networks"))
+		Expect(causes[0].Message).To(Equal("Multus CNI should only have one default network"))
+	})
+
+	It("should reject pod network with a multus default", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			*v1.DefaultBridgeNetworkInterface(),
+			*v1.DefaultBridgeNetworkInterface(),
+		}
+		spec.Domain.Devices.Interfaces[1].Name = "multus1"
+		spec.Networks = []v1.Network{
+			{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				},
+			},
+			{
+				Name: "multus1",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+				},
+			},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(HaveLen(1))
+		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+		Expect(causes[0].Field).To(Equal("fake.networks"))
+		Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
+	})
 })
