@@ -36,12 +36,12 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 
 	launcher := pod
 
-	domainName, exists := launcher.GetAnnotations()[virtv1.DomainAnnotation]
+	vmiName, exists := launcher.GetAnnotations()[virtv1.DomainAnnotation]
 	if !exists {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), domainName, metav1.GetOptions{})
+	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
