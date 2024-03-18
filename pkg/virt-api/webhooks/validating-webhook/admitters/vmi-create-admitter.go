@@ -172,15 +172,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
 	causes = append(causes, newCauses...)
-	podExists, multusDefaultCount, newCauses := validateNetworks(field, spec, networkNameMap)
-	causes = append(causes, newCauses...)
-
-	if multusDefaultCount > 1 {
-		causes = appendStatusCaseForMoreThanOneMultusDefaultNetwork(field, causes)
-	}
-	if podExists && multusDefaultCount > 0 {
-		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
-	}
+	validateNetworks(spec, networkNameMap)
 
 	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
 	causes = append(causes, newCauses...)
@@ -886,46 +878,10 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
-func appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Pod network cannot be defined when Multus default network is defined",
-		Field:   field.Child("networks").String(),
-	})
-}
-
-func appendStatusCaseForMoreThanOneMultusDefaultNetwork(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Multus CNI should only have one default network",
-		Field:   field.Child("networks").String(),
-	})
-}
-
-func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) (podExists bool, multusDefaultCount int, causes []metav1.StatusCause) {
-
-	podExists = false
-	multusDefaultCount = 0
-
-	for idx, network := range spec.Networks {
-
-		cniTypesCount := 0
-
-		if network.Pod != nil {
-			cniTypesCount++
-			podExists = true
-		}
-
-		if network.NetworkSource.Multus != nil {
-			cniTypesCount++
-			if network.NetworkSource.Multus.Default {
-				multusDefaultCount++
-			}
-		}
-
+func validateNetworks(spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) {
+	for idx := range spec.Networks {
 		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
 	}
-	return podExists, multusDefaultCount, causes
 }
 
 func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {

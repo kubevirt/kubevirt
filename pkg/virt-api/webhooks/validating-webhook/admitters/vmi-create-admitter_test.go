@@ -1258,63 +1258,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject multiple multus networks with a multus default", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(),
-				*v1.DefaultBridgeNetworkInterface(),
-			}
-			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus2"
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "multus1",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-					},
-				},
-				{
-					Name: "multus2",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
-					},
-				},
-			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-			Expect(causes[0].Field).To(Equal("fake.networks"))
-			Expect(causes[0].Message).To(Equal("Multus CNI should only have one default network"))
-		})
-		It("should reject pod network with a multus default", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(),
-				*v1.DefaultBridgeNetworkInterface(),
-			}
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus1"
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
-				},
-				{
-					Name: "multus1",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-					},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-			Expect(causes[0].Field).To(Equal("fake.networks"))
-			Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
-		})
 		It("should reject networks with a passt interface and passt feature gate disabled", func() {
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{

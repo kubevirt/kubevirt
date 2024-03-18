@@ -26,27 +26,43 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func validateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	if countPodNetworks(spec.Networks) > 1 {
-		return []metav1.StatusCause{{
+	var causes []metav1.StatusCause
+
+	podNetworks := vmispec.FilterNetworksSpec(spec.Networks, func(n v1.Network) bool {
+		return n.Pod != nil
+	})
+	if len(podNetworks) > 1 {
+		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueDuplicate,
 			Message: fmt.Sprintf("more than one interface is connected to a pod network in %s", field.Child("interfaces").String()),
 			Field:   field.Child("interfaces").String(),
-		}}
+		})
 	}
-	return nil
-}
 
-func countPodNetworks(networks []v1.Network) int {
-	count := 0
-	for _, net := range networks {
-		if net.Pod != nil {
-			count++
-		}
+	multusDefaultNetworks := vmispec.FilterNetworksSpec(spec.Networks, func(n v1.Network) bool {
+		return n.Multus != nil && n.Multus.Default
+	})
+	if len(multusDefaultNetworks) > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Multus CNI should only have one default network",
+			Field:   field.Child("networks").String(),
+		})
 	}
-	return count
+
+	if len(podNetworks) > 0 && len(multusDefaultNetworks) > 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Pod network cannot be defined when Multus default network is defined",
+			Field:   field.Child("networks").String(),
+		})
+	}
+	return causes
 }
 
 func validateSingleNetworkSource(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
