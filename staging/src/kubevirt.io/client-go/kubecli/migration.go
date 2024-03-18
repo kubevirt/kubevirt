@@ -93,8 +93,8 @@ func (o *migration) PatchStatus(ctx context.Context, name string, pt types.Patch
 	return o.Patch(ctx, name, pt, data, opts, "status")
 }
 
-func (o *migration) UpdateStatus(vmim *v1.VirtualMachineInstanceMigration) (result *v1.VirtualMachineInstanceMigration, err error) {
-	result, err = o.VirtualMachineInstanceMigrationInterface.UpdateStatus(context.Background(), vmim, k8smetav1.UpdateOptions{})
+func (o *migration) UpdateStatus(ctx context.Context, vmim *v1.VirtualMachineInstanceMigration, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceMigration, err error) {
+	result, err = o.VirtualMachineInstanceMigrationInterface.UpdateStatus(ctx, vmim, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 	return
 }
