@@ -988,6 +988,10 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 		vmiSpec.Domain.CPU.Realtime = instancetypeSpec.CPU.Realtime.DeepCopy()
 	}
 
+	if instancetypeSpec.CPU.MaxSockets != nil {
+		vmiSpec.Domain.CPU.MaxSockets = *instancetypeSpec.CPU.MaxSockets
+	}
+
 	applyGuestCPUTopology(instancetypeSpec.CPU.Guest, preferenceSpec, vmiSpec)
 
 	return nil

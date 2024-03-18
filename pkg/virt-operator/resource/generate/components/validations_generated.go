@@ -8146,6 +8146,11 @@ var CRDsValidation map[string]string = map[string]string{
                 IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place
                 the emulator thread on it.
               type: boolean
+            maxSockets:
+              description: MaxSockets specifies the maximum amount of sockets that
+                can be hotplugged
+              format: int32
+              type: integer
             model:
               description: |-
                 Model specifies the CPU model inside the VMI.
@@ -17861,6 +17866,11 @@ var CRDsValidation map[string]string = map[string]string{
                 IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place
                 the emulator thread on it.
               type: boolean
+            maxSockets:
+              description: MaxSockets specifies the maximum amount of sockets that
+                can be hotplugged
+              format: int32
+              type: integer
             model:
               description: |-
                 Model specifies the CPU model inside the VMI.

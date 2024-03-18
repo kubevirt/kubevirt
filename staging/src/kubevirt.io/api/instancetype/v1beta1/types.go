@@ -158,6 +158,10 @@ type CPUInstancetype struct {
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
 	Realtime *v1.Realtime `json:"realtime,omitempty"`
+
+	// MaxSockets specifies the maximum amount of sockets that can be hotplugged
+	// +optional
+	MaxSockets *uint32 `json:"maxSockets,omitempty"`
 }
 
 // MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.

@@ -21736,6 +21736,11 @@
       "description": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place the emulator thread on it.",
       "type": "boolean"
      },
+     "maxSockets": {
+      "description": "MaxSockets specifies the maximum amount of sockets that can be hotplugged",
+      "type": "integer",
+      "format": "int64"
+     },
      "model": {
       "description": "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. Defaults to host-model.",
       "type": "string"

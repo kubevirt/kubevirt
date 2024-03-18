@@ -54,6 +54,11 @@ func (in *CPUInstancetype) DeepCopyInto(out *CPUInstancetype) {
 		*out = new(v1.Realtime)
 		**out = **in
 	}
+	if in.MaxSockets != nil {
+		in, out := &in.MaxSockets, &out.MaxSockets
+		*out = new(uint32)
+		**out = **in
+	}
 	return
 }
 
