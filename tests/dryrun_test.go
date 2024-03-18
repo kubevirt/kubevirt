@@ -258,7 +258,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Delete(vmim.Name, &opts)
+			err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Delete(context.Background(), vmim.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no migration was actually deleted")

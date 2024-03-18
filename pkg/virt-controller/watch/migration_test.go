@@ -241,7 +241,7 @@ var _ = Describe("Migration watcher", func() {
 
 	shouldExpectMigrationDeletion := func(namePrefix string, times int) {
 
-		migrationInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(times).Do(func(arg1 interface{}, arg2 interface{}) interface{} {
+		migrationInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(times).Do(func(ctx context.Context, arg1 interface{}, arg2 interface{}) interface{} {
 			Expect(arg1.(string)).To(ContainSubstring(namePrefix))
 			return nil
 		})
@@ -1431,7 +1431,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", "somevmi", virtv1.MigrationRunning)
 			addMigration(migration)
 
-			migrationInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			migrationInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 			controller.Execute()
 		})
