@@ -44,6 +44,10 @@ func FilterMultusNonDefaultNetworks(networks []v1.Network) []v1.Network {
 	return FilterNetworksSpec(networks, IsSecondaryMultusNetwork)
 }
 
+func FilterMultusNetworks(networks []v1.Network) []v1.Network {
+	return FilterNetworksSpec(networks, IsMultusNetwork)
+}
+
 func FilterNetworksSpec(nets []v1.Network, predicate func(i v1.Network) bool) []v1.Network {
 	var filteredNets []v1.Network
 	for _, net := range nets {
@@ -65,6 +69,10 @@ func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 
 func IsSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
+}
+
+func IsMultusNetwork(net v1.Network) bool {
+	return net.Multus != nil
 }
 
 func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {
