@@ -311,7 +311,7 @@ type VirtualMachineInterface interface {
 type VirtualMachineInstanceMigrationInterface interface {
 	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error)
 	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error)
-	Create(migration *v1.VirtualMachineInstanceMigration, options *metav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
+	Create(ctx context.Context, migration *v1.VirtualMachineInstanceMigration, options metav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
 	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)

@@ -529,7 +529,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	for _, vmi := range migrationCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), &virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						virtv1.WorkloadUpdateMigrationAnnotation: "",
@@ -539,7 +539,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
-			}, &metav1.CreateOptions{})
+			}, metav1.CreateOptions{})
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)

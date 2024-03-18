@@ -328,14 +328,14 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 	}
 
 	createMigrationJob := func() *errors.StatusError {
-		_, err := app.virtCli.VirtualMachineInstanceMigration(namespace).Create(&v1.VirtualMachineInstanceMigration{
+		_, err := app.virtCli.VirtualMachineInstanceMigration(namespace).Create(context.Background(), &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				GenerateName: "kubevirt-migrate-vm-",
 			},
 			Spec: v1.VirtualMachineInstanceMigrationSpec{
 				VMIName: name,
 			},
-		}, &k8smetav1.CreateOptions{DryRun: bodyStruct.DryRun})
+		}, k8smetav1.CreateOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			return errors.NewInternalError(err)
 		}

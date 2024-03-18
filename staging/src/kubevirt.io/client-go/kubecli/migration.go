@@ -47,12 +47,8 @@ type migration struct {
 }
 
 // Create new VirtualMachineInstanceMigration in the cluster to specified namespace
-func (o *migration) Create(newMigration *v1.VirtualMachineInstanceMigration, options *k8smetav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error) {
-	opts := k8smetav1.CreateOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newMigrationResult, err := o.VirtualMachineInstanceMigrationInterface.Create(context.Background(), newMigration, opts)
+func (o *migration) Create(ctx context.Context, newMigration *v1.VirtualMachineInstanceMigration, options k8smetav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	newMigrationResult, err := o.VirtualMachineInstanceMigrationInterface.Create(ctx, newMigration, options)
 	newMigrationResult.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return newMigrationResult, err
