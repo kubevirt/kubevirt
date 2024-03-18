@@ -1010,6 +1010,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						Realtime: &v1.Realtime{
 							Mask: "0-3,^1",
 						},
+						MaxSockets: 6,
 					},
 				}
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
@@ -1029,6 +1030,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
+				Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(instancetypeSpec.CPU.MaxSockets))
 			})
 
 			It("should default to Sockets, when instancetype is used with PreferAny", func() {

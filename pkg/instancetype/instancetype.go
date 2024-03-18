@@ -993,6 +993,10 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 		vmiSpec.Domain.CPU.Cores = spreadRatio
 	}
 
+	if instancetypeSpec.CPU.MaxSockets != 0 {
+		vmiSpec.Domain.CPU.MaxSockets = instancetypeSpec.CPU.MaxSockets
+	}
+
 	return nil
 }
 
