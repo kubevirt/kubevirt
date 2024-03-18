@@ -1844,15 +1844,15 @@ func (_m *MockVirtualMachineInstanceMigrationInterface) EXPECT() *_MockVirtualMa
 	return _m.recorder
 }
 
-func (_m *MockVirtualMachineInstanceMigrationInterface) Get(name string, options *v12.GetOptions) (*v120.VirtualMachineInstanceMigration, error) {
-	ret := _m.ctrl.Call(_m, "Get", name, options)
+func (_m *MockVirtualMachineInstanceMigrationInterface) Get(ctx context.Context, name string, opts v12.GetOptions) (*v120.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "Get", ctx, name, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceMigration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceMigrationInterface) List(opts *v12.ListOptions) (*v120.VirtualMachineInstanceMigrationList, error) {

@@ -894,7 +894,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Migration should observe a timeout period before canceling unschedulable target pod")
 				Consistently(func() error {
 
-					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -908,7 +908,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Migration should fail eventually due to pending target pod timeout")
 				Eventually(func() error {
-					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -948,7 +948,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Migration should observe a timeout period before canceling pending target pod")
 				Consistently(func() error {
 
-					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -962,7 +962,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Migration should fail eventually due to pending target pod timeout")
 				Eventually(func() error {
-					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -2013,7 +2013,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Waiting for Migration to reach Preparing Target Phase")
 				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					phase := migration.Status.Phase
@@ -2093,7 +2093,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Waiting for Migration to reach Preparing Target Phase")
 				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					phase := migration.Status.Phase
@@ -2308,7 +2308,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Waiting until the Migration has UID")
 				Eventually(func() bool {
-					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return migration.UID != ""
 				}, timeout, 1*time.Second).Should(BeTrue())
@@ -2366,7 +2366,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
 					migration = libmigration.RunMigration(virtClient, migration)
 					expectMigrationSchedulingPhase := func() v1.VirtualMachineInstanceMigrationPhase {
-						migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+						migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 						Expect(err).ShouldNot(HaveOccurred())
 
 						return migration.Status.Phase
@@ -2399,7 +2399,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 					By("Expecting migration to be deleted")
 					Eventually(func() error {
-						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 						return err
 					}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
@@ -3472,7 +3472,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
 			migration = libmigration.RunMigration(virtClient, migration)
 			Eventually(func() *v1.VirtualMachineInstanceMigration {
-				migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+				migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 				if err != nil {
 					return nil
 				}

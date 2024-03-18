@@ -64,7 +64,7 @@ func ExpectMigrationToSucceedWithDefaultTimeout(virtClient kubecli.KubevirtClien
 func ExpectMigrationToSucceedWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	By("Waiting until the Migration Completes")
 	EventuallyWithOffset(offset, func() error {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func ConfirmMigrationDataIsStored(virtClient kubecli.KubevirtClient, migration *
 	By("Retrieving the VMI and the migration object")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
-	migration, migerr := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+	migration, migerr := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 	Expect(migerr).ToNot(HaveOccurred(), "should have been able to retrive the migration")
 
 	By("Verifying the stored migration state")
@@ -441,7 +441,7 @@ func RunAndCancelMigration(migration *v1.VirtualMachineInstanceMigration, vmi *v
 	By("Waiting until the Migration is Running")
 
 	Eventually(func() bool {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
@@ -472,7 +472,7 @@ func RunAndImmediatelyCancelMigration(migration *v1.VirtualMachineInstanceMigrat
 
 	By("Waiting until the Migration is Running")
 	Eventually(func() bool {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return migration.Status.Phase == v1.MigrationRunning
 	}, timeout, 1*time.Second).Should(BeTrue())
@@ -494,7 +494,7 @@ func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration,
 
 	uid := ""
 	Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		phase := migration.Status.Phase

@@ -133,7 +133,7 @@ func ThisMigration(migration *virtv1.VirtualMachineInstanceMigration) func() (*v
 func ThisMigrationWith(namespace string, name string) func() (*virtv1.VirtualMachineInstanceMigration, error) {
 	return func() (p *virtv1.VirtualMachineInstanceMigration, err error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachineInstanceMigration(namespace).Get(name, &k8smetav1.GetOptions{})
+		p, err = virtClient.VirtualMachineInstanceMigration(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
