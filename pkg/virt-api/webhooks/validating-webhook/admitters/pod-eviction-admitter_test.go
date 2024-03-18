@@ -189,7 +189,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		),
 	)
 
-	DescribeTable("The admitter should approve the request and trigger VMI evacuation", func(clusterWideEvictionStrategy, vmiEvictionStrategy *kvirtv1.EvictionStrategy, isVMIMigratable bool) {
+	DescribeTable("The admitter should deny the request and trigger VMI evacuation", func(clusterWideEvictionStrategy, vmiEvictionStrategy *kvirtv1.EvictionStrategy, isVMIMigratable bool) {
 		vmiOptions := []vmiOption{
 			withEvictionStrategy(vmiEvictionStrategy),
 		}
@@ -225,11 +225,15 @@ var _ = Describe("Pod eviction admitter", func() {
 			VirtClient:    virtClient,
 		}
 
+		expectedAdmissionResponse := newDeniedAdmissionResponse(
+			fmt.Sprintf("Triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name),
+		)
+
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, nil),
 		)
 
-		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 	},
 		Entry("When cluster-wide eviction strategy is nil, VMI eviction strategy is LiveMigrate and VMI is migratable",
