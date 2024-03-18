@@ -926,8 +926,6 @@ func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec,
 			}
 		}
 
-		causes = validateNetworkHasOnlyOneType(field, cniTypesCount, causes, idx)
-
 		if !networkNameExistsOrNotNeeded {
 			causes = appendStatusCauseForCNIPluginHasNoNetworkName(field, causes, idx)
 		}
