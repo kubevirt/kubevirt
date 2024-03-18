@@ -85,12 +85,12 @@ func (o *migration) List(ctx context.Context, options k8smetav1.ListOptions) (*v
 	return newVmiMigrationList, err
 }
 
-func (o *migration) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error) {
-	return o.VirtualMachineInstanceMigrationInterface.Patch(context.Background(), name, pt, data, k8smetav1.PatchOptions{}, subresources...)
+func (o *migration) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error) {
+	return o.VirtualMachineInstanceMigrationInterface.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-func (o *migration) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error) {
-	return o.Patch(name, pt, data, "status")
+func (o *migration) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error) {
+	return o.Patch(ctx, name, pt, data, opts, "status")
 }
 
 func (o *migration) UpdateStatus(vmim *v1.VirtualMachineInstanceMigration) (result *v1.VirtualMachineInstanceMigration, err error) {
