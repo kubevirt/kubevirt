@@ -2931,6 +2931,10 @@ var _ = Describe("Template", func() {
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
 			}}
+
+			networkClient := fakenetworkclient.NewSimpleClientset()
+			virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
+
 			pod, err := svc.RenderLaunchManifest(&vmi)
 			Expect(err).ToNot(HaveOccurred())
 

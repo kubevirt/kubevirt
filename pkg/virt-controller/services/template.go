@@ -335,10 +335,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	networkToResourceMap, err := network.GetNetworkToResourceMap(t.virtClient, vmi)
+	nads, err := network.GetNetworkAttachmentDefinitionByName(t.virtClient.NetworkClient().K8sCniCncfIoV1(), vmi.Namespace, vmispec.FilterMultusNetworks(vmi.Spec.Networks))
 	if err != nil {
 		return nil, err
 	}
+
+	networkToResourceMap := network.ExtractNetworkToResourceMap(nads)
 	resourceRenderer, err := t.newResourceRenderer(vmi, networkToResourceMap)
 	if err != nil {
 		return nil, err
