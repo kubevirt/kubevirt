@@ -184,6 +184,11 @@ type MemoryInstancetype struct {
 	// +kubebuilder:validation:Maximum=100
 	// +kubebuilder:validation:Minimum=0
 	OvercommitPercent int `json:"overcommitPercent,omitempty"`
+
+	// MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.
+	// The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
+	// +optional
+	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
 // VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.

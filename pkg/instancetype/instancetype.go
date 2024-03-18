@@ -1138,6 +1138,11 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Vir
 		vmiSpec.Domain.Memory.Hugepages = instancetypeSpec.Memory.Hugepages.DeepCopy()
 	}
 
+	if instancetypeSpec.Memory.MaxGuest != nil {
+		m := instancetypeSpec.Memory.MaxGuest.DeepCopy()
+		vmiSpec.Domain.Memory.MaxGuest = &m
+	}
+
 	return nil
 }
 
