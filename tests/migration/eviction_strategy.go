@@ -226,7 +226,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
 				getOptions := metav1.GetOptions{}
 				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, &getOptions)
+					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(context.Background(), migration.Name, getOptions)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
 					for _, p := range pods.Items {

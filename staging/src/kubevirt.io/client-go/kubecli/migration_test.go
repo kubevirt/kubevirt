@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"context"
 	"net/http"
 	"path"
 
@@ -53,7 +54,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
 		))
-		fetchedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get("testmigration", &k8smetav1.GetOptions{})
+		fetchedMigration, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get(context.Background(), "testmigration", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -71,7 +72,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testmigration")),
 		))
-		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get("testmigration", &k8smetav1.GetOptions{})
+		_, err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Get(context.Background(), "testmigration", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())

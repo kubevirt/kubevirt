@@ -212,7 +212,7 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 	virtClient, err := kubecli.GetKubevirtClient()
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	gomega.EventuallyWithOffset(1, func() error {
-		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
 		return err
 	}, seconds, 1*time.Second).Should(gomega.MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), fmt.Sprintf("migration %s was expected to disappear after %d seconds, but it did not", migration.Name, seconds))
 }

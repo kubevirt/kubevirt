@@ -59,12 +59,8 @@ func (o *migration) Create(newMigration *v1.VirtualMachineInstanceMigration, opt
 }
 
 // Get the VirtualMachineInstanceMigration from the cluster by its name and namespace
-func (o *migration) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVm, err := o.VirtualMachineInstanceMigrationInterface.Get(context.Background(), name, opts)
+func (o *migration) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	newVm, err := o.VirtualMachineInstanceMigrationInterface.Get(ctx, name, options)
 	newVm.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return newVm, err
