@@ -28972,6 +28972,12 @@ func schema_kubevirtio_api_instancetype_v1beta1_MemoryInstancetype(ref common.Re
 							Format:      "int32",
 						},
 					},
+					"maxGuest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
 				},
 				Required: []string{"guest"},
 			},

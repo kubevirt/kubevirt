@@ -8293,6 +8293,15 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+            maxGuest:
+              anyOf:
+              - type: integer
+              - type: string
+              description: |-
+                MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.
+                The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
             overcommitPercent:
               description: |-
                 OvercommitPercent is the percentage of the guest memory which will be overcommitted.
@@ -18013,6 +18022,15 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+            maxGuest:
+              anyOf:
+              - type: integer
+              - type: string
+              description: |-
+                MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.
+                The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
             overcommitPercent:
               description: |-
                 OvercommitPercent is the percentage of the guest memory which will be overcommitted.

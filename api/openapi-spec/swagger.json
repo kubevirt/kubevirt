@@ -22370,6 +22370,10 @@
       "description": "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.",
       "$ref": "#/definitions/v1.Hugepages"
      },
+     "maxGuest": {
+      "description": "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
      "overcommitPercent": {
       "description": "OvercommitPercent is the percentage of the guest memory which will be overcommitted. This means that the VMIs parent pod (virt-launcher) will request less physical memory by a factor specified by the OvercommitPercent. Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully. Defaults to 0",
       "type": "integer",

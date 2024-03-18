@@ -1497,12 +1497,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 		Context("instancetype.Spec.Memory", func() {
 			BeforeEach(func() {
+				maxGuest := resource.MustParse("2G")
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1beta1.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 						Hugepages: &v1.Hugepages{
 							PageSize: "1Gi",
 						},
+						MaxGuest: &maxGuest,
 					},
 				}
 			})
@@ -1513,6 +1515,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeSpec.Memory.Guest))
 				Expect(*vmi.Spec.Domain.Memory.Hugepages).To(Equal(*instancetypeSpec.Memory.Hugepages))
+				Expect(vmi.Spec.Domain.Memory.MaxGuest.Equal(*instancetypeSpec.Memory.MaxGuest)).To(BeTrue())
 			})
 
 			It("should apply memory overcommit correctly to VMI", func() {

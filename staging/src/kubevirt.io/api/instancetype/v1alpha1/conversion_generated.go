@@ -433,6 +433,7 @@ func autoConvert_v1beta1_MemoryInstancetype_To_v1alpha1_MemoryInstancetype(in *v
 	out.Guest = in.Guest
 	out.Hugepages = (*corev1.Hugepages)(unsafe.Pointer(in.Hugepages))
 	// WARNING: in.OvercommitPercent requires manual conversion: does not exist in peer-type
+	// WARNING: in.MaxGuest requires manual conversion: does not exist in peer-type
 	return nil
 }
 
