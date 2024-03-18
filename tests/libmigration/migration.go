@@ -11,7 +11,6 @@ import (
 
 	"github.com/onsi/gomega/gstruct"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libinfra"
 
 	"kubevirt.io/kubevirt/tests"
@@ -21,6 +20,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
@@ -423,7 +423,7 @@ func CancelMigration(migration *v1.VirtualMachineInstanceMigration, vminame stri
 	virtClient := kubevirt.Client()
 	if !with_virtctl {
 		By("Cancelling a Migration")
-		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
 	} else {
 		By("Cancelling a Migration with virtctl")
 		command := clientcmd.NewRepeatableVirtctlCommand("migrate-cancel", "--namespace", migration.Namespace, vminame)

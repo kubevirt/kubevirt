@@ -2223,7 +2223,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					}
 
 					By("Aborting the migration")
-					err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 
 					By("Expecting migration to be deleted")

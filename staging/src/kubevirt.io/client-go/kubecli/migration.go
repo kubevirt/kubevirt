@@ -71,12 +71,8 @@ func (o *migration) Update(ctx context.Context, migration *v1.VirtualMachineInst
 }
 
 // Delete the defined VirtualMachineInstanceMigration in the cluster in defined namespace
-func (o *migration) Delete(name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return o.VirtualMachineInstanceMigrationInterface.Delete(context.Background(), name, opts)
+func (o *migration) Delete(ctx context.Context, name string, options k8smetav1.DeleteOptions) error {
+	return o.VirtualMachineInstanceMigrationInterface.Delete(ctx, name, options)
 }
 
 // List all VirtualMachineInstanceMigrations in given namespace

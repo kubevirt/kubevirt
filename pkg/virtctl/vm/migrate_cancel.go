@@ -72,7 +72,7 @@ func (o *Command) migrateCancelRun(args []string) error {
 
 		if !mig.IsFinal() {
 			// Cancel the active migration by calling Delete
-			err = virtClient.VirtualMachineInstanceMigration(namespace).Delete(migname, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstanceMigration(namespace).Delete(context.Background(), migname, metav1.DeleteOptions{})
 			if err != nil {
 				return fmt.Errorf("Error canceling migration %s of a VirtualMachine %s: %v", migname, vmiName, err)
 			}

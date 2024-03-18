@@ -174,7 +174,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, migrationPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Delete("testmigration", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Delete(context.Background(), "testmigration", k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
