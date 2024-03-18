@@ -2753,6 +2753,80 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 	})
 
+	Context("[Serial]Cluster-Wide CPU Feature Disablement using cpuFeaturesToDisable configuration", Serial, func() {
+		const cpuFeaturesToDisable = "aes"
+		var cpuModelsThatRequireAES = []string{"Broadwell-IBRS", "Broadwell-noTSX-IBRS", "Broadwell-noTSX", "Broadwell",
+			"Cascadelake-Server-noTSX", "Cascadelake-Server", "Cooperlake", "EPYC-IBPB", "EPYC-Milan", "EPYC-Rome",
+			"EPYC", "Haswell-IBRS", "Haswell-noTSX-IBRS", "Haswell-noTSX", "Haswell", "Icelake-Client-noTSX",
+			"Icelake-Client", "Icelake-Server-noTSX", "Icelake-Server", "IvyBridge-IBRS", "IvyBridge", "Opteron_G4",
+			"Opteron_G5", "SandyBridge-IBRS", "SandyBridge", "Skylake-Client-IBRS", "Skylake-Client-noTSX-IBRS",
+			"Skylake-Client", "Skylake-Server-IBRS", "Skylake-Server-noTSX-IBRS", "Skylake-Server", "Snowridge",
+			"Westmere-IBRS", "Westmere",
+		}
+		var chosenModel string
+		BeforeEach(func() {
+			nodes := libnode.GetAllSchedulableNodes(virtClient)
+			for _, model := range cpuModelsThatRequireAES {
+				if labelExistsOnAtLeastTwoNodes(nodes.Items, v1.CPUModelLabel+model) {
+					chosenModel = model
+					return
+				}
+			}
+			Skip("cannot run this test when CPU Models with aes are not supported")
+		})
+
+		It("Feature Disablement should be consistent on live migration even after the configuration is removed", func() {
+			By("Adding CpuFeaturesToDisable config")
+			config := getCurrentKvConfig(virtClient)
+			config.CpuFeaturesToDisable = map[string][]string{chosenModel: {cpuFeaturesToDisable}}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+
+			By("Starting a VirtualMachineInstance")
+			vmi := libvmifact.NewGuestless(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCPUModel(chosenModel),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			domainSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.CPU.Features).To(ContainElement(api.CPUFeature{Name: cpuFeaturesToDisable, Policy: "disable"}), fmt.Sprintf("Guest xml mark %v Feature as disabled since it is listed in the CPU Feature Disablement ConfigMap with %v CPU Model", cpuFeaturesToDisable, chosenModel))
+
+			By("Removing CpuFeaturesToDisable config")
+			config.CpuFeaturesToDisable = map[string][]string{}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+
+			By("Trying to migrate the VirtualMachineInstance")
+			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+			domainSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.CPU.Features).To(ContainElement(api.CPUFeature{Name: cpuFeaturesToDisable, Policy: "disable"}), "Guest xml shouldn't be changed once created even when the CpuModelDisableFeaturesConfigMapName ConfigMap is deleted or after migration")
+		})
+
+		It("Feature Disablement should not affect existing VMs even due migrations", func() {
+			By("Starting a VirtualMachineInstance")
+			vmi := libvmifact.NewGuestless(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCPUModel(chosenModel),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Adding CpuFeaturesToDisable config")
+			config := getCurrentKvConfig(virtClient)
+			config.CpuFeaturesToDisable = map[string][]string{chosenModel: {cpuFeaturesToDisable}}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+
+			By("Trying to migrate the VirtualMachineInstance")
+			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+			domainSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.CPU.Features).ToNot(ContainElement(api.CPUFeature{Name: cpuFeaturesToDisable, Policy: "disable"}), " vmis that were created before setting cpuFeaturesToDisable configuration should not be effected even after migrations")
+		})
+	})
+
 	Context("[Serial]Testing host-model cpuModel edge cases in the cluster if the cluster is host-model migratable", Serial, func() {
 
 		var sourceNode *k8sv1.Node
@@ -3502,4 +3576,19 @@ func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return output, nil
+}
+
+func labelExistsOnAtLeastTwoNodes(nodes []k8sv1.Node, label string) bool {
+	count := 0
+	for _, node := range nodes {
+		if node.Labels != nil {
+			if _, ok := node.Labels[label]; ok {
+				count++
+			}
+			if count == 2 {
+				return true
+			}
+		}
+	}
+	return false
 }
