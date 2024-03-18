@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -24,14 +25,16 @@ type PodEvictionAdmitter struct {
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	launcher, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
+	pod, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	if value, exists := launcher.GetLabels()[virtv1.AppLabel]; !exists || value != "virt-launcher" {
+	if !isVirtLauncher(pod) {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
+
+	launcher := pod
 
 	domainName, exists := launcher.GetAnnotations()[virtv1.DomainAnnotation]
 	if !exists {
@@ -104,4 +107,12 @@ func denied(message string) *admissionv1.AdmissionResponse {
 			Code:    http.StatusTooManyRequests,
 		},
 	}
+}
+
+func isVirtLauncher(pod *k8scorev1.Pod) bool {
+	if pod.Labels[virtv1.AppLabel] == "virt-launcher" {
+		return true
+	}
+
+	return false
 }
