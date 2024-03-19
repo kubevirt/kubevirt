@@ -42,9 +42,9 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -381,7 +381,7 @@ func winRMCliPod() *k8sv1.Pod {
 			Containers: []k8sv1.Container{
 				{
 					Name:    winrmCli,
-					Image:   fmt.Sprintf("%s/%s:%s", flags.KubeVirtUtilityRepoPrefix, winrmCli, flags.KubeVirtUtilityVersionTag),
+					Image:   libregistry.GetUtilityImageFromRegistry(winrmCli),
 					Command: []string{"sleep"},
 					Args:    []string{"3600"},
 					SecurityContext: &k8sv1.SecurityContext{
