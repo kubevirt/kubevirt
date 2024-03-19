@@ -99,13 +99,13 @@ const (
 	DiskCustomHostPath     = "disk-custom-host-path"
 )
 
-func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
+func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
 	var cpuDenyList = map[string]bool{
 		"qemu64":     true,
 		"Opteron_G2": true,
 	}
 	cpuMap := make(map[string]bool)
-	for _, node := range nodes.Items {
+	for _, node := range nodeList.Items {
 		for key := range node.Labels {
 			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
 				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
