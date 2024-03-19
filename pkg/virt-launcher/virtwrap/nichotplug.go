@@ -184,6 +184,11 @@ func withNetworkIfacesResources(
 	domainSpec *api.DomainSpec,
 	f SetDomainFunc,
 ) (cli.VirDomain, error) {
+	onRootComplex := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]
+	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 || onRootComplex == "true" {
+		return f(vmi, domainSpec)
+	}
+
 	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
 	dom, err := f(vmi, domainSpecWithIfacesResource)
 	if err != nil {
@@ -207,12 +212,6 @@ func withNetworkIfacesResources(
 }
 
 func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
-	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
-		return domainSpec
-	}
-	if val := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]; val == "true" {
-		return domainSpec
-	}
 	domainSpecWithIfacesResource := domainSpec.DeepCopy()
 	interfacePlaceholderCount := ReservedInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
 	for i := 0; i < interfacePlaceholderCount; i++ {
