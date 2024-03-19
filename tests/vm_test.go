@@ -1830,8 +1830,10 @@ status:
 			Eventually(func(g Gomega) {
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
-				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
+				g.Expect(vm.Finalizers).To(And(
+					ContainElement(v1.VirtualMachineControllerFinalizer),
+					ContainElement(customFinalizer),
+				))
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
@@ -1840,8 +1842,10 @@ status:
 			Eventually(func(g Gomega) {
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeFalse())
-				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
+				g.Expect(vm.Finalizers).To(And(
+					Not(ContainElement(v1.VirtualMachineControllerFinalizer)),
+					ContainElement(customFinalizer),
+				))
 			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
