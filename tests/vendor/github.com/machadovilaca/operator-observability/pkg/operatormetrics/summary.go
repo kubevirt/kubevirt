@@ -1,8 +1,6 @@
 package operatormetrics
 
 import (
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -10,21 +8,14 @@ type Summary struct {
 	prometheus.Summary
 
 	metricOpts  MetricOpts
-	summaryOpts SummaryOpts
+	summaryOpts prometheus.SummaryOpts
 }
 
 var _ Metric = &Summary{}
 
-type SummaryOpts struct {
-	Objectives map[float64]float64
-	MaxAge     time.Duration
-	AgeBuckets uint32
-	BufCap     uint32
-}
-
 // NewSummary creates a new Summary. The Summary must be registered with the
 // Prometheus registry through RegisterMetrics.
-func NewSummary(metricOpts MetricOpts, summaryOpts SummaryOpts) *Summary {
+func NewSummary(metricOpts MetricOpts, summaryOpts prometheus.SummaryOpts) *Summary {
 	return &Summary{
 		Summary:     prometheus.NewSummary(makePrometheusSummaryOpts(metricOpts, summaryOpts)),
 		metricOpts:  metricOpts,
@@ -32,23 +23,18 @@ func NewSummary(metricOpts MetricOpts, summaryOpts SummaryOpts) *Summary {
 	}
 }
 
-func makePrometheusSummaryOpts(metricOpts MetricOpts, summaryOpts SummaryOpts) prometheus.SummaryOpts {
-	return prometheus.SummaryOpts{
-		Name:        metricOpts.Name,
-		Help:        metricOpts.Help,
-		ConstLabels: metricOpts.ConstLabels,
-		Objectives:  summaryOpts.Objectives,
-		MaxAge:      summaryOpts.MaxAge,
-		AgeBuckets:  summaryOpts.AgeBuckets,
-		BufCap:      summaryOpts.BufCap,
-	}
+func makePrometheusSummaryOpts(metricOpts MetricOpts, summaryOpts prometheus.SummaryOpts) prometheus.SummaryOpts {
+	summaryOpts.Name = metricOpts.Name
+	summaryOpts.Help = metricOpts.Help
+	summaryOpts.ConstLabels = metricOpts.ConstLabels
+	return summaryOpts
 }
 
 func (c *Summary) GetOpts() MetricOpts {
 	return c.metricOpts
 }
 
-func (c *Summary) GetSummaryOpts() SummaryOpts {
+func (c *Summary) GetSummaryOpts() prometheus.SummaryOpts {
 	return c.summaryOpts
 }
 

@@ -140,7 +140,7 @@ github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1
 github.com/kubevirt/hyperconverged-cluster-operator/controllers/common
 github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics
 github.com/kubevirt/hyperconverged-cluster-operator/pkg/util
-# github.com/machadovilaca/operator-observability v0.0.13
+# github.com/machadovilaca/operator-observability v0.0.16
 ## explicit; go 1.21
 github.com/machadovilaca/operator-observability/pkg/operatormetrics
 # github.com/mailru/easyjson v0.7.7

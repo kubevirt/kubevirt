@@ -22,7 +22,7 @@ DO=eval
 export JOB_TYPE=prow
 endif
 
-sanity: generate generate-doc validate-no-offensive-lang goimport lint-metrics
+sanity: generate generate-doc validate-no-offensive-lang goimport lint-metrics lint-monitoring
 	go version
 	go fmt ./...
 	go mod tidy -v
@@ -233,6 +233,10 @@ validate-no-offensive-lang:
 lint-metrics:
 	./hack/prom_metric_linter.sh --operator-name="kubevirt" --sub-operator-name="hco"
 
+lint-monitoring:
+	go install github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@e2be790
+	monitoringlinter ./...
+
 .PHONY: start \
 		clean \
 		build \
@@ -279,5 +283,6 @@ lint-metrics:
 		generate-doc \
 		validate-no-offensive-lang \
 		lint-metrics \
+		lint-monitoring \
 		sanity \
 		goimport

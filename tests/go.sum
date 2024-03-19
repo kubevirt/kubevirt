@@ -200,8 +200,8 @@ github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0 h1:nHHjmvjitIiyP
 github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0/go.mod h1:YBCo4DoEeDndqvAn6eeu0vWM7QdXmHEeI9cFWplmBys=
 github.com/kubevirt/cluster-network-addons-operator v0.91.0 h1:FyigSFOEVJ7eX5uzc1bpZRAbrKh08Yd0MLfQ20eUMH0=
 github.com/kubevirt/cluster-network-addons-operator v0.91.0/go.mod h1:PywaJQjkV9RNroC5pKNbPuA0dhUlCW1zl/OcJhEWVKI=
-github.com/machadovilaca/operator-observability v0.0.13 h1:9mhxEjkdE6pcl3ke8chbbAWxx25+K1m4Gq31yo+r2JU=
-github.com/machadovilaca/operator-observability v0.0.13/go.mod h1:e4Z3VhOXb9InkmSh00JjqBBijE+iD+YMzynBpKB3+gE=
+github.com/machadovilaca/operator-observability v0.0.16 h1:Pjeu8DlyoM7AS/M5kumBExe7ES/cXqo9MttyQlEZx0Q=
+github.com/machadovilaca/operator-observability v0.0.16/go.mod h1:e4Z3VhOXb9InkmSh00JjqBBijE+iD+YMzynBpKB3+gE=
 github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=

@@ -1,8 +1,6 @@
 package operatormetrics
 
 import (
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -10,23 +8,14 @@ type Histogram struct {
 	prometheus.Histogram
 
 	metricOpts    MetricOpts
-	histogramOpts HistogramOpts
+	histogramOpts prometheus.HistogramOpts
 }
 
 var _ Metric = &Histogram{}
 
-type HistogramOpts struct {
-	Buckets                         []float64
-	NativeHistogramBucketFactor     float64
-	NativeHistogramZeroThreshold    float64
-	NativeHistogramMaxBucketNumber  uint32
-	NativeHistogramMinResetDuration time.Duration
-	NativeHistogramMaxZeroThreshold float64
-}
-
 // NewHistogram creates a new Histogram. The Histogram must be registered with the
 // Prometheus registry through RegisterMetrics.
-func NewHistogram(metricOpts MetricOpts, histogramOpts HistogramOpts) *Histogram {
+func NewHistogram(metricOpts MetricOpts, histogramOpts prometheus.HistogramOpts) *Histogram {
 	return &Histogram{
 		Histogram:     prometheus.NewHistogram(makePrometheusHistogramOpts(metricOpts, histogramOpts)),
 		metricOpts:    metricOpts,
@@ -34,24 +23,18 @@ func NewHistogram(metricOpts MetricOpts, histogramOpts HistogramOpts) *Histogram
 	}
 }
 
-func makePrometheusHistogramOpts(metricOpts MetricOpts, histogramOpts HistogramOpts) prometheus.HistogramOpts {
-	return prometheus.HistogramOpts{
-		Name:                            metricOpts.Name,
-		Help:                            metricOpts.Help,
-		ConstLabels:                     metricOpts.ConstLabels,
-		NativeHistogramBucketFactor:     histogramOpts.NativeHistogramBucketFactor,
-		NativeHistogramZeroThreshold:    histogramOpts.NativeHistogramZeroThreshold,
-		NativeHistogramMaxBucketNumber:  histogramOpts.NativeHistogramMaxBucketNumber,
-		NativeHistogramMinResetDuration: histogramOpts.NativeHistogramMinResetDuration,
-		NativeHistogramMaxZeroThreshold: histogramOpts.NativeHistogramMaxZeroThreshold,
-	}
+func makePrometheusHistogramOpts(metricOpts MetricOpts, histogramOpts prometheus.HistogramOpts) prometheus.HistogramOpts {
+	histogramOpts.Name = metricOpts.Name
+	histogramOpts.Help = metricOpts.Help
+	histogramOpts.ConstLabels = metricOpts.ConstLabels
+	return histogramOpts
 }
 
 func (c *Histogram) GetOpts() MetricOpts {
 	return c.metricOpts
 }
 
-func (c *Histogram) GetHistogramOpts() HistogramOpts {
+func (c *Histogram) GetHistogramOpts() prometheus.HistogramOpts {
 	return c.histogramOpts
 }
 
