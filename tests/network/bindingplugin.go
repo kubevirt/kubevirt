@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -52,7 +53,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 	Context("with CNI and Sidecar", func() {
 		BeforeEach(func() {
 			const passtBindingName = "passt"
-			const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+			passtSidecarImage := util.GetUtilityImageFromRegistry("network-passt-binding")
 
 			err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
