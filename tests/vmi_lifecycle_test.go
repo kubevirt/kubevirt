@@ -894,7 +894,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				supportedCpuModels = tests.GetSupportedCPUModels(*nodes)
+				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
 				if len(supportedCpuModels) < 2 {
 					Skip("need at least 2 supported cpuModels for this test")
 				}
@@ -1003,7 +1003,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
-				supportedCPUs = tests.GetSupportedCPUModels(*nodes)
+				supportedCPUs = libnode.GetSupportedCPUModels(*nodes)
 				Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
 
 				supportedCPU = supportedCPUs[0]

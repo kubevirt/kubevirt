@@ -1764,7 +1764,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
 			It("[test_id:1678]should report defined CPU model", func() {
-				supportedCPUs := tests.GetSupportedCPUModels(*nodes)
+				supportedCPUs := libnode.GetSupportedCPUModels(*nodes)
 				Expect(supportedCPUs).ToNot(BeEmpty())
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Model: supportedCPUs[0],
