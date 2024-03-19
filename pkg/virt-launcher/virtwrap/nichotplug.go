@@ -24,9 +24,9 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
-
 	"libvirt.org/go/libvirt"
+
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -189,13 +189,13 @@ func withNetworkIfacesResources(
 		return f(vmi, domainSpec)
 	}
 
-	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
-	dom, err := f(vmi, domainSpecWithIfacesResource)
+	originalIfaces := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
+	dom, err := f(vmi, domainSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(domainSpec.Devices.Interfaces) == len(domainSpecWithIfacesResource.Devices.Interfaces) {
+	if len(domainSpec.Devices.Interfaces) == len(originalIfaces) {
 		return dom, nil
 	}
 
@@ -203,7 +203,7 @@ func withNetworkIfacesResources(
 	if err != nil {
 		return nil, err
 	}
-	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
+	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = originalIfaces
 	// Only the devices are taken into account because some parameters are not assured to be returned when
 	// getting the domain spec (e.g. the `qemu:commandline` section).
 	domainSpecWithoutIfacePlaceholders.Devices.DeepCopyInto(&domainSpec.Devices)
@@ -211,16 +211,18 @@ func withNetworkIfacesResources(
 	return f(vmi, domainSpec)
 }
 
-func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
-	domainSpecWithIfacesResource := domainSpec.DeepCopy()
+func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) []api.Interface {
+	originalIfaces := make([]api.Interface, len(domainSpec.Devices.Interfaces))
+	copy(originalIfaces, domainSpec.Devices.Interfaces)
+
 	interfacePlaceholderCount := ReservedInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
 	for i := 0; i < interfacePlaceholderCount; i++ {
-		domainSpecWithIfacesResource.Devices.Interfaces = append(
-			domainSpecWithIfacesResource.Devices.Interfaces,
+		domainSpec.Devices.Interfaces = append(
+			domainSpec.Devices.Interfaces,
 			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional)),
 		)
 	}
-	return domainSpecWithIfacesResource
+	return originalIfaces
 }
 
 func newInterfacePlaceholder(index int, modelType string) api.Interface {
