@@ -198,8 +198,10 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
 	Expect(err).ToNot(HaveOccurred())
 
-	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch, &metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() error {
+		_, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch, &metav1.PatchOptions{})
+		return err
+	}, 30*time.Second, 1*time.Second).Should(BeNil())
 
-	return kv
+	return util.GetCurrentKv(virtClient)
 }
