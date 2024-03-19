@@ -44,10 +44,10 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -324,20 +324,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				// Store userdata as k8s secret
 				By("Creating a user-data secret")
-				secret := kubev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      secretID,
-						Namespace: vmi.Namespace,
-						Labels: map[string]string{
-							util.SecretLabel: secretID,
-						},
-					},
-					Type: "Opaque",
-					Data: map[string][]byte{
-						"userdata": []byte(userData), // The client encrypts the secret for us
-					},
-				}
-				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+				secret := libsecret.New(secretID, map[string][]byte{
+					"userdata": []byte(userData),
+				})
+				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				break
 			}
@@ -405,21 +395,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Store cloudinit data as k8s secret
 					By("Creating a secret with network data")
-					secret := kubev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      secretID,
-							Namespace: vmi.Namespace,
-							Labels: map[string]string{
-								util.SecretLabel: secretID,
-							},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							// The client encrypts the secret for us
-							"networkdata": []byte(testNetworkData),
-						},
-					}
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+					secret := libsecret.New(secretID, map[string][]byte{
+						"networkdata": []byte(testNetworkData),
+					})
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					break
@@ -548,21 +527,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Store cloudinit data as k8s secret
 					By("Creating a secret with user and network data")
-					secret := kubev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      secretID,
-							Namespace: vmi.Namespace,
-							Labels: map[string]string{
-								util.SecretLabel: secretID,
-							},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							// The client encrypts the secret for us
-							"networkdata": []byte(testNetworkData),
-						},
-					}
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+					secret := libsecret.New(secretID, map[string][]byte{
+						"networkdata": []byte(testNetworkData),
+					})
+
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					break
@@ -606,39 +575,19 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Store cloudinit data as k8s secret
 					By("Creating a secret with userdata")
-					uSecret := kubev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      uSecretID,
-							Namespace: vmi.Namespace,
-							Labels: map[string]string{
-								util.SecretLabel: uSecretID,
-							},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							// The client encrypts the secret for us
-							userDataLabel: []byte(testUserData),
-						},
-					}
+					uSecret := libsecret.New(uSecretID, map[string][]byte{
+						userDataLabel: []byte(testUserData),
+					})
+
 					By("Creating a secret with network data")
-					nSecret := kubev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      nSecretID,
-							Namespace: vmi.Namespace,
-							Labels: map[string]string{
-								util.SecretLabel: nSecretID,
-							},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							// The client encrypts the secret for us
-							networkDataLabel: []byte(testNetworkData),
-						},
-					}
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &uSecret, metav1.CreateOptions{})
+					nSecret := libsecret.New(nSecretID, map[string][]byte{
+						networkDataLabel: []byte(testNetworkData),
+					})
+
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), uSecret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &nSecret, metav1.CreateOptions{})
+					_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), nSecret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					break

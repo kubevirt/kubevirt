@@ -218,6 +218,7 @@ lint:
 	  tests/libnode/... \
 	  tests/libpod/... \
 	  tests/libvmifact/... \
+	  tests/libsecret/... \
 	  && \
 	  golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
 	  ./pkg/... \
