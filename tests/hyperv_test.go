@@ -221,7 +221,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			node := &nodes.Items[0]
-			supportedCPUs := tests.GetSupportedCPUModels(*nodes)
+			supportedCPUs := libnode.GetSupportedCPUModels(*nodes)
 			Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
 
 			for key := range node.Labels {

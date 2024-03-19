@@ -409,3 +409,27 @@ func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
 	}
 	return features
 }
+
+func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
+	var cpuDenyList = map[string]bool{
+		"qemu64":     true,
+		"Opteron_G2": true,
+	}
+	cpuMap := make(map[string]bool)
+	for _, node := range nodeList.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+				if _, ok := cpuDenyList[cpu]; !ok {
+					cpuMap[cpu] = true
+				}
+			}
+		}
+	}
+
+	cpus := make([]string, 0)
+	for model := range cpuMap {
+		cpus = append(cpus, model)
+	}
+	return cpus
+}

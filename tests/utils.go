@@ -70,7 +70,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -95,30 +94,6 @@ const (
 	DiskWindowsSysprep     = "disk-windows-sysprep"
 	DiskCustomHostPath     = "disk-custom-host-path"
 )
-
-func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
-	var cpuDenyList = map[string]bool{
-		"qemu64":     true,
-		"Opteron_G2": true,
-	}
-	cpuMap := make(map[string]bool)
-	for _, node := range nodes.Items {
-		for key := range node.Labels {
-			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
-				if _, ok := cpuDenyList[cpu]; !ok {
-					cpuMap[cpu] = true
-				}
-			}
-		}
-	}
-
-	cpus := make([]string, 0)
-	for model := range cpuMap {
-		cpus = append(cpus, model)
-	}
-	return cpus
-}
 
 func CreateConfigMap(name, namespace string, data map[string]string) {
 	virtCli := kubevirt.Client()
