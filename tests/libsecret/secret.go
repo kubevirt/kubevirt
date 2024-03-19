@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// secretLabel set this label to make the test suite namespace clean-up delete the secret on teardown
-const secretLabel = "kubevirt.io/secret"
+// SecretLabel set this label to make the test suite namespace clean-up delete the secret on teardown
+const SecretLabel = "kubevirt.io/secret"
 
 // New return Secret of Opaque type with "kubevirt.io/secret" label
 func New(name string, data map[string][]byte) *kubev1.Secret {
@@ -33,7 +33,7 @@ func New(name string, data map[string][]byte) *kubev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				secretLabel: name,
+				SecretLabel: name,
 			},
 		},
 		Data: data,
