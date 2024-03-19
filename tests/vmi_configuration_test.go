@@ -2418,8 +2418,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// ordering:
 			// use a small disk for the other ones
 			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			// virtio - added by NewRandomVMIWithEphemeralDisk
-			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
+			vmi := libvmifact.NewCirros(
+				libvmi.WithCloudInitNoCloudEncodedUserData("echo Hi\n"),
+			)
 			// sata
 			tests.AddEphemeralDisk(vmi, "disk2", v1.DiskBusSATA, containerImage)
 			// NOTE: we have one disk per bus, so we expect vda, sda

@@ -309,8 +309,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("[test_id:1618]should take user-data from k8s secret", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "")
-
+			vmi := libvmifact.NewCirros(
+				libvmi.WithCloudInitNoCloudEncodedUserData(""),
+			)
 			idx := 0
 			for i, volume := range vmi.Spec.Volumes {
 				if volume.CloudInitNoCloud == nil {
