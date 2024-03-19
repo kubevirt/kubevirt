@@ -1359,11 +1359,6 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
 }
 
-func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
-	runStrategyAlways := v1.RunStrategyAlways
-	return RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, runStrategyAlways)
-}
-
 func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
 

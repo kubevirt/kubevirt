@@ -545,7 +545,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(newVMInterfaces[0].MacAddress).ToNot(Equal(oldVMInterfaces[0].MacAddress))
 
 					By("Making sure new VM is runnable")
-					tests.StartVMAndExpectRunning(virtClient, newVM)
+					tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, newVM, v1.RunStrategyAlways)
 				})
 
 			})
@@ -625,7 +625,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				if toRunSourceVM {
 					By("Starting the VM and expecting it to run")
-					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				}
 
 				By("Creating a VirtualMachineSnapshot")
@@ -659,7 +659,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			DescribeTable("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func(toRunSourceVM bool) {
 				if toRunSourceVM {
 					By("Starting the VM and expecting it to run")
-					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				}
 
 				By("Creating a VirtualMachineSnapshot")

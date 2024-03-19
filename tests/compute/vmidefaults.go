@@ -243,7 +243,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting VirtualMachine")
-			vm = tests.StartVMAndExpectRunning(virtClient, vm)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 
 			By("Getting VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
