@@ -28,13 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,8 +57,14 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -430,20 +429,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 					// Creat nonexistent secret, so that the VirtualMachineInstance can recover
 					By("Creating a user-data secret")
-					secret := k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "nonexistent",
-							Namespace: createdVMI.Namespace,
-							Labels: map[string]string{
-								util.SecretLabel: "nonexistent",
-							},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"userdata": []byte(userData64),
-						},
-					}
-					_, err = kubevirt.Client().CoreV1().Secrets(createdVMI.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
+					secret := libsecret.New("nonexistent", libsecret.DataString{"userdata": userData64})
+					_, err = kubevirt.Client().CoreV1().Secrets(createdVMI.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should create secret successfully")
 
 					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
