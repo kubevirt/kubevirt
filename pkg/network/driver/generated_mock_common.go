@@ -368,6 +368,16 @@ func (_mr *_MockNetworkHandlerRecorder) BindTapDeviceToBridge(arg0, arg1 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "BindTapDeviceToBridge", arg0, arg1)
 }
 
+func (_m *MockNetworkHandler) CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
+	ret := _m.ctrl.Call(_m, "CreateMacvtapDevice", tapName, parentName, queueNumber, launcherPID, mtu, tapOwner)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) CreateMacvtapDevice(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateMacvtapDevice", arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
 func (_m *MockNetworkHandler) DisableTXOffloadChecksum(ifaceName string) error {
 	ret := _m.ctrl.Call(_m, "DisableTXOffloadChecksum", ifaceName)
 	ret0, _ := ret[0].(error)
