@@ -382,7 +382,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
-			vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
+			vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node.Name}
 
 			By("Starting the VirtualMachineInstance")
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})

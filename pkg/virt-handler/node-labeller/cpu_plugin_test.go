@@ -362,7 +362,7 @@ var nodeLabels = map[string]string{
 	"hyperv.node.kubevirt.io/tlbflush":                                 "true",
 	"hyperv.node.kubevirt.io/vpindex":                                  "true",
 	"kubernetes.io/arch":                                               "amd64",
-	"kubernetes.io/hostname":                                           "node01",
+	k8sv1.LabelHostname:                                                "node01",
 	"kubernetes.io/os":                                                 "linux",
 	"kubevirt.io/schedulable":                                          "true",
 	"node-role.kubernetes.io/control-plane":                            "",

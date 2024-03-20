@@ -173,7 +173,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 			// We change the owner to qemu regardless of virtiofsd's privileges,
 			// because the root user will be able to access the directory anyway
-			nodeSelector := map[string]string{"kubernetes.io/hostname": node}
+			nodeSelector := map[string]string{k8sv1.LabelHostname: node}
 			args := []string{fmt.Sprintf(`chown 107 %s`, pvhostpath)}
 			pod := libpod.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 			pod.Spec.NodeSelector = nodeSelector

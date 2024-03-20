@@ -93,7 +93,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
 				newVMI := libvmifact.NewCirros()
-				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				newVMI.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: nodeName}
 				Eventually(func() error {
 					newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Create(context.Background(), newVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())

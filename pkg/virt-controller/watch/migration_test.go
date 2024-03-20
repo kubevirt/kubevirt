@@ -813,7 +813,7 @@ var _ = Describe("Migration watcher", func() {
 						"somelabel": "somekey",
 					},
 				},
-				TopologyKey: "kubernetes.io/hostname",
+				TopologyKey: k8sv1.LabelHostname,
 			}
 			affinityTerm := k8sv1.PodAffinityTerm{
 				LabelSelector: &metav1.LabelSelector{
@@ -821,7 +821,7 @@ var _ = Describe("Migration watcher", func() {
 						"someotherlabel": "someotherkey",
 					},
 				},
-				TopologyKey: "kubernetes.io/hostname",
+				TopologyKey: k8sv1.LabelHostname,
 			}
 			antiAffinityRule := &k8sv1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{antiAffinityTerm},
@@ -836,7 +836,7 @@ var _ = Describe("Migration watcher", func() {
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      "kubernetes.io/hostname",
+									Key:      k8sv1.LabelHostname,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{"somenode"},
 								},

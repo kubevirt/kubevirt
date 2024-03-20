@@ -167,7 +167,7 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 				},
 			},
 			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": nodeName,
+				k8sv1.LabelHostname: nodeName,
 			},
 		},
 	}
@@ -196,7 +196,7 @@ func CreatePVwithSCSIDisk(storageClass, pvName, nodeName, devicePath string) (*c
 				{
 					MatchExpressions: []corev1.NodeSelectorRequirement{
 						{
-							Key:      "kubernetes.io/hostname",
+							Key:      k8sv1.LabelHostname,
 							Operator: corev1.NodeSelectorOpIn,
 							Values:   []string{nodeName},
 						},
