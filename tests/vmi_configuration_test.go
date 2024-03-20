@@ -2764,7 +2764,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				kvmpitmask, err := getKvmPitMask(strings.TrimSpace(qemuPid), node)
 				Expect(err).ToNot(HaveOccurred())
 
-				vcpuzeromask, err := tests.GetVcpuMask(readyPod, emulator, "0")
+				vcpuzeromask, err := getVcpuMask(readyPod, emulator, "0")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(kvmpitmask).To(Equal(vcpuzeromask))
@@ -3452,4 +3452,20 @@ func getProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
 	)
 
 	return
+}
+
+func getVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
+	pscmd := `ps -LC ` + emulator + ` -o lwp,comm | grep "CPU ` + cpu + `"  | cut -f1 -dC`
+	args := []string{"/bin/bash", "-c", pscmd}
+	Eventually(func() error {
+		output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
+		return err
+	}).Should(Succeed())
+	vcpupid := strings.TrimSpace(strings.Trim(output, "\n"))
+	tasksetcmd := "taskset -c -p " + vcpupid + " | cut -f2 -d:"
+	args = []string{"/bin/bash", "-c", tasksetcmd}
+	output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
+	Expect(err).ToNot(HaveOccurred())
+
+	return strings.TrimSpace(output), err
 }
