@@ -86,8 +86,8 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 
 func addMigrationSelectorLabel(migration *v1.VirtualMachineInstanceMigration) {
 	if migration.Labels == nil {
-		migration.Labels = map[string]string{v1.MigrationSelectorLabel: migration.Spec.VMIName}
-	} else {
-		migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
+		migration.Labels = make(map[string]string)
 	}
+
+	migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
 }
