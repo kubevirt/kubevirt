@@ -55,9 +55,7 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 	}
 
 	addMigrationSelectorLabel(&migration)
-
-	// Add a finalizer
-	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
+	addMigrationFinalizer(&migration)
 
 	patchBytes, err := patch.GeneratePatchPayload(
 		patch.PatchOperation{
@@ -90,4 +88,8 @@ func addMigrationSelectorLabel(migration *v1.VirtualMachineInstanceMigration) {
 	}
 
 	migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
+}
+
+func addMigrationFinalizer(migration *v1.VirtualMachineInstanceMigration) {
+	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
 }
