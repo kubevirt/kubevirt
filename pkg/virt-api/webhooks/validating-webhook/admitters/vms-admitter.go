@@ -442,14 +442,6 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 
 	causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
 
-	if hasCPURequestsOrLimits(&spec.Template.Spec.Domain.Resources) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"),
-			Field:   field.Child("template", "spec", "domain", "resources").String(),
-		})
-	}
-
 	if spec.Template.Spec.Domain.Memory != nil && spec.Template.Spec.Domain.Memory.MaxGuest != nil {
 		causes = append(causes, validateLiveUpdateMemory(field, &spec.Template.Spec.Domain, spec.Template.Spec.Architecture)...)
 	}
@@ -801,15 +793,4 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 	}
 
 	return nil
-}
-
-func hasCPURequestsOrLimits(rr *v1.ResourceRequirements) bool {
-	if _, ok := rr.Requests[corev1.ResourceCPU]; ok {
-		return true
-	}
-	if _, ok := rr.Limits[corev1.ResourceCPU]; ok {
-		return true
-	}
-
-	return false
 }
