@@ -1778,9 +1778,6 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) (*virtv1.Virtua
 		return vmi, err
 	}
 
-	setGuestMemory(&vmi.Spec)
-	c.setupHotplug(vmi)
-
 	return vmi, nil
 }
 
@@ -1860,77 +1857,6 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	}
 
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
-}
-
-func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vmi.Spec.Domain.CPU == nil {
-		vmi.Spec.Domain.CPU = &virtv1.CPU{}
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = c.clusterConfig.GetMaximumCpuSockets()
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * maxRatio
-	}
-
-	const defaultNumberOfSockets = 1
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = defaultNumberOfSockets * maxRatio
-	}
-}
-
-func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vmi.Spec.Domain.Memory.MaxGuest != nil {
-		return
-	}
-
-	var maxGuest *resource.Quantity
-	switch {
-	case c.clusterConfig.GetMaximumGuestMemory() != nil:
-		maxGuest = c.clusterConfig.GetMaximumGuestMemory()
-	case vmi.Spec.Domain.Memory.Guest != nil:
-		maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
-	}
-
-	if err := memory.ValidateLiveUpdateMemory(&vmi.Spec, maxGuest); err != nil {
-		// memory hotplug is not compatible with this VM configuration
-		log.Log.V(2).Object(vmi).Infof("memory-hotplug disabled: %s", err)
-		return
-	}
-
-	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
-}
-
-// filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
-// TODO +pkotas unify with replicaset this code is the same without dependency
-func (c *VMController) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return !vmi.IsFinal()
-	})
-}
-
-// filterReadyVMIs takes a list of VMIs and returns all VMIs which are in ready state.
-// TODO +pkotas unify with replicaset this code is the same
-func (c *VMController) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
-	})
-}
-
-// listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
-// TODO +pkotas unify this code with replicaset
-func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-	var vmis []*virtv1.VirtualMachineInstance
-	for _, obj := range objs {
-		vmis = append(vmis, obj.(*virtv1.VirtualMachineInstance))
-	}
-	return vmis, nil
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
@@ -3435,35 +3361,11 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 	return err
 }
 
-func setGuestMemory(spec *virtv1.VirtualMachineInstanceSpec) {
-	if spec.Domain.Memory != nil &&
-		spec.Domain.Memory.Guest != nil {
-		return
+func (c *VMController) patchVMITerminationGracePeriod(gracePeriod *int64, vmi *virtv1.VirtualMachineInstance) error {
+	if gracePeriod == nil {
+		return nil
 	}
-
-	if spec.Domain.Memory == nil {
-		spec.Domain.Memory = &virtv1.Memory{}
-	}
-
-	switch {
-	case !spec.Domain.Resources.Requests.Memory().IsZero():
-		spec.Domain.Memory.Guest = spec.Domain.Resources.Requests.Memory()
-	case !spec.Domain.Resources.Limits.Memory().IsZero():
-		spec.Domain.Memory.Guest = spec.Domain.Resources.Limits.Memory()
-	case spec.Domain.Memory.Hugepages != nil:
-		if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
-			spec.Domain.Memory.Guest = &hugepagesSize
-		}
-	}
-
-}
-
-func (c *VMController) setupHotplug(vmi *virtv1.VirtualMachineInstance) {
-	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		return
-	}
-
-	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
-	c.setupCPUHotplug(vmi, maxRatio)
-	c.setupMemoryHotplug(vmi, maxRatio)
+	patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, *gracePeriod)
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
+	return err
 }

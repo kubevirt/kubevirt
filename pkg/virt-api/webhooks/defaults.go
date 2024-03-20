@@ -51,7 +51,39 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	setDefaultCPUArch(clusterConfig, &vmi.Spec)
 	setGuestMemoryStatus(vmi)
 	setCurrentCPUTopologyStatus(vmi)
+	setupHotplug(clusterConfig, vmi)
 	return nil
+}
+
+func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+	if !clusterConfig.IsVMRolloutStrategyLiveUpdate() {
+		return
+	}
+	setupCPUHotplug(clusterConfig, vmi)
+	setupMemoryHotplug(clusterConfig, vmi)
+}
+
+func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = clusterConfig.GetMaximumCpuSockets()
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * clusterConfig.GetMaxHotplugRatio()
+	}
+}
+
+func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.Domain.Memory == nil {
+		return
+	}
+	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+		vmi.Spec.Domain.Memory.MaxGuest = clusterConfig.GetMaximumGuestMemory()
+	}
+
+	if vmi.Spec.Domain.Memory.MaxGuest == nil && vmi.Spec.Domain.Memory.Guest != nil {
+		vmi.Spec.Domain.Memory.MaxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(clusterConfig.GetMaxHotplugRatio()), resource.BinarySI)
+	}
 }
 
 func setCurrentCPUTopologyStatus(vmi *v1.VirtualMachineInstance) {
