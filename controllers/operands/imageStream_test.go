@@ -140,7 +140,7 @@ var _ = Describe("imageStream tests", func() {
 			ImageStreamObjects := &imagev1.ImageStreamList{}
 			Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 			Expect(ImageStreamObjects.Items).To(HaveLen(1))
-			Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
+			Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 
 			objectRef, err := reference.GetReference(commontestutils.GetScheme(), &ImageStreamObjects.Items[0])
 			Expect(err).ToNot(HaveOccurred())
@@ -234,7 +234,7 @@ var _ = Describe("imageStream tests", func() {
 			ImageStreamObjects := &imagev1.ImageStreamList{}
 			Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 			Expect(ImageStreamObjects.Items).To(HaveLen(1))
-			Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
+			Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
 		})
 
 		It("should update the ImageStream resource if the docker image was changed", func() {
@@ -283,12 +283,12 @@ var _ = Describe("imageStream tests", func() {
 
 				is := imageStreamObjects.Items[0]
 
-				Expect(is.Name).Should(Equal("test-image-stream"))
+				Expect(is.Name).To(Equal("test-image-stream"))
 				// check that the existing object was reconciled
 				Expect(is.Spec.Tags).To(HaveLen(1))
 				tag := is.Spec.Tags[0]
-				Expect(tag.Name).Should(Equal("latest"))
-				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+				Expect(tag.Name).To(Equal("latest"))
+				Expect(tag.From.Name).To(Equal("test-registry.io/test/test-image"))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -348,12 +348,12 @@ var _ = Describe("imageStream tests", func() {
 
 				is := imageStreamObjects.Items[0]
 
-				Expect(is.Name).Should(Equal("test-image-stream"))
+				Expect(is.Name).To(Equal("test-image-stream"))
 				// check that the existing object was reconciled
 				Expect(is.Spec.Tags).To(HaveLen(1))
 				tag := is.Spec.Tags[0]
-				Expect(tag.Name).Should(Equal("latest"))
-				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+				Expect(tag.Name).To(Equal("latest"))
+				Expect(tag.From.Name).To(Equal("test-registry.io/test/test-image"))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -421,14 +421,14 @@ var _ = Describe("imageStream tests", func() {
 
 				is := imageStreamObjects.Items[0]
 
-				Expect(is.Name).Should(Equal("test-image-stream"))
+				Expect(is.Name).To(Equal("test-image-stream"))
 				// check that the existing object was reconciled
 				Expect(is.Spec.Tags).To(HaveLen(1))
 				tag := is.Spec.Tags[0]
-				Expect(tag.Name).Should(Equal("latest"))
-				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+				Expect(tag.Name).To(Equal("latest"))
+				Expect(tag.From.Name).To(Equal("test-registry.io/test/test-image"))
 				// check that this tag was changed by the handler, by checking a field that is not controlled by it.
-				Expect(tag.From.UID).ShouldNot(BeEmpty())
+				Expect(tag.From.UID).ToNot(BeEmpty())
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -490,15 +490,15 @@ var _ = Describe("imageStream tests", func() {
 
 				is := imageStreamObjects.Items[0]
 
-				Expect(is.Name).Should(Equal("test-image-stream"))
+				Expect(is.Name).To(Equal("test-image-stream"))
 				// check that the existing object was reconciled
 				Expect(is.Spec.Tags).To(HaveLen(1))
 				tag := is.Spec.Tags[0]
-				Expect(tag.Name).Should(Equal("latest"))
-				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+				Expect(tag.Name).To(Equal("latest"))
+				Expect(tag.From.Name).To(Equal("test-registry.io/test/test-image"))
 				// check that this tag was not changed by the handler, by checking a field that is not controlled by it.
-				Expect(tag.From.UID).Should(Equal(types.UID("1234567890")))
-				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: false, Scheduled: true}))
+				Expect(tag.From.UID).To(Equal(types.UID("1234567890")))
+				Expect(tag.ImportPolicy).To(Equal(imagev1.TagImportPolicy{Insecure: false, Scheduled: true}))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -559,15 +559,15 @@ var _ = Describe("imageStream tests", func() {
 
 				is := imageStreamObjects.Items[0]
 
-				Expect(is.Name).Should(Equal("test-image-stream"))
+				Expect(is.Name).To(Equal("test-image-stream"))
 				// check that the existing object was reconciled
 				Expect(is.Spec.Tags).To(HaveLen(1))
 				tag := is.Spec.Tags[0]
-				Expect(tag.Name).Should(Equal("old"))
-				Expect(tag.From.Name).Should(Equal("test-registry.io/test/old-test-image"))
+				Expect(tag.Name).To(Equal("old"))
+				Expect(tag.From.Name).To(Equal("test-registry.io/test/old-test-image"))
 				// check that this tag was not changed by the handler, by checking a field that is not controlled by it.
-				Expect(tag.From.UID).Should(Equal(types.UID("1234567890")))
-				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: true, Scheduled: false}))
+				Expect(tag.From.UID).To(Equal(types.UID("1234567890")))
+				Expect(tag.ImportPolicy).To(Equal(imagev1.TagImportPolicy{Insecure: true, Scheduled: false}))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -629,15 +629,15 @@ var _ = Describe("imageStream tests", func() {
 
 				is := imageStreamObjects.Items[0]
 
-				Expect(is.Name).Should(Equal("test-image-stream"))
+				Expect(is.Name).To(Equal("test-image-stream"))
 				// check that the existing object was reconciled
 				Expect(is.Spec.Tags).To(HaveLen(1))
 				tag := is.Spec.Tags[0]
-				Expect(tag.Name).Should(Equal("latest"))
-				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+				Expect(tag.Name).To(Equal("latest"))
+				Expect(tag.From.Name).To(Equal("test-registry.io/test/test-image"))
 				// check that this tag was not changed by the handler, by checking a field that is not controlled by it.
-				Expect(tag.From.UID).Should(Equal(types.UID("1234567890")))
-				Expect(tag.ImportPolicy).Should(Equal(imagev1.TagImportPolicy{Insecure: false, Scheduled: true}))
+				Expect(tag.From.UID).To(Equal(types.UID("1234567890")))
+				Expect(tag.ImportPolicy).To(Equal(imagev1.TagImportPolicy{Insecure: false, Scheduled: true}))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -711,12 +711,12 @@ var _ = Describe("imageStream tests", func() {
 
 				is := imageStreamObjects.Items[0]
 
-				Expect(is.Name).Should(Equal("test-image-stream"))
+				Expect(is.Name).To(Equal("test-image-stream"))
 				// check that the existing object was reconciled
 				Expect(is.Spec.Tags).To(HaveLen(1))
 				tag := is.Spec.Tags[0]
-				Expect(tag.Name).Should(Equal("latest"))
-				Expect(tag.From.Name).Should(Equal("test-registry.io/test/test-image"))
+				Expect(tag.Name).To(Equal("latest"))
+				Expect(tag.From.Name).To(Equal("test-registry.io/test/test-image"))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -763,8 +763,8 @@ var _ = Describe("imageStream tests", func() {
 				ImageStreamObjects := &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-				Expect(ImageStreamObjects.Items[0].Namespace).Should(Equal(customNS))
+				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
+				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS))
 			})
 
 			It("should delete an imagestream from one namespace, and create it in another one", func() {
@@ -793,8 +793,8 @@ var _ = Describe("imageStream tests", func() {
 				ImageStreamObjects := &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-				Expect(ImageStreamObjects.Items[0].Namespace).Should(Equal("test-image-stream-ns"))
+				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
+				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal("test-image-stream-ns"))
 
 				By("replace the image stream with a new one in the custom namespace")
 				hco = commontestutils.NewHco()
@@ -809,8 +809,8 @@ var _ = Describe("imageStream tests", func() {
 				ImageStreamObjects = &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-				Expect(ImageStreamObjects.Items[0].Namespace).Should(Equal(customNS))
+				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
+				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS))
 			})
 
 			It("should remove an imagestream from a custom namespace, and create it in the default one", func() {
@@ -841,8 +841,8 @@ var _ = Describe("imageStream tests", func() {
 				ImageStreamObjects := &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-				Expect(ImageStreamObjects.Items[0].Namespace).Should(Equal(customNS))
+				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
+				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS))
 
 				By("replace the image stream with a new one in the default namespace")
 				hco = commontestutils.NewHco()
@@ -856,8 +856,8 @@ var _ = Describe("imageStream tests", func() {
 				ImageStreamObjects = &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-				Expect(ImageStreamObjects.Items[0].Namespace).Should(Equal("test-image-stream-ns"))
+				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
+				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal("test-image-stream-ns"))
 			})
 
 			It("should remove an imagestream from a custom namespace, and create it in the new custom namespace", func() {
@@ -888,8 +888,8 @@ var _ = Describe("imageStream tests", func() {
 				ImageStreamObjects := &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-				Expect(ImageStreamObjects.Items[0].Namespace).Should(Equal(customNS))
+				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
+				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS))
 
 				By("replace the image stream with a new one in another custom namespace")
 				hco = commontestutils.NewHco()
@@ -904,8 +904,8 @@ var _ = Describe("imageStream tests", func() {
 				ImageStreamObjects = &imagev1.ImageStreamList{}
 				Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 				Expect(ImageStreamObjects.Items).To(HaveLen(1))
-				Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
-				Expect(ImageStreamObjects.Items[0].Namespace).Should(Equal(customNS + "1"))
+				Expect(ImageStreamObjects.Items[0].Name).To(Equal("test-image-stream"))
+				Expect(ImageStreamObjects.Items[0].Namespace).To(Equal(customNS + "1"))
 			})
 		})
 	})
@@ -1120,8 +1120,8 @@ var _ = Describe("imageStream tests", func() {
 			validateImageStream(found, hook)
 
 			for _, tag := range found.Spec.Tags {
-				Expect(tag.Annotations).Should(HaveLen(1))
-				Expect(tag.Annotations).Should(HaveKeyWithValue("test-annotation", "should stay here"))
+				Expect(tag.Annotations).To(HaveLen(1))
+				Expect(tag.Annotations).To(HaveKeyWithValue("test-annotation", "should stay here"))
 			}
 
 		})

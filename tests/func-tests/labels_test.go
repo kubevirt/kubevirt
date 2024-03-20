@@ -43,7 +43,7 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 
 		By("removing one of the managed labels and wait for it to be added back")
 		kv, err := cli.KubeVirt(hc.Namespace).Get(kv_name, &metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 		expectedVersion := kv.Labels[hcoutil.AppLabelVersion]
 
 		patch := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
@@ -54,8 +54,8 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 
 		Eventually(func(g Gomega) {
 			kv, err := cli.KubeVirt(hc.Namespace).Get(kv_name, &metav1.GetOptions{})
-			g.Expect(err).ShouldNot(HaveOccurred())
-			g.Expect(kv.Labels).Should(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(kv.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
 		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 
 		By("checking all the labels")
@@ -66,12 +66,12 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 				switch resource.Kind {
 				case "ConfigMap":
 					cm, err := cli.CoreV1().ConfigMaps(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					checkLabels(cm.GetLabels())
 
 				case "Service":
 					svc, err := cli.CoreV1().Services(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					checkLabels(svc.GetLabels())
 				default:
 					GinkgoWriter.Printf("Missed corev1 resource to check the labels for; %s/%s\n", resource.Kind, resource.Name)
@@ -85,11 +85,11 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 				}
 				if len(resource.Namespace) == 0 {
 					rc, err := cli.DynamicClient().Resource(gvr).Get(ctx, resource.Name, metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					checkLabels(rc.GetLabels())
 				} else {
 					rc, err := cli.DynamicClient().Resource(gvr).Namespace(resource.Namespace).Get(ctx, resource.Name, metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 					checkLabels(rc.GetLabels())
 				}
 			}

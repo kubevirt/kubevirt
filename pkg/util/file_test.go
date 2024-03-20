@@ -34,7 +34,7 @@ fieldObj:
 			var obj testType
 			Expect(UnmarshalYamlFileToObject(reader, &obj)).To(Succeed())
 
-			Expect(obj).Should(Equal(testType{FieldStr: "abcd", FieldInt: 123, FieldObj: &nestedObj{NestedStr: "nested", NestedInt: 456}}))
+			Expect(obj).To(Equal(testType{FieldStr: "abcd", FieldInt: 123, FieldObj: &nestedObj{NestedStr: "nested", NestedInt: 456}}))
 		})
 
 		It("should unmarshal invalid input", func() {
@@ -96,14 +96,14 @@ fieldObj:
 	Context("test GetManifestDirPath", func() {
 		It("should return default if the environment variable is not set", func() {
 			result := GetManifestDirPath("TEST_VAR_NAME", "defaultValue")
-			Expect(result).Should(Equal("defaultValue"))
+			Expect(result).To(Equal("defaultValue"))
 		})
 
 		It("should return value of the environment variable is it set", func() {
 			os.Setenv("TEST_VAR_NAME", "non-default-value")
 			defer os.Unsetenv("TEST_VAR_NAME")
 			result := GetManifestDirPath("TEST_VAR_NAME", "defaultValue")
-			Expect(result).Should(Equal("non-default-value"))
+			Expect(result).To(Equal("non-default-value"))
 		})
 	})
 })

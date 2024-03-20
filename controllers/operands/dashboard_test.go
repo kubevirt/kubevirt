@@ -98,7 +98,7 @@ var _ = Describe("Dashboard tests", func() {
 				cli := commontestutils.InitClient([]client.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
-				Expect(err).Should(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 				Expect(handlers).To(BeEmpty())
 			})
 		})
@@ -133,7 +133,7 @@ var _ = Describe("Dashboard tests", func() {
 				cms := &corev1.ConfigMapList{}
 				Expect(cli.List(context.TODO(), cms)).To(Succeed())
 				Expect(cms.Items).To(HaveLen(1))
-				Expect(cms.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
+				Expect(cms.Items[0].Name).To(Equal("grafana-dashboard-kubevirt-top-consumers"))
 			})
 		})
 
@@ -159,11 +159,11 @@ var _ = Describe("Dashboard tests", func() {
 				cmList := &corev1.ConfigMapList{}
 				Expect(cli.List(context.TODO(), cmList)).To(Succeed())
 				Expect(cmList.Items).To(HaveLen(1))
-				Expect(cmList.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
+				Expect(cmList.Items[0].Name).To(Equal("grafana-dashboard-kubevirt-top-consumers"))
 
 				// check that data is reconciled
 				_, ok := cmList.Items[0].Data["kubevirt-top-consumers.json"]
-				Expect(ok).Should(BeTrue())
+				Expect(ok).To(BeTrue())
 			})
 		})
 
@@ -188,7 +188,7 @@ var _ = Describe("Dashboard tests", func() {
 
 				Expect(cli.List(context.TODO(), cmList)).To(Succeed())
 				Expect(cmList.Items).To(HaveLen(1))
-				Expect(cmList.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
+				Expect(cmList.Items[0].Name).To(Equal("grafana-dashboard-kubevirt-top-consumers"))
 			})
 
 			expectedLabels := make(map[string]map[string]string)
@@ -254,7 +254,7 @@ var _ = Describe("Dashboard tests", func() {
 
 				Expect(cli.List(context.TODO(), cmList)).To(Succeed())
 				Expect(cmList.Items).To(HaveLen(1))
-				Expect(cmList.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
+				Expect(cmList.Items[0].Name).To(Equal("grafana-dashboard-kubevirt-top-consumers"))
 			})
 
 			expectedLabels := make(map[string]map[string]string)

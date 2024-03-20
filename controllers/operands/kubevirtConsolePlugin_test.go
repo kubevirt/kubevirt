@@ -60,7 +60,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -290,12 +290,12 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).To(Succeed())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
-			Expect(foundResource.Spec.Template.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
-			Expect(foundResource.Spec.Template.Labels).Should(HaveKeyWithValue(hcoutil.AppLabelComponent, string(appComponent)))
-			Expect(foundResource.Spec.Template.Labels).Should(HaveKeyWithValue(hcoutil.AppLabelManagedBy, hcoutil.OperatorName))
-			Expect(foundResource.Spec.Template.Labels).Should(HaveKeyWithValue(hcoutil.AppLabelVersion, hcoutil.GetHcoKvIoVersion()))
-			Expect(foundResource.Spec.Template.Labels).Should(HaveKeyWithValue(hcoutil.AppLabelPartOf, hcoutil.HyperConvergedCluster))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Spec.Template.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Spec.Template.Labels).To(HaveKeyWithValue(hcoutil.AppLabelComponent, string(appComponent)))
+			Expect(foundResource.Spec.Template.Labels).To(HaveKeyWithValue(hcoutil.AppLabelManagedBy, hcoutil.OperatorName))
+			Expect(foundResource.Spec.Template.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, hcoutil.GetHcoKvIoVersion()))
+			Expect(foundResource.Spec.Template.Labels).To(HaveKeyWithValue(hcoutil.AppLabelPartOf, hcoutil.HyperConvergedCluster))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 			Expect(reflect.DeepEqual(expectedResource.Spec, foundResource.Spec)).To(BeTrue())
 		},
@@ -539,11 +539,11 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 
 				Expect(existingResource.Spec.Template.Spec.Affinity.NodeAffinity).ToNot(BeNil())
 				Expect(existingResource.Spec.Template.Spec.Tolerations).To(HaveLen(2))
-				Expect(existingResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "value3"))
+				Expect(existingResource.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("key3", "value3"))
 
 				Expect(foundResource.Spec.Template.Spec.Affinity.NodeAffinity).ToNot(BeNil())
 				Expect(foundResource.Spec.Template.Spec.Tolerations).To(HaveLen(3))
-				Expect(foundResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "something entirely else"))
+				Expect(foundResource.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("key3", "something entirely else"))
 
 				Expect(req.Conditions).To(BeEmpty())
 			},
@@ -585,10 +585,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 				).To(Succeed())
 
 				Expect(existingResource.Spec.Template.Spec.Tolerations).To(HaveLen(3))
-				Expect(existingResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "BADvalue3"))
+				Expect(existingResource.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("key3", "BADvalue3"))
 
 				Expect(foundResource.Spec.Template.Spec.Tolerations).To(HaveLen(2))
-				Expect(foundResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "value3"))
+				Expect(foundResource.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("key3", "value3"))
 
 				Expect(req.Conditions).To(BeEmpty())
 			},
@@ -722,7 +722,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).To(Succeed())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		},
 			Entry("ui plugin service", hcoutil.AppComponentUIPlugin, NewKvUIPluginSvc),

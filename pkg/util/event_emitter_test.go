@@ -54,7 +54,7 @@ var _ = Describe("", func() {
 				Expect(mock.events).To(HaveLen(1))
 				rsEvent, found := mock.events["ConfigMap"]
 				Expect(found).To(BeTrue())
-				Expect(rsEvent).Should(Equal(expectedEvent))
+				Expect(rsEvent).To(Equal(expectedEvent))
 
 				_, found = mock.events["Pod"]
 				Expect(found).To(BeFalse())
@@ -135,15 +135,15 @@ var _ = Describe("", func() {
 
 				rsEvent, found := mock.events["ReplicaSet"]
 				Expect(found).To(BeTrue())
-				Expect(rsEvent).Should(Equal(expectedEvent))
+				Expect(rsEvent).To(Equal(expectedEvent))
 
 				rsEvent, found = mock.events["Pod"]
 				Expect(found).To(BeTrue())
-				Expect(rsEvent).Should(Equal(expectedEvent))
+				Expect(rsEvent).To(Equal(expectedEvent))
 
 				rsEvent, found = mock.events["ClusterServiceVersion"]
 				Expect(found).To(BeTrue())
-				Expect(rsEvent).Should(Equal(expectedEvent))
+				Expect(rsEvent).To(Equal(expectedEvent))
 			})
 
 		})

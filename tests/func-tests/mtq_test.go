@@ -65,25 +65,25 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 			By("check the MTQ CR")
 			Eventually(func(g Gomega) bool {
 				mtq := getMTQ(ctx, cli, g)
-				g.Expect(mtq.Status.Conditions).ShouldNot(BeEmpty())
+				g.Expect(mtq.Status.Conditions).ToNot(BeEmpty())
 				return conditionsv1.IsStatusConditionTrue(mtq.Status.Conditions, conditionsv1.ConditionAvailable)
 			}).WithTimeout(5 * time.Minute).WithPolling(time.Second).ShouldNot(BeTrue())
 
 			By("check MTQ pods")
 			Eventually(func(g Gomega) {
 				deps, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=multi-tenant"})
-				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(deps.Items).To(HaveLen(3))
 
 				expectedPods := int32(0)
 				for _, dep := range deps.Items {
-					g.Expect(dep.Status.ReadyReplicas).Should(Equal(dep.Status.Replicas))
+					g.Expect(dep.Status.ReadyReplicas).To(Equal(dep.Status.Replicas))
 					expectedPods += dep.Status.Replicas
 				}
 
 				pods, err := cli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=multi-tenant"})
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(pods.Items).Should(HaveLen(int(expectedPods)))
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(pods.Items).To(HaveLen(int(expectedPods)))
 			}).WithTimeout(5 * time.Minute).
 				WithPolling(time.Second).
 				Should(Succeed())

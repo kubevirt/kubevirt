@@ -37,15 +37,15 @@ var _ = Describe("Test general utilities", func() {
 			_ = os.Setenv(OperatorNamespaceEnv, expectedNs)
 
 			ns, err := GetOperatorNamespaceFromEnv()
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(ns).Should(Equal(expectedNs))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ns).To(Equal(expectedNs))
 		})
 
 		It("should return an error if the OPERATOR_NAMESPACE env var is not set", func() {
 			_ = os.Unsetenv(OperatorNamespaceEnv)
 
 			_, err := GetOperatorNamespaceFromEnv()
-			Expect(err).Should(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -76,11 +76,11 @@ var _ = Describe("Test general utilities", func() {
 				Build()
 
 			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true, true)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(deleted).To(BeTrue())
 
 			podToSearch := &corev1.Pod{}
-			Expect(cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)).ShouldNot(Succeed())
+			Expect(cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)).ToNot(Succeed())
 		})
 
 		It("should not return error if the resource does not exist", func() {
@@ -89,29 +89,29 @@ var _ = Describe("Test general utilities", func() {
 				Build()
 
 			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true, true)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(deleted).To(BeFalse())
 
 			podToSearch := &corev1.Pod{}
-			Expect(cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)).ShouldNot(Succeed())
+			Expect(cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)).ToNot(Succeed())
 		})
 	})
 
 	Context("test ContainsString", func() {
 		It("should return false if the list is empty", func() {
-			Expect(ContainsString([]string{}, "a word")).Should(BeFalse())
+			Expect(ContainsString([]string{}, "a word")).To(BeFalse())
 		})
 
 		It("should return false if the list is nil", func() {
-			Expect(ContainsString(nil, "a word")).Should(BeFalse())
+			Expect(ContainsString(nil, "a word")).To(BeFalse())
 		})
 
 		It("should return false if the list does not contain the string", func() {
-			Expect(ContainsString([]string{"aaa", "bbb", "ccc", "ddd"}, "eee")).Should(BeFalse())
+			Expect(ContainsString([]string{"aaa", "bbb", "ccc", "ddd"}, "eee")).To(BeFalse())
 		})
 
 		It("should return true if the list contains the string", func() {
-			Expect(ContainsString([]string{"aaa", "bbb", "ccc", "ddd"}, "bbb")).Should(BeTrue())
+			Expect(ContainsString([]string{"aaa", "bbb", "ccc", "ddd"}, "bbb")).To(BeTrue())
 		})
 	})
 })

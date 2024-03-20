@@ -61,7 +61,7 @@ var _ = Describe("Deployment Handler", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 
-			Expect(foundResource.Spec.Selector).Should(Equal(expectedDeployment.Spec.Selector))
+			Expect(foundResource.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
 			// let's check the object UID to ensure that the object get really deleted and recreated
 			Expect(foundResource.ObjectMeta.UID).ToNot(Equal(modifiedDeployment.ObjectMeta.UID))
 		})
@@ -99,7 +99,7 @@ var _ = Describe("Deployment Handler", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 
-			Expect(foundResource.Spec.Selector).Should(Equal(expectedDeployment.Spec.Selector))
+			Expect(foundResource.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
 			// let's check the object UID to ensure that the object get updated and not deleted and recreated
 			Expect(foundResource.GetUID()).To(Equal(types.UID("oldObjectUID")))
 		})

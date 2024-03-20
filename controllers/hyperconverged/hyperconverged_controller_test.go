@@ -89,7 +89,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 				verifyHyperConvergedCRExistsMetricFalse()
 			})
@@ -112,7 +112,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				res, err := r.Reconcile(context.TODO(), invalidRequest)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -148,7 +148,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 				verifyHyperConvergedCRExistsMetricTrue()
 
@@ -218,7 +218,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}
 				Expect(cl.List(context.TODO(), kvList)).To(Succeed())
-				Expect(kvList.Items).Should(HaveLen(1))
+				Expect(kvList.Items).To(HaveLen(1))
 				kv := kvList.Items[0]
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(expectedFeatureGates)))
@@ -233,7 +233,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: false}))
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 				verifyHyperConvergedCRExistsMetricTrue()
 
@@ -276,7 +276,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 
 				// Get the HCO
@@ -322,7 +322,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: false}))
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 
 				// Get the HCO
@@ -386,7 +386,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				verifyHyperConvergedCRExistsMetricTrue()
 
@@ -428,7 +428,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -450,11 +450,11 @@ var _ = Describe("HyperconvergedController", func() {
 					).ToNot(HaveOccurred())
 
 					foundLabels := foundRelatedObj.GetLabels()
-					Expect(foundLabels[hcoutil.AppLabel]).Should(Equal(expected.hco.Name))
-					Expect(foundLabels[hcoutil.AppLabelPartOf]).Should(Equal(hcoutil.HyperConvergedCluster))
-					Expect(foundLabels[hcoutil.AppLabelManagedBy]).Should(Equal(hcoutil.OperatorName))
-					Expect(foundLabels[hcoutil.AppLabelVersion]).Should(Equal(version.Version))
-					Expect(foundLabels[hcoutil.AppLabelComponent]).ShouldNot(BeNil())
+					Expect(foundLabels[hcoutil.AppLabel]).To(Equal(expected.hco.Name))
+					Expect(foundLabels[hcoutil.AppLabelPartOf]).To(Equal(hcoutil.HyperConvergedCluster))
+					Expect(foundLabels[hcoutil.AppLabelManagedBy]).To(Equal(hcoutil.OperatorName))
+					Expect(foundLabels[hcoutil.AppLabelVersion]).To(Equal(version.Version))
+					Expect(foundLabels[hcoutil.AppLabelComponent]).ToNot(BeNil())
 				}
 			})
 
@@ -468,7 +468,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Reconcile to get all related objects under HCO's status
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Update Kubevirt (an example of secondary CR)
 				foundKubevirt := &kubevirtcorev1.KubeVirt{}
@@ -489,7 +489,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Reconcile again to update HCO's status
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Get the latest objects
 				latestHCO := &hcov1beta1.HyperConverged{}
@@ -521,7 +521,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Reconcile to get all related objects under HCO's status
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Get the latest objects
 				HCO := &hcov1beta1.HyperConverged{}
@@ -576,7 +576,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Reconcile again to update HCO's status
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Get the latest objects
 				Expect(
@@ -600,7 +600,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Reconcile to get all related objects under HCO's status
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Update Kubevirt's resource version (an example of secondary CR)
 				foundKubevirt := &kubevirtcorev1.KubeVirt{}
@@ -621,7 +621,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Reconcile again to update HCO's status
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Get the latest objects
 				latestHCO := &hcov1beta1.HyperConverged{}
@@ -654,7 +654,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				foundResource := &sspv1beta2.SSP{}
 				Expect(
@@ -675,7 +675,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -753,7 +753,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), rq)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
@@ -764,13 +764,13 @@ var _ = Describe("HyperconvergedController", func() {
 
 				Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(3))
-				Expect(existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("BADvalue1"))
-				Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+				Expect(existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).To(Equal("BADvalue1"))
+				Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).To(Equal("BADvalue2"))
 
 				Expect(foundResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(2))
 				Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(2))
-				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
-				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
+				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).To(Equal("value1"))
+				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).To(Equal("value2"))
 
 				counterValueAfter, err := metrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -806,7 +806,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile triggered by HCO
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 
 				foundResource := &kubevirtcorev1.KubeVirt{}
 				Expect(
@@ -817,13 +817,13 @@ var _ = Describe("HyperconvergedController", func() {
 
 				Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(3))
-				Expect(existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("BADvalue1"))
-				Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+				Expect(existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).To(Equal("BADvalue1"))
+				Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).To(Equal("BADvalue2"))
 
 				Expect(foundResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(2))
 				Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(2))
-				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
-				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
+				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).To(Equal("value1"))
+				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).To(Equal("value2"))
 
 				counterValueAfter, err := metrics.GetOverwrittenModificationsCount(foundResource.Kind, foundResource.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -908,7 +908,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
@@ -918,8 +918,8 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(Succeed())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(foundResource.Status.RelatedObjects).Should(HaveLen(21))
-				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(21))
+				Expect(foundResource.ObjectMeta.Finalizers).To(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
 				delTime := time.Now().UTC().Add(-1 * time.Minute)
@@ -930,11 +930,11 @@ var _ = Describe("HyperconvergedController", func() {
 				r = initReconciler(cl, nil)
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: false}))
 
 				foundResource = &hcov1beta1.HyperConverged{}
 				err = cl.Get(context.TODO(),
@@ -951,7 +951,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl, nil)
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
@@ -961,7 +961,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(Succeed())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
+				Expect(foundResource.ObjectMeta.Finalizers).To(Equal([]string{FinalizerName}))
 			})
 
 			It("Should not be ready if one of the operands is returns error, on create", func() {
@@ -978,7 +978,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 
 				// Get the HCO
 				foundResource := &hcov1beta1.HyperConverged{}
@@ -993,8 +993,8 @@ var _ = Describe("HyperconvergedController", func() {
 				for _, cond := range foundResource.Status.Conditions {
 					if cond.Type == hcov1beta1.ConditionReconcileComplete {
 						foundCond = true
-						Expect(cond.Status).Should(Equal(metav1.ConditionFalse))
-						Expect(cond.Message).Should(ContainSubstring("fake create error"))
+						Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+						Expect(cond.Message).To(ContainSubstring("fake create error"))
 						break
 					}
 				}
@@ -1020,7 +1020,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+				Expect(res).To(Equal(reconcile.Result{Requeue: false}))
 
 				// Get the HCO
 				foundHyperConverged := &hcov1beta1.HyperConverged{}
@@ -1035,8 +1035,8 @@ var _ = Describe("HyperconvergedController", func() {
 				for _, cond := range foundHyperConverged.Status.Conditions {
 					if cond.Type == hcov1beta1.ConditionReconcileComplete {
 						foundCond = true
-						Expect(cond.Status).Should(Equal(metav1.ConditionFalse))
-						Expect(cond.Message).Should(ContainSubstring("fake update error"))
+						Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+						Expect(cond.Message).To(ContainSubstring("fake update error"))
 						break
 					}
 				}
@@ -1049,7 +1049,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				foundResource, _, _ := doReconcile(cl, expected.hco, nil)
 
-				Expect(foundResource.Status.ObservedGeneration).Should(BeEquivalentTo(10))
+				Expect(foundResource.Status.ObservedGeneration).To(BeEquivalentTo(10))
 			})
 
 		})
@@ -1158,7 +1158,7 @@ var _ = Describe("HyperconvergedController", func() {
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Requeue).To(BeFalse())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
@@ -1234,7 +1234,7 @@ var _ = Describe("HyperconvergedController", func() {
 				res, err = r.Reconcile(context.TODO(), rq)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Requeue).To(BeFalse())
-				Expect(res).Should(Equal(reconcile.Result{}))
+				Expect(res).To(Equal(reconcile.Result{}))
 
 				Expect(
 					cl.Get(context.TODO(),
@@ -1317,7 +1317,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 				Expect(requeue).To(BeTrue())
 
-				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcoutil.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).To(Equal(hcoutil.HyperConvergedName))
 			})
 
 			It("Should set required fields when missing", func() {
@@ -1327,7 +1327,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 				Expect(requeue).To(BeFalse())
 
-				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcoutil.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).To(Equal(hcoutil.HyperConvergedName))
 			})
 		})
 
@@ -1408,13 +1408,13 @@ var _ = Describe("HyperconvergedController", func() {
 
 				for _, cond := range foundResource.Status.Conditions {
 					if cond.Type == hcov1beta1.ConditionAvailable {
-						Expect(cond.Reason).Should(Equal("Init"))
+						Expect(cond.Reason).To(Equal("Init"))
 						break
 					}
 				}
 				ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
+				Expect(ver).To(Equal(newVersion))
 
 				expected.hco.Status.Conditions = okConds
 			})
@@ -1433,7 +1433,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// check that the HCO version is not set, because upgrade is not completed
 				ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
+				Expect(ver).To(Equal(oldVersion))
 
 				// ensure we are not hot-looping setting the version
 				_, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
@@ -1450,9 +1450,9 @@ var _ = Describe("HyperconvergedController", func() {
 
 				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
+				Expect(ver).To(Equal(oldVersion))
 				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionTrue))
 
 				// Call again, to start complete the upgrade
 				// check that the image Id is set, now, when upgrade is completed
@@ -1462,9 +1462,9 @@ var _ = Describe("HyperconvergedController", func() {
 
 				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
+				Expect(ver).To(Equal(newVersion))
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionFalse))
 				validateOperatorCondition(reconciler, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
 
 				// Call again, to start complete the upgrade
@@ -1508,7 +1508,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// check that the HCO version is not set, because upgrade is not completed
 				ver, ok := GetVersion(&foundHC.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
+				Expect(ver).To(Equal(oldVersion))
 
 				counterValueAfter, err := metrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -1539,7 +1539,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(res.Requeue).To(BeTrue())
 						Expect(ok).To(BeTrue())
-						Expect(ver).Should(Equal(testHcoVersion))
+						Expect(ver).To(Equal(testHcoVersion))
 						// reconcile again to complete the upgrade
 						res, err = r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
@@ -1551,17 +1551,17 @@ var _ = Describe("HyperconvergedController", func() {
 						).To(Succeed())
 						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
-						Expect(ver).Should(Equal(newVersion))
+						Expect(ver).To(Equal(newVersion))
 					} else {
 						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).Should(ContainSubstring(errorMessage))
+						Expect(err.Error()).To(ContainSubstring(errorMessage))
 						Expect(res.Requeue).To(BeTrue())
 						Expect(ok).To(BeTrue())
-						Expect(ver).Should(Equal(testHcoVersion))
+						Expect(ver).To(Equal(testHcoVersion))
 						// try a second time
 						res, err = r.Reconcile(context.TODO(), request)
 						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).Should(ContainSubstring(errorMessage))
+						Expect(err.Error()).To(ContainSubstring(errorMessage))
 						Expect(res.Requeue).To(BeTrue())
 						Expect(
 							cl.Get(context.TODO(),
@@ -1570,10 +1570,10 @@ var _ = Describe("HyperconvergedController", func() {
 						).To(Succeed())
 						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
-						Expect(ver).Should(Equal(testHcoVersion))
+						Expect(ver).To(Equal(testHcoVersion))
 						// and a third
 						res, err = r.Reconcile(context.TODO(), request)
-						Expect(err).Should(MatchError(ContainSubstring(errorMessage)))
+						Expect(err).To(MatchError(ContainSubstring(errorMessage)))
 						Expect(res.Requeue).To(BeTrue())
 						Expect(
 							cl.Get(context.TODO(),
@@ -1582,7 +1582,7 @@ var _ = Describe("HyperconvergedController", func() {
 						).To(Succeed())
 						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
-						Expect(ver).Should(Equal(testHcoVersion))
+						Expect(ver).To(Equal(testHcoVersion))
 					}
 				},
 				Entry(
@@ -1691,7 +1691,7 @@ var _ = Describe("HyperconvergedController", func() {
 				ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 				_, _ = fmt.Fprintln(GinkgoWriter, "foundResource.Status.Versions", foundResource.Status.Versions)
 				Expect(ok).To(BeFalse())
-				Expect(ver).Should(BeEmpty())
+				Expect(ver).To(BeEmpty())
 
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
@@ -1704,14 +1704,14 @@ var _ = Describe("HyperconvergedController", func() {
 				_, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
 				cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionFalse))
 
 				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(newVersion))
+				Expect(ver).To(Equal(newVersion))
 
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-				Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			})
 
 			DescribeTable(
@@ -1738,11 +1738,11 @@ var _ = Describe("HyperconvergedController", func() {
 					// check that the image Id is not set, because upgrade is not completed
 					ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
-					Expect(ver).Should(Equal(oldVersion))
+					Expect(ver).To(Equal(oldVersion))
 					cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-					Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-					Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-					Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
+					Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+					Expect(cond.Reason).To(Equal("HCOUpgrading"))
+					Expect(cond.Message).To(Equal("HCO is now upgrading to version " + newVersion))
 
 					// check that the upgrade is not done if the not all the versions are match.
 					// Conditions are valid
@@ -1757,11 +1757,11 @@ var _ = Describe("HyperconvergedController", func() {
 					// check that the image Id is set, now, when upgrade is completed
 					ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
-					Expect(ver).Should(Equal(oldVersion))
+					Expect(ver).To(Equal(oldVersion))
 					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-					Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-					Expect(cond.Reason).Should(Equal("HCOUpgrading"))
-					Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
+					Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+					Expect(cond.Reason).To(Equal("HCOUpgrading"))
+					Expect(cond.Message).To(Equal("HCO is now upgrading to version " + newVersion))
 
 					// now, complete the upgrade
 					updateComponentVersion()
@@ -1775,10 +1775,10 @@ var _ = Describe("HyperconvergedController", func() {
 					// check that the image Id is set, now, when upgrade is completed
 					ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
-					Expect(ver).Should(Equal(newVersion))
+					Expect(ver).To(Equal(newVersion))
 					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
-					Expect(cond.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-					Expect(cond.Reason).Should(Equal("ReconcileCompleted"))
+					Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+					Expect(cond.Reason).To(Equal("ReconcileCompleted"))
 				},
 				Entry(
 					"don't complete upgrade if kubevirt version is not match to the kubevirt version env ver",
@@ -1844,9 +1844,9 @@ var _ = Describe("HyperconvergedController", func() {
 							client.ObjectKeyFromObject(expected.hcoCRD),
 							foundCrd),
 					).To(Succeed())
-					Expect(foundCrd.Status.StoredVersions).ShouldNot(ContainElement("v1alpha1"))
-					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1beta1"))
-					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1"))
+					Expect(foundCrd.Status.StoredVersions).ToNot(ContainElement("v1alpha1"))
+					Expect(foundCrd.Status.StoredVersions).To(ContainElement("v1beta1"))
+					Expect(foundCrd.Status.StoredVersions).To(ContainElement("v1"))
 
 					By("Run reconcile again")
 					foundHC, reconciler, requeue = doReconcile(cl, foundHC, reconciler)
@@ -1859,7 +1859,7 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundHC, metav1.ConditionTrue)
 					ver, ok := GetVersion(&foundHC.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
-					Expect(ver).Should(Equal(newVersion))
+					Expect(ver).To(Equal(newVersion))
 				})
 
 				It("should not update .status.storedVersions on the HCO CRD if not in upgrade mode", func() {
@@ -1877,9 +1877,9 @@ var _ = Describe("HyperconvergedController", func() {
 							client.ObjectKeyFromObject(expected.hcoCRD),
 							foundCrd),
 					).To(Succeed())
-					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1alpha1"))
-					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1beta1"))
-					Expect(foundCrd.Status.StoredVersions).Should(ContainElement("v1"))
+					Expect(foundCrd.Status.StoredVersions).To(ContainElement("v1alpha1"))
+					Expect(foundCrd.Status.StoredVersions).To(ContainElement("v1beta1"))
+					Expect(foundCrd.Status.StoredVersions).To(ContainElement("v1"))
 
 				})
 
@@ -2133,7 +2133,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(requeue).To(BeTrue())
 					_, _, requeue = doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
-					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(BeNil())
+					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).To(BeNil())
 				})
 
 				It("should preserve spec.livemigrationconfig.bandwidthpermigration if != 64Mi when upgrading from < 1.5.0", func() {
@@ -2145,7 +2145,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(requeue).To(BeTrue())
 					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
-					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(HaveValue(Equal(customBandwidthPerMigration)))
+					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).To(HaveValue(Equal(customBandwidthPerMigration)))
 				})
 
 				It("should preserve spec.livemigrationconfig.bandwidthpermigration even if == 64Mi when upgrading from >= 1.5.1", func() {
@@ -2157,7 +2157,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(requeue).To(BeTrue())
 					foundResource, _, requeue := doReconcile(cl, expected.hco, reconciler)
 					Expect(requeue).To(BeFalse())
-					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(HaveValue(Equal(badBandwidthPerMigration)))
+					Expect(foundResource.Spec.LiveMigrationConfig.BandwidthPerMigration).To(HaveValue(Equal(badBandwidthPerMigration)))
 				})
 			})
 
@@ -2675,22 +2675,22 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(commonDegradedReason))
-				Expect(cd.Message).Should(Equal("HCO is not available due to degraded components"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(commonDegradedReason))
+				Expect(cd.Message).To(Equal("HCO is not available due to degraded components"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIDegraded"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIDegraded"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(commonDegradedReason))
-				Expect(cd.Message).Should(Equal("HCO is not Upgradeable due to degraded components"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(commonDegradedReason))
+				Expect(cd.Message).To(Equal("HCO is not Upgradeable due to degraded components"))
 
 				By("operator condition should be true even the upgradeable is false")
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
@@ -2720,20 +2720,20 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(commonDegradedReason))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(commonDegradedReason))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIProgressing"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIDegraded"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIDegraded"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDIProgressing"))
 
 				By("operator condition should be true even the upgradeable is false")
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
@@ -2763,20 +2763,20 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDINotAvailable"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIDegraded"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIDegraded"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(commonDegradedReason))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(commonDegradedReason))
 
 				By("operator condition should be true even the upgradeable is false")
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
@@ -2800,20 +2800,20 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIProgressing"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDIProgressing"))
 
 				By("operator condition should be true even the upgradeable is false")
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
@@ -2843,20 +2843,20 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDINotAvailable"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIProgressing"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDIProgressing"))
 
 				By("operator condition should be true even the upgradeable is false")
 				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
@@ -2880,20 +2880,20 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDINotAvailable"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDINotAvailable"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 			})
 
 			It("should be with all positive condition when all components working properly", func() {
@@ -2908,20 +2908,20 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 			})
 
 			It("should set the status of the last faulty component", func() {
@@ -2949,20 +2949,20 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("NetworkAddonsConfigNotAvailable"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("NetworkAddonsConfigNotAvailable"))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 			})
 
 			It("should not be upgradeable when a component is not upgradeable", func() {
@@ -2983,25 +2983,25 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDINotUpgradeable"))
-				Expect(cd.Message).Should(Equal("CDI is not upgradeable: CDI Test Error message"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDINotUpgradeable"))
+				Expect(cd.Message).To(Equal("CDI is not upgradeable: CDI Test Error message"))
 
 				By("operator condition should be false")
 				validateOperatorCondition(r, metav1.ConditionFalse, "CDINotUpgradeable", "is not upgradeable:")
@@ -3032,25 +3032,25 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIProgressing"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIProgressing"))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDINotUpgradeable"))
-				Expect(cd.Message).Should(Equal("CDI is not upgradeable: CDI Upgrade Error message"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDINotUpgradeable"))
+				Expect(cd.Message).To(Equal("CDI is not upgradeable: CDI Upgrade Error message"))
 
 				By("operator condition should be false")
 				validateOperatorCondition(r, metav1.ConditionFalse, "CDINotUpgradeable", "is not upgradeable:")
@@ -3081,25 +3081,25 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = wr.Encode(conditions)
 
 				cd := apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionAvailable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(commonDegradedReason))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(commonDegradedReason))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionProgressing)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal(reconcileCompleted))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal(reconcileCompleted))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionDegraded)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionTrue))
-				Expect(cd.Reason).Should(Equal("CDIDegraded"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+				Expect(cd.Reason).To(Equal("CDIDegraded"))
 
 				cd = apimetav1.FindStatusCondition(conditions, hcov1beta1.ConditionUpgradeable)
-				Expect(cd.Status).Should(BeEquivalentTo(metav1.ConditionFalse))
-				Expect(cd.Reason).Should(Equal("CDINotUpgradeable"))
-				Expect(cd.Message).Should(Equal("CDI is not upgradeable: CDI Upgrade Error message"))
+				Expect(cd.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+				Expect(cd.Reason).To(Equal("CDINotUpgradeable"))
+				Expect(cd.Message).To(Equal("CDI is not upgradeable: CDI Upgrade Error message"))
 
 				By("operator condition should be false")
 				validateOperatorCondition(r, metav1.ConditionFalse, "CDINotUpgradeable", "is not upgradeable:")
@@ -3183,7 +3183,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3238,7 +3238,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
-					Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+					Expect(res).To(Equal(reconcile.Result{Requeue: false}))
 
 					// Get the HCO
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3338,7 +3338,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3369,12 +3369,12 @@ var _ = Describe("HyperconvergedController", func() {
 								cdi),
 						).To(Succeed())
 
-						Expect(cdi.Spec.Config.FeatureGates).Should(ContainElement("fg1"))
+						Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
 						Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
-						Expect(cdi.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("50"))
+						Expect(cdi.Spec.Config.FilesystemOverhead.Global).To(BeEquivalentTo("50"))
 						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass).ToNot(BeNil())
-						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).Should(BeEquivalentTo("75"))
-						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).Should(BeEquivalentTo("25"))
+						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).To(BeEquivalentTo("75"))
+						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).To(BeEquivalentTo("25"))
 
 					})
 				})
@@ -3489,7 +3489,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3521,9 +3521,9 @@ var _ = Describe("HyperconvergedController", func() {
 						).To(Succeed())
 
 						Expect(cna.Spec.KubeMacPool).ToNot(BeNil())
-						Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
-						Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
-						Expect(cna.Spec.ImagePullPolicy).Should(BeEquivalentTo("Always"))
+						Expect(cna.Spec.KubeMacPool.RangeStart).To(Equal("1.1.1.1.1.1"))
+						Expect(cna.Spec.KubeMacPool.RangeEnd).To(Equal("5.5.5.5.5.5"))
+						Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
 					})
 				})
 
@@ -3579,7 +3579,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3623,7 +3623,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3654,8 +3654,8 @@ var _ = Describe("HyperconvergedController", func() {
 								ssp),
 						).To(Succeed())
 
-						Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
-						Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+						Expect(ssp.Spec.TemplateValidator.Replicas).ToNot(BeNil())
+						Expect(*ssp.Spec.TemplateValidator.Replicas).To(Equal(int32(5)))
 					})
 				})
 
@@ -3711,7 +3711,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3788,7 +3788,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res).To(Equal(reconcile.Result{Requeue: true}))
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3834,12 +3834,12 @@ var _ = Describe("HyperconvergedController", func() {
 								cdi),
 						).To(Succeed())
 
-						Expect(cdi.Spec.Config.FeatureGates).Should(ContainElement("fg1"))
+						Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
 						Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
-						Expect(cdi.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("50"))
+						Expect(cdi.Spec.Config.FilesystemOverhead.Global).To(BeEquivalentTo("50"))
 						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass).ToNot(BeNil())
-						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).Should(BeEquivalentTo("75"))
-						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).Should(BeEquivalentTo("25"))
+						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).To(BeEquivalentTo("75"))
+						Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).To(BeEquivalentTo("25"))
 
 					})
 					By("Verify that CNA was modified by the annotation", func() {
@@ -3851,9 +3851,9 @@ var _ = Describe("HyperconvergedController", func() {
 						).To(Succeed())
 
 						Expect(cna.Spec.KubeMacPool).ToNot(BeNil())
-						Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
-						Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
-						Expect(cna.Spec.ImagePullPolicy).Should(BeEquivalentTo("Always"))
+						Expect(cna.Spec.KubeMacPool.RangeStart).To(Equal("1.1.1.1.1.1"))
+						Expect(cna.Spec.KubeMacPool.RangeEnd).To(Equal("5.5.5.5.5.5"))
+						Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
 					})
 					By("Verify that SSP was modified by the annotation", func() {
 						ssp := operands.NewSSPWithNameOnly(hco)
@@ -3863,8 +3863,8 @@ var _ = Describe("HyperconvergedController", func() {
 								ssp),
 						).To(Succeed())
 
-						Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
-						Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+						Expect(ssp.Spec.TemplateValidator.Replicas).ToNot(BeNil())
+						Expect(*ssp.Spec.TemplateValidator.Replicas).To(Equal(int32(5)))
 					})
 				})
 			})

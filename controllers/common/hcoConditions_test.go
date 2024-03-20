@@ -25,10 +25,10 @@ var _ = Describe("HCO Conditions Tests", func() {
 			Expect(conds).To(HaveLen(1))
 
 			Expect(conds[hcov1beta1.ConditionReconcileComplete]).ToNot(BeNil())
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).Should(Equal(hcov1beta1.ConditionReconcileComplete))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).Should(Equal(metav1.ConditionFalse))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).Should(Equal("reason"))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).Should(Equal("a message"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).To(Equal(hcov1beta1.ConditionReconcileComplete))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).To(Equal(metav1.ConditionFalse))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).To(Equal("reason"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).To(Equal("a message"))
 		})
 
 		It("Should update a condition if already exists", func() {
@@ -43,10 +43,10 @@ var _ = Describe("HCO Conditions Tests", func() {
 			Expect(conds).To(HaveLen(1))
 
 			Expect(conds[hcov1beta1.ConditionReconcileComplete]).ToNot(BeNil())
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).Should(Equal(hcov1beta1.ConditionReconcileComplete))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).Should(Equal(metav1.ConditionTrue))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).Should(Equal("reason2"))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).Should(Equal("another message"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).To(Equal(hcov1beta1.ConditionReconcileComplete))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).To(Equal(metav1.ConditionTrue))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).To(Equal("reason2"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).To(Equal("another message"))
 		})
 	})
 
@@ -67,10 +67,10 @@ var _ = Describe("HCO Conditions Tests", func() {
 			Expect(conds).To(HaveLen(1))
 
 			Expect(conds[hcov1beta1.ConditionReconcileComplete]).ToNot(BeNil())
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).Should(Equal(hcov1beta1.ConditionReconcileComplete))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).Should(Equal(metav1.ConditionFalse))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).Should(Equal("reason"))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).Should(Equal("a message"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).To(Equal(hcov1beta1.ConditionReconcileComplete))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).To(Equal(metav1.ConditionFalse))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).To(Equal("reason"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).To(Equal("a message"))
 
 			By("The condition should not be changed by this call")
 			conds.SetStatusConditionIfUnset(metav1.Condition{
@@ -85,10 +85,10 @@ var _ = Describe("HCO Conditions Tests", func() {
 
 			By("Make sure the values are the same as before and were not changed")
 			Expect(conds[hcov1beta1.ConditionReconcileComplete]).ToNot(BeNil())
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).Should(Equal(hcov1beta1.ConditionReconcileComplete))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).Should(Equal(metav1.ConditionFalse))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).Should(Equal("reason"))
-			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).Should(Equal("a message"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Type).To(Equal(hcov1beta1.ConditionReconcileComplete))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Status).To(Equal(metav1.ConditionFalse))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Reason).To(Equal("reason"))
+			Expect(conds[hcov1beta1.ConditionReconcileComplete].Message).To(Equal("a message"))
 		})
 	})
 

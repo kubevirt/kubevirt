@@ -71,28 +71,28 @@ var _ = Describe("MTQ tests", func() {
 		It("should have all default fields", func() {
 			mtq := NewMTQ(hco)
 
-			Expect(mtq.Name).Should(Equal("mtq-" + hco.Name))
-			Expect(mtq.Namespace).Should(BeEmpty())
+			Expect(mtq.Name).To(Equal("mtq-" + hco.Name))
+			Expect(mtq.Namespace).To(BeEmpty())
 
-			Expect(mtq.Spec.Infra.Tolerations).Should(BeEmpty())
-			Expect(mtq.Spec.Infra.Affinity).Should(BeNil())
-			Expect(mtq.Spec.Infra.NodeSelector).Should(BeEmpty())
+			Expect(mtq.Spec.Infra.Tolerations).To(BeEmpty())
+			Expect(mtq.Spec.Infra.Affinity).To(BeNil())
+			Expect(mtq.Spec.Infra.NodeSelector).To(BeEmpty())
 
-			Expect(mtq.Spec.Workloads.Tolerations).Should(BeEmpty())
-			Expect(mtq.Spec.Workloads.Affinity).Should(BeNil())
-			Expect(mtq.Spec.Workloads.NodeSelector).Should(BeEmpty())
+			Expect(mtq.Spec.Workloads.Tolerations).To(BeEmpty())
+			Expect(mtq.Spec.Workloads.Affinity).To(BeNil())
+			Expect(mtq.Spec.Workloads.NodeSelector).To(BeEmpty())
 
 			Expect(mtq.Spec.PriorityClass).To(HaveValue(Equal(mtqv1alpha1.MTQPriorityClass(kvPriorityClass))))
 
-			Expect(mtq.Spec.CertConfig.CA).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.CA.Duration).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(mtq.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(mtq.Spec.CertConfig.CA).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.CA.Duration).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("48h0m0s"))
+			Expect(mtq.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("24h0m0s"))
 
-			Expect(mtq.Spec.CertConfig.Server).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.Server.Duration).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(mtq.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(mtq.Spec.CertConfig.Server).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.Server.Duration).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("24h0m0s"))
+			Expect(mtq.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("12h0m0s"))
 		})
 
 		It("should get node placement node placement configurations from the HyperConverged CR", func() {
@@ -101,8 +101,8 @@ var _ = Describe("MTQ tests", func() {
 
 			mtq := NewMTQ(hco)
 
-			Expect(mtq.Spec.Infra).Should(Equal(testNodePlacement))
-			Expect(mtq.Spec.Workloads).Should(Equal(testNodePlacement))
+			Expect(mtq.Spec.Infra).To(Equal(testNodePlacement))
+			Expect(mtq.Spec.Workloads).To(Equal(testNodePlacement))
 		})
 
 		It("should get node placement certification configurations from the HyperConverged CR", func() {
@@ -120,15 +120,15 @@ var _ = Describe("MTQ tests", func() {
 
 			mtq := NewMTQ(hco)
 
-			Expect(mtq.Spec.CertConfig.CA).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.CA.Duration).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("72h0m0s"))
-			Expect(mtq.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("56h0m0s"))
+			Expect(mtq.Spec.CertConfig.CA).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.CA.Duration).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("72h0m0s"))
+			Expect(mtq.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("56h0m0s"))
 
-			Expect(mtq.Spec.CertConfig.Server).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.Server.Duration).ShouldNot(BeNil())
-			Expect(mtq.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("36h0m0s"))
-			Expect(mtq.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("18h0m0s"))
+			Expect(mtq.Spec.CertConfig.Server).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.Server.Duration).ToNot(BeNil())
+			Expect(mtq.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("36h0m0s"))
+			Expect(mtq.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("18h0m0s"))
 		})
 	})
 
@@ -140,14 +140,14 @@ var _ = Describe("MTQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Created).Should(BeFalse())
-			Expect(res.Updated).Should(BeFalse())
-			Expect(res.Deleted).Should(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Deleted).To(BeFalse())
 
 			foundMTQs := &mtqv1alpha1.MTQList{}
-			Expect(cl.List(context.Background(), foundMTQs)).Should(Succeed())
-			Expect(foundMTQs.Items).Should(BeEmpty())
+			Expect(cl.List(context.Background(), foundMTQs)).To(Succeed())
+			Expect(foundMTQs.Items).To(BeEmpty())
 		})
 
 		It("should delete MTQ if the FG is not set", func() {
@@ -158,15 +158,15 @@ var _ = Describe("MTQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Name).Should(Equal(mtq.Name))
-			Expect(res.Created).Should(BeFalse())
-			Expect(res.Updated).Should(BeFalse())
-			Expect(res.Deleted).Should(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Name).To(Equal(mtq.Name))
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Deleted).To(BeTrue())
 
 			foundMTQs := &mtqv1alpha1.MTQList{}
-			Expect(cl.List(context.Background(), foundMTQs)).Should(Succeed())
-			Expect(foundMTQs.Items).Should(BeEmpty())
+			Expect(cl.List(context.Background(), foundMTQs)).To(Succeed())
+			Expect(foundMTQs.Items).To(BeEmpty())
 		})
 
 		It("should create MTQ if the FG is set", func() {
@@ -177,17 +177,17 @@ var _ = Describe("MTQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Name).Should(Equal("mtq-kubevirt-hyperconverged"))
-			Expect(res.Created).Should(BeTrue())
-			Expect(res.Updated).Should(BeFalse())
-			Expect(res.Deleted).Should(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Name).To(Equal("mtq-kubevirt-hyperconverged"))
+			Expect(res.Created).To(BeTrue())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Deleted).To(BeFalse())
 
 			foundMTQ := &mtqv1alpha1.MTQ{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundMTQ)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundMTQ)).To(Succeed())
 
-			Expect(foundMTQ.Name).Should(Equal("mtq-" + hco.Name))
-			Expect(foundMTQ.Namespace).Should(BeEmpty())
+			Expect(foundMTQ.Name).To(Equal("mtq-" + hco.Name))
+			Expect(foundMTQ.Namespace).To(BeEmpty())
 
 			// example of field set by the handler
 			Expect(foundMTQ.Spec.PriorityClass).To(HaveValue(Equal(mtqv1alpha1.MTQPriorityClass(kvPriorityClass))))
@@ -205,11 +205,11 @@ var _ = Describe("MTQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Name).Should(Equal("mtq-kubevirt-hyperconverged"))
-			Expect(res.Created).Should(BeFalse())
-			Expect(res.Updated).Should(BeFalse())
-			Expect(res.Deleted).Should(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Name).To(Equal("mtq-kubevirt-hyperconverged"))
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Deleted).To(BeFalse())
 
 			foundMTQ := &mtqv1alpha1.MTQ{}
 			err := cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundMTQ)
@@ -236,27 +236,27 @@ var _ = Describe("MTQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Created).Should(BeFalse())
-			Expect(res.Deleted).Should(BeFalse())
-			Expect(res.Updated).Should(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Deleted).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 
 			foundMTQ := &mtqv1alpha1.MTQ{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundMTQ)).Should(Succeed())
-			Expect(foundMTQ.Spec.Infra.Affinity).Should(BeNil())
-			Expect(foundMTQ.Spec.Infra.NodeSelector).Should(BeEmpty())
-			Expect(foundMTQ.Spec.Infra.Tolerations).Should(BeEmpty())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundMTQ)).To(Succeed())
+			Expect(foundMTQ.Spec.Infra.Affinity).To(BeNil())
+			Expect(foundMTQ.Spec.Infra.NodeSelector).To(BeEmpty())
+			Expect(foundMTQ.Spec.Infra.Tolerations).To(BeEmpty())
 
 			Expect(foundMTQ.Spec.PriorityClass).To(HaveValue(Equal(mtqv1alpha1.MTQPriorityClass(kvPriorityClass))))
-			Expect(foundMTQ.Spec.CertConfig.CA).ShouldNot(BeNil())
-			Expect(foundMTQ.Spec.CertConfig.CA.Duration).ShouldNot(BeNil())
-			Expect(foundMTQ.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(foundMTQ.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(foundMTQ.Spec.CertConfig.CA).ToNot(BeNil())
+			Expect(foundMTQ.Spec.CertConfig.CA.Duration).ToNot(BeNil())
+			Expect(foundMTQ.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("48h0m0s"))
+			Expect(foundMTQ.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("24h0m0s"))
 
-			Expect(foundMTQ.Spec.CertConfig.Server).ShouldNot(BeNil())
-			Expect(foundMTQ.Spec.CertConfig.Server.Duration).ShouldNot(BeNil())
-			Expect(foundMTQ.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(foundMTQ.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(foundMTQ.Spec.CertConfig.Server).ToNot(BeNil())
+			Expect(foundMTQ.Spec.CertConfig.Server.Duration).ToNot(BeNil())
+			Expect(foundMTQ.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("24h0m0s"))
+			Expect(foundMTQ.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("12h0m0s"))
 		})
 
 		It("should reconcile managed labels to default without touching user added ones", func() {
@@ -334,31 +334,31 @@ var _ = Describe("MTQ tests", func() {
 			hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
 			handler := newMtqHandler(cl, commontestutils.GetScheme())
 			op, ok := handler.(*conditionalHandler)
-			Expect(ok).Should(BeTrue())
+			Expect(ok).To(BeTrue())
 
 			hooks, ok := op.operand.hooks.(*mtqHooks)
-			Expect(ok).Should(BeTrue())
+			Expect(ok).To(BeTrue())
 
-			Expect(hooks.cache).Should(BeNil())
+			Expect(hooks.cache).To(BeNil())
 
 			res := handler.ensure(req)
-			Expect(res.Err).ShouldNot(HaveOccurred())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			cache := hooks.cache
-			Expect(cache).ShouldNot(BeNil())
+			Expect(cache).ToNot(BeNil())
 
-			Expect(hooks.getFullCr(hco)).Should(BeIdenticalTo(cache))
+			Expect(hooks.getFullCr(hco)).To(BeIdenticalTo(cache))
 
 			By("recreate cache after reset")
 			handler.reset()
-			Expect(hooks.cache).Should(BeNil())
+			Expect(hooks.cache).To(BeNil())
 			res = handler.ensure(req)
-			Expect(res.Err).ShouldNot(HaveOccurred())
+			Expect(res.Err).ToNot(HaveOccurred())
 
-			Expect(hooks.cache).ShouldNot(BeIdenticalTo(cache))
+			Expect(hooks.cache).ToNot(BeIdenticalTo(cache))
 			mtq, _ := hooks.getFullCr(hco)
-			Expect(mtq).ShouldNot(BeIdenticalTo(cache))
-			Expect(mtq).Should(BeIdenticalTo(hooks.cache))
+			Expect(mtq).ToNot(BeIdenticalTo(cache))
+			Expect(mtq).To(BeIdenticalTo(hooks.cache))
 		})
 	})
 })

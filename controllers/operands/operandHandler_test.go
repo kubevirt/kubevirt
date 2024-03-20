@@ -94,7 +94,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &kvList)).To(Succeed())
 				Expect(kvList).ToNot(BeNil())
 				Expect(kvList.Items).To(HaveLen(1))
-				Expect(kvList.Items[0].Name).Should(Equal("kubevirt-kubevirt-hyperconverged"))
+				Expect(kvList.Items[0].Name).To(Equal("kubevirt-kubevirt-hyperconverged"))
 			})
 
 			By("make sure the CNA object created", func() {
@@ -103,7 +103,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &cnaList)).To(Succeed())
 				Expect(cnaList).ToNot(BeNil())
 				Expect(cnaList.Items).To(HaveLen(1))
-				Expect(cnaList.Items[0].Name).Should(Equal("cluster"))
+				Expect(cnaList.Items[0].Name).To(Equal("cluster"))
 			})
 
 			By("make sure the CDI object created", func() {
@@ -112,7 +112,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &cdiList)).To(Succeed())
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(HaveLen(1))
-				Expect(cdiList.Items[0].Name).Should(Equal("cdi-kubevirt-hyperconverged"))
+				Expect(cdiList.Items[0].Name).To(Equal("cdi-kubevirt-hyperconverged"))
 			})
 
 			By("make sure the ConsoleQuickStart object created", func() {
@@ -121,7 +121,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &qsList)).To(Succeed())
 				Expect(qsList).ToNot(BeNil())
 				Expect(qsList.Items).To(HaveLen(1))
-				Expect(qsList.Items[0].Name).Should(Equal("test-quick-start"))
+				Expect(qsList.Items[0].Name).To(Equal("test-quick-start"))
 			})
 
 			By("make sure the Dashboard confimap created", func() {
@@ -129,7 +129,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &cmList, &client.ListOptions{Namespace: "openshift-config-managed"})).To(Succeed())
 				Expect(cmList).ToNot(BeNil())
 				Expect(cmList.Items).To(HaveLen(1))
-				Expect(cmList.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
+				Expect(cmList.Items[0].Name).To(Equal("grafana-dashboard-kubevirt-top-consumers"))
 			})
 		})
 
@@ -155,14 +155,14 @@ var _ = Describe("Test operandHandler", func() {
 				return nil
 			})
 
-			Expect(handler.Ensure(req)).Should(Equal(fakeError))
+			Expect(handler.Ensure(req)).To(Equal(fakeError))
 
 			Expect(req.ComponentUpgradeInProgress).To(BeFalse())
 			cond := req.Conditions[hcov1beta1.ConditionReconcileComplete]
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).Should(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).Should(Equal(reconcileFailed))
-			Expect(cond.Message).Should(Equal(fmt.Sprintf("Error while reconciling: %v", fakeError)))
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(reconcileFailed))
+			Expect(cond.Message).To(Equal(fmt.Sprintf("Error while reconciling: %v", fakeError)))
 
 			By("make sure the CDI object not created", func() {
 				// Read back CDI
@@ -294,7 +294,7 @@ var _ = Describe("Test operandHandler", func() {
 			}
 			eventEmitter.Reset()
 			err := handler.EnsureDeleted(req)
-			Expect(err).Should(Equal(fakeError))
+			Expect(err).To(Equal(fakeError))
 
 			By("Check that event was emitted", func() {
 				Expect(eventEmitter.CheckEvents(expectedEvents)).To(BeTrue())
@@ -306,7 +306,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &kvList)).To(Succeed())
 				Expect(kvList).ToNot(BeNil())
 				Expect(kvList.Items).To(HaveLen(1))
-				Expect(kvList.Items[0].Name).Should(Equal("kubevirt-kubevirt-hyperconverged"))
+				Expect(kvList.Items[0].Name).To(Equal("kubevirt-kubevirt-hyperconverged"))
 			})
 		})
 
@@ -344,7 +344,7 @@ var _ = Describe("Test operandHandler", func() {
 
 			eventEmitter.Reset()
 			err := handler.EnsureDeleted(req)
-			Expect(err).Should(Equal(fakeError))
+			Expect(err).To(Equal(fakeError))
 
 			By("Check that event was emitted", func() {
 				Expect(eventEmitter.CheckEvents(expectedEvents)).To(BeTrue())
@@ -356,7 +356,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &cdiList)).To(Succeed())
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(HaveLen(1))
-				Expect(cdiList.Items[0].Name).Should(Equal("cdi-kubevirt-hyperconverged"))
+				Expect(cdiList.Items[0].Name).To(Equal("cdi-kubevirt-hyperconverged"))
 			})
 		})
 
@@ -394,7 +394,7 @@ var _ = Describe("Test operandHandler", func() {
 
 			eventEmitter.Reset()
 			err := handler.EnsureDeleted(req)
-			Expect(err).Should(Equal(fakeError))
+			Expect(err).To(Equal(fakeError))
 
 			By("Check that event was emitted", func() {
 				Expect(eventEmitter.CheckEvents(expectedEvents)).To(BeTrue())
@@ -406,7 +406,7 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(cli.List(req.Ctx, &cnaList)).To(Succeed())
 				Expect(cnaList).ToNot(BeNil())
 				Expect(cnaList.Items).To(HaveLen(1))
-				Expect(cnaList.Items[0].Name).Should(Equal("cluster"))
+				Expect(cnaList.Items[0].Name).To(Equal("cluster"))
 			})
 		})
 
@@ -438,7 +438,7 @@ var _ = Describe("Test operandHandler", func() {
 			defer cancelFunc()
 			req.Ctx = ctx
 			err := handler.EnsureDeleted(req)
-			Expect(err).Should(MatchError("context deadline exceeded"))
+			Expect(err).To(MatchError("context deadline exceeded"))
 
 			expectedEvents := []commontestutils.MockEvent{
 				{

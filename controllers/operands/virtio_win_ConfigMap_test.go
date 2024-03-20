@@ -60,7 +60,7 @@ var _ = Describe("VirtioWin", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -222,8 +222,8 @@ var _ = Describe("VirtioWin", func() {
 					foundRole),
 			).ToNot(HaveOccurred())
 
-			Expect(expectedRole.ObjectMeta).Should(Equal(foundRole.ObjectMeta))
-			Expect(expectedRole.Rules).Should(Equal(foundRole.Rules))
+			Expect(expectedRole.ObjectMeta).To(Equal(foundRole.ObjectMeta))
+			Expect(expectedRole.Rules).To(Equal(foundRole.Rules))
 		})
 
 		It("should update if labels are missing", func() {

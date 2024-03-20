@@ -50,7 +50,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 	BeforeEach(func() {
 		virtCli, err = kubecli.GetKubevirtClient()
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		tests.SkipIfNotOpenShift(virtCli, "Prometheus")
 		promClient = initializePromClient(getPrometheusURL(virtCli), getAuthorizationTokenForPrometheus(virtCli))
@@ -97,7 +97,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		Eventually(func(g Gomega) map[string]string {
 			patch := []byte(`[{"op": "add", "path": "/metadata/labels/test-label", "value": "test-label-value"}]`)
 			kv, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch("kubevirt-kubevirt-hyperconverged", types.JSONPatchType, patch, &metav1.PatchOptions{})
-			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			return kv.GetLabels()
 		}).WithTimeout(10 * time.Second).
 			WithPolling(100 * time.Millisecond).
@@ -105,7 +105,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		Eventually(func() *promApiv1.Alert {
 			alerts, err := promClient.Alerts(context.TODO())
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			alert := getAlertByName(alerts, "KubeVirtCRModified")
 			return alert
 		}).WithTimeout(60 * time.Second).WithPolling(time.Second).ShouldNot(BeNil())
@@ -124,7 +124,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		Eventually(func() *promApiv1.Alert {
 			alerts, err := promClient.Alerts(context.TODO())
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 			alert := getAlertByName(alerts, "UnsupportedHCOModification")
 			return alert
 		}, 60*time.Second, time.Second).ShouldNot(BeNil())
@@ -215,7 +215,7 @@ func initializePromClient(prometheusURL string, token string) promApiv1.API {
 		RoundTripper: promConfig.NewAuthorizationCredentialsRoundTripper("Bearer", promConfig.Secret(token), defaultRoundTripper),
 	})
 
-	Expect(err).ShouldNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	promClient := promApiv1.NewAPI(c)
 	return promClient

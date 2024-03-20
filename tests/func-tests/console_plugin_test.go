@@ -61,7 +61,7 @@ var _ = Describe("kubevirt console plugin", func() {
 
 	It("console should reach kubevirt-plugin manifests", func() {
 		unstructured, err := cli.DynamicClient().Resource(consoleGVR).Get(ctx, expectedKubevirtConsolePluginName, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		kubevirtPlugin := &consolev1.ConsolePlugin{}
 		Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, kubevirtPlugin)).To(Succeed())
@@ -74,21 +74,21 @@ var _ = Describe("kubevirt console plugin", func() {
 		consolePods, err := cli.CoreV1().Pods(openshiftConsoleNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: consolePodsLabelSelector,
 		})
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(consolePods.Items).ShouldNot(BeEmpty())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(consolePods.Items).ToNot(BeEmpty())
 
 		testConsolePod := consolePods.Items[0]
 		command := fmt.Sprintf(`curl -ks https://%s.%s.svc:%d/plugin-manifest.json`,
 			pluginServiceName, flags.KubeVirtInstallNamespace, pluginServicePort)
 
 		stdout, stderr, err := executeCommandOnPod(ctx, cli, &testConsolePod, command)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(stdout).ShouldNot(BeEmpty())
-		Expect(stderr).Should(BeEmpty())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(stdout).ToNot(BeEmpty())
+		Expect(stderr).To(BeEmpty())
 
 		var pluginManifests map[string]interface{}
 		err = json.Unmarshal([]byte(stdout), &pluginManifests)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		pluginName := pluginManifests["name"]
 		Expect(pluginName).To(Equal(expectedKubevirtConsolePluginName))
@@ -100,7 +100,7 @@ var _ = Describe("kubevirt console plugin", func() {
 			"foo": "bar",
 		}
 		expectedNodeSelectorBytes, err := json.Marshal(expectedNodeSelector)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 		expectedNodeSelectorStr := string(expectedNodeSelectorBytes)
 		addNodeSelectorPatch := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/infra", "value": {"nodePlacement": {"nodeSelector": %s}}}]`, expectedNodeSelectorStr))
 
@@ -113,7 +113,7 @@ var _ = Describe("kubevirt console plugin", func() {
 
 		Eventually(func(g Gomega) {
 			consoleUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIPlugin), metav1.GetOptions{})
-			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(consoleUIDeployment.Spec.Template.Spec.NodeSelector).To(Equal(expectedNodeSelector))
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).
@@ -121,7 +121,7 @@ var _ = Describe("kubevirt console plugin", func() {
 
 		Eventually(func(g Gomega) {
 			proxyUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIProxy), metav1.GetOptions{})
-			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(proxyUIDeployment.Spec.Template.Spec.NodeSelector).To(Equal(expectedNodeSelector))
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).
@@ -138,7 +138,7 @@ var _ = Describe("kubevirt console plugin", func() {
 
 		Eventually(func(g Gomega) {
 			consoleUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIPlugin), metav1.GetOptions{})
-			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(consoleUIDeployment.Spec.Template.Spec.NodeSelector).To(BeEmpty())
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).
@@ -146,7 +146,7 @@ var _ = Describe("kubevirt console plugin", func() {
 
 		Eventually(func(g Gomega) {
 			proxyUIDeployment, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, string(hcoutil.AppComponentUIProxy), metav1.GetOptions{})
-			g.Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(proxyUIDeployment.Spec.Template.Spec.NodeSelector).To(BeEmpty())
 		}).WithTimeout(1 * time.Minute).
 			WithPolling(100 * time.Millisecond).

@@ -40,7 +40,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	BeforeAll(func() {
 		var err error
 		cli, err = kubecli.GetKubevirtClient()
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		nodes := listNodesByLabels(cli, "node-role.kubernetes.io/control-plane!=")
 		if len(nodes.Items) < 2 {

@@ -59,7 +59,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(reflect.DeepEqual(hc.Spec.CertConfig, defaultCertConfig)).Should(BeTrue(), "certConfig should be equal to default")
+				g.Expect(reflect.DeepEqual(hc.Spec.CertConfig, defaultCertConfig)).To(BeTrue(), "certConfig should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/certConfig/ca/duration", "/spec/certConfig/ca/duration"),
@@ -97,7 +97,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(reflect.DeepEqual(hc.Spec.FeatureGates, defaultFeatureGates)).Should(BeTrue(), "featureGates should be equal to default")
+				g.Expect(reflect.DeepEqual(hc.Spec.FeatureGates, defaultFeatureGates)).To(BeTrue(), "featureGates should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/featureGates/deployKubeSecondaryDNS", "/spec/featureGates/deployKubeSecondaryDNS"),
@@ -134,7 +134,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(reflect.DeepEqual(hc.Spec.LiveMigrationConfig, defaultLiveMigrationConfig)).Should(BeTrue(), "liveMigrationConfig should be equal to default")
+				g.Expect(reflect.DeepEqual(hc.Spec.LiveMigrationConfig, defaultLiveMigrationConfig)).To(BeTrue(), "liveMigrationConfig should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/liveMigrationConfig/allowAutoConverge", "/spec/liveMigrationConfig/allowAutoConverge"),
@@ -161,7 +161,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(reflect.DeepEqual(hc.Spec.ResourceRequirements, &defaultResourceRequirements)).Should(BeTrue(), "resourceRequirements should be equal to default")
+				g.Expect(reflect.DeepEqual(hc.Spec.ResourceRequirements, &defaultResourceRequirements)).To(BeTrue(), "resourceRequirements should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/resourceRequirements/vmiCPUAllocationRatio", "/spec/resourceRequirements/vmiCPUAllocationRatio"),
@@ -185,7 +185,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(reflect.DeepEqual(hc.Spec.WorkloadUpdateStrategy, defaultWorkloadUpdateStrategy)).Should(BeTrue(), "workloadUpdateStrategy should be equal to default")
+				g.Expect(reflect.DeepEqual(hc.Spec.WorkloadUpdateStrategy, defaultWorkloadUpdateStrategy)).To(BeTrue(), "workloadUpdateStrategy should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/workloadUpdateStrategy/batchEvictionInterval", "/spec/workloadUpdateStrategy/batchEvictionInterval"),
@@ -207,7 +207,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(hc.Spec.UninstallStrategy).Should(Equal(v1beta1.HyperConvergedUninstallStrategy(defaultUninstallStrategy)), "uninstallStrategy should be equal to default")
+				g.Expect(hc.Spec.UninstallStrategy).To(Equal(v1beta1.HyperConvergedUninstallStrategy(defaultUninstallStrategy)), "uninstallStrategy should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/uninstallStrategy", "/spec/uninstallStrategy"),
@@ -229,7 +229,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(reflect.DeepEqual(hc.Spec.VirtualMachineOptions, defaultVirtualMachineOptions)).Should(BeTrue(), "virtualMachineOptions should be equal to default")
+				g.Expect(reflect.DeepEqual(hc.Spec.VirtualMachineOptions, defaultVirtualMachineOptions)).To(BeTrue(), "virtualMachineOptions should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/virtualMachineOptions/disableFreePageReporting", "/spec/virtualMachineOptions/disableFreePageReporting"),
@@ -252,7 +252,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 			Eventually(func(g Gomega) {
 				hc := tests.GetHCO(ctx, cli)
-				g.Expect(reflect.DeepEqual(hc.Spec.HigherWorkloadDensity, defaultHigherWorkloadDensity)).Should(BeTrue(), "HigherWorkloadDensity should be equal to default")
+				g.Expect(reflect.DeepEqual(hc.Spec.HigherWorkloadDensity, defaultHigherWorkloadDensity)).To(BeTrue(), "HigherWorkloadDensity should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
 			Entry("when removing /spec/higherWorkloadDensity/memoryOvercommitPercentage", "/spec/higherWorkloadDensity/memoryOvercommitPercentage"),

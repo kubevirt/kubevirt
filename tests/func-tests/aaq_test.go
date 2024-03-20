@@ -57,25 +57,25 @@ var _ = Describe("Test AAQ", Label("AAQ"), Serial, Ordered, func() {
 			By("check the AAQ CR")
 			Eventually(func(g Gomega) bool {
 				aaq := getAAQ(ctx, cli, g)
-				g.Expect(aaq.Status.Conditions).ShouldNot(BeEmpty())
+				g.Expect(aaq.Status.Conditions).ToNot(BeEmpty())
 				return conditionsv1.IsStatusConditionTrue(aaq.Status.Conditions, conditionsv1.ConditionAvailable)
 			}).WithTimeout(5 * time.Minute).WithPolling(time.Second).ShouldNot(BeTrue())
 
 			By("check AAQ pods")
 			Eventually(func(g Gomega) {
 				deps, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=aaq-operator"})
-				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(deps.Items).To(HaveLen(2))
 
 				expectedPods := int32(0)
 				for _, dep := range deps.Items {
-					g.Expect(dep.Status.ReadyReplicas).Should(Equal(dep.Status.Replicas))
+					g.Expect(dep.Status.ReadyReplicas).To(Equal(dep.Status.Replicas))
 					expectedPods += dep.Status.Replicas
 				}
 
 				pods, err := cli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=aaq-operator"})
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(pods.Items).Should(HaveLen(int(expectedPods)))
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(pods.Items).To(HaveLen(int(expectedPods)))
 			}).WithTimeout(5 * time.Minute).
 				WithPolling(time.Second).
 				Should(Succeed())

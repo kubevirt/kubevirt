@@ -63,7 +63,7 @@ var _ = Describe("SSP Operands", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -309,11 +309,11 @@ var _ = Describe("SSP Operands", func() {
 
 				Expect(existingResource.Spec.TemplateValidator.Placement.Affinity.NodeAffinity).ToNot(BeNil())
 				Expect(existingResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(2))
-				Expect(existingResource.Spec.TemplateValidator.Placement.NodeSelector).Should(HaveKeyWithValue("key3", "value3"))
+				Expect(existingResource.Spec.TemplateValidator.Placement.NodeSelector).To(HaveKeyWithValue("key3", "value3"))
 
 				Expect(foundResource.Spec.TemplateValidator.Placement.Affinity.NodeAffinity).ToNot(BeNil())
 				Expect(foundResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(3))
-				Expect(foundResource.Spec.TemplateValidator.Placement.NodeSelector).Should(HaveKeyWithValue("key3", "something entirely else"))
+				Expect(foundResource.Spec.TemplateValidator.Placement.NodeSelector).To(HaveKeyWithValue("key3", "something entirely else"))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -349,10 +349,10 @@ var _ = Describe("SSP Operands", func() {
 				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(3))
-				Expect(existingResource.Spec.TemplateValidator.Placement.NodeSelector).Should(HaveKeyWithValue("key3", "BADvalue3"))
+				Expect(existingResource.Spec.TemplateValidator.Placement.NodeSelector).To(HaveKeyWithValue("key3", "BADvalue3"))
 
 				Expect(foundResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(2))
-				Expect(foundResource.Spec.TemplateValidator.Placement.NodeSelector).Should(HaveKeyWithValue("key3", "value3"))
+				Expect(foundResource.Spec.TemplateValidator.Placement.NodeSelector).To(HaveKeyWithValue("key3", "value3"))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -371,8 +371,8 @@ var _ = Describe("SSP Operands", func() {
 				ssp, _, err := NewSSP(hco)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ssp).ToNot(BeNil())
-				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
-				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+				Expect(ssp.Spec.TemplateValidator.Replicas).ToNot(BeNil())
+				Expect(*ssp.Spec.TemplateValidator.Replicas).To(Equal(int32(5)))
 			})
 
 			It("Should fail to create SSP object with wrong jsonPatch", func() {
@@ -412,8 +412,8 @@ var _ = Describe("SSP Operands", func() {
 				).To(Succeed())
 
 				Expect(ssp).ToNot(BeNil())
-				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
-				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+				Expect(ssp.Spec.TemplateValidator.Replicas).ToNot(BeNil())
+				Expect(*ssp.Spec.TemplateValidator.Replicas).To(Equal(int32(5)))
 			})
 
 			It("Ensure func should fail to create SSP object with wrong jsonPatch", func() {
@@ -468,8 +468,8 @@ var _ = Describe("SSP Operands", func() {
 						ssp),
 				).To(Succeed())
 
-				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
-				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+				Expect(ssp.Spec.TemplateValidator.Replicas).ToNot(BeNil())
+				Expect(*ssp.Spec.TemplateValidator.Replicas).To(Equal(int32(5)))
 			})
 
 			It("Ensure func should fail to update SSP object with wrong jsonPatch", func() {
@@ -499,8 +499,8 @@ var _ = Describe("SSP Operands", func() {
 						ssp),
 				).To(Succeed())
 
-				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
-				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(defaultTemplateValidatorReplicas)))
+				Expect(ssp.Spec.TemplateValidator.Replicas).ToNot(BeNil())
+				Expect(*ssp.Spec.TemplateValidator.Replicas).To(Equal(int32(defaultTemplateValidatorReplicas)))
 			})
 		})
 
@@ -519,12 +519,12 @@ var _ = Describe("SSP Operands", func() {
 				Expect(handler.hooks.(*sspHooks).cache).ToNot(BeNil())
 
 				By("compare pointers to make sure cache is working", func() {
-					Expect(handler.hooks.(*sspHooks).cache).Should(BeIdenticalTo(cr))
+					Expect(handler.hooks.(*sspHooks).cache).To(BeIdenticalTo(cr))
 
 					cdi1, err := handler.hooks.getFullCr(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(cdi1).ToNot(BeNil())
-					Expect(cr).Should(BeIdenticalTo(cdi1))
+					Expect(cr).To(BeIdenticalTo(cdi1))
 				})
 			})
 
@@ -882,12 +882,12 @@ var _ = Describe("SSP Operands", func() {
 
 					for _, dict := range goldenImageList {
 						if dict.Name == "image1" {
-							Expect(dict.Spec).Should(Equal(modifiedImage1.Spec))
-							Expect(dict.Status.Modified).Should(BeTrue())
-							Expect(dict.Status.CommonTemplate).Should(BeTrue())
+							Expect(dict.Spec).To(Equal(modifiedImage1.Spec))
+							Expect(dict.Status.Modified).To(BeTrue())
+							Expect(dict.Status.CommonTemplate).To(BeTrue())
 						} else if dict.Name == "image2" {
-							Expect(dict.Status.Modified).Should(BeFalse())
-							Expect(dict.Status.CommonTemplate).Should(BeTrue())
+							Expect(dict.Status.Modified).To(BeFalse())
+							Expect(dict.Status.CommonTemplate).To(BeTrue())
 						}
 					}
 				})
@@ -932,12 +932,12 @@ var _ = Describe("SSP Operands", func() {
 
 					for _, dict := range goldenImageList {
 						if dict.Name == "image1" {
-							Expect(dict.Spec.Template.Spec.Storage).Should(BeEquivalentTo(storageFromCr))
-							Expect(dict.Status.Modified).Should(BeTrue())
-							Expect(dict.Status.CommonTemplate).Should(BeTrue())
+							Expect(dict.Spec.Template.Spec.Storage).To(BeEquivalentTo(storageFromCr))
+							Expect(dict.Status.Modified).To(BeTrue())
+							Expect(dict.Status.CommonTemplate).To(BeTrue())
 						} else if dict.Name == "image2" {
-							Expect(dict.Status.Modified).Should(BeFalse())
-							Expect(dict.Status.CommonTemplate).Should(BeTrue())
+							Expect(dict.Status.Modified).To(BeFalse())
+							Expect(dict.Status.CommonTemplate).To(BeTrue())
 						}
 					}
 				})
@@ -951,7 +951,7 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(BeNil())
 				})
 
 				It("should return an the hard coded list if there is a file, but no list in the HyperConverged CR", func() {
@@ -968,8 +968,8 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ToNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 				})
 
 				It("should return a combined list if there is a file and a list in the HyperConverged CR", func() {
@@ -989,8 +989,8 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ToNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 
 					var commonImages []hcov1beta1.DataImportCronTemplate
 					for _, dict := range dataImportCronTemplateHardCodedMap {
@@ -999,7 +999,7 @@ var _ = Describe("SSP Operands", func() {
 					commonImages = append(commonImages, image3)
 					commonImages = append(commonImages, image4)
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(hcoDictSliceToSSP(commonImages)))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(ContainElements(hcoDictSliceToSSP(commonImages)))
 				})
 
 				It("Should not add a common DIC template if it marked as disabled", func() {
@@ -1026,10 +1026,10 @@ var _ = Describe("SSP Operands", func() {
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(3))
 					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{commonCentos8, image3, image4})
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(ContainElement(commonFedora))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(ContainElements(expected))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ToNot(ContainElement(commonFedora))
 				})
 
 				It("Should reject if the CR list contain DIC template with the same name, and there are also common DIC templates", func() {
@@ -1074,7 +1074,7 @@ var _ = Describe("SSP Operands", func() {
 
 				It("should return a only the list from the HyperConverged CR, if the file is missing", func() {
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
-					Expect(dataImportCronTemplateHardCodedMap).Should(BeEmpty())
+					Expect(dataImportCronTemplateHardCodedMap).To(BeEmpty())
 
 					hco := commontestutils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
@@ -1082,10 +1082,10 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ToNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(ContainElements(expected))
 				})
 
 				It("should not return the common templates, if feature gate is false", func() {
@@ -1105,9 +1105,9 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(ContainElements(expected))
 				})
 
 				It("should modify a common dic if it exist in the HyperConverged CR", func() {
@@ -1141,9 +1141,9 @@ var _ = Describe("SSP Operands", func() {
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*fedoraDic, image3, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{*fedoraDic, commonCentos8, image3, image4})
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(ContainElements(expected))
 				})
 
 				It("should add the cdi.kubevirt.io/storage.bind.immediate.requested annotation if missing", func() {
@@ -1172,22 +1172,22 @@ var _ = Describe("SSP Operands", func() {
 					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{customDicAnnotationFalse, image4}
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 
 					annotationTrue := 0
 					annotationFalse := 0
 					for _, dict := range ssp.Spec.CommonTemplates.DataImportCronTemplates {
 						Expect(dict.Annotations).ToNot(BeEmpty())
 						if strings.HasSuffix(dict.Name, "-annotation-false") {
-							Expect(dict.Annotations[CDIImmediateBindAnnotation]).Should(Equal("false"))
+							Expect(dict.Annotations[CDIImmediateBindAnnotation]).To(Equal("false"))
 							annotationFalse++
 						} else {
-							Expect(dict.Annotations[CDIImmediateBindAnnotation]).Should(Equal("true"))
+							Expect(dict.Annotations[CDIImmediateBindAnnotation]).To(Equal("true"))
 							annotationTrue++
 						}
 					}
-					Expect(annotationTrue).Should(Equal(2))
-					Expect(annotationFalse).Should(Equal(2))
+					Expect(annotationTrue).To(Equal(2))
+					Expect(annotationFalse).To(Equal(2))
 				})
 
 				It("should use custom namespace for common dicts, if defined in the hyperConverged CR", func() {
@@ -1205,11 +1205,11 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ToNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 
 					for _, dict := range ssp.Spec.CommonTemplates.DataImportCronTemplates {
-						Expect(dict.Namespace).Should(Equal(customNS))
+						Expect(dict.Namespace).To(Equal(customNS))
 					}
 				})
 
@@ -1231,8 +1231,8 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ToNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 
 					var commonImages []hcov1beta1.DataImportCronTemplate
 					for _, d := range dataImportCronTemplateHardCodedMap {
@@ -1244,7 +1244,7 @@ var _ = Describe("SSP Operands", func() {
 					commonImages = append(commonImages, image3)
 					commonImages = append(commonImages, image4)
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(hcoDictSliceToSSP(commonImages)))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).To(ContainElements(hcoDictSliceToSSP(commonImages)))
 				})
 			})
 
@@ -1258,8 +1258,8 @@ var _ = Describe("SSP Operands", func() {
 
 					applyDataImportSchedule(hco)
 
-					Expect(dataImportCronTemplateHardCodedMap[image1.Name].Spec.Schedule).Should(Equal("1 */12 * * *"))
-					Expect(dataImportCronTemplateHardCodedMap[image2.Name].Spec.Schedule).Should(Equal("2 */12 * * *"))
+					Expect(dataImportCronTemplateHardCodedMap[image1.Name].Spec.Schedule).To(Equal("1 */12 * * *"))
+					Expect(dataImportCronTemplateHardCodedMap[image2.Name].Spec.Schedule).To(Equal("2 */12 * * *"))
 				})
 
 				It("should set the variable and the images, if the schedule is in the status field", func() {
@@ -1274,7 +1274,7 @@ var _ = Describe("SSP Operands", func() {
 
 					applyDataImportSchedule(hco)
 					for _, image := range dataImportCronTemplateHardCodedMap {
-						Expect(image.Spec.Schedule).Should(Equal(schedule))
+						Expect(image.Spec.Schedule).To(Equal(schedule))
 					}
 				})
 			})
@@ -1316,7 +1316,7 @@ var _ = Describe("SSP Operands", func() {
 								foundResource),
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
@@ -1345,7 +1345,7 @@ var _ = Describe("SSP Operands", func() {
 								foundResource),
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Status.CommonTemplate).To(BeFalse())
@@ -1374,7 +1374,7 @@ var _ = Describe("SSP Operands", func() {
 								foundResource),
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(4))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							if dict.Name == image3.Name || dict.Name == image4.Name {
@@ -1412,10 +1412,10 @@ var _ = Describe("SSP Operands", func() {
 								foundResource),
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
+						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(3))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(3))
 						for _, dict := range hco.Status.DataImportCronTemplates {
-							Expect(dict.Name).ShouldNot(Equal("centos8-image-cron"))
+							Expect(dict.Name).ToNot(Equal("centos8-image-cron"))
 							if dict.Name == image3.Name || dict.Name == image4.Name {
 								Expect(dict.Status.CommonTemplate).To(BeFalse())
 							} else {
@@ -1456,10 +1456,10 @@ var _ = Describe("SSP Operands", func() {
 								foundResource),
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 						for _, dict := range foundResource.Spec.CommonTemplates.DataImportCronTemplates {
 							if dict.Name == "centos8-image-cron" {
-								Expect(dict.Spec.Template.Spec.Storage).Should(Equal(modifiedStorage))
+								Expect(dict.Spec.Template.Spec.Storage).To(Equal(modifiedStorage))
 							}
 						}
 
@@ -1500,7 +1500,7 @@ var _ = Describe("SSP Operands", func() {
 								foundResource),
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
@@ -1543,16 +1543,16 @@ var _ = Describe("SSP Operands", func() {
 								foundResource),
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 						for _, dict := range foundResource.Spec.CommonTemplates.DataImportCronTemplates {
 							if dict.Name == "centos8-image-cron" {
-								Expect(dict.Spec.Template.Spec.Storage).Should(Equal(modifiedStorage))
+								Expect(dict.Spec.Template.Spec.Storage).To(Equal(modifiedStorage))
 							}
 
 							if dict.Name == "fedora-image-cron" {
-								Expect(dict.Namespace).Should(Equal(customNS))
+								Expect(dict.Namespace).To(Equal(customNS))
 							} else {
-								Expect(dict.Namespace).Should(Equal(""))
+								Expect(dict.Namespace).To(Equal(""))
 							}
 						}
 
@@ -1594,7 +1594,7 @@ var _ = Describe("SSP Operands", func() {
 								foundSSP),
 						).ToNot(HaveOccurred())
 						Expect(foundSSP.Name).To(Equal(origSSP.Name))
-						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
@@ -1626,7 +1626,7 @@ var _ = Describe("SSP Operands", func() {
 								foundSSP),
 						).ToNot(HaveOccurred())
 						Expect(foundSSP.Name).To(Equal(origSSP.Name))
-						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Status.CommonTemplate).To(BeFalse())
@@ -1658,7 +1658,7 @@ var _ = Describe("SSP Operands", func() {
 								foundSSP),
 						).ToNot(HaveOccurred())
 						Expect(foundSSP.Name).To(Equal(origSSP.Name))
-						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(4))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							if dict.Name == image3.Name || dict.Name == image4.Name {
@@ -1698,10 +1698,10 @@ var _ = Describe("SSP Operands", func() {
 								foundSSP),
 						).ToNot(HaveOccurred())
 						Expect(foundSSP.Name).To(Equal(origSSP.Name))
-						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(3))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(3))
 						for _, dict := range hco.Status.DataImportCronTemplates {
-							Expect(dict.Name).ShouldNot(Equal("centos8-image-cron"))
+							Expect(dict.Name).ToNot(Equal("centos8-image-cron"))
 							if dict.Name == image3.Name || dict.Name == image4.Name {
 								Expect(dict.Status.CommonTemplate).To(BeFalse())
 							} else {
@@ -1740,10 +1740,10 @@ var _ = Describe("SSP Operands", func() {
 								foundSSP),
 						).ToNot(HaveOccurred())
 						Expect(foundSSP.Name).To(Equal(origSSP.Name))
-						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 						for _, dict := range foundSSP.Spec.CommonTemplates.DataImportCronTemplates {
 							if dict.Name == "centos8-image-cron" {
-								Expect(dict.Spec.Template.Spec.Storage.StorageClassName).Should(HaveValue(Equal(scName)))
+								Expect(dict.Spec.Template.Spec.Storage.StorageClassName).To(HaveValue(Equal(scName)))
 							}
 						}
 
@@ -1785,7 +1785,7 @@ var _ = Describe("SSP Operands", func() {
 								foundSSP),
 						).ToNot(HaveOccurred())
 						Expect(foundSSP.Name).To(Equal(origSSP.Name))
-						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(2))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
@@ -1825,10 +1825,10 @@ var _ = Describe("SSP Operands", func() {
 								foundSSP),
 						).ToNot(HaveOccurred())
 						Expect(foundSSP.Name).To(Equal(origSSP.Name))
-						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).To(HaveLen(4))
 						for _, dict := range foundSSP.Spec.CommonTemplates.DataImportCronTemplates {
 							if dict.Name == "centos8-image-cron" {
-								Expect(dict.Spec.Template.Spec.Storage.StorageClassName).Should(HaveValue(Equal(scName)))
+								Expect(dict.Spec.Template.Spec.Storage.StorageClassName).To(HaveValue(Equal(scName)))
 							}
 
 							if dict.Name == "fedora-image-cron" {

@@ -90,22 +90,22 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
 
 			hco := commontestutils.NewHco()
 			req = commontestutils.NewReq(hco)
-			Expect(r.UpdateRelatedObjects(req)).Should(Succeed())
+			Expect(r.UpdateRelatedObjects(req)).To(Succeed())
 			Expect(req.StatusDirty).To(BeTrue())
 			Expect(hco.Status.RelatedObjects).To(HaveLen(5))
 
@@ -162,13 +162,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 
 			Expect(pr.Labels).To(gstruct.MatchKeys(gstruct.IgnoreExtras, commontestutils.KeysFromSSMap(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring))))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should add the labels if it's missing", func() {
@@ -180,13 +180,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 
-			Expect(pr.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
+			Expect(pr.Labels).To(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -203,20 +203,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(pr.OwnerReferences).Should(HaveLen(1))
-			Expect(pr.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(pr.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(pr.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(pr.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(pr.OwnerReferences).To(HaveLen(1))
+			Expect(pr.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(pr.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(pr.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(pr.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; not HCO triggered", func() {
@@ -235,17 +235,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(pr.OwnerReferences).Should(HaveLen(1))
-			Expect(pr.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(pr.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(pr.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(pr.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(pr.OwnerReferences).To(HaveLen(1))
+			Expect(pr.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(pr.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(pr.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(pr.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
@@ -256,7 +256,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -267,20 +267,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(pr.OwnerReferences).Should(HaveLen(1))
-			Expect(pr.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(pr.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(pr.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(pr.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(pr.OwnerReferences).To(HaveLen(1))
+			Expect(pr.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(pr.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(pr.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(pr.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the spec if modified", func() {
@@ -299,15 +299,15 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 			newRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pr.Spec).Should(Equal(newRule.Spec))
+			Expect(pr.Spec).To(Equal(newRule.Spec))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the spec if it's missing", func() {
@@ -320,15 +320,15 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 			newRule, err := rules.BuildPrometheusRule(commontestutils.Namespace, owner)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pr.Spec).Should(Equal(newRule.Spec))
+			Expect(pr.Spec).To(Equal(newRule.Spec))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should use the default runbook URL template when no ENV Variable is set", func() {
@@ -389,11 +389,11 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRule})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, firstLoop)).Should(Succeed())
+			Expect(r.Reconcile(req, firstLoop)).To(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: ruleName}, pr)).To(Succeed())
 
-			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric + expectedCountDelta))
+			Expect(metrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).To(BeEquivalentTo(currentMetric + expectedCountDelta))
 		},
 			Entry("should not increase the counter if it HCO triggered, in upgrade mode and in the first loop", true, true, true, float64(0)), // can't really happen
 			Entry("should not increase the counter if it HCO triggered, not in upgrade mode but in the first loop", true, false, true, float64(0)),
@@ -432,13 +432,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
 
 			Expect(role.Labels).To(gstruct.MatchKeys(gstruct.IgnoreExtras, commontestutils.KeysFromSSMap(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring))))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -449,13 +449,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
 
-			Expect(role.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
+			Expect(role.Labels).To(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -471,20 +471,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(role.OwnerReferences).Should(HaveLen(1))
-			Expect(role.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(role.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(role.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(role.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(role.OwnerReferences).To(HaveLen(1))
+			Expect(role.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(role.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(role.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(role.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; not HCO triggered", func() {
@@ -502,17 +502,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(role.OwnerReferences).Should(HaveLen(1))
-			Expect(role.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(role.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(role.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(role.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(role.OwnerReferences).To(HaveLen(1))
+			Expect(role.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(role.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(role.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(role.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
@@ -523,7 +523,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).To(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -533,20 +533,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(role.OwnerReferences).Should(HaveLen(1))
-			Expect(role.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(role.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(role.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(role.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(role.OwnerReferences).To(HaveLen(1))
+			Expect(role.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(role.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(role.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(role.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Rules if modified", func() {
@@ -568,16 +568,16 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
-			Expect(role.Rules).Should(HaveLen(1))
-			Expect(role.Rules[0].APIGroups).Should(Equal([]string{""}))
-			Expect(role.Rules[0].Resources).Should(Equal([]string{"services", "endpoints", "pods"}))
-			Expect(role.Rules[0].Verbs).Should(Equal([]string{"get", "list", "watch"}))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
+			Expect(role.Rules).To(HaveLen(1))
+			Expect(role.Rules[0].APIGroups).To(Equal([]string{""}))
+			Expect(role.Rules[0].Resources).To(Equal([]string{"services", "endpoints", "pods"}))
+			Expect(role.Rules[0].Verbs).To(Equal([]string{"get", "list", "watch"}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Rules if it's missing", func() {
@@ -589,16 +589,16 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRole})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			role := &rbacv1.Role{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).Should(Succeed())
-			Expect(role.Rules).Should(HaveLen(1))
-			Expect(role.Rules[0].APIGroups).Should(Equal([]string{""}))
-			Expect(role.Rules[0].Resources).Should(Equal([]string{"services", "endpoints", "pods"}))
-			Expect(role.Rules[0].Verbs).Should(Equal([]string{"get", "list", "watch"}))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, role)).To(Succeed())
+			Expect(role.Rules).To(HaveLen(1))
+			Expect(role.Rules[0].APIGroups).To(Equal([]string{""}))
+			Expect(role.Rules[0].Resources).To(Equal([]string{"services", "endpoints", "pods"}))
+			Expect(role.Rules[0].Verbs).To(Equal([]string{"get", "list", "watch"}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Role", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 	})
 
@@ -627,13 +627,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
 
 			Expect(rb.Labels).To(gstruct.MatchKeys(gstruct.IgnoreExtras, commontestutils.KeysFromSSMap(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring))))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -644,13 +644,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
 
-			Expect(rb.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
+			Expect(rb.Labels).To(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -666,20 +666,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(rb.OwnerReferences).Should(HaveLen(1))
-			Expect(rb.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(rb.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(rb.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(rb.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(rb.OwnerReferences).To(HaveLen(1))
+			Expect(rb.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(rb.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(rb.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(rb.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; not HCO triggered", func() {
@@ -697,17 +697,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(rb.OwnerReferences).Should(HaveLen(1))
-			Expect(rb.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(rb.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(rb.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(rb.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(rb.OwnerReferences).To(HaveLen(1))
+			Expect(rb.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(rb.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(rb.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(rb.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
@@ -718,7 +718,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -728,20 +728,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(rb.OwnerReferences).Should(HaveLen(1))
-			Expect(rb.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(rb.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(rb.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(rb.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(rb.OwnerReferences).To(HaveLen(1))
+			Expect(rb.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(rb.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(rb.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(rb.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the RoleRef if modified", func() {
@@ -757,15 +757,15 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
-			Expect(rb.RoleRef.APIGroup).Should(Equal(rbacv1.GroupName))
-			Expect(rb.RoleRef.Kind).Should(Equal("Role"))
-			Expect(rb.RoleRef.Name).Should(Equal(roleName))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
+			Expect(rb.RoleRef.APIGroup).To(Equal(rbacv1.GroupName))
+			Expect(rb.RoleRef.Kind).To(Equal("Role"))
+			Expect(rb.RoleRef.Name).To(Equal(roleName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the RoleRef if it's missing", func() {
@@ -777,15 +777,15 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
-			Expect(rb.RoleRef.APIGroup).Should(Equal(rbacv1.GroupName))
-			Expect(rb.RoleRef.Kind).Should(Equal("Role"))
-			Expect(rb.RoleRef.Name).Should(Equal(roleName))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
+			Expect(rb.RoleRef.APIGroup).To(Equal(rbacv1.GroupName))
+			Expect(rb.RoleRef.Kind).To(Equal("Role"))
+			Expect(rb.RoleRef.Name).To(Equal(roleName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Subjects if modified", func() {
@@ -808,16 +808,16 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
-			Expect(rb.Subjects).Should(HaveLen(1))
-			Expect(rb.Subjects[0].Kind).Should(Equal(rbacv1.ServiceAccountKind))
-			Expect(rb.Subjects[0].Name).Should(Equal("prometheus-k8s"))
-			Expect(rb.Subjects[0].Namespace).Should(Equal(getMonitoringNamespace(ci)))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
+			Expect(rb.Subjects).To(HaveLen(1))
+			Expect(rb.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
+			Expect(rb.Subjects[0].Name).To(Equal("prometheus-k8s"))
+			Expect(rb.Subjects[0].Namespace).To(Equal(getMonitoringNamespace(ci)))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Subjects if it's missing", func() {
@@ -829,17 +829,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 
 			rb := &rbacv1.RoleBinding{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
-			Expect(rb.Subjects).Should(HaveLen(1))
-			Expect(rb.Subjects[0].Kind).Should(Equal(rbacv1.ServiceAccountKind))
-			Expect(rb.Subjects[0].Name).Should(Equal("prometheus-k8s"))
-			Expect(rb.Subjects[0].Namespace).Should(Equal(getMonitoringNamespace(ci)))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).To(Succeed())
+			Expect(rb.Subjects).To(HaveLen(1))
+			Expect(rb.Subjects[0].Kind).To(Equal(rbacv1.ServiceAccountKind))
+			Expect(rb.Subjects[0].Name).To(Equal("prometheus-k8s"))
+			Expect(rb.Subjects[0].Namespace).To(Equal(getMonitoringNamespace(ci)))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).To(BeEquivalentTo(currentMetric))
 		})
 	})
 
@@ -868,13 +868,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
 
 			Expect(svc.Labels).To(gstruct.MatchKeys(gstruct.IgnoreExtras, commontestutils.KeysFromSSMap(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring))))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -885,13 +885,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
 
-			Expect(svc.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
+			Expect(svc.Labels).To(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -907,20 +907,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(svc.OwnerReferences).Should(HaveLen(1))
-			Expect(svc.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(svc.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(svc.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(svc.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(svc.OwnerReferences).To(HaveLen(1))
+			Expect(svc.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(svc.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(svc.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(svc.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; No HCO triggered", func() {
@@ -938,17 +938,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(svc.OwnerReferences).Should(HaveLen(1))
-			Expect(svc.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(svc.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(svc.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(svc.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(svc.OwnerReferences).To(HaveLen(1))
+			Expect(svc.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(svc.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(svc.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(svc.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
@@ -959,7 +959,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).To(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -969,20 +969,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(svc.OwnerReferences).Should(HaveLen(1))
-			Expect(svc.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(svc.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(svc.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(svc.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(svc.OwnerReferences).To(HaveLen(1))
+			Expect(svc.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(svc.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(svc.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(svc.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if modified", func() {
@@ -1010,17 +1010,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
-			Expect(svc.Spec.Ports).Should(HaveLen(1))
-			Expect(svc.Spec.Ports[0].Port).Should(Equal(hcoutil.MetricsPort))
-			Expect(svc.Spec.Ports[0].Name).Should(Equal(operatorPortName))
-			Expect(svc.Spec.Ports[0].Protocol).Should(Equal(corev1.ProtocolTCP))
-			Expect(svc.Spec.Ports[0].TargetPort).Should(Equal(intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.MetricsPort}))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
+			Expect(svc.Spec.Ports).To(HaveLen(1))
+			Expect(svc.Spec.Ports[0].Port).To(Equal(hcoutil.MetricsPort))
+			Expect(svc.Spec.Ports[0].Name).To(Equal(operatorPortName))
+			Expect(svc.Spec.Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
+			Expect(svc.Spec.Ports[0].TargetPort).To(Equal(intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.MetricsPort}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if it's missing", func() {
@@ -1032,17 +1032,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			svc := &corev1.Service{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).Should(Succeed())
-			Expect(svc.Spec.Ports).Should(HaveLen(1))
-			Expect(svc.Spec.Ports[0].Port).Should(Equal(hcoutil.MetricsPort))
-			Expect(svc.Spec.Ports[0].Name).Should(Equal(operatorPortName))
-			Expect(svc.Spec.Ports[0].Protocol).Should(Equal(corev1.ProtocolTCP))
-			Expect(svc.Spec.Ports[0].TargetPort).Should(Equal(intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.MetricsPort}))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, svc)).To(Succeed())
+			Expect(svc.Spec.Ports).To(HaveLen(1))
+			Expect(svc.Spec.Ports[0].Port).To(Equal(hcoutil.MetricsPort))
+			Expect(svc.Spec.Ports[0].Name).To(Equal(operatorPortName))
+			Expect(svc.Spec.Ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
+			Expect(svc.Spec.Ports[0].TargetPort).To(Equal(intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.MetricsPort}))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("Service", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 	})
 
@@ -1071,13 +1071,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
 
 			Expect(sm.Labels).To(gstruct.MatchKeys(gstruct.IgnoreExtras, commontestutils.KeysFromSSMap(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring))))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the labels if it's missing", func() {
@@ -1088,13 +1088,13 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
 
-			Expect(sm.Labels).Should(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
+			Expect(sm.Labels).To(Equal(hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)))
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified", func() {
@@ -1110,20 +1110,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(sm.OwnerReferences).Should(HaveLen(1))
-			Expect(sm.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(sm.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(sm.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(sm.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(sm.OwnerReferences).To(HaveLen(1))
+			Expect(sm.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(sm.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(sm.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(sm.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the referenceOwner if modified; no HCO triggered", func() {
@@ -1141,17 +1141,17 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(sm.OwnerReferences).Should(HaveLen(1))
-			Expect(sm.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(sm.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(sm.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(sm.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(sm.OwnerReferences).To(HaveLen(1))
+			Expect(sm.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(sm.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(sm.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(sm.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
@@ -1162,7 +1162,7 @@ var _ = Describe("alert tests", func() {
 			}
 
 			Expect(ee.CheckEvents(overrideExpectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric + 1))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).To(BeEquivalentTo(currentMetric + 1))
 		})
 
 		It("should update the referenceOwner if missing", func() {
@@ -1172,20 +1172,20 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
 
 			deployment := ci.GetDeployment()
 
-			Expect(sm.OwnerReferences).Should(HaveLen(1))
-			Expect(sm.OwnerReferences[0].Name).Should(Equal(deployment.Name))
-			Expect(sm.OwnerReferences[0].Kind).Should(Equal("Deployment"))
-			Expect(sm.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
-			Expect(sm.OwnerReferences[0].UID).Should(Equal(deployment.UID))
+			Expect(sm.OwnerReferences).To(HaveLen(1))
+			Expect(sm.OwnerReferences[0].Name).To(Equal(deployment.Name))
+			Expect(sm.OwnerReferences[0].Kind).To(Equal("Deployment"))
+			Expect(sm.OwnerReferences[0].APIVersion).To(Equal(appsv1.GroupName + "/v1"))
+			Expect(sm.OwnerReferences[0].UID).To(Equal(deployment.UID))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if modified", func() {
@@ -1205,14 +1205,14 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
-			Expect(sm.Spec.Selector).Should(Equal(metav1.LabelSelector{MatchLabels: hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)}))
-			Expect(sm.Spec.Endpoints[0].Port).Should(Equal(operatorPortName))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
+			Expect(sm.Spec.Selector).To(Equal(metav1.LabelSelector{MatchLabels: hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)}))
+			Expect(sm.Spec.Endpoints[0].Port).To(Equal(operatorPortName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 
 		It("should update the Spec if it's missing", func() {
@@ -1224,14 +1224,14 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns, existSM})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).Should(Succeed())
-			Expect(sm.Spec.Selector).Should(Equal(metav1.LabelSelector{MatchLabels: hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)}))
-			Expect(sm.Spec.Endpoints[0].Port).Should(Equal(operatorPortName))
+			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: serviceName}, sm)).To(Succeed())
+			Expect(sm.Spec.Selector).To(Equal(metav1.LabelSelector{MatchLabels: hcoutil.GetLabels(hcoutil.HyperConvergedName, hcoutil.AppComponentMonitoring)}))
+			Expect(sm.Spec.Endpoints[0].Port).To(Equal(operatorPortName))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
-			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).Should(BeEquivalentTo(currentMetric))
+			Expect(metrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)).To(BeEquivalentTo(currentMetric))
 		})
 	})
 
@@ -1241,11 +1241,11 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{nsGenerator()})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 
 			foundNS := &corev1.Namespace{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).Should(Succeed())
-			Expect(foundNS.Annotations).ShouldNot(BeEmpty())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).To(Succeed())
+			Expect(foundNS.Annotations).ToNot(BeEmpty())
 			annotation, ok := foundNS.Annotations[hcoutil.OpenshiftNodeSelectorAnn]
 			Expect(ok).To(BeTrue())
 			Expect(annotation).To(BeEmpty())
@@ -1283,15 +1283,15 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 
 			foundNS := &corev1.Namespace{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).To(Succeed())
 
-			Expect(foundNS.Labels).Should(HaveLen(3))
-			Expect(foundNS.Labels).Should(HaveKeyWithValue("aaa", "AAA"))
-			Expect(foundNS.Labels).Should(HaveKeyWithValue("bbb", "BBB"))
-			Expect(foundNS.Labels).Should(HaveKeyWithValue(hcoutil.PrometheusNSLabel, "true"))
+			Expect(foundNS.Labels).To(HaveLen(3))
+			Expect(foundNS.Labels).To(HaveKeyWithValue("aaa", "AAA"))
+			Expect(foundNS.Labels).To(HaveKeyWithValue("bbb", "BBB"))
+			Expect(foundNS.Labels).To(HaveKeyWithValue(hcoutil.PrometheusNSLabel, "true"))
 		})
 
 		It("should not modify other annotations", func() {
@@ -1299,22 +1299,22 @@ var _ = Describe("alert tests", func() {
 			cl := commontestutils.InitClient([]client.Object{ns})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(Succeed())
+			Expect(r.Reconcile(req, false)).To(Succeed())
 
 			foundNS := &corev1.Namespace{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: r.namespace}, foundNS)).To(Succeed())
 
-			Expect(foundNS.Annotations).Should(HaveLen(3))
-			Expect(foundNS.Annotations).Should(HaveKeyWithValue("aaa", "AAA"))
-			Expect(foundNS.Annotations).Should(HaveKeyWithValue("bbb", "BBB"))
-			Expect(foundNS.Annotations).Should(HaveKeyWithValue(hcoutil.OpenshiftNodeSelectorAnn, ""))
+			Expect(foundNS.Annotations).To(HaveLen(3))
+			Expect(foundNS.Annotations).To(HaveKeyWithValue("aaa", "AAA"))
+			Expect(foundNS.Annotations).To(HaveKeyWithValue("bbb", "BBB"))
+			Expect(foundNS.Annotations).To(HaveKeyWithValue(hcoutil.OpenshiftNodeSelectorAnn, ""))
 		})
 
 		It("should return error if can't read the namespace", func() {
 			cl := commontestutils.InitClient([]client.Object{})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(HaveOccurred())
+			Expect(r.Reconcile(req, false)).To(HaveOccurred())
 		})
 
 		It("should return error if failed to read the namespace", func() {
@@ -1325,7 +1325,7 @@ var _ = Describe("alert tests", func() {
 			})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(MatchError(err))
+			Expect(r.Reconcile(req, false)).To(MatchError(err))
 		})
 
 		It("should return error if can't update the namespace", func() {
@@ -1336,7 +1336,7 @@ var _ = Describe("alert tests", func() {
 			})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			Expect(r.Reconcile(req, false)).Should(MatchError(err))
+			Expect(r.Reconcile(req, false)).To(MatchError(err))
 		})
 	})
 })

@@ -26,9 +26,9 @@ var _ = Describe("Test HcoRequest", func() {
 			true,
 		)
 
-		Expect(req.Name).Should(Equal("name"))
-		Expect(req.Namespace).Should(Equal("namespace"))
-		Expect(req.Ctx).Should(Equal(ctx))
+		Expect(req.Name).To(Equal("name"))
+		Expect(req.Namespace).To(Equal("namespace"))
+		Expect(req.Ctx).To(Equal(ctx))
 		Expect(req.Conditions).ToNot(BeNil())
 		Expect(req.Conditions).To(BeEmpty())
 		Expect(req.UpgradeMode).To(BeFalse())

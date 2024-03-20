@@ -447,7 +447,7 @@ var _ = Describe("webhooks validator", func() {
 			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
 				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)"))
+				Expect(err.Error()).To(ContainSubstring("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)"))
 			})
 
 			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
@@ -459,13 +459,13 @@ var _ = Describe("webhooks validator", func() {
 			It("should fail if does have custom ciphers with TLS version >= 1.3", func() {
 				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("custom ciphers cannot be selected when minTLSVersion is VersionTLS13"))
+				Expect(err.Error()).To(ContainSubstring("custom ciphers cannot be selected when minTLSVersion is VersionTLS13"))
 			})
 
 			It("should fail when minTLSVersion is invalid", func() {
 				err := updateTLSSecurityProfile("invalidProtocolVersion", []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
+				Expect(err.Error()).To(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
 			})
 		})
 
@@ -572,7 +572,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).Should(MatchError(ErrFakeKvError))
+			Expect(err).To(MatchError(ErrFakeKvError))
 		})
 
 		It("should return error if CDI CR is missing", func() {
@@ -605,7 +605,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).Should(MatchError(ErrFakeCdiError))
+			Expect(err).To(MatchError(ErrFakeCdiError))
 		})
 
 		It("should not return error if dry-run update of ALL CR passes", func() {
@@ -652,7 +652,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).Should(MatchError(ErrFakeNetworkError))
+			Expect(err).To(MatchError(ErrFakeNetworkError))
 		})
 
 		It("should return error if SSP CR is missing", func() {
@@ -683,7 +683,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).Should(MatchError(ErrFakeSspError))
+			Expect(err).To(MatchError(ErrFakeSspError))
 
 		})
 
@@ -699,7 +699,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).Should(MatchError(context.DeadlineExceeded))
+			Expect(err).To(MatchError(context.DeadlineExceeded))
 		})
 
 		It("should not return error if nothing was changed", func() {
@@ -895,7 +895,7 @@ var _ = Describe("webhooks validator", func() {
 					wh := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
 
 					err := wh.ValidateUpdate(ctx, dryRun, &newHco, hco)
-					Expect(err).Should(MatchError(ContainSubstring(errorMsg)))
+					Expect(err).To(MatchError(ContainSubstring(errorMsg)))
 				},
 				Entry("certConfig.ca.duration is too short",
 					v1beta1.HyperConverged{
@@ -1081,7 +1081,7 @@ var _ = Describe("webhooks validator", func() {
 			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
 				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)"))
+				Expect(err.Error()).To(ContainSubstring("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)"))
 			})
 
 			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
@@ -1093,13 +1093,13 @@ var _ = Describe("webhooks validator", func() {
 			It("should fail if does have custom ciphers with TLS version >= 1.3", func() {
 				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("custom ciphers cannot be selected when minTLSVersion is VersionTLS13"))
+				Expect(err.Error()).To(ContainSubstring("custom ciphers cannot be selected when minTLSVersion is VersionTLS13"))
 			})
 
 			It("should fail when minTLSVersion is invalid", func() {
 				err := updateTLSSecurityProfile("invalidProtocolVersion", []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
+				Expect(err.Error()).To(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
 			})
 		})
 
@@ -1548,7 +1548,7 @@ var _ = Describe("webhooks validator", func() {
 					Expect(ci.IsOpenshift()).To(BeTrue())
 
 					_, minTypedTLSVersion := SelectCipherSuitesAndMinTLSVersion()
-					Expect(minTypedTLSVersion).Should(Equal(initExpected))
+					Expect(minTypedTLSVersion).To(Equal(initExpected))
 
 					apiServer.Spec.TLSSecurityProfile = midApiTlsSecurityProfile
 					Expect(cl.Update(context.TODO(), apiServer)).To(Succeed())
@@ -1556,7 +1556,7 @@ var _ = Describe("webhooks validator", func() {
 					Expect(util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())
 
 					_, minTypedTLSVersion = SelectCipherSuitesAndMinTLSVersion()
-					Expect(minTypedTLSVersion).Should(Equal(midExpected))
+					Expect(minTypedTLSVersion).To(Equal(midExpected))
 
 					apiServer.Spec.TLSSecurityProfile = finApiTlsSecurityProfile
 					Expect(cl.Update(context.TODO(), apiServer)).To(Succeed())
@@ -1564,7 +1564,7 @@ var _ = Describe("webhooks validator", func() {
 
 					Expect(util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())
 					_, minTypedTLSVersion = SelectCipherSuitesAndMinTLSVersion()
-					Expect(minTypedTLSVersion).Should(Equal(finExpected))
+					Expect(minTypedTLSVersion).To(Equal(finExpected))
 				},
 				Entry("nil on APIServer, nil on HCO -> old on API server -> nil on API server",
 					nil,

@@ -42,8 +42,8 @@ var _ = Describe("CLI Download", func() {
 			foundResource := &consolev1.ConsoleCLIDownload{}
 			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
-			Expect(foundResource.Spec.Links).Should(HaveLen(6))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Spec.Links).To(HaveLen(6))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -192,7 +192,7 @@ var _ = Describe("Downloads Service", func() {
 			foundResource := &corev1.Service{}
 			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -273,7 +273,7 @@ var _ = Describe("Cli Downloads Route", func() {
 			foundResource := &routev1.Route{}
 			Expect(cl.Get(context.TODO(), key, foundResource)).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 

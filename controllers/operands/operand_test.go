@@ -90,7 +90,7 @@ var _ = Describe("Test operator.go", func() {
 
 			Expect(obj.Spec.Config).NotTo(BeNil())
 			Expect(obj.Spec.Config.FilesystemOverhead).NotTo(BeNil())
-			Expect(obj.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("55"))
+			Expect(obj.Spec.Config.FilesystemOverhead.Global).To(BeEquivalentTo("55"))
 		})
 	})
 

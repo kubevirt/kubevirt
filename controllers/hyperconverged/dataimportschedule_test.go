@@ -23,7 +23,7 @@ var _ = Describe("test data import schedule", func() {
 
 			applyDataImportSchedule(req)
 
-			Expect(dataImportSchedule).Should(MatchRegexp(regex))
+			Expect(dataImportSchedule).To(MatchRegexp(regex))
 
 			rx := regexp.MustCompile(regex)
 			groups := rx.FindStringSubmatch(dataImportSchedule)
@@ -31,16 +31,16 @@ var _ = Describe("test data import schedule", func() {
 			minute, err := strconv.Atoi(groups[1])
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(minute).Should(BeNumerically(">=", 0), "minute should be grater than or equal to 0; cron expression is: %s", dataImportSchedule)
-			Expect(minute).Should(BeNumerically("<", 60), "minute should br less than 60; cron expression is: %s", dataImportSchedule)
+			Expect(minute).To(BeNumerically(">=", 0), "minute should be grater than or equal to 0; cron expression is: %s", dataImportSchedule)
+			Expect(minute).To(BeNumerically("<", 60), "minute should br less than 60; cron expression is: %s", dataImportSchedule)
 
 			hour, err := strconv.Atoi(groups[2])
 			Expect(err).ToNot(HaveOccurred())
-			Expect(hour).Should(BeNumerically(">=", 0), "hour should be grater than or equal to 0; cron expression is: %s", dataImportSchedule)
-			Expect(hour).Should(BeNumerically("<", 12), "hour should br less than 12; cron expression is: %s", dataImportSchedule)
+			Expect(hour).To(BeNumerically(">=", 0), "hour should be grater than or equal to 0; cron expression is: %s", dataImportSchedule)
+			Expect(hour).To(BeNumerically("<", 12), "hour should br less than 12; cron expression is: %s", dataImportSchedule)
 
-			Expect(hco.Status.DataImportSchedule).Should(Equal(dataImportSchedule))
-			Expect(req.StatusDirty).Should(BeTrue())
+			Expect(hco.Status.DataImportSchedule).To(Equal(dataImportSchedule))
+			Expect(req.StatusDirty).To(BeTrue())
 		}
 	})
 
@@ -52,9 +52,9 @@ var _ = Describe("test data import schedule", func() {
 
 		applyDataImportSchedule(req)
 
-		Expect(dataImportSchedule).Should(Equal(schedule))
-		Expect(hco.Status.DataImportSchedule).Should(Equal(schedule))
-		Expect(req.StatusDirty).Should(BeTrue())
+		Expect(dataImportSchedule).To(Equal(schedule))
+		Expect(hco.Status.DataImportSchedule).To(Equal(schedule))
+		Expect(req.StatusDirty).To(BeTrue())
 	})
 
 	It("should update the variable if it empty and the status is set", func() {
@@ -66,9 +66,9 @@ var _ = Describe("test data import schedule", func() {
 
 		applyDataImportSchedule(req)
 
-		Expect(dataImportSchedule).Should(Equal(schedule))
-		Expect(hco.Status.DataImportSchedule).Should(Equal(schedule))
-		Expect(req.StatusDirty).Should(BeFalse())
+		Expect(dataImportSchedule).To(Equal(schedule))
+		Expect(hco.Status.DataImportSchedule).To(Equal(schedule))
+		Expect(req.StatusDirty).To(BeFalse())
 	})
 
 	It("should update the variable if it different than the status", func() {
@@ -80,8 +80,8 @@ var _ = Describe("test data import schedule", func() {
 
 		applyDataImportSchedule(req)
 
-		Expect(dataImportSchedule).Should(Equal(schedule))
-		Expect(hco.Status.DataImportSchedule).Should(Equal(schedule))
-		Expect(req.StatusDirty).Should(BeFalse())
+		Expect(dataImportSchedule).To(Equal(schedule))
+		Expect(hco.Status.DataImportSchedule).To(Equal(schedule))
+		Expect(req.StatusDirty).To(BeFalse())
 	})
 })

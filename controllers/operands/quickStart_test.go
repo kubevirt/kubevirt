@@ -37,7 +37,7 @@ var _ = Describe("QuickStart tests", func() {
 			cli := commontestutils.InitClient([]client.Object{})
 
 			err := checkCrdExists(context.TODO(), cli, logger)
-			Expect(err).Should(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 			Expect(errors.Unwrap(err)).ToNot(HaveOccurred())
 		})
 
@@ -124,7 +124,7 @@ var _ = Describe("QuickStart tests", func() {
 				cli := commontestutils.InitClient([]client.Object{qsCrd})
 				handlers, err := getQuickStartHandlers(logger, cli, schemeForTest, hco)
 
-				Expect(err).Should(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 				Expect(handlers).To(BeEmpty())
 			})
 		})
@@ -160,7 +160,7 @@ var _ = Describe("QuickStart tests", func() {
 				quickstartObjects := &consolev1.ConsoleQuickStartList{}
 				Expect(cli.List(context.TODO(), quickstartObjects)).To(Succeed())
 				Expect(quickstartObjects.Items).To(HaveLen(1))
-				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
+				Expect(quickstartObjects.Items[0].Name).To(Equal("test-quick-start"))
 			})
 		})
 
@@ -187,9 +187,9 @@ var _ = Describe("QuickStart tests", func() {
 				quickstartObjects := &consolev1.ConsoleQuickStartList{}
 				Expect(cli.List(context.TODO(), quickstartObjects)).To(Succeed())
 				Expect(quickstartObjects.Items).To(HaveLen(1))
-				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
+				Expect(quickstartObjects.Items[0].Name).To(Equal("test-quick-start"))
 				// check that the existing object was reconciled
-				Expect(quickstartObjects.Items[0].Spec.DurationMinutes).Should(Equal(20))
+				Expect(quickstartObjects.Items[0].Spec.DurationMinutes).To(Equal(20))
 
 				// ObjectReference should have been updated
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -224,7 +224,7 @@ var _ = Describe("QuickStart tests", func() {
 
 				Expect(cli.List(context.TODO(), quickstartObjects)).To(Succeed())
 				Expect(quickstartObjects.Items).To(HaveLen(1))
-				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
+				Expect(quickstartObjects.Items[0].Name).To(Equal("test-quick-start"))
 			})
 
 			expectedLabels := make(map[string]map[string]string)
@@ -291,7 +291,7 @@ var _ = Describe("QuickStart tests", func() {
 
 				Expect(cli.List(context.TODO(), quickstartObjects)).To(Succeed())
 				Expect(quickstartObjects.Items).To(HaveLen(1))
-				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
+				Expect(quickstartObjects.Items[0].Name).To(Equal("test-quick-start"))
 			})
 
 			expectedLabels := make(map[string]map[string]string)

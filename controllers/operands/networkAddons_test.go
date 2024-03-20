@@ -52,7 +52,7 @@ var _ = Describe("CNA Operand", func() {
 					foundResource),
 			).To(Succeed())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 			Expect(foundResource.Spec.Multus).To(Equal(&networkaddonsshared.Multus{}))
 			Expect(foundResource.Spec.LinuxBridge).To(Equal(&networkaddonsshared.LinuxBridge{}))
@@ -221,11 +221,11 @@ var _ = Describe("CNA Operand", func() {
 			Expect(foundResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			placementConfig := foundResource.Spec.PlacementConfiguration
 			Expect(placementConfig.Infra).ToNot(BeNil())
-			Expect(placementConfig.Infra.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(placementConfig.Infra.NodeSelector["key2"]).Should(Equal("value2"))
+			Expect(placementConfig.Infra.NodeSelector["key1"]).To(Equal("value1"))
+			Expect(placementConfig.Infra.NodeSelector["key2"]).To(Equal("value2"))
 
 			Expect(placementConfig.Workloads).ToNot(BeNil())
-			Expect(placementConfig.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
+			Expect(placementConfig.Workloads.Tolerations).To(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -288,11 +288,11 @@ var _ = Describe("CNA Operand", func() {
 
 			Expect(existingResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			Expect(existingResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(2))
-			Expect(existingResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key1"]).Should(Equal("value1"))
+			Expect(existingResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key1"]).To(Equal("value1"))
 
 			Expect(foundResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			Expect(foundResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(3))
-			Expect(foundResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
+			Expect(foundResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key1"]).To(Equal("something else"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -334,13 +334,13 @@ var _ = Describe("CNA Operand", func() {
 
 			Expect(existingResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(3))
 			Expect(existingResource.Spec.PlacementConfiguration.Workloads.Tolerations).To(HaveLen(3))
-			Expect(existingResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"]).Should(Equal("BADvalue1"))
-			Expect(existingResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+			Expect(existingResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"]).To(Equal("BADvalue1"))
+			Expect(existingResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key2"]).To(Equal("BADvalue2"))
 
 			Expect(foundResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(2))
 			Expect(foundResource.Spec.PlacementConfiguration.Workloads.Tolerations).To(HaveLen(2))
-			Expect(foundResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(foundResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key2"]).Should(Equal("value2"))
+			Expect(foundResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"]).To(Equal("value1"))
+			Expect(foundResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key2"]).To(Equal("value2"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -376,10 +376,10 @@ var _ = Describe("CNA Operand", func() {
 
 			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			selfSignedConfig := foundResource.Spec.SelfSignConfiguration
-			Expect(selfSignedConfig.CARotateInterval).Should(Equal("24h0m0s"))
-			Expect(selfSignedConfig.CAOverlapInterval).Should(Equal("1h0m0s"))
-			Expect(selfSignedConfig.CertRotateInterval).Should(Equal("12h0m0s"))
-			Expect(selfSignedConfig.CertOverlapInterval).Should(Equal("30m0s"))
+			Expect(selfSignedConfig.CARotateInterval).To(Equal("24h0m0s"))
+			Expect(selfSignedConfig.CAOverlapInterval).To(Equal("1h0m0s"))
+			Expect(selfSignedConfig.CertRotateInterval).To(Equal("12h0m0s"))
+			Expect(selfSignedConfig.CertOverlapInterval).To(Equal("30m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -405,10 +405,10 @@ var _ = Describe("CNA Operand", func() {
 
 			Expect(foundResource.Spec.SelfSignConfiguration.CARotateInterval).ToNot(BeNil())
 			selfSignedConfig := foundResource.Spec.SelfSignConfiguration
-			Expect(selfSignedConfig.CARotateInterval).Should(Equal("48h0m0s"))
-			Expect(selfSignedConfig.CAOverlapInterval).Should(Equal("24h0m0s"))
-			Expect(selfSignedConfig.CertRotateInterval).Should(Equal("24h0m0s"))
-			Expect(selfSignedConfig.CertOverlapInterval).Should(Equal("12h0m0s"))
+			Expect(selfSignedConfig.CARotateInterval).To(Equal("48h0m0s"))
+			Expect(selfSignedConfig.CAOverlapInterval).To(Equal("24h0m0s"))
+			Expect(selfSignedConfig.CertRotateInterval).To(Equal("24h0m0s"))
+			Expect(selfSignedConfig.CertOverlapInterval).To(Equal("12h0m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -450,17 +450,17 @@ var _ = Describe("CNA Operand", func() {
 
 			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			existingSelfSignedConfig := existingResource.Spec.SelfSignConfiguration
-			Expect(existingSelfSignedConfig.CARotateInterval).Should(Equal("24h0m0s"))
-			Expect(existingSelfSignedConfig.CAOverlapInterval).Should(Equal("1h0m0s"))
-			Expect(existingSelfSignedConfig.CertRotateInterval).Should(Equal("12h0m0s"))
-			Expect(existingSelfSignedConfig.CertOverlapInterval).Should(Equal("30m0s"))
+			Expect(existingSelfSignedConfig.CARotateInterval).To(Equal("24h0m0s"))
+			Expect(existingSelfSignedConfig.CAOverlapInterval).To(Equal("1h0m0s"))
+			Expect(existingSelfSignedConfig.CertRotateInterval).To(Equal("12h0m0s"))
+			Expect(existingSelfSignedConfig.CertOverlapInterval).To(Equal("30m0s"))
 
 			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			foundSelfSignedConfig := foundResource.Spec.SelfSignConfiguration
-			Expect(foundSelfSignedConfig.CARotateInterval).Should(Equal("48h0m0s"))
-			Expect(foundSelfSignedConfig.CAOverlapInterval).Should(Equal("2h0m0s"))
-			Expect(foundSelfSignedConfig.CertRotateInterval).Should(Equal("24h0m0s"))
-			Expect(foundSelfSignedConfig.CertOverlapInterval).Should(Equal("1h0m0s"))
+			Expect(foundSelfSignedConfig.CARotateInterval).To(Equal("48h0m0s"))
+			Expect(foundSelfSignedConfig.CAOverlapInterval).To(Equal("2h0m0s"))
+			Expect(foundSelfSignedConfig.CertRotateInterval).To(Equal("24h0m0s"))
+			Expect(foundSelfSignedConfig.CertOverlapInterval).To(Equal("1h0m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -506,17 +506,17 @@ var _ = Describe("CNA Operand", func() {
 
 			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			existingSelfSignedConfig := existingResource.Spec.SelfSignConfiguration
-			Expect(existingSelfSignedConfig.CARotateInterval).Should(Equal("48h0m0s"))
-			Expect(existingSelfSignedConfig.CAOverlapInterval).Should(Equal("2h0m0s"))
-			Expect(existingSelfSignedConfig.CertRotateInterval).Should(Equal("24h0m0s"))
-			Expect(existingSelfSignedConfig.CertOverlapInterval).Should(Equal("1h0m0s"))
+			Expect(existingSelfSignedConfig.CARotateInterval).To(Equal("48h0m0s"))
+			Expect(existingSelfSignedConfig.CAOverlapInterval).To(Equal("2h0m0s"))
+			Expect(existingSelfSignedConfig.CertRotateInterval).To(Equal("24h0m0s"))
+			Expect(existingSelfSignedConfig.CertOverlapInterval).To(Equal("1h0m0s"))
 
 			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
 			foundSelfSignedConfig := foundResource.Spec.SelfSignConfiguration
-			Expect(foundSelfSignedConfig.CARotateInterval).Should(Equal("24h0m0s"))
-			Expect(foundSelfSignedConfig.CAOverlapInterval).Should(Equal("1h0m0s"))
-			Expect(foundSelfSignedConfig.CertRotateInterval).Should(Equal("12h0m0s"))
-			Expect(foundSelfSignedConfig.CertOverlapInterval).Should(Equal("30m0s"))
+			Expect(foundSelfSignedConfig.CARotateInterval).To(Equal("24h0m0s"))
+			Expect(foundSelfSignedConfig.CAOverlapInterval).To(Equal("1h0m0s"))
+			Expect(foundSelfSignedConfig.CertRotateInterval).To(Equal("12h0m0s"))
+			Expect(foundSelfSignedConfig.CertOverlapInterval).To(Equal("30m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -861,8 +861,8 @@ var _ = Describe("CNA Operand", func() {
 				cna, err := NewNetworkAddons(hco)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cna).ToNot(BeNil())
-				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
-				Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
+				Expect(cna.Spec.KubeMacPool.RangeStart).To(Equal("1.1.1.1.1.1"))
+				Expect(cna.Spec.KubeMacPool.RangeEnd).To(Equal("5.5.5.5.5.5"))
 				Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
 			})
 
@@ -908,8 +908,8 @@ var _ = Describe("CNA Operand", func() {
 				).To(Succeed())
 
 				Expect(cna).ToNot(BeNil())
-				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
-				Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
+				Expect(cna.Spec.KubeMacPool.RangeStart).To(Equal("1.1.1.1.1.1"))
+				Expect(cna.Spec.KubeMacPool.RangeEnd).To(Equal("5.5.5.5.5.5"))
 				Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
 			})
 
@@ -970,8 +970,8 @@ var _ = Describe("CNA Operand", func() {
 						cna),
 				).To(Succeed())
 
-				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
-				Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
+				Expect(cna.Spec.KubeMacPool.RangeStart).To(Equal("1.1.1.1.1.1"))
+				Expect(cna.Spec.KubeMacPool.RangeEnd).To(Equal("5.5.5.5.5.5"))
 				Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
 			})
 
@@ -1023,12 +1023,12 @@ var _ = Describe("CNA Operand", func() {
 				Expect(handler.hooks.(*cnaHooks).cache).ToNot(BeNil())
 
 				By("compare pointers to make sure cache is working", func() {
-					Expect(handler.hooks.(*cnaHooks).cache).Should(BeIdenticalTo(cr))
+					Expect(handler.hooks.(*cnaHooks).cache).To(BeIdenticalTo(cr))
 
 					crII, err := handler.hooks.getFullCr(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(crII).ToNot(BeNil())
-					Expect(cr).Should(BeIdenticalTo(crII))
+					Expect(cr).To(BeIdenticalTo(crII))
 				})
 			})
 
@@ -1167,8 +1167,8 @@ var _ = Describe("CNA Operand", func() {
 			Expect(cnaoPlacement.Affinity.PodAffinity).To(BeNil())
 			Expect(cnaoPlacement.Affinity.PodAntiAffinity).To(BeNil())
 
-			Expect(cnaoPlacement.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(cnaoPlacement.NodeSelector["key2"]).Should(Equal("value2"))
+			Expect(cnaoPlacement.NodeSelector["key1"]).To(Equal("value1"))
+			Expect(cnaoPlacement.NodeSelector["key2"]).To(Equal("value2"))
 		})
 
 		It("Should return only Tolerations", func() {
@@ -1184,8 +1184,8 @@ var _ = Describe("CNA Operand", func() {
 			Expect(cnaoPlacement.Affinity.PodAffinity).To(BeNil())
 			Expect(cnaoPlacement.Affinity.PodAntiAffinity).To(BeNil())
 
-			Expect(cnaoPlacement.Tolerations[0]).Should(Equal(tolr1))
-			Expect(cnaoPlacement.Tolerations[1]).Should(Equal(tolr2))
+			Expect(cnaoPlacement.Tolerations[0]).To(Equal(tolr1))
+			Expect(cnaoPlacement.Tolerations[1]).To(Equal(tolr2))
 		})
 
 		It("Should return only Affinity", func() {
@@ -1219,7 +1219,7 @@ var _ = Describe("CNA Operand", func() {
 			Expect(cnaoPlacement.Affinity.PodAffinity).To(BeNil())
 			Expect(cnaoPlacement.Affinity.PodAntiAffinity).To(BeNil())
 
-			Expect(cnaoPlacement.Affinity.NodeAffinity).Should(Equal(affinity.NodeAffinity))
+			Expect(cnaoPlacement.Affinity.NodeAffinity).To(Equal(affinity.NodeAffinity))
 		})
 
 		It("Should return the whole object", func() {
@@ -1257,13 +1257,13 @@ var _ = Describe("CNA Operand", func() {
 			Expect(cnaoPlacement.Tolerations).ToNot(BeNil())
 			Expect(cnaoPlacement.Affinity.NodeAffinity).ToNot(BeNil())
 
-			Expect(cnaoPlacement.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(cnaoPlacement.NodeSelector["key2"]).Should(Equal("value2"))
+			Expect(cnaoPlacement.NodeSelector["key1"]).To(Equal("value1"))
+			Expect(cnaoPlacement.NodeSelector["key2"]).To(Equal("value2"))
 
-			Expect(cnaoPlacement.Tolerations[0]).Should(Equal(tolr1))
-			Expect(cnaoPlacement.Tolerations[1]).Should(Equal(tolr2))
+			Expect(cnaoPlacement.Tolerations[0]).To(Equal(tolr1))
+			Expect(cnaoPlacement.Tolerations[1]).To(Equal(tolr2))
 
-			Expect(cnaoPlacement.Affinity.NodeAffinity).Should(Equal(hcoConf.Affinity.NodeAffinity))
+			Expect(cnaoPlacement.Affinity.NodeAffinity).To(Equal(hcoConf.Affinity.NodeAffinity))
 		})
 	})
 })

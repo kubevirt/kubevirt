@@ -26,15 +26,15 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			UpdateVersion(hcs, testName, testVersion)
 
 			It("Versions array should be with one element", func() {
-				Expect(hcs.Versions).Should(HaveLen(1))
+				Expect(hcs.Versions).To(HaveLen(1))
 			})
 
 			It(`The version name should be "aName"`, func() {
-				Expect(hcs.Versions[0].Name).Should(Equal(testName))
+				Expect(hcs.Versions[0].Name).To(Equal(testName))
 			})
 
 			It(`The version should be "aVersion"`, func() {
-				Expect(hcs.Versions[0].Version).Should(Equal(testVersion))
+				Expect(hcs.Versions[0].Version).To(Equal(testVersion))
 			})
 		})
 
@@ -48,15 +48,15 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			UpdateVersion(hcs, testName, testVersion)
 
 			It("Versions array should be with one element", func() {
-				Expect(hcs.Versions).Should(HaveLen(1))
+				Expect(hcs.Versions).To(HaveLen(1))
 			})
 
 			It(`The version name should be "aName"`, func() {
-				Expect(hcs.Versions[0].Name).Should(Equal(testName))
+				Expect(hcs.Versions[0].Name).To(Equal(testName))
 			})
 
 			It(`The version should be "aVersion"`, func() {
-				Expect(hcs.Versions[0].Version).Should(Equal(testVersion))
+				Expect(hcs.Versions[0].Version).To(Equal(testVersion))
 			})
 		})
 
@@ -74,15 +74,15 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			UpdateVersion(hcs, testName, testVersion)
 
 			It("Versions array should be with four elements", func() {
-				Expect(hcs.Versions).Should(HaveLen(4))
+				Expect(hcs.Versions).To(HaveLen(4))
 			})
 
 			It(`The version name should be "aName"`, func() {
-				Expect(hcs.Versions[3].Name).Should(Equal(testName))
+				Expect(hcs.Versions[3].Name).To(Equal(testName))
 			})
 
 			It(`The version should be "aVersion"`, func() {
-				Expect(hcs.Versions[3].Version).Should(Equal(testVersion))
+				Expect(hcs.Versions[3].Version).To(Equal(testVersion))
 			})
 		})
 
@@ -100,15 +100,15 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			UpdateVersion(hcs, testName, testVersion)
 
 			It("Versions array should be with three elements", func() {
-				Expect(hcs.Versions).Should(HaveLen(3))
+				Expect(hcs.Versions).To(HaveLen(3))
 			})
 
 			It(`The version name should be "aName"`, func() {
-				Expect(hcs.Versions[0].Name).Should(Equal(testName))
+				Expect(hcs.Versions[0].Name).To(Equal(testName))
 			})
 
 			It(`The version should be "aVersion"`, func() {
-				Expect(hcs.Versions[0].Version).Should(Equal(testVersion))
+				Expect(hcs.Versions[0].Version).To(Equal(testVersion))
 			})
 		})
 
@@ -126,15 +126,15 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			UpdateVersion(hcs, testName, testVersion)
 
 			It("Versions array should be with three elements", func() {
-				Expect(hcs.Versions).Should(HaveLen(3))
+				Expect(hcs.Versions).To(HaveLen(3))
 			})
 
 			It(`The version name should be "aName"`, func() {
-				Expect(hcs.Versions[1].Name).Should(Equal(testName))
+				Expect(hcs.Versions[1].Name).To(Equal(testName))
 			})
 
 			It(`The version should be "aVersion"`, func() {
-				Expect(hcs.Versions[1].Version).Should(Equal(testVersion))
+				Expect(hcs.Versions[1].Version).To(Equal(testVersion))
 			})
 		})
 
@@ -152,15 +152,15 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			UpdateVersion(hcs, testName, testVersion)
 
 			It("Versions array should be with three elements", func() {
-				Expect(hcs.Versions).Should(HaveLen(3))
+				Expect(hcs.Versions).To(HaveLen(3))
 			})
 
 			It(`The version name should be "aName"`, func() {
-				Expect(hcs.Versions[2].Name).Should(Equal(testName))
+				Expect(hcs.Versions[2].Name).To(Equal(testName))
 			})
 
 			It(`The version should be "aVersion"`, func() {
-				Expect(hcs.Versions[2].Version).Should(Equal(testVersion))
+				Expect(hcs.Versions[2].Version).To(Equal(testVersion))
 			})
 		})
 
@@ -241,7 +241,7 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			})
 
 			It("the version should be empty", func() {
-				Expect(ver).Should(Equal(testVersion))
+				Expect(ver).To(Equal(testVersion))
 			})
 		})
 
@@ -263,7 +263,7 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			})
 
 			It("the version should be empty", func() {
-				Expect(ver).Should(Equal(testVersion))
+				Expect(ver).To(Equal(testVersion))
 			})
 		})
 
@@ -285,7 +285,7 @@ var _ = Describe("Test utilities for HCO versions", func() {
 			})
 
 			It("the version should be empty", func() {
-				Expect(ver).Should(Equal(testVersion))
+				Expect(ver).To(Equal(testVersion))
 			})
 		})
 

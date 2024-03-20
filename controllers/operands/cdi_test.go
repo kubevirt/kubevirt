@@ -55,7 +55,7 @@ var _ = Describe("CDI Operand", func() {
 					foundResource),
 			).To(Succeed())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
+			Expect(foundResource.Labels).To(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 			Expect(foundResource.Annotations).To(Equal(map[string]string{cdiConfigAuthorityAnnotation: ""}))
 		})
@@ -220,11 +220,11 @@ var _ = Describe("CDI Operand", func() {
 				Expect(existingResource.Spec.Workloads.NodeSelector).To(BeNil())
 
 				Expect(foundResource.Spec.Infra.Affinity).ToNot(BeNil())
-				Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
-				Expect(foundResource.Spec.Infra.NodeSelector["key2"]).Should(Equal("value2"))
+				Expect(foundResource.Spec.Infra.NodeSelector["key1"]).To(Equal("value1"))
+				Expect(foundResource.Spec.Infra.NodeSelector["key2"]).To(Equal("value2"))
 
 				Expect(foundResource.Spec.Workloads).ToNot(BeNil())
-				Expect(foundResource.Spec.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
+				Expect(foundResource.Spec.Workloads.Tolerations).To(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -298,10 +298,10 @@ var _ = Describe("CDI Operand", func() {
 				).ToNot(HaveOccurred())
 
 				Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(2))
-				Expect(existingResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(existingResource.Spec.Workloads.NodeSelector["key1"]).To(Equal("value1"))
 
 				Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
-				Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
+				Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).To(Equal("something else"))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -343,13 +343,13 @@ var _ = Describe("CDI Operand", func() {
 
 				Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(3))
 				Expect(existingResource.Spec.Workloads.Tolerations).To(HaveLen(3))
-				Expect(existingResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("BADvalue1"))
-				Expect(existingResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+				Expect(existingResource.Spec.Infra.NodeSelector["key1"]).To(Equal("BADvalue1"))
+				Expect(existingResource.Spec.Workloads.NodeSelector["key2"]).To(Equal("BADvalue2"))
 
 				Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(2))
 				Expect(foundResource.Spec.Workloads.Tolerations).To(HaveLen(2))
-				Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
-				Expect(foundResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("value2"))
+				Expect(foundResource.Spec.Infra.NodeSelector["key1"]).To(Equal("value1"))
+				Expect(foundResource.Spec.Workloads.NodeSelector["key2"]).To(Equal("value2"))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
@@ -390,10 +390,10 @@ var _ = Describe("CDI Operand", func() {
 
 				Expect(foundResource.Spec.Config).ToNot(BeNil())
 				Expect(foundResource.Spec.Config.PodResourceRequirements).ToNot(BeNil())
-				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).Should(Equal(resource.MustParse("500m")))
-				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).Should(Equal(resource.MustParse("2Gi")))
-				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).Should(Equal(resource.MustParse("250m")))
-				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).Should(Equal(resource.MustParse("1Gi")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).To(Equal(resource.MustParse("500m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).To(Equal(resource.MustParse("2Gi")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).To(Equal(resource.MustParse("250m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("1Gi")))
 			})
 
 			It("should remove Resource Requirements if missing in HCO CR", func() {
@@ -417,10 +417,10 @@ var _ = Describe("CDI Operand", func() {
 
 				Expect(existingResource.Spec.Config).ToNot(BeNil())
 				Expect(existingResource.Spec.Config.PodResourceRequirements).ToNot(BeNil())
-				Expect(existingResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).Should(Equal(resource.MustParse("500m")))
-				Expect(existingResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).Should(Equal(resource.MustParse("2Gi")))
-				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).Should(Equal(resource.MustParse("250m")))
-				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).Should(Equal(resource.MustParse("1Gi")))
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).To(Equal(resource.MustParse("500m")))
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).To(Equal(resource.MustParse("2Gi")))
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).To(Equal(resource.MustParse("250m")))
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("1Gi")))
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
@@ -478,10 +478,10 @@ var _ = Describe("CDI Operand", func() {
 				).ToNot(HaveOccurred())
 
 				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits).To(HaveLen(2))
-				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).Should(Equal(resource.MustParse("1024m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).To(Equal(resource.MustParse("1024m")))
 				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).To(Equal(resource.MustParse("4Gi")))
 				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests).To(HaveLen(2))
-				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).Should(Equal(resource.MustParse("500m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).To(Equal(resource.MustParse("500m")))
 				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("2Gi")))
 			})
 		})
@@ -519,7 +519,7 @@ var _ = Describe("CDI Operand", func() {
 
 				Expect(foundCdi.Spec.Config).ToNot(BeNil())
 				Expect(foundCdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
-				Expect(*foundCdi.Spec.Config.FilesystemOverhead).Should(Equal(hcoFilesystemOverheadValue))
+				Expect(*foundCdi.Spec.Config.FilesystemOverhead).To(Equal(hcoFilesystemOverheadValue))
 			})
 
 			It("should remove FilesystemOverhead if missing in HCO CR", func() {
@@ -531,7 +531,7 @@ var _ = Describe("CDI Operand", func() {
 
 				Expect(existingCdi.Spec.Config).ToNot(BeNil())
 				Expect(existingCdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
-				Expect(*existingCdi.Spec.Config.FilesystemOverhead).Should(Equal(cdiFilesystemOverheadValue))
+				Expect(*existingCdi.Spec.Config.FilesystemOverhead).To(Equal(cdiFilesystemOverheadValue))
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingCdi})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
@@ -588,7 +588,7 @@ var _ = Describe("CDI Operand", func() {
 				hco.Spec.LogVerbosityConfig = &hcov1beta1.LogVerbosityConfiguration{CDI: ptr.To[int32](4)}
 				cdi, err := NewCDI(hco)
 
-				Expect(err).ShouldNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(cdi).ToNot(BeNil())
 				Expect(cdi.Spec.Config.LogVerbosity).To(HaveValue(Equal(int32(4))))
 			})
@@ -597,7 +597,7 @@ var _ = Describe("CDI Operand", func() {
 				hco.Spec.LogVerbosityConfig = logConfig
 				cdi, err := NewCDI(hco)
 
-				Expect(err).ShouldNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(cdi).ToNot(BeNil())
 				Expect(cdi.Spec.Config.LogVerbosity).To(BeNil())
 			},
@@ -634,7 +634,7 @@ var _ = Describe("CDI Operand", func() {
 				).ToNot(HaveOccurred())
 
 				Expect(foundCdi.Spec.Config).ToNot(BeNil())
-				Expect(foundCdi.Spec.Config.ScratchSpaceStorageClass).Should(HaveValue(Equal(hcoScratchSpaceStorageClassValue)))
+				Expect(foundCdi.Spec.Config.ScratchSpaceStorageClass).To(HaveValue(Equal(hcoScratchSpaceStorageClassValue)))
 			})
 
 			It("should remove ScratchSpaceStorageClass if missing in HCO CR", func() {
@@ -645,7 +645,7 @@ var _ = Describe("CDI Operand", func() {
 				existingCdi.Spec.Config.ScratchSpaceStorageClass = ptr.To(cdiScratchSpaceStorageClassValue)
 
 				Expect(existingCdi.Spec.Config).ToNot(BeNil())
-				Expect(existingCdi.Spec.Config.ScratchSpaceStorageClass).Should(HaveValue(Equal(cdiScratchSpaceStorageClassValue)))
+				Expect(existingCdi.Spec.Config.ScratchSpaceStorageClass).To(HaveValue(Equal(cdiScratchSpaceStorageClassValue)))
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingCdi})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
@@ -721,8 +721,8 @@ var _ = Describe("CDI Operand", func() {
 
 				Expect(foundCdi.Spec.Config).ToNot(BeNil())
 				Expect(foundCdi.Spec.Config.InsecureRegistries).ToNot(BeEmpty())
-				Expect(foundCdi.Spec.Config.InsecureRegistries).Should(HaveLen(3))
-				Expect(foundCdi.Spec.Config.InsecureRegistries).Should(ContainElements("first:5000", "second:5000", "third:5000"))
+				Expect(foundCdi.Spec.Config.InsecureRegistries).To(HaveLen(3))
+				Expect(foundCdi.Spec.Config.InsecureRegistries).To(ContainElements("first:5000", "second:5000", "third:5000"))
 			})
 
 			It("should remove InsecureRegistries if missing in HCO CR", func() {
@@ -936,10 +936,10 @@ var _ = Describe("CDI Operand", func() {
 			Expect(existingResource.Spec.CertConfig).To(BeNil())
 
 			Expect(foundResource.Spec.CertConfig).ToNot(BeNil())
-			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("48h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("24h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("24h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("12h0m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -964,10 +964,10 @@ var _ = Describe("CDI Operand", func() {
 			Expect(existingResource.Spec.CertConfig).To(BeNil())
 
 			Expect(foundResource.Spec.CertConfig).ToNot(BeNil())
-			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("48h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("24h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("24h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("12h0m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -1004,16 +1004,16 @@ var _ = Describe("CDI Operand", func() {
 			).ToNot(HaveOccurred())
 
 			Expect(existingResource.Spec.CertConfig).ToNot(BeNil())
-			Expect(existingResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(existingResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(existingResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(existingResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(existingResource.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("48h0m0s"))
+			Expect(existingResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("24h0m0s"))
+			Expect(existingResource.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("24h0m0s"))
+			Expect(existingResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("12h0m0s"))
 
 			Expect(foundResource.Spec.CertConfig).ToNot(BeNil())
-			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("5h0m0s"))
-			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("6h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("7h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("8h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("5h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("6h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("7h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("8h0m0s"))
 			Expect(req.Conditions).To(BeEmpty())
 
 			// ObjectReference should have been updated
@@ -1108,10 +1108,10 @@ var _ = Describe("CDI Operand", func() {
 				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(2))
 				Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
 				Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
-				Expect(cdi.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("50"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.Global).To(BeEquivalentTo("50"))
 				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass).To(HaveLen(2))
-				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).Should(BeEquivalentTo("75"))
-				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).Should(BeEquivalentTo("25"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).To(BeEquivalentTo("75"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).To(BeEquivalentTo("25"))
 			})
 
 			It("Should fail to create CDI object with wrong jsonPatch", func() {
@@ -1158,10 +1158,10 @@ var _ = Describe("CDI Operand", func() {
 				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(2))
 				Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
 				Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
-				Expect(cdi.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("50"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.Global).To(BeEquivalentTo("50"))
 				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass).To(HaveLen(2))
-				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).Should(BeEquivalentTo("75"))
-				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).Should(BeEquivalentTo("25"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).To(BeEquivalentTo("75"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).To(BeEquivalentTo("25"))
 			})
 
 			It("Ensure func should fail to create CDI object with wrong jsonPatch", func() {
@@ -1221,9 +1221,9 @@ var _ = Describe("CDI Operand", func() {
 						cdi),
 				).ToNot(HaveOccurred())
 
-				Expect(cdi.Spec.ImagePullPolicy).Should(BeEquivalentTo("Always"))
+				Expect(cdi.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
 				Expect(cdi.Spec.CloneStrategyOverride).ToNot(BeNil())
-				Expect(*cdi.Spec.CloneStrategyOverride).Should(BeEquivalentTo("copy"))
+				Expect(*cdi.Spec.CloneStrategyOverride).To(BeEquivalentTo("copy"))
 			})
 
 			It("Ensure func should fail to update CDI object with wrong jsonPatch", func() {
@@ -1258,7 +1258,7 @@ var _ = Describe("CDI Operand", func() {
 						cdi),
 				).ToNot(HaveOccurred())
 
-				Expect(cdi.Spec.ImagePullPolicy).Should(BeEmpty())
+				Expect(cdi.Spec.ImagePullPolicy).To(BeEmpty())
 				Expect(cdi.Spec.CloneStrategyOverride).To(BeNil())
 
 			})
@@ -1279,12 +1279,12 @@ var _ = Describe("CDI Operand", func() {
 				Expect(handler.hooks.(*cdiHooks).cache).ToNot(BeNil())
 
 				By("compare pointers to make sure cache is working", func() {
-					Expect(handler.hooks.(*cdiHooks).cache).Should(BeIdenticalTo(cr))
+					Expect(handler.hooks.(*cdiHooks).cache).To(BeIdenticalTo(cr))
 
 					cdi1, err := handler.hooks.getFullCr(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(cdi1).ToNot(BeNil())
-					Expect(cr).Should(BeIdenticalTo(cdi1))
+					Expect(cr).To(BeIdenticalTo(cdi1))
 				})
 			})
 

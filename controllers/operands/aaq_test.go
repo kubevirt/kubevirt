@@ -70,28 +70,28 @@ var _ = Describe("AAQ tests", func() {
 		It("should have all default fields", func() {
 			aaq := NewAAQ(hco)
 
-			Expect(aaq.Name).Should(Equal("aaq-" + hco.Name))
-			Expect(aaq.Namespace).Should(BeEmpty())
+			Expect(aaq.Name).To(Equal("aaq-" + hco.Name))
+			Expect(aaq.Namespace).To(BeEmpty())
 
-			Expect(aaq.Spec.Infra.Tolerations).Should(BeEmpty())
-			Expect(aaq.Spec.Infra.Affinity).Should(BeNil())
-			Expect(aaq.Spec.Infra.NodeSelector).Should(BeEmpty())
+			Expect(aaq.Spec.Infra.Tolerations).To(BeEmpty())
+			Expect(aaq.Spec.Infra.Affinity).To(BeNil())
+			Expect(aaq.Spec.Infra.NodeSelector).To(BeEmpty())
 
-			Expect(aaq.Spec.Workloads.Tolerations).Should(BeEmpty())
-			Expect(aaq.Spec.Workloads.Affinity).Should(BeNil())
-			Expect(aaq.Spec.Workloads.NodeSelector).Should(BeEmpty())
+			Expect(aaq.Spec.Workloads.Tolerations).To(BeEmpty())
+			Expect(aaq.Spec.Workloads.Affinity).To(BeNil())
+			Expect(aaq.Spec.Workloads.NodeSelector).To(BeEmpty())
 
 			Expect(aaq.Spec.PriorityClass).To(HaveValue(Equal(aaqv1alpha1.AAQPriorityClass(kvPriorityClass))))
 
-			Expect(aaq.Spec.CertConfig.CA).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.CA.Duration).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(aaq.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(aaq.Spec.CertConfig.CA).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.CA.Duration).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("48h0m0s"))
+			Expect(aaq.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("24h0m0s"))
 
-			Expect(aaq.Spec.CertConfig.Server).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.Server.Duration).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(aaq.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(aaq.Spec.CertConfig.Server).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.Server.Duration).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("24h0m0s"))
+			Expect(aaq.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("12h0m0s"))
 
 			Expect(aaq.Spec.NamespaceSelector).To(BeNil())
 			Expect(aaq.Spec.Configuration.VmiCalculatorConfiguration.ConfigName).To(Equal(aaqv1alpha1.DedicatedVirtualResources))
@@ -136,8 +136,8 @@ var _ = Describe("AAQ tests", func() {
 
 			aaq := NewAAQ(hco)
 
-			Expect(aaq.Spec.Infra).Should(Equal(testNodePlacement))
-			Expect(aaq.Spec.Workloads).Should(Equal(testNodePlacement))
+			Expect(aaq.Spec.Infra).To(Equal(testNodePlacement))
+			Expect(aaq.Spec.Workloads).To(Equal(testNodePlacement))
 		})
 
 		It("should get certification configurations from the HyperConverged CR", func() {
@@ -155,15 +155,15 @@ var _ = Describe("AAQ tests", func() {
 
 			aaq := NewAAQ(hco)
 
-			Expect(aaq.Spec.CertConfig.CA).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.CA.Duration).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("72h0m0s"))
-			Expect(aaq.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("56h0m0s"))
+			Expect(aaq.Spec.CertConfig.CA).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.CA.Duration).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("72h0m0s"))
+			Expect(aaq.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("56h0m0s"))
 
-			Expect(aaq.Spec.CertConfig.Server).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.Server.Duration).ShouldNot(BeNil())
-			Expect(aaq.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("36h0m0s"))
-			Expect(aaq.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("18h0m0s"))
+			Expect(aaq.Spec.CertConfig.Server).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.Server.Duration).ToNot(BeNil())
+			Expect(aaq.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("36h0m0s"))
+			Expect(aaq.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("18h0m0s"))
 		})
 	})
 
@@ -175,14 +175,14 @@ var _ = Describe("AAQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Created).Should(BeFalse())
-			Expect(res.Updated).Should(BeFalse())
-			Expect(res.Deleted).Should(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Deleted).To(BeFalse())
 
 			foundAAQs := &aaqv1alpha1.AAQList{}
-			Expect(cl.List(context.Background(), foundAAQs)).Should(Succeed())
-			Expect(foundAAQs.Items).Should(BeEmpty())
+			Expect(cl.List(context.Background(), foundAAQs)).To(Succeed())
+			Expect(foundAAQs.Items).To(BeEmpty())
 		})
 
 		It("should delete AAQ if the enableApplicationAwareQuota FG is not set", func() {
@@ -193,15 +193,15 @@ var _ = Describe("AAQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Name).Should(Equal(aaq.Name))
-			Expect(res.Created).Should(BeFalse())
-			Expect(res.Updated).Should(BeFalse())
-			Expect(res.Deleted).Should(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Name).To(Equal(aaq.Name))
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Deleted).To(BeTrue())
 
 			foundAAQs := &aaqv1alpha1.AAQList{}
-			Expect(cl.List(context.Background(), foundAAQs)).Should(Succeed())
-			Expect(foundAAQs.Items).Should(BeEmpty())
+			Expect(cl.List(context.Background(), foundAAQs)).To(Succeed())
+			Expect(foundAAQs.Items).To(BeEmpty())
 		})
 
 		It("should create AAQ if the enableApplicationAwareQuota FG is true", func() {
@@ -212,17 +212,17 @@ var _ = Describe("AAQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Name).Should(Equal("aaq-kubevirt-hyperconverged"))
-			Expect(res.Created).Should(BeTrue())
-			Expect(res.Updated).Should(BeFalse())
-			Expect(res.Deleted).Should(BeFalse())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Name).To(Equal("aaq-kubevirt-hyperconverged"))
+			Expect(res.Created).To(BeTrue())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Deleted).To(BeFalse())
 
 			foundAAQ := &aaqv1alpha1.AAQ{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundAAQ)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundAAQ)).To(Succeed())
 
-			Expect(foundAAQ.Name).Should(Equal("aaq-" + hco.Name))
-			Expect(foundAAQ.Namespace).Should(BeEmpty())
+			Expect(foundAAQ.Name).To(Equal("aaq-" + hco.Name))
+			Expect(foundAAQ.Namespace).To(BeEmpty())
 
 			// example of field set by the handler
 			Expect(foundAAQ.Spec.PriorityClass).To(HaveValue(Equal(aaqv1alpha1.AAQPriorityClass(kvPriorityClass))))
@@ -253,31 +253,31 @@ var _ = Describe("AAQ tests", func() {
 
 			res := handler.ensure(req)
 
-			Expect(res.Err).ShouldNot(HaveOccurred())
-			Expect(res.Created).Should(BeFalse())
-			Expect(res.Deleted).Should(BeFalse())
-			Expect(res.Updated).Should(BeTrue())
+			Expect(res.Err).ToNot(HaveOccurred())
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Deleted).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 
 			foundAAQ := &aaqv1alpha1.AAQ{}
-			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundAAQ)).Should(Succeed())
+			Expect(cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundAAQ)).To(Succeed())
 
-			Expect(foundAAQ.Spec.NamespaceSelector).Should(BeNil())
-			Expect(foundAAQ.Spec.Configuration.VmiCalculatorConfiguration.ConfigName).Should(Equal(aaqv1alpha1.DedicatedVirtualResources))
+			Expect(foundAAQ.Spec.NamespaceSelector).To(BeNil())
+			Expect(foundAAQ.Spec.Configuration.VmiCalculatorConfiguration.ConfigName).To(Equal(aaqv1alpha1.DedicatedVirtualResources))
 
-			Expect(foundAAQ.Spec.Infra.Affinity).Should(BeNil())
-			Expect(foundAAQ.Spec.Infra.NodeSelector).Should(BeEmpty())
-			Expect(foundAAQ.Spec.Infra.Tolerations).Should(BeEmpty())
+			Expect(foundAAQ.Spec.Infra.Affinity).To(BeNil())
+			Expect(foundAAQ.Spec.Infra.NodeSelector).To(BeEmpty())
+			Expect(foundAAQ.Spec.Infra.Tolerations).To(BeEmpty())
 
 			Expect(foundAAQ.Spec.PriorityClass).To(HaveValue(Equal(aaqv1alpha1.AAQPriorityClass(kvPriorityClass))))
-			Expect(foundAAQ.Spec.CertConfig.CA).ShouldNot(BeNil())
-			Expect(foundAAQ.Spec.CertConfig.CA.Duration).ShouldNot(BeNil())
-			Expect(foundAAQ.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(foundAAQ.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(foundAAQ.Spec.CertConfig.CA).ToNot(BeNil())
+			Expect(foundAAQ.Spec.CertConfig.CA.Duration).ToNot(BeNil())
+			Expect(foundAAQ.Spec.CertConfig.CA.Duration.Duration.String()).To(Equal("48h0m0s"))
+			Expect(foundAAQ.Spec.CertConfig.CA.RenewBefore.Duration.String()).To(Equal("24h0m0s"))
 
-			Expect(foundAAQ.Spec.CertConfig.Server).ShouldNot(BeNil())
-			Expect(foundAAQ.Spec.CertConfig.Server.Duration).ShouldNot(BeNil())
-			Expect(foundAAQ.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(foundAAQ.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(foundAAQ.Spec.CertConfig.Server).ToNot(BeNil())
+			Expect(foundAAQ.Spec.CertConfig.Server.Duration).ToNot(BeNil())
+			Expect(foundAAQ.Spec.CertConfig.Server.Duration.Duration.String()).To(Equal("24h0m0s"))
+			Expect(foundAAQ.Spec.CertConfig.Server.RenewBefore.Duration.String()).To(Equal("12h0m0s"))
 		})
 
 		It("should reconcile managed labels to default without touching user added ones", func() {
@@ -357,31 +357,31 @@ var _ = Describe("AAQ tests", func() {
 			hco.Spec.FeatureGates.EnableApplicationAwareQuota = ptr.To(true)
 			handler := newAAQHandler(cl, commontestutils.GetScheme())
 			op, ok := handler.(*conditionalHandler)
-			Expect(ok).Should(BeTrue())
+			Expect(ok).To(BeTrue())
 
 			hooks, ok := op.operand.hooks.(*aaqHooks)
-			Expect(ok).Should(BeTrue())
+			Expect(ok).To(BeTrue())
 
-			Expect(hooks.cache).Should(BeNil())
+			Expect(hooks.cache).To(BeNil())
 
 			res := handler.ensure(req)
-			Expect(res.Err).ShouldNot(HaveOccurred())
+			Expect(res.Err).ToNot(HaveOccurred())
 
 			cache := hooks.cache
-			Expect(cache).ShouldNot(BeNil())
+			Expect(cache).ToNot(BeNil())
 
-			Expect(hooks.getFullCr(hco)).Should(BeIdenticalTo(cache))
+			Expect(hooks.getFullCr(hco)).To(BeIdenticalTo(cache))
 
 			By("recreate cache after reset")
 			handler.reset()
-			Expect(hooks.cache).Should(BeNil())
+			Expect(hooks.cache).To(BeNil())
 			res = handler.ensure(req)
-			Expect(res.Err).ShouldNot(HaveOccurred())
+			Expect(res.Err).ToNot(HaveOccurred())
 
-			Expect(hooks.cache).ShouldNot(BeIdenticalTo(cache))
+			Expect(hooks.cache).ToNot(BeIdenticalTo(cache))
 			mtq, _ := hooks.getFullCr(hco)
-			Expect(mtq).ShouldNot(BeIdenticalTo(cache))
-			Expect(mtq).Should(BeIdenticalTo(hooks.cache))
+			Expect(mtq).ToNot(BeIdenticalTo(cache))
+			Expect(mtq).To(BeIdenticalTo(hooks.cache))
 		})
 	})
 })

@@ -45,13 +45,13 @@ var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 		pc, err := cli.SchedulingV1().PriorityClasses().Get(ctx, priorityClassName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(pc.UID).ShouldNot(BeEmpty())
+		Expect(pc.UID).ToNot(BeEmpty())
 		oldPriorityClassUID = pc.UID
 	})
 
 	It("should have the right reference for the priorityClass in the HyperConverged CR", func() {
 		uid := getPriorityClassHCORef()
-		Expect(uid).Should(Equal(oldPriorityClassUID))
+		Expect(uid).To(Equal(oldPriorityClassUID))
 	})
 
 	It("should recreate the priorityClass on update", func() {
@@ -71,8 +71,8 @@ var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			newUID = pc.UID
-			g.Expect(newUID).ShouldNot(Or(Equal(types.UID("")), Equal(oldPriorityClassUID)))
-			g.Expect(pc.GetLabels()).ShouldNot(HaveKey("test"))
+			g.Expect(newUID).ToNot(Or(Equal(types.UID("")), Equal(oldPriorityClassUID)))
+			g.Expect(pc.GetLabels()).ToNot(HaveKey("test"))
 		}).WithTimeout(30 * time.Second).
 			WithPolling(100 * time.Millisecond).
 			Should(Succeed())

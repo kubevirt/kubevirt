@@ -42,7 +42,7 @@ var _ = Describe("OperatorCondition", func() {
 
 	It("valid condition", func() {
 		testScheme := scheme.Scheme
-		Expect(operatorsapiv2.AddToScheme(testScheme)).Should(Succeed())
+		Expect(operatorsapiv2.AddToScheme(testScheme)).To(Succeed())
 
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
@@ -61,22 +61,22 @@ var _ = Describe("OperatorCondition", func() {
 			managedByOLM:   true,
 			runningLocally: false,
 		}, cl, "testCondition")
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
 		cond, err := oc.cond.Get(context.TODO())
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 
-		Expect(cond.Type).Should(Equal("testCondition"))
+		Expect(cond.Type).To(Equal("testCondition"))
 
 		Expect(
 			oc.Set(context.TODO(), metav1.ConditionTrue, "myReason", "my message"),
-		).Should(Succeed())
+		).To(Succeed())
 
 		cond, err = oc.cond.Get(context.TODO())
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(cond.Type).Should(Equal("testCondition"))
-		Expect(cond.Reason).Should(Equal("myReason"))
-		Expect(cond.Message).Should(Equal("my message"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(cond.Type).To(Equal("testCondition"))
+		Expect(cond.Reason).To(Equal("myReason"))
+		Expect(cond.Message).To(Equal("my message"))
 	})
 })
 

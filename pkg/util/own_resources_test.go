@@ -130,9 +130,9 @@ var _ = Describe("Test OwnResources", func() {
 			Build()
 
 		or := findOwnResources(context.Background(), cl, logger)
-		Expect(*or.GetPod()).Should(Equal(*pod))
-		Expect(*or.GetDeployment()).Should(Equal(*dep))
-		Expect(*or.GetCSV()).Should(Equal(*csv))
+		Expect(*or.GetPod()).To(Equal(*pod))
+		Expect(*or.GetDeployment()).To(Equal(*dep))
+		Expect(*or.GetCSV()).To(Equal(*csv))
 	})
 
 })

@@ -49,7 +49,7 @@ func FlagParse() {
 
 func BeforeEach() {
 	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ShouldNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	deleteAllResources(virtClient.RestClient(), "virtualmachines")
 	deleteAllResources(virtClient.RestClient(), "virtualmachineinstances")
@@ -71,7 +71,7 @@ func SkipIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
 
 func SkipIfNotSingleStackIPv6OpenShift(cli kubecli.KubevirtClient, testName string) {
 	isSingleStackIPv6, err := IsOpenShiftSingleStackIPv6(cli)
-	Expect(err).ShouldNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	if !isSingleStackIPv6 {
 		ginkgo.Skip(fmt.Sprintf("Skipping %s tests since the OpenShift cluster is not single stack IPv6", testName))
