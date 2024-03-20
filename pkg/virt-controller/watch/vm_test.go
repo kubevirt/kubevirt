@@ -5675,67 +5675,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromSpec))
 				})
 
-				It("should use maximum sockets configured in cluster config when its not set in VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
-									MaxCpuSockets: kvpointer.P(maxSocketsFromConfig),
-								},
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromConfig))
-				})
-
-				It("should calculate max sockets to be 4x times the configured sockets when no max sockets defined", func() {
-					const cpuSockets uint32 = 4
-					vm, _ := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-						Sockets: cpuSockets,
-					}
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(cpuSockets * 4))
-				})
-
-				It("should calculate max sockets to be 4x times the default sockets when default CPU topology used", func() {
-					const defaultSockets uint32 = 1
-					vm, _ := DefaultVirtualMachine(true)
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(defaultSockets * 4))
-				})
-
 				DescribeTable("should patch VMI when CPU hotplug is requested", func(resources v1.ResourceRequirements) {
 					vm, _ := DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Domain.Resources = resources
@@ -5885,47 +5824,6 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmi := controller.setupVMIFromVM(vm)
 					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromSpec))
-				})
-
-				It("should use maxGuest configured in cluster config when its not set in VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("64Mi")
-					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
-									MaxGuest: &maxGuestFromConfig,
-								},
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromConfig))
-				})
-
-				It("should calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("64Mi")
-					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.Memory.MaxGuest.Value()).To(Equal(guestMemory.Value() * int64(config.GetMaxHotplugRatio())))
 				})
 
 				DescribeTable("should patch VMI when memory hotplug is requested", func(resources v1.ResourceRequirements) {
@@ -6377,12 +6275,9 @@ var _ = Describe("VirtualMachine", func() {
 			It("should appear when VM doesn't specify maxSockets and sockets go above cluster-wide maxSockets", func() {
 				var maxSockets uint32 = 8
 
-				By("Setting a cluster-wide CPU maxSockets value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = kvpointer.P(maxSockets)
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
+				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
 				crSource.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
@@ -6406,12 +6301,9 @@ var _ = Describe("VirtualMachine", func() {
 			It("should appear when VM doesn't specify maxGuest and guest memory goes above cluster-wide maxGuest", func() {
 				var maxGuest = resource.MustParse("256Mi")
 
-				By("Setting a cluster-wide Memory maxGuest value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxGuest = &maxGuest
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
+				vm.Spec.Template.Spec.Domain.Memory.MaxGuest = &maxGuest
 				crSource.Add(createVMRevision(vm))
 				syncCache(controller.crIndexer, 1)
 
@@ -6481,6 +6373,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Creating a VM with CPU sockets set to 2")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
+				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = 8
 				crSource.Add(createVMRevision(vm))
 				syncCache(controller.crIndexer, 1)
 

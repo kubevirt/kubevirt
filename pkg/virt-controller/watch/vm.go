@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/google/uuid"
@@ -1885,11 +1884,6 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
-	VMIDefaults := &virtv1.VirtualMachineInstance{}
-	webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
-
-	c.setupHotplug(vmi, VMIDefaults)
-
 	return vmi
 }
 
@@ -1969,38 +1963,6 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	}
 
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
-}
-
-func (c *VMController) setupCPUHotplug(vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vmi.Spec.Domain.CPU == nil {
-		vmi.Spec.Domain.CPU = &virtv1.CPU{}
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = c.clusterConfig.GetMaximumCpuSockets()
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * maxRatio
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = VMIDefaults.Spec.Domain.CPU.Sockets * maxRatio
-	}
-}
-
-func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
-	if vmi.Spec.Domain.Memory == nil {
-		return
-	}
-
-	if vmi.Spec.Domain.Memory.MaxGuest == nil {
-		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
-	}
-
-	if vmi.Spec.Domain.Memory.MaxGuest == nil {
-		vmi.Spec.Domain.Memory.MaxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
-	}
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
@@ -3480,17 +3442,6 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 
 	return err
-}
-
-func (c *VMController) setupHotplug(vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
-	if !c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		return
-	}
-
-	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
-
-	c.setupCPUHotplug(vmi, VMIDefaults, maxRatio)
-	c.setupMemoryHotplug(vmi, maxRatio)
 }
 
 func (c *VMController) patchVMITerminationGracePeriod(gracePeriod *int64, vmi *virtv1.VirtualMachineInstance) error {
