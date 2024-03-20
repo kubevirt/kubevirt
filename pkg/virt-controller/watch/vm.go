@@ -34,7 +34,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/google/uuid"
@@ -1781,33 +1780,8 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) (*virtv1.Virtua
 
 	setGuestMemory(&vmi.Spec)
 	c.setupHotplug(vmi)
-	c.setupCurrentCPUTopology(vmi)
 
 	return vmi, nil
-}
-
-func (c *VMController) setupCurrentCPUTopology(vmi *virtv1.VirtualMachineInstance) {
-	VMIDefaults := &virtv1.VirtualMachineInstance{}
-	VMIDefaults.Spec.Domain.Resources = vmi.Spec.Domain.Resources
-	webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
-
-	vmi.Status.CurrentCPUTopology = &virtv1.CPUTopology{
-		Sockets: VMIDefaults.Spec.Domain.CPU.Sockets,
-		Cores:   VMIDefaults.Spec.Domain.CPU.Cores,
-		Threads: VMIDefaults.Spec.Domain.CPU.Threads,
-	}
-
-	if topology := vmi.Spec.Domain.CPU; topology != nil {
-		if topology.Sockets != 0 {
-			vmi.Status.CurrentCPUTopology.Sockets = topology.Sockets
-		}
-		if topology.Cores != 0 {
-			vmi.Status.CurrentCPUTopology.Cores = topology.Cores
-		}
-		if topology.Threads != 0 {
-			vmi.Status.CurrentCPUTopology.Threads = topology.Threads
-		}
-	}
 }
 
 func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
