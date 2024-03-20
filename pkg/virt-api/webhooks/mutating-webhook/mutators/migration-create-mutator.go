@@ -54,12 +54,7 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	// Add our selector label
-	if migration.Labels == nil {
-		migration.Labels = map[string]string{v1.MigrationSelectorLabel: migration.Spec.VMIName}
-	} else {
-		migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
-	}
+	addMigrationSelectorLabel(&migration)
 
 	// Add a finalizer
 	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
@@ -86,5 +81,13 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
+	}
+}
+
+func addMigrationSelectorLabel(migration *v1.VirtualMachineInstanceMigration) {
+	if migration.Labels == nil {
+		migration.Labels = map[string]string{v1.MigrationSelectorLabel: migration.Spec.VMIName}
+	} else {
+		migration.Labels[v1.MigrationSelectorLabel] = migration.Spec.VMIName
 	}
 }
