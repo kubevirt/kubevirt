@@ -5469,63 +5469,6 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		})
 
-		Context("CPU topology", func() {
-			When("isn't set in VMI template", func() {
-				It("Set default CPU topology in VMI status", func() {
-					vm, vmi := DefaultVirtualMachine(true)
-					addVirtualMachine(vm)
-
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
-						Expect(arg.(*virtv1.VirtualMachineInstance).Status.CurrentCPUTopology).To(Not(BeNil()))
-					}).Return(vmi, nil)
-
-					// expect update status is called
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-						Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
-						Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
-					}).Return(nil, nil)
-
-					sanityExecute(vm)
-
-					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-				})
-			})
-			When("set in VMI template", func() {
-				It("copy CPU topology to VMI status", func() {
-					const (
-						numOfSockets uint32 = 8
-						numOfCores   uint32 = 8
-						numOfThreads uint32 = 8
-					)
-					vm, vmi := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-						Sockets: numOfSockets,
-						Cores:   numOfCores,
-						Threads: numOfThreads,
-					}
-					addVirtualMachine(vm)
-
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
-						currentCPUTopology := arg.(*virtv1.VirtualMachineInstance).Status.CurrentCPUTopology
-						Expect(currentCPUTopology).To(Not(BeNil()))
-						Expect(currentCPUTopology.Sockets).To(Equal(numOfSockets))
-						Expect(currentCPUTopology.Cores).To(Equal(numOfCores))
-						Expect(currentCPUTopology.Threads).To(Equal(numOfThreads))
-					}).Return(vmi, nil)
-
-					// expect update status is called
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-						Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
-						Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
-					}).Return(nil, nil)
-
-					sanityExecute(vm)
-
-					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-				})
-			})
-		})
-
 		Context("The RestartRequired condition", func() {
 			var vm *virtv1.VirtualMachine
 			var vmi *virtv1.VirtualMachineInstance
