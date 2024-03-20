@@ -113,7 +113,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Adding node selector")
@@ -170,7 +170,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Adding Affinity")

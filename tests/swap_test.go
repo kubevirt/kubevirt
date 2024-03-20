@@ -142,7 +142,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			// check VMI, confirm migration state
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-			confirmMigrationMode(vmi, virtv1.MigrationPostCopy)
+			libmigration.ConfirmMigrationMode(virtClient, vmi, virtv1.MigrationPostCopy)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Deleting the VMI")
@@ -254,16 +254,6 @@ func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTh
 		&expect.BExp{R: console.PromptExpression},
 	}, 15)
 	return err
-}
-
-func confirmMigrationMode(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
-	var err error
-	By("Retrieving the VMI post migration")
-	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
-
-	By("Verifying the VMI's migration mode")
-	ExpectWithOffset(1, vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
 }
 
 func skipIfSwapOff(message string) {

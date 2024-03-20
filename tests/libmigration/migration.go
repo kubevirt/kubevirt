@@ -564,3 +564,13 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 		return nil
 	}, 100*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
+
+func ConfirmMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode) {
+	var err error
+	By("Retrieving the VMI post migration")
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
+
+	By("Verifying the VMI's migration mode")
+	ExpectWithOffset(1, vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
+}

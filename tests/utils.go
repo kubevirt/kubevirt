@@ -1324,15 +1324,14 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
 }
 
-func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
-	runStrategyAlways := v1.RunStrategyAlways
+func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
 
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = nil
-		updatedVM.Spec.RunStrategy = &runStrategyAlways
+		updatedVM.Spec.RunStrategy = &runStrategy
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
