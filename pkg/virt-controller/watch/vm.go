@@ -694,11 +694,16 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
-	if vm.Spec.Template.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU == nil {
+	vmCopyWithInstancetype := vm.DeepCopy()
+	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+		return err
+	}
+
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU == nil {
 		return nil
 	}
 
-	if vm.Spec.Template.Spec.Domain.CPU.Sockets == vmi.Spec.Domain.CPU.Sockets {
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets == vmi.Spec.Domain.CPU.Sockets {
 		return nil
 	}
 
@@ -714,7 +719,7 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 	// If the following is true, MaxSockets was calculated, not manually specified (or the validation webhook would have rejected the change).
 	// Since we're here, we can also assume MaxSockets was not changed in the VM spec since last boot.
 	// Therefore, bumping Sockets to a value higher than MaxSockets is fine, it just requires a reboot.
-	if vm.Spec.Template.Spec.Domain.CPU.Sockets > vmi.Spec.Domain.CPU.MaxSockets {
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets > vmi.Spec.Domain.CPU.MaxSockets {
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -725,7 +730,7 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
-	if vm.Spec.Template.Spec.Domain.CPU.Sockets < vmi.Spec.Domain.CPU.Sockets {
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.CPU.Sockets < vmi.Spec.Domain.CPU.Sockets {
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -733,11 +738,10 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 			Status:             k8score.ConditionTrue,
 			Message:            "Reduction of CPU socket count requires a restart",
 		})
-
 		return nil
 	}
 
-	if err := c.VMICPUsPatch(vm, vmi); err != nil {
+	if err := c.VMICPUsPatch(vmCopyWithInstancetype, vmi); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi to add cpu topology status: %v", err)
 		return err
 	}
@@ -811,22 +815,27 @@ func (c *VMController) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vm
 		return nil
 	}
 
-	hasNodeSelectorChanged := !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.NodeSelector, vmi.Spec.NodeSelector)
-	hasNodeAffinityChanged := !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.Affinity, vmi.Spec.Affinity)
+	vmCopyWithInstancetype := vm.DeepCopy()
+	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+		return err
+	}
+
+	hasNodeSelectorChanged := !equality.Semantic.DeepEqual(vmCopyWithInstancetype.Spec.Template.Spec.NodeSelector, vmi.Spec.NodeSelector)
+	hasNodeAffinityChanged := !equality.Semantic.DeepEqual(vmCopyWithInstancetype.Spec.Template.Spec.Affinity, vmi.Spec.Affinity)
 
 	if migrations.IsMigrating(vmi) && (hasNodeSelectorChanged || hasNodeAffinityChanged) {
 		return fmt.Errorf("Node affinity should not be changed during VMI migration")
 	}
 
 	if hasNodeAffinityChanged {
-		if err := c.VMIAffinityPatch(vm, vmi); err != nil {
+		if err := c.VMIAffinityPatch(vmCopyWithInstancetype, vmi); err != nil {
 			log.Log.Object(vmi).Errorf("unable to patch vmi to update node affinity: %v", err)
 			return err
 		}
 	}
 
 	if hasNodeSelectorChanged {
-		if err := c.VMNodeSelectorPatch(vm, vmi); err != nil {
+		if err := c.VMNodeSelectorPatch(vmCopyWithInstancetype, vmi); err != nil {
 			log.Log.Object(vmi).Errorf("unable to patch vmi to update node selector: %v", err)
 			return err
 		}
@@ -3029,27 +3038,42 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 	if lastSeenVMSpec == nil {
 		return false
 	}
+
+	// Expand any instance types and preferences associated with lastSeenVMSpec or the current VM before working out if things are live-updatable
+	currentVM := vm.DeepCopy()
+	if err := c.instancetypeMethods.ApplyToVM(currentVM); err != nil {
+		return false
+	}
+	lastSeenVM := &virtv1.VirtualMachine{
+		// We need the namespace to be populated here for the lookup and application of instance types to work below
+		ObjectMeta: currentVM.DeepCopy().ObjectMeta,
+		Spec:       *lastSeenVMSpec,
+	}
+	if err := c.instancetypeMethods.ApplyToVM(lastSeenVM); err != nil {
+		return false
+	}
+
 	// Ignore all the live-updatable fields by copying them over. (If the feature gate is disabled, nothing is live-updatable)
 	// Note: this list needs to stay up-to-date with everything that can be live-updated
 	// Note2: destroying lastSeenVMSpec here is fine, we don't need it later
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		if validLiveUpdateVolumes(lastSeenVMSpec, vm) {
-			lastSeenVMSpec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+		if validLiveUpdateVolumes(lastSeenVMSpec, currentVM) {
+			lastSeenVMSpec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
 		}
-		if validLiveUpdateDisks(lastSeenVMSpec, vm) {
-			lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+		if validLiveUpdateDisks(lastSeenVMSpec, currentVM) {
+			lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = currentVM.Spec.Template.Spec.Domain.Devices.Disks
 		}
-		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && vm.Spec.Template.Spec.Domain.CPU != nil {
-			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets
+		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && currentVM.Spec.Template.Spec.Domain.CPU != nil {
+			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = currentVM.Spec.Template.Spec.Domain.CPU.Sockets
 		}
-		if lastSeenVMSpec.Template.Spec.Domain.Memory != nil && vm.Spec.Template.Spec.Domain.Memory != nil {
-			lastSeenVMSpec.Template.Spec.Domain.Memory.Guest = vm.Spec.Template.Spec.Domain.Memory.Guest
+		if lastSeenVM.Spec.Template.Spec.Domain.Memory != nil && currentVM.Spec.Template.Spec.Domain.Memory != nil {
+			lastSeenVM.Spec.Template.Spec.Domain.Memory.Guest = currentVM.Spec.Template.Spec.Domain.Memory.Guest
 		}
-		lastSeenVMSpec.Template.Spec.NodeSelector = vm.Spec.Template.Spec.NodeSelector
-		lastSeenVMSpec.Template.Spec.Affinity = vm.Spec.Template.Spec.Affinity
+		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
+		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 	}
 
-	if !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec, vm.Spec.Template.Spec) {
+	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		vmConditionManager := controller.NewVirtualMachineConditionManager()
 		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -3296,7 +3320,12 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	if vm.Spec.Template.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory == nil {
+	vmCopyWithInstancetype := vm.DeepCopy()
+	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+		return err
+	}
+
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory == nil {
 		return nil
 	}
 
@@ -3304,7 +3333,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	if vmi.Status.Memory == nil ||
 		vmi.Status.Memory.GuestCurrent == nil ||
-		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*guestMemory) {
+		vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Equal(*guestMemory) {
 		return nil
 	}
 
@@ -3318,8 +3347,8 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
 	}
 
-	if vm.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Status.Memory.GuestAtBoot != nil &&
-		vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Status.Memory.GuestAtBoot) == -1 {
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Status.Memory.GuestAtBoot != nil &&
+		vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Status.Memory.GuestAtBoot) == -1 {
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -3333,8 +3362,8 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 	// If the following is true, MaxGuest was calculated, not manually specified (or the validation webhook would have rejected the change).
 	// Since we're here, we can also assume MaxGuest was not changed in the VM spec since last boot.
 	// Therefore, bumping Guest to a value higher than MaxGuest is fine, it just requires a reboot.
-	if vm.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Spec.Domain.Memory.MaxGuest != nil &&
-		vm.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Spec.Domain.Memory.MaxGuest) == 1 {
+	if vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest != nil && vmi.Spec.Domain.Memory.MaxGuest != nil &&
+		vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Cmp(*vmi.Spec.Domain.Memory.MaxGuest) == 1 {
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -3345,29 +3374,29 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		return nil
 	}
 
-	memoryDelta := resource.NewQuantity(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()-vmi.Status.Memory.GuestCurrent.Value(), resource.BinarySI)
+	memoryDelta := resource.NewQuantity(vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Value()-vmi.Status.Memory.GuestCurrent.Value(), resource.BinarySI)
 
 	newMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory().DeepCopy()
 	newMemoryReq.Add(*memoryDelta)
 
 	// checking if the new memory req are at least equal to the memory being requested in the handleMemoryHotplugRequest
 	// this is necessary as weirdness can arise after hot-unplugs as not all memory is guaranteed to be released when doing hot-unplug.
-	if newMemoryReq.Cmp(*vm.Spec.Template.Spec.Domain.Memory.Guest) == -1 {
-		newMemoryReq = *vm.Spec.Template.Spec.Domain.Memory.Guest
+	if newMemoryReq.Cmp(*vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest) == -1 {
+		newMemoryReq = *vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest
 		// adjusting memoryDelta too for the new limits computation (if required)
-		memoryDelta = resource.NewQuantity(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()-newMemoryReq.Value(), resource.BinarySI)
+		memoryDelta = resource.NewQuantity(vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Value()-newMemoryReq.Value(), resource.BinarySI)
 	}
 
 	patchSet := patch.New(
 		patch.WithTest("/spec/domain/memory/guest", vmi.Spec.Domain.Memory.Guest.String()),
-		patch.WithReplace("/spec/domain/memory/guest", vm.Spec.Template.Spec.Domain.Memory.Guest.String()),
+		patch.WithReplace("/spec/domain/memory/guest", vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.String()),
 		patch.WithTest("/spec/domain/resources/requests/memory", vmi.Spec.Domain.Resources.Requests.Memory().String()),
 		patch.WithReplace("/spec/domain/resources/requests/memory", newMemoryReq.String()),
 	)
 
-	logMsg := fmt.Sprintf("hotplugging memory to %s, setting requests to %s", vm.Spec.Template.Spec.Domain.Memory.Guest.String(), newMemoryReq.String())
+	logMsg := fmt.Sprintf("hotplugging memory to %s, setting requests to %s", vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.String(), newMemoryReq.String())
 
-	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Memory().IsZero() {
+	if !vmCopyWithInstancetype.Spec.Template.Spec.Domain.Resources.Limits.Memory().IsZero() {
 		newMemoryLimit := vmi.Spec.Domain.Resources.Limits.Memory().DeepCopy()
 		newMemoryLimit.Add(*memoryDelta)
 

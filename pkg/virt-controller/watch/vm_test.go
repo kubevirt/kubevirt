@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -6098,6 +6099,125 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).ToNot(BeNil())
 					Expect(cond.Status).To(Equal(k8score.ConditionTrue))
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
+				})
+			})
+
+			Context("Instance Types and Preferences", func() {
+				const resourceUID types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
+				const resourceGeneration int64 = 1
+
+				var (
+					originalVM *v1.VirtualMachine
+					updatedVM  *v1.VirtualMachine
+
+					controllerrevisionInformerStore cache.Store
+
+					originalInstancetype *instancetypev1beta1.VirtualMachineInstancetype
+				)
+
+				BeforeEach(func() {
+					originalVM, _ = DefaultVirtualMachine(true)
+					originalVM.Spec.Template.Spec.Domain = v1.DomainSpec{}
+
+					controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+					controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
+
+					originalInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachineInstancetype",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "instancetype",
+							Namespace:  originalVM.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(2),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128M"),
+							},
+						},
+					}
+
+					revision, err := instancetype.CreateControllerRevision(originalVM, originalInstancetype)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = controllerrevisionInformerStore.Add(revision)
+					Expect(err).NotTo(HaveOccurred())
+
+					originalVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name:         originalInstancetype.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: revision.Name,
+					}
+
+					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
+						ControllerRevisionStore: controllerrevisionInformerStore,
+						Clientset:               virtClient,
+					}
+
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								},
+							},
+						},
+					})
+				})
+
+				It("should not add addRestartRequiredIfNeeded to VM if live-updatable", func() {
+					updatedInstancetype := originalInstancetype.DeepCopy()
+					updatedInstancetype.Generation = originalInstancetype.Generation + 1
+					updatedInstancetype.Spec.CPU.Guest = uint32(2)
+					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
+
+					updatedRevision, err := instancetype.CreateControllerRevision(originalVM, originalInstancetype)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(controllerrevisionInformerStore.Add(updatedRevision)).To(Succeed())
+
+					updatedVM = originalVM.DeepCopy()
+					updatedVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name:         updatedInstancetype.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: updatedRevision.Name,
+					}
+
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeFalse())
+					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
+					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeFalse())
+				})
+				It("should add addRestartRequiredIfNeeded to VM if not live-updatable", func() {
+					updatedInstancetype := originalInstancetype.DeepCopy()
+					updatedInstancetype.Generation = originalInstancetype.Generation + 1
+					updatedInstancetype.Spec.CPU.Guest = uint32(2)
+					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
+
+					// Enabling DedicatedCPUPlacement is not a supported live updatable attribute and should require a reboot
+					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.Bool(true)
+
+					updatedRevision, err := instancetype.CreateControllerRevision(originalVM, updatedInstancetype)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(controllerrevisionInformerStore.Add(updatedRevision)).To(Succeed())
+
+					updatedVM = originalVM.DeepCopy()
+					updatedVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+						Name:         updatedInstancetype.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: updatedRevision.Name,
+					}
+
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeTrue())
+					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
+					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
 				})
 			})
 		})
