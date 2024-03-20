@@ -1273,4 +1273,46 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(*status.Memory.GuestCurrent).To(Equal(memory))
 		Expect(*status.Memory.GuestRequested).To(Equal(memory))
 	})
+
+	Context("CPU topology", func() {
+		It("should set default CPU topology in Status when not provided by VMI", func() {
+			vmi.Spec.Domain.CPU = nil
+			_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(status.CurrentCPUTopology).ToNot(BeNil())
+			Expect(status.CurrentCPUTopology.Sockets).To(Equal(uint32(1)))
+			Expect(status.CurrentCPUTopology.Cores).To(Equal(uint32(1)))
+			Expect(status.CurrentCPUTopology.Threads).To(Equal(uint32(1)))
+		})
+
+		DescribeTable("should copy VMI provided", func(cpu *v1.CPU) {
+			vmi.Spec.Domain.CPU = cpu
+			_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(status.CurrentCPUTopology).ToNot(BeNil())
+			Expect(status.CurrentCPUTopology.Sockets).To(Equal(vmi.Spec.Domain.CPU.Sockets))
+			Expect(status.CurrentCPUTopology.Cores).To(Equal(vmi.Spec.Domain.CPU.Cores))
+			Expect(status.CurrentCPUTopology.Threads).To(Equal(vmi.Spec.Domain.CPU.Threads))
+		},
+			Entry("full guest CPU topology", &v1.CPU{Sockets: 3, Cores: 3, Threads: 2}),
+			Entry("partial guest CPU topology", &v1.CPU{Sockets: 1, Cores: 1, Threads: 0}),
+		)
+
+		It("should not overwrite existing CurrentCPUTopology within status", func() {
+			vmi.Status = v1.VirtualMachineInstanceStatus{
+				CurrentCPUTopology: &v1.CPUTopology{
+					Sockets: 1,
+					Cores:   1,
+					Threads: 1,
+				},
+			}
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Sockets: 2,
+				Cores:   1,
+				Threads: 1,
+			}
+			_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(status.CurrentCPUTopology.Sockets).To(Equal(vmi.Status.CurrentCPUTopology.Sockets))
+			Expect(status.CurrentCPUTopology.Cores).To(Equal(vmi.Status.CurrentCPUTopology.Cores))
+			Expect(status.CurrentCPUTopology.Threads).To(Equal(vmi.Status.CurrentCPUTopology.Threads))
+		})
+	})
 })

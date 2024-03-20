@@ -1888,24 +1888,6 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	VMIDefaults := &virtv1.VirtualMachineInstance{}
 	webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
 
-	vmi.Status.CurrentCPUTopology = &virtv1.CPUTopology{
-		Sockets: VMIDefaults.Spec.Domain.CPU.Sockets,
-		Cores:   VMIDefaults.Spec.Domain.CPU.Cores,
-		Threads: VMIDefaults.Spec.Domain.CPU.Threads,
-	}
-
-	if topology := vm.Spec.Template.Spec.Domain.CPU; topology != nil {
-		if topology.Sockets != 0 {
-			vmi.Status.CurrentCPUTopology.Sockets = topology.Sockets
-		}
-		if topology.Cores != 0 {
-			vmi.Status.CurrentCPUTopology.Cores = topology.Cores
-		}
-		if topology.Threads != 0 {
-			vmi.Status.CurrentCPUTopology.Threads = topology.Threads
-		}
-	}
-
 	c.setupHotplug(vmi, VMIDefaults)
 
 	return vmi
