@@ -117,6 +117,10 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 		select {
 		case <-usbredirDoneChan: // Wait for local usbredir to complete
 		case err = <-streamStop: // Wait for remote connection to close
+			if err == nil {
+				// Remote connection closed, report this as error
+				err = fmt.Errorf("Remote connection has closed.")
+			}
 		}
 
 		streamResChan <- err
