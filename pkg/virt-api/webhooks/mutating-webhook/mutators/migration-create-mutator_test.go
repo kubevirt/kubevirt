@@ -47,18 +47,16 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		resp := mutator.Mutate(ar)
 		Expect(resp.Allowed).To(BeTrue())
 
-		migrationMeta := &k8smetav1.ObjectMeta{}
+		migrationMeta := k8smetav1.ObjectMeta{}
 		patchOps := []patch.PatchOperation{
-			{Value: migrationMeta},
+			{Value: &migrationMeta},
 		}
 
 		err = json.Unmarshal(resp.Patch, &patchOps)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(patchOps).NotTo(BeEmpty())
 
-		Expect(migrationMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceMigrationFinalizer))
-		Expect(migrationMeta.Labels).ToNot(BeNil())
-		Expect(migrationMeta.Labels[v1.MigrationSelectorLabel]).To(Equal(migration.Spec.VMIName))
+		Expect(migrationMeta).To(Equal(expectedMigrationObjectMeta(migration.ObjectMeta, migration.Spec.VMIName)))
 	})
 })
 
@@ -91,4 +89,13 @@ func newAdmissionReview(migration *v1.VirtualMachineInstanceMigration) (*admissi
 			},
 		},
 	}, nil
+}
+
+func expectedMigrationObjectMeta(currentObjectMeta k8smetav1.ObjectMeta, vmiName string) k8smetav1.ObjectMeta {
+	expectedObjectMeta := currentObjectMeta
+
+	expectedObjectMeta.Labels[v1.MigrationSelectorLabel] = vmiName
+	expectedObjectMeta.Finalizers = []string{v1.VirtualMachineInstanceMigrationFinalizer}
+
+	return expectedObjectMeta
 }
