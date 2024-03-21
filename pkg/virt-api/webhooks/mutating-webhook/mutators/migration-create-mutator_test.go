@@ -72,14 +72,7 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 	}
 
 	BeforeEach(func() {
-		migration = &v1.VirtualMachineInstanceMigration{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Labels: map[string]string{"test": "test"},
-			},
-			Spec: v1.VirtualMachineInstanceMigrationSpec{
-				VMIName: "testVmi",
-			},
-		}
+		migration = newMigration()
 	})
 
 	It("should verify migration spec", func() {
@@ -98,3 +91,14 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		Expect(migrationMeta.Labels[v1.MigrationSelectorLabel]).To(Equal(migration.Spec.VMIName))
 	})
 })
+
+func newMigration() *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Labels: map[string]string{"test": "test"},
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: "testVmi",
+		},
+	}
+}
