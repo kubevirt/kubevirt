@@ -30,8 +30,8 @@ const usbredirClient = "usbredirect"
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "usbredir (vendor:product) (VMI)",
-		Short:   "Redirect a usb device to a virtual machine instance.",
+		Use:     "usbredir (vendor:product)|(bus-device) (VMI)",
+		Short:   "Redirect an USB device to a virtual machine instance.",
 		Example: usage(),
 		Args:    templates.ExactArgs("usb", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,6 +48,14 @@ type usbredirCommand struct {
 }
 
 func usage() string {
-	return `  # Redirect a local USB device to the remote VMI:\n"
-  {{ProgramName}} usbredir vendor:product testvmi`
+	return `# Find the device you want to redirect (linux):
+	$ lsusb | grep Kingston
+	Bus 002 Device 003: ID 0951:1666 Kingston Technology DataTraveler 100 G3/G4/SE9 G2/50
+
+	# Redirect it with vendor:product to testvmi:
+    {{ProgramName}} usbredir 0951:1666 testvmi
+
+	# Redirect it with bus-device:
+    {{ProgramName}} usbredir 02-03 testvmi
+	`
 }
