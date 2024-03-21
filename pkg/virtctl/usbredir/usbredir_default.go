@@ -87,7 +87,6 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 	// forward data to/from websocket after usbredir client connects.
 	usbredirDoneChan := make(chan struct{}, 1)
 	streamResChan := make(chan error)
-	streamStop := make(chan error)
 	go func() {
 		defer pipeInWriter.Close()
 		start := time.Now()
@@ -102,6 +101,7 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 
 		log.Log.V(2).Infof("Connected to %s at %v", usbredirClient, time.Now().Sub(start))
 
+		streamStop := make(chan error)
 		// write to local usbredir from pipeOutReader
 		go func() {
 			_, err := io.Copy(usbredirConn, pipeOutReader)
@@ -114,8 +114,11 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 			streamStop <- err
 		}()
 
-		// Wait for local usbredir to complete
-		<-usbredirDoneChan
+		select {
+		case <-usbredirDoneChan: // Wait for local usbredir to complete
+		case err = <-streamStop: // Wait for remote connection to close
+		}
+
 		streamResChan <- err
 	}()
 
@@ -155,7 +158,6 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 
 	select {
 	case <-sigStopChan:
-	case err = <-streamStop:
 	case err = <-k8ResChan:
 	case err = <-usbredirExecResChan:
 	case err = <-streamResChan:
