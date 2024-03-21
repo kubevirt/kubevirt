@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sort"
 	"strconv"
 	"strings"
@@ -1002,35 +1003,35 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	}
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	runningMigrations, err := c.findRunningMigrations()
+	unfinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationInformer)
+	runningMigrations, err := c.findRunningMigrations(unfinishedMigrations)
 	if err != nil {
-		return fmt.Errorf("failed to determin the number of running migrations: %v", err)
-	}
-
-	// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
-	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
-		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
-		// Let's wait until some migrations are done
-		c.Queue.AddAfter(key, time.Second*5)
-		return nil
+		return fmt.Errorf("failed to determine the number of running migrations: %v", err)
 	}
 
 	outboundMigrations, err := c.outboundMigrationsOnNode(vmi.Status.NodeName, runningMigrations)
-
 	if err != nil {
 		return err
 	}
 
-	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
-		// Let's ensure that we only have two outbound migrations per node
-		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
-		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
-		c.Queue.AddAfter(key, time.Second*5)
+	nodeAtCapacity := outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
+	clusterAtCapacity := len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
+
+	if nodeAtCapacity || clusterAtCapacity {
+		// Let's wait until some migrations are done. Printing a message here would spam the logs.
+		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
+		// Wait for a random amount of time, proportional to the number of unfinished migrations.
+		divider := 20
+		if nodeAtCapacity && clusterAtCapacity {
+			// Both the node and the cluster are at capacity, let's wait a bit more
+			divider /= 2
+		}
+		addAfter := time.Duration(rand.Intn(len(unfinishedMigrations)/divider+1) + 5)
+		c.Queue.AddAfter(key, time.Second*addAfter)
 		return nil
 	}
 
-	// migration was accepted into the system, now see if we
-	// should create the target pod
+	// migration was accepted into the system, now see if we should create the target pod
 	if vmi.IsRunning() {
 		if migrations.VMIMigratableOnEviction(c.clusterConfig, vmi) {
 			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
@@ -1812,12 +1813,9 @@ func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigra
 // findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
 // Migrations which are in running phase are added alongside with migrations which are still pending but
 // where we already see a target pod.
-func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
-
-	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationInformer)
+func (c *MigrationController) findRunningMigrations(migrations []*virtv1.VirtualMachineInstanceMigration) ([]*virtv1.VirtualMachineInstanceMigration, error) {
 	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
-	for _, migration := range notFinishedMigrations {
+	for _, migration := range migrations {
 		if migration.IsRunning() {
 			runningMigrations = append(runningMigrations, migration)
 			continue
