@@ -47,19 +47,16 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		resp := mutator.Mutate(ar)
 		Expect(resp.Allowed).To(BeTrue())
 
-		migrationSpec := &v1.VirtualMachineInstanceMigrationSpec{}
 		migrationMeta := &k8smetav1.ObjectMeta{}
 		patchOps := []patch.PatchOperation{
-			{Value: migrationSpec},
 			{Value: migrationMeta},
 		}
+
 		err = json.Unmarshal(resp.Patch, &patchOps)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(patchOps).NotTo(BeEmpty())
 
-		Expect(migrationSpec.VMIName).To(Equal("testVmi"))
 		Expect(migrationMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceMigrationFinalizer))
-
 		Expect(migrationMeta.Labels).ToNot(BeNil())
 		Expect(migrationMeta.Labels[v1.MigrationSelectorLabel]).To(Equal(migration.Spec.VMIName))
 	})
