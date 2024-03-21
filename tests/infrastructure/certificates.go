@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -89,7 +90,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		By("checking that the CA secret gets restored with a new ca bundle")
 		var newCA []byte
 		Eventually(func() []byte {
-			newCA = tests.GetCertFromSecret(components.KubeVirtCASecretName)
+			newCA = getCertFromSecret(components.KubeVirtCASecretName)
 			return newCA
 		}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 
@@ -127,7 +128,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("checking that we can still start virtual machines and connect to the VMI")
-		vmi := libvmi.NewAlpine()
+		vmi := libvmifact.NewAlpine()
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 	})
@@ -143,10 +144,10 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 		Eventually(func() (rotated bool) {
-			vmi := libvmi.NewAlpine()
+			vmi := libvmifact.NewAlpine()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 			Expect(err).ToNot(HaveOccurred())
@@ -175,7 +176,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("checking that the secret gets restored with a new certificate")
 		Eventually(func() []byte {
-			return tests.GetCertFromSecret(secretName)
+			return getCertFromSecret(secretName)
 		}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 	},
 		Entry("[test_id:4101] virt-operator", components.VirtOperatorCertSecretName),
@@ -185,3 +186,13 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		Entry("[test_id:4106] virt-handlers server side", components.VirtHandlerServerCertSecretName),
 	)
 })
+
+func getCertFromSecret(secretName string) []byte {
+	virtClient := kubevirt.Client()
+	secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	if rawBundle, ok := secret.Data[bootstrap.CertBytesValue]; ok {
+		return rawBundle
+	}
+	return nil
+}

@@ -581,7 +581,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 				list.Kind = "APIResourceList"
 				list.GroupVersion = version.Group + "/" + version.Version
-				list.APIVersion = version.Version
+				list.APIVersion = "v1"
 				list.APIResources = []metav1.APIResource{
 					{
 						Name:       "expand-vm-spec",

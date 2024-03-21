@@ -46,8 +46,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -376,7 +377,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 		})
 
 		It("[Serial]should not schedule vmi with host-model cpuModel to node with obsolete host-model cpuModel", func() {
-			vmi := libvmi.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
@@ -384,12 +385,12 @@ var _ = DescribeInfra("Node-labeller", func() {
 			vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
 
 			By("Starting the VirtualMachineInstance")
-			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the VMI failed")
 			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, condition := range vmi.Status.Conditions {
 					if condition.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && condition.Status == k8sv1.ConditionFalse {

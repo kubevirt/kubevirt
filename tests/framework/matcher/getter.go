@@ -44,7 +44,7 @@ func ThisVMI(vmi *virtv1.VirtualMachineInstance) func() (*virtv1.VirtualMachineI
 func ThisVMIWith(namespace string, name string) func() (*virtv1.VirtualMachineInstance, error) {
 	return func() (p *virtv1.VirtualMachineInstance, err error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+		p, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -73,7 +73,7 @@ func ThisVMWith(namespace string, name string) func() (*virtv1.VirtualMachine, e
 func AllVMIs(namespace string) func() ([]virtv1.VirtualMachineInstance, error) {
 	return func() (p []virtv1.VirtualMachineInstance, err error) {
 		virtClient := kubevirt.Client()
-		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &k8smetav1.ListOptions{})
+		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), k8smetav1.ListOptions{})
 		return list.Items, err
 	}
 }

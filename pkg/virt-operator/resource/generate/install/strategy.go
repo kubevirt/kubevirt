@@ -56,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
@@ -306,7 +305,7 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
 
-	config, err := util.GetConfigFromEnv()
+	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
@@ -526,7 +525,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
@@ -540,7 +539,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
-	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
+	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
@@ -603,7 +602,7 @@ func getManifests(configMap *corev1.ConfigMap) (string, error) {
 	return manifests, nil
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*Strategy, error) {
+func LoadInstallStrategyFromCache(stores operatorutil.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*Strategy, error) {
 	var matchingConfigMaps []*corev1.ConfigMap
 
 	for _, obj := range stores.InstallStrategyConfigMapCache.List() {

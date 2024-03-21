@@ -144,6 +144,7 @@ http_archive(
     sha256 = "fb24d80ad9edad0f7bd3000e8cffcfbba89cc07e495c47a7d3b1f803bd527a40",
     urls = [
         "https://github.com/rmohr/bazeldnf/releases/download/v0.5.9/bazeldnf-v0.5.9.tar.gz",
+        "https://storage.googleapis.com/builddeps/fb24d80ad9edad0f7bd3000e8cffcfbba89cc07e495c47a7d3b1f803bd527a40",
     ],
 )
 
@@ -157,7 +158,7 @@ load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
 go_rules_dependencies()
 
 go_register_toolchains(
-    go_version = "1.21.5",
+    go_version = "1.21.8",
     nogo = "@//:nogo_vet",
 )
 
@@ -1064,19 +1065,13 @@ rpm(
 rpm(
     name = "edk2-aarch64-0__20230524-3.el9.aarch64",
     sha256 = "893e8f9a58deb7270c8e4a3a8e9e002392ff1c1b124e56b1bc59e6e0bd377da4",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/edk2-aarch64-20230524-3.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/893e8f9a58deb7270c8e4a3a8e9e002392ff1c1b124e56b1bc59e6e0bd377da4",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/893e8f9a58deb7270c8e4a3a8e9e002392ff1c1b124e56b1bc59e6e0bd377da4"],
 )
 
 rpm(
     name = "edk2-ovmf-0__20230524-3.el9.x86_64",
     sha256 = "865e123047cff07ce8d9b51ba36b3f6a3c914267e4422249e4a0d9c897f86946",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20230524-3.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/865e123047cff07ce8d9b51ba36b3f6a3c914267e4422249e4a0d9c897f86946",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/865e123047cff07ce8d9b51ba36b3f6a3c914267e4422249e4a0d9c897f86946"],
 )
 
 rpm(
@@ -3173,127 +3168,85 @@ rpm(
 rpm(
     name = "libvirt-client-0__9.5.0-6.el9.aarch64",
     sha256 = "0237c86ab4ad229c5dd400122ef8d41b20c094d5ed344d048614a2aa564ef5e9",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-client-9.5.0-6.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/0237c86ab4ad229c5dd400122ef8d41b20c094d5ed344d048614a2aa564ef5e9",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/0237c86ab4ad229c5dd400122ef8d41b20c094d5ed344d048614a2aa564ef5e9"],
 )
 
 rpm(
     name = "libvirt-client-0__9.5.0-6.el9.x86_64",
     sha256 = "3dbb02da7f4a3343b9085f2ffa455779ae3d8e19b4e6423222eb60c65b48a51b",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-client-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/3dbb02da7f4a3343b9085f2ffa455779ae3d8e19b4e6423222eb60c65b48a51b",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/3dbb02da7f4a3343b9085f2ffa455779ae3d8e19b4e6423222eb60c65b48a51b"],
 )
 
 rpm(
     name = "libvirt-daemon-common-0__9.5.0-6.el9.aarch64",
     sha256 = "915e7a996182557b6ecd060efad9ffc0bf0f506b25b4f0f93bf020f7c2119828",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-common-9.5.0-6.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/915e7a996182557b6ecd060efad9ffc0bf0f506b25b4f0f93bf020f7c2119828",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/915e7a996182557b6ecd060efad9ffc0bf0f506b25b4f0f93bf020f7c2119828"],
 )
 
 rpm(
     name = "libvirt-daemon-common-0__9.5.0-6.el9.x86_64",
     sha256 = "506af6eaa7968688ad77e9a37f1bd766cb89b28a79d3feca3ef6cce9f4bb3c77",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-common-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/506af6eaa7968688ad77e9a37f1bd766cb89b28a79d3feca3ef6cce9f4bb3c77",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/506af6eaa7968688ad77e9a37f1bd766cb89b28a79d3feca3ef6cce9f4bb3c77"],
 )
 
 rpm(
     name = "libvirt-daemon-driver-qemu-0__9.5.0-6.el9.aarch64",
     sha256 = "ff7b490069c2a59ea1da42886b70fb8498dcc9858ea4d57d70f381d298e42739",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-driver-qemu-9.5.0-6.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/ff7b490069c2a59ea1da42886b70fb8498dcc9858ea4d57d70f381d298e42739",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/ff7b490069c2a59ea1da42886b70fb8498dcc9858ea4d57d70f381d298e42739"],
 )
 
 rpm(
     name = "libvirt-daemon-driver-qemu-0__9.5.0-6.el9.x86_64",
     sha256 = "de16e915037b7295ba20469e4301a6d719d1250e6dd46ba851afac7cb8aef746",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-qemu-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/de16e915037b7295ba20469e4301a6d719d1250e6dd46ba851afac7cb8aef746",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/de16e915037b7295ba20469e4301a6d719d1250e6dd46ba851afac7cb8aef746"],
 )
 
 rpm(
     name = "libvirt-daemon-driver-secret-0__9.5.0-6.el9.x86_64",
     sha256 = "813cd25b5015d7879de39443a5f0795243f53f444ccd281f3393b940c276548a",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-secret-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/813cd25b5015d7879de39443a5f0795243f53f444ccd281f3393b940c276548a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/813cd25b5015d7879de39443a5f0795243f53f444ccd281f3393b940c276548a"],
 )
 
 rpm(
     name = "libvirt-daemon-driver-storage-core-0__9.5.0-6.el9.x86_64",
     sha256 = "e4d877ded56a7a3624f278ed55482d5de68194076d49b3a65060ea87d686ae54",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-storage-core-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e4d877ded56a7a3624f278ed55482d5de68194076d49b3a65060ea87d686ae54",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/e4d877ded56a7a3624f278ed55482d5de68194076d49b3a65060ea87d686ae54"],
 )
 
 rpm(
     name = "libvirt-daemon-log-0__9.5.0-6.el9.aarch64",
     sha256 = "3c3afeeb6a2a8288db23f88929a2f0183e8c462e6762730c2642ab55be15b11a",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-log-9.5.0-6.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/3c3afeeb6a2a8288db23f88929a2f0183e8c462e6762730c2642ab55be15b11a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/3c3afeeb6a2a8288db23f88929a2f0183e8c462e6762730c2642ab55be15b11a"],
 )
 
 rpm(
     name = "libvirt-daemon-log-0__9.5.0-6.el9.x86_64",
     sha256 = "8ce3b735c02503d3093209a359ecf07e6de1da449338df3a1c8bc6d2d0cfedcc",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-log-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/8ce3b735c02503d3093209a359ecf07e6de1da449338df3a1c8bc6d2d0cfedcc",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/8ce3b735c02503d3093209a359ecf07e6de1da449338df3a1c8bc6d2d0cfedcc"],
 )
 
 rpm(
     name = "libvirt-devel-0__9.5.0-6.el9.aarch64",
     sha256 = "cdaba8bfc69b2c798f455b6c4a902043396d07e6eee25820d4aa1a035767e8d8",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/Packages/libvirt-devel-9.5.0-6.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/cdaba8bfc69b2c798f455b6c4a902043396d07e6eee25820d4aa1a035767e8d8",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/cdaba8bfc69b2c798f455b6c4a902043396d07e6eee25820d4aa1a035767e8d8"],
 )
 
 rpm(
     name = "libvirt-devel-0__9.5.0-6.el9.x86_64",
     sha256 = "caca5fbbfabe75cf56e24343bf93596f78a91fa341eacb668b15b505245922e9",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/libvirt-devel-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/caca5fbbfabe75cf56e24343bf93596f78a91fa341eacb668b15b505245922e9",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/caca5fbbfabe75cf56e24343bf93596f78a91fa341eacb668b15b505245922e9"],
 )
 
 rpm(
     name = "libvirt-libs-0__9.5.0-6.el9.aarch64",
     sha256 = "340b6cdbfefd836dd0f37d6f77ce08f4cbd0c907cc7ea62b1ceddbac54cf76ce",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-libs-9.5.0-6.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/340b6cdbfefd836dd0f37d6f77ce08f4cbd0c907cc7ea62b1ceddbac54cf76ce",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/340b6cdbfefd836dd0f37d6f77ce08f4cbd0c907cc7ea62b1ceddbac54cf76ce"],
 )
 
 rpm(
     name = "libvirt-libs-0__9.5.0-6.el9.x86_64",
     sha256 = "3c393f116df3ec9bc02a4dd2fe3d11b19a7188087693dce42f1582ad004a0f9d",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-libs-9.5.0-6.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/3c393f116df3ec9bc02a4dd2fe3d11b19a7188087693dce42f1582ad004a0f9d",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/3c393f116df3ec9bc02a4dd2fe3d11b19a7188087693dce42f1582ad004a0f9d"],
 )
 
 rpm(
@@ -4769,91 +4722,61 @@ rpm(
 rpm(
     name = "systemd-0__252-18.el9.aarch64",
     sha256 = "b227048150dea6866efbcdb67f3f1a4f6fc89531fc3827bf11263857f442546a",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/systemd-252-18.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/b227048150dea6866efbcdb67f3f1a4f6fc89531fc3827bf11263857f442546a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/b227048150dea6866efbcdb67f3f1a4f6fc89531fc3827bf11263857f442546a"],
 )
 
 rpm(
     name = "systemd-0__252-18.el9.x86_64",
     sha256 = "9c0c1834dcc3db548f97cdfd6a6ac65a261fd4d8224edf46e30bb88b2b2c63f1",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/systemd-252-18.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9c0c1834dcc3db548f97cdfd6a6ac65a261fd4d8224edf46e30bb88b2b2c63f1",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/9c0c1834dcc3db548f97cdfd6a6ac65a261fd4d8224edf46e30bb88b2b2c63f1"],
 )
 
 rpm(
     name = "systemd-container-0__252-18.el9.aarch64",
     sha256 = "4cebef3662f6c0de51bcd967debc8b8898f4cb112e1745772d2027f1f5588eee",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/systemd-container-252-18.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/4cebef3662f6c0de51bcd967debc8b8898f4cb112e1745772d2027f1f5588eee",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/4cebef3662f6c0de51bcd967debc8b8898f4cb112e1745772d2027f1f5588eee"],
 )
 
 rpm(
     name = "systemd-container-0__252-18.el9.x86_64",
     sha256 = "69591d4e37541f3acd73156c1766c8acb84cc5d5d174cb140f1fd3275bcf2c5f",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/systemd-container-252-18.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/69591d4e37541f3acd73156c1766c8acb84cc5d5d174cb140f1fd3275bcf2c5f",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/69591d4e37541f3acd73156c1766c8acb84cc5d5d174cb140f1fd3275bcf2c5f"],
 )
 
 rpm(
     name = "systemd-libs-0__252-18.el9.aarch64",
     sha256 = "f71ca1cfedf8f65a7b7212fb9dc9fd1a8b510bd740d5e79d46acece46f933d05",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/systemd-libs-252-18.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/f71ca1cfedf8f65a7b7212fb9dc9fd1a8b510bd740d5e79d46acece46f933d05",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/f71ca1cfedf8f65a7b7212fb9dc9fd1a8b510bd740d5e79d46acece46f933d05"],
 )
 
 rpm(
     name = "systemd-libs-0__252-18.el9.x86_64",
     sha256 = "a572727265b31de5d74c8065f452e785484158941da4c960148e1618ab0b64dd",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/systemd-libs-252-18.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a572727265b31de5d74c8065f452e785484158941da4c960148e1618ab0b64dd",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/a572727265b31de5d74c8065f452e785484158941da4c960148e1618ab0b64dd"],
 )
 
 rpm(
     name = "systemd-pam-0__252-18.el9.aarch64",
     sha256 = "d246ba6dac02d263d2f220321dd672f2b21cfafc9983f744efd10eacaf100979",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/systemd-pam-252-18.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/d246ba6dac02d263d2f220321dd672f2b21cfafc9983f744efd10eacaf100979",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/d246ba6dac02d263d2f220321dd672f2b21cfafc9983f744efd10eacaf100979"],
 )
 
 rpm(
     name = "systemd-pam-0__252-18.el9.x86_64",
     sha256 = "fdafbf55660897e5bf33c9cf39c73b3c7a24e4e5677272490855427053a6799b",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/systemd-pam-252-18.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/fdafbf55660897e5bf33c9cf39c73b3c7a24e4e5677272490855427053a6799b",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/fdafbf55660897e5bf33c9cf39c73b3c7a24e4e5677272490855427053a6799b"],
 )
 
 rpm(
     name = "systemd-rpm-macros-0__252-18.el9.aarch64",
     sha256 = "8e3fef50d8c964af111bddd370675deabbc2b3e3c68a9b9c0492463e2b51ef08",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/systemd-rpm-macros-252-18.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/8e3fef50d8c964af111bddd370675deabbc2b3e3c68a9b9c0492463e2b51ef08",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/8e3fef50d8c964af111bddd370675deabbc2b3e3c68a9b9c0492463e2b51ef08"],
 )
 
 rpm(
     name = "systemd-rpm-macros-0__252-18.el9.x86_64",
     sha256 = "8e3fef50d8c964af111bddd370675deabbc2b3e3c68a9b9c0492463e2b51ef08",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/systemd-rpm-macros-252-18.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/8e3fef50d8c964af111bddd370675deabbc2b3e3c68a9b9c0492463e2b51ef08",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/8e3fef50d8c964af111bddd370675deabbc2b3e3c68a9b9c0492463e2b51ef08"],
 )
 
 rpm(

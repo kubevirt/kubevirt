@@ -24,9 +24,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 	"kubevirt.io/kubevirt/tests"
@@ -34,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -61,11 +63,11 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 		mac := macHW.String()
 
 		const macvtapNetName = "test-macvtap"
-		vmi := libvmi.NewAlpineWithTestTooling(
+		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(macvtapNetName), mac)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetName, macvtapNetAttachDefName)),
 		)
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 

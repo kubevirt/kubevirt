@@ -37,13 +37,13 @@ taking specific assumptions into account. This section aims to provide clarity o
       potentially act on it.  
 1. The performance job is run 3 times a day and metrics are collected.
 1. The blue dots on the graphs are individual measurements, and orange line is weekly average
-1. The gray dotted line in the graph is Feb 1, 2023, denoting release of v0.59
-1. The blue dotted line in the graph is March 1, 2023, denoting release of v0.60
-1. The green dotted line in the graph is July 6, 2023, denoting release of v1.0.0
-1. The red dotted line in the graph is September 6, 2023, denoting change in k8s provider from v1.25 to v1.27
+1. The gray dotted line in the graph is March 1, 2023, denoting release of v0.60
+1. The blue dotted line in the graph is July 6, 2023, denoting release of v1.0.0
+1. The green dotted line in the graph is September 6, 2023, denoting change in k8s provider from v1.25 to v1.27
+1. The red dotted line in the graph is December 26, 2023, denoting release of v1.1.0
 
 
-#### Performance benchmarks for v1.1.0 release
+#### Performance benchmarks for v1.2.0 release
 
 #### vmiCreationToRunningSecondsP50
 
@@ -57,7 +57,7 @@ taking specific assumptions into account. This section aims to provide clarity o
 
 ![vmiCreationToRunningSecondsP95 for VM](perf-scale-graphs/vm/vm-p95-Creation-to-Running.png "vmiCreationToRunningSecondsP95 for VM")
 
-#### Scalability benchmarks for V1 release
+#### Scalability benchmarks for v1.2.0 release
 
 #### PATCH-pods-count
 
@@ -82,3 +82,9 @@ taking specific assumptions into account. This section aims to provide clarity o
 ![PATCH-nodes-count for VMI](perf-scale-graphs/vmi/vmi-patch-nodes-count.png "PATCH-nodes-count for VMI")
 
 ![PATCH-nodes-count for VM](perf-scale-graphs/vm/vm-patch-nodes-count.png "PATCH-nodes-count for VM")
+
+#### GET-nodes-count
+
+![GET-nodes-count for VMI](perf-scale-graphs/vmi/vmi-get-nodes-count.png "GET-nodes-count for VMI")
+
+![GET-nodes-count for VM](perf-scale-graphs/vm/vm-get-nodes-count.png "GET-nodes-count for VM")

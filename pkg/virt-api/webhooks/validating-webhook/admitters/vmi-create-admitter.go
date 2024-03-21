@@ -112,8 +112,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, accountName)...)
-	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
-	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHyperv(k8sfield.NewPath("spec").Child("domain").Child("features").Child("hyperv"), &vmi.Spec)...)
 	if webhooks.IsARM64(&vmi.Spec) {
 		// Check if there is any unsupported setting if the arch is Arm64
 		causes = append(causes, webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)...)
@@ -151,7 +150,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
 	causes = append(causes, validateMemoryLimitsNegativeOrNull(field, spec)...)
 	causes = append(causes, validateHugepagesMemoryRequests(field, spec)...)
-	causes = append(causes, validateGuestMemoryLimit(field, spec)...)
+	causes = append(causes, validateGuestMemoryLimit(field, spec, config)...)
 	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
 	causes = append(causes, validateFirmwareSerial(field, spec)...)
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
@@ -1379,7 +1378,11 @@ func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 	return causes
 }
 
-func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if config.IsVMRolloutStrategyLiveUpdate() {
+		return
+	}
+
 	if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
 		limits := spec.Domain.Resources.Limits.Memory().Value()
 		guest := spec.Domain.Memory.Guest.Value()

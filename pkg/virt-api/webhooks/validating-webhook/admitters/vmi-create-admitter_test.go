@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -875,6 +876,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
+		})
+		It("should allow bigger guest memory than the memory limit if vmRolloutStrategy is set to LiveUpdate", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.VMLiveUpdateFeaturesGate}
+			kvConfig.Spec.Configuration.VMRolloutStrategy = ptr.To(v1.VMRolloutStrategyLiveUpdate)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			vmi := api.NewMinimalVMI("testvmi")
+			guestMemory := resource.MustParse("128Mi")
+
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
 		})
 		It("should allow guest memory which is between requests and limits", func() {
 			vmi := api.NewMinimalVMI("testvmi")
@@ -3144,7 +3162,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
-		It("Should reject disk with DedicatedIOThread and SATA bus", func() {
+		DescribeTable("Should reject disk with DedicatedIOThread and non-virtio bus", func(bus v1.DiskBus) {
 			vmi := api.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
@@ -3152,7 +3170,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name:              "disk-with-dedicated-io-thread-and-sata",
 					DedicatedIOThread: pointer.Bool(true),
 					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
-						Bus: v1.DiskBusSATA,
+						Bus: bus,
 					}},
 				},
 				v1.Disk{
@@ -3175,9 +3193,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1)) // Only first disk should fail
 			Expect(string(causes[0].Type)).To(Equal("FieldValueNotSupported"))
 			Expect(causes[0].Field).To(ContainSubstring("domain.devices.disks"))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a SATA bus")))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus)))
 
-		})
+		},
+			Entry("SATA bus", v1.DiskBusSATA),
+			Entry("SCSI bus", v1.DiskBusSCSI),
+			Entry("USB bus", v1.DiskBusUSB),
+		)
 
 		Context("With block size", func() {
 
@@ -4749,6 +4771,48 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			})
 		})
+	})
+
+	Context("hyperV passthrough", func() {
+
+		const useExplicitHyperV, useHyperVPassthrough = true, true
+		const doNotUseExplicitHyperV, doNotUseHyperVPassthrough = false, false
+
+		DescribeTable("Use of hyperV combined with hyperV passthrough is forbidden", func(explicitHyperv, hypervPassthrough, expectValid bool) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{}
+
+			if explicitHyperv {
+				vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+			}
+			if hypervPassthrough {
+				vmi.Spec.Domain.Features.HypervPassthrough = &v1.HyperVPassthrough{}
+			}
+
+			vmiBytes, _ := json.Marshal(&vmi)
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+			resp := vmiCreateAdmitter.Admit(ar)
+
+			if expectValid {
+				Expect(resp.Allowed).To(BeTrue())
+			} else {
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(ContainSubstring("hyperv"))
+			}
+		},
+			Entry("explicit + passthrough", useExplicitHyperV, useHyperVPassthrough, false),
+			Entry("passthrough only", doNotUseExplicitHyperV, useHyperVPassthrough, true),
+			Entry("explicit only", useExplicitHyperV, doNotUseHyperVPassthrough, true),
+			Entry("no hyperv use", doNotUseExplicitHyperV, doNotUseHyperVPassthrough, true),
+		)
 	})
 })
 

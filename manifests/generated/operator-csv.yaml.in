@@ -1329,6 +1329,8 @@ spec:
                   value: {{if .GsSha}}{{.GsSha}}{{end}}
                 - name: PR_HELPER_SHASUM
                   value: {{if .PrHelperSha}}{{.PrHelperSha}}{{end}}
+                - name: SIDECAR_SHIM_SHASUM
+                  value: {{if .SidecarShimSha}}{{.SidecarShimSha}}{{end}}
                 - name: KUBEVIRT_VERSION
                   value: {{.DockerTag}}
                 image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}

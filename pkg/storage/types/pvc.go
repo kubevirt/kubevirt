@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -36,7 +35,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-const MiB = 1024 * 1024
+const (
+	MiB = 1024 * 1024
+
+	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
+
+	dataVolumeGarbageCollectionAnnotation = "cdi.kubevirt.io/garbageCollected"
+)
 
 type PvcNotFoundError struct {
 	Reason string
@@ -44,6 +49,10 @@ type PvcNotFoundError struct {
 
 func (e PvcNotFoundError) Error() string {
 	return e.Reason
+}
+
+func IsDataVolumeGarbageCollected(pvc *k8sv1.PersistentVolumeClaim) bool {
+	return pvc != nil && pvc.Annotations[dataVolumeGarbageCollectionAnnotation] == "true"
 }
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
@@ -142,9 +151,9 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 	return volumeNamesPVCMap, nil
 }
 
-func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache.SharedInformer) (*k8sv1.PersistentVolumeClaim, error) {
+func GetPersistentVolumeClaimFromCache(namespace, name string, pvcStore cache.Store) (*k8sv1.PersistentVolumeClaim, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := pvcInformer.GetStore().GetByKey(key)
+	obj, exists, err := pvcStore.GetByKey(key)
 
 	if err != nil {
 		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
@@ -161,14 +170,14 @@ func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache
 	return pvc, nil
 }
 
-func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedInformer) bool {
+func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcStore cache.Store) bool {
 	for _, volume := range volumes {
 		claimName := PVCNameFromVirtVolume(&volume)
 		if claimName == "" {
 			continue
 		}
 
-		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcInformer)
+		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcStore)
 		if err != nil {
 			log.Log.Errorf("Error fetching PersistentVolumeClaim %s while determining virtual machine status: %v", claimName, err)
 			continue
@@ -241,7 +250,7 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 	}
 
 	if blockVolume {
-		volMode := v1.PersistentVolumeBlock
+		volMode := k8sv1.PersistentVolumeBlock
 		pvc.Spec.VolumeMode = &volMode
 	}
 

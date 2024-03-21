@@ -34,6 +34,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -46,7 +48,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 	})
 
 	It("should successfully open connection to guest", func() {
-		vmi := tests.NewRandomFedoraVMI()
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 		vmi.Namespace = util.NamespaceTestDefault
 		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 

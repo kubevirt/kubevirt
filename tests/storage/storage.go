@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -53,9 +53,11 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -148,7 +150,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			cleanUp := func(vmi *v1.VirtualMachineInstance) {
 				By("Cleaning up")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			}
@@ -170,8 +172,8 @@ var _ = SIGDescribe("Storage", func() {
 
 			It("should pause VMI on IO error", func() {
 				By("Creating VMI with faulty disk")
-				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -210,14 +212,14 @@ var _ = SIGDescribe("Storage", func() {
 			It("should report IO errors in the guest with errorPolicy set to report", func() {
 				const diskName = "disk1"
 				By("Creating VMI with faulty disk")
-				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
+				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
 				for i, d := range vmi.Spec.Domain.Devices.Disks {
 					if d.Name == diskName {
 						vmi.Spec.Domain.Devices.Disks[i].ErrorPolicy = pointer.P(v1.DiskErrorPolicyReport)
 					}
 				}
 
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -254,7 +256,7 @@ var _ = SIGDescribe("Storage", func() {
 				var nfsPod *k8sv1.Pod
 				AfterEach(func() {
 					// Ensure VMI is deleted before bringing down the NFS server
-					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
@@ -310,7 +312,7 @@ var _ = SIGDescribe("Storage", func() {
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 
-					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
@@ -325,7 +327,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = libvmi.NewCirros(
+				vmi = libvmifact.NewCirros(
 					libvmi.WithResourceMemory("512M"),
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusVirtio, resource.MustParse("1G")),
 				)
@@ -355,7 +357,7 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = libvmi.NewAlpineWithTestTooling(
+				vmi = libvmifact.NewAlpineWithTestTooling(
 					libnet.WithMasqueradeNetworking()...,
 				)
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -406,7 +408,7 @@ var _ = SIGDescribe("Storage", func() {
 				AfterEach(func() {
 					if vmi != nil {
 						By("Deleting the VMI")
-						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 
 						By("Waiting for VMI to disappear")
 						libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -478,7 +480,7 @@ var _ = SIGDescribe("Storage", func() {
 				}, 200)).To(Succeed())
 
 				By("Killing a VirtualMachineInstance")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
 
@@ -538,7 +540,7 @@ var _ = SIGDescribe("Storage", func() {
 						}, 200)).To(Succeed())
 					}
 
-					err = virtClient.VirtualMachineInstance(obj.Namespace).Delete(context.Background(), obj.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(obj.Namespace).Delete(context.Background(), obj.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(ThisVMI(obj), 120).Should(BeGone())
 				}
@@ -557,7 +559,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithNamespace(testsuite.NamespacePrivileged),
 				)
 				virtClient := kubevirt.Client()
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
 			})
@@ -583,7 +585,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				AfterEach(func() {
 					if vmi != nil {
-						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 						if err != nil && !errors.IsNotFound(err) {
 							Expect(err).ToNot(HaveOccurred())
 						}
@@ -614,13 +616,14 @@ var _ = SIGDescribe("Storage", func() {
 						)
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
 
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img has been created")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						nodeName = vmiPod.Spec.NodeName
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir(hostDiskName), "-name", diskName, "-size", "1G", "-o", "-size", "+1G"},
@@ -643,13 +646,14 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if another.img has been created")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						nodeName = vmiPod.Spec.NodeName
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-size", "1G", "-o", "-size", "+1G"},
@@ -659,7 +663,6 @@ var _ = SIGDescribe("Storage", func() {
 
 						By("Checking if disk.img has been created")
 						output, err = exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir(hostDiskName), "-size", "1G", "-o", "-size", "+1G"},
@@ -698,12 +701,13 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img exists")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", hostdisk.GetMountedHostDiskDir(hostDiskName), "-name", diskName},
@@ -729,7 +733,7 @@ var _ = SIGDescribe("Storage", func() {
 								break
 							}
 						}
-						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -745,7 +749,7 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+						_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 						Expect(err).To(HaveOccurred())
 					})
 				})
@@ -784,12 +788,13 @@ var _ = SIGDescribe("Storage", func() {
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: node}}))
-						tests.RunVMIAndExpectLaunch(vmi, 90)
+						vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+
 						output, err := exec.ExecuteCommandOnPod(
-							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", diskImgName, "-size", "1G", "-o", "-size", "+1G"},
@@ -837,7 +842,7 @@ var _ = SIGDescribe("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Determining the size of the mounted directory")
-					diskSizeStr, _, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, []string{tests.BinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
+					diskSizeStr, _, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, []string{tests.BinBash, "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
 					Expect(err).ToNot(HaveOccurred())
 					diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
 					diskSize = diskSize * 1000 // byte to kilobyte
@@ -846,7 +851,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				AfterEach(func() {
 					if vmi != nil {
-						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 						libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 					}
 					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -876,7 +881,7 @@ var _ = SIGDescribe("Storage", func() {
 						libvmi.WithNamespace(testsuite.NamespacePrivileged),
 					)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Checking events")
@@ -927,7 +932,7 @@ var _ = SIGDescribe("Storage", func() {
 					Skip("Skip test when Block storage is not present")
 				}
 
-				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 			})
 
 			AfterEach(func() {
@@ -973,11 +978,11 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithResourceMemory("128Mi"),
 					libvmi.WithPersistentVolumeClaim("disk0", pvcName),
 				)
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					if vmi.Status.Phase != v1.Pending {
@@ -1013,7 +1018,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("With both SCSI and SATA devices", func() {
 			It("should successfully start with distinct device names", func() {
 
-				vmi = libvmi.NewAlpine(
+				vmi = libvmifact.NewAlpine(
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusSCSI, resource.MustParse("1Gi")),
 					libvmi.WithEmptyDisk("emptydisk2", v1.DiskBusSATA, resource.MustParse("1Gi")),
 				)
@@ -1036,7 +1041,7 @@ var _ = SIGDescribe("Storage", func() {
 
 			Context("With a USB device", func() {
 				It("[test_id:9797]should successfully start and have the USB storage device attached", func() {
-					vmi = libvmi.NewAlpine(
+					vmi = libvmifact.NewAlpine(
 						libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusUSB, resource.MustParse("128Mi")),
 					)
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -1069,7 +1074,7 @@ var _ = SIGDescribe("Storage", func() {
 					Skip("Skip test when Block storage is not present")
 				}
 
-				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), BeInPhase(cdiv1.WaitForFirstConsumer)))
+				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi = nil
 			})
 
@@ -1098,8 +1103,9 @@ var _ = SIGDescribe("Storage", func() {
 				vmi = newVMIWithEphemeralPVC(dataVolume.Name)
 				By("Initializing the VM")
 
-				tests.RunVMIAndExpectLaunch(vmi, 60)
-				runningPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				runningPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that the virt-launcher pod spec contains the volumeDevice")
 				Expect(runningPod.Spec.Containers[0].VolumeDevices).NotTo(BeEmpty())
@@ -1126,9 +1132,6 @@ var _ = SIGDescribe("Storage", func() {
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				labelKey := "testshareablekey"
-				labels := map[string]string{
-					labelKey: "",
-				}
 
 				// give an affinity rule to ensure the vmi's get placed on the same node.
 				affinityRule := &k8sv1.Affinity{
@@ -1151,11 +1154,20 @@ var _ = SIGDescribe("Storage", func() {
 						},
 					},
 				}
-
-				vmi1 = tests.NewRandomVMIWithDataVolume(dv.Name)
-				vmi2 = tests.NewRandomVMIWithDataVolume(dv.Name)
-				vmi1.Labels = labels
-				vmi2.Labels = labels
+				vmi1 = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dv.Name),
+					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithLabel(labelKey, ""),
+				)
+				vmi2 = libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dv.Name),
+					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithLabel(labelKey, ""),
+				)
 
 				vmi1.Spec.Affinity = affinityRule
 				vmi2.Spec.Affinity = affinityRule
@@ -1202,8 +1214,8 @@ var _ = SIGDescribe("Storage", func() {
 					},
 				}
 
-				vmi1 := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
-				vmi2 := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
+				vmi1 := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
+				vmi2 := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvcClaim))
 
 				vmi1.Labels = labels
 				vmi2.Labels = labels
@@ -1301,9 +1313,9 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 
 				By("Creating VMI with LUN disk")
-				vmi := libvmi.NewAlpine()
+				vmi := libvmifact.NewAlpine()
 				addLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1312,7 +1324,7 @@ var _ = SIGDescribe("Storage", func() {
 				)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			},
@@ -1335,9 +1347,9 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating VMI with LUN disk")
-				vmi := libvmi.NewCirros(libvmi.WithResourceMemory("512M"))
+				vmi := libvmifact.NewCirros(libvmi.WithResourceMemory("512M"))
 				addDataVolumeLunDisk(vmi, "lun0", dv.Name)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1348,7 +1360,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				lunDisk := "/dev/"
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, volStatus := range vmi.Status.VolumeStatus {
 						if volStatus.Name == "lun0" {
@@ -1373,7 +1385,7 @@ var _ = SIGDescribe("Storage", func() {
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})

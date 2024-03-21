@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -81,7 +81,7 @@ var _ = DescribeInfra("Start a VirtualMachineInstance", func() {
 
 			Expect(matcher.ThisPod(newLeaderPod)()).To(matcher.HaveConditionTrue(k8sv1.PodReady))
 
-			vmi := libvmi.NewAlpine()
+			vmi := libvmifact.NewAlpine()
 
 			By("Starting a new VirtualMachineInstance")
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libpod"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -13,7 +14,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -24,6 +25,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests"
 )
@@ -171,7 +174,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 
 		Context("'kubectl get vmim'", func() {
 			It("print the expected columns and their corresponding values", func() {
-				vmi := libvmi.NewCirros(
+				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
@@ -229,12 +232,13 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		)
 
 		It("oc/kubectl logs <vmi-pod> return default container log", func() {
-			vm = libvmi.NewCirros()
+			vm = libvmifact.NewCirros()
 			vm = tests.RunVMIAndExpectLaunch(vm, 30)
 
 			k8sClient := clientcmd.GetK8sCmdClient()
-
-			output, _, err := clientcmd.RunCommand(k8sClient, "logs", tests.GetPodByVirtualMachineInstance(vm).Name)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vm, vm.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			output, _, err := clientcmd.RunCommand(k8sClient, "logs", pod.Name)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(output).To(ContainSubstring("component"))

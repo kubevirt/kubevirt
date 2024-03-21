@@ -216,6 +216,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"failed":                         "Indicates that the migration failed",
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
+		"failureReason":                  "Contains the reason why the migration failed",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
 		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
@@ -728,7 +729,9 @@ func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                   "KubeVirtConfiguration holds all kubevirt configurations",
+		"emulatedMachines":                   "Deprecated. Use architectureConfiguration instead.",
 		"machineType":                        "Deprecated. Use architectureConfiguration instead.",
+		"ovmfPath":                           "Deprecated. Use architectureConfiguration instead.",
 		"evictionStrategy":                   "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
 		"additionalGuestMemoryOverheadRatio": "AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure\noverhead. This is useful, since the calculation of this overhead is not accurate and cannot\nbe entirely known in advance. The ratio that is being set determines by which factor to increase\nthe overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised\nby node pressures, but would mean that fewer VMs could be scheduled to a node.\nIf not set, the default is 1.",
 		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",

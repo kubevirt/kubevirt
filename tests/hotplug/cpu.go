@@ -8,16 +8,14 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libnet"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 
-	"github.com/onsi/gomega/gstruct"
-	gomegatypes "github.com/onsi/gomega/types"
-
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/flags"
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -90,7 +88,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				maxSockets uint32 = 2
 			)
 
-			vmi := libvmi.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libnet.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -104,7 +102,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 200m CPU")
@@ -148,7 +146,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return countDomCPUs(vmi)
 			}, 240*time.Second, time.Second).Should(Equal(cpuCount{
@@ -188,7 +186,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			const maxSockets uint32 = 3
 
 			By("Creating a running VM with 1 socket and 2 max sockets")
-			vmi := libvmi.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libnet.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -203,7 +201,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 2 CPU")
@@ -245,7 +243,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return countDomCPUs(vmi)
 			}, 30*time.Second, time.Second).Should(Equal(cpuCount{
@@ -278,12 +276,4 @@ func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kvName, types.JSONPatchType, data, &k8smetav1.PatchOptions{})
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-}
-
-func beReady() gomegatypes.GomegaMatcher {
-	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-			"Ready": BeTrue(),
-		}),
-	}))
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -33,8 +34,8 @@ func NewNodeSelectorRenderer(
 		podNodeSelectors[k8sv1.LabelArchStable] = strings.ToLower(architecture)
 	}
 
-	copySelectors(clusterWideConfNodeSelectors, podNodeSelectors)
-	copySelectors(vmiNodeSelectors, podNodeSelectors)
+	maps.Copy(podNodeSelectors, clusterWideConfNodeSelectors)
+	maps.Copy(podNodeSelectors, vmiNodeSelectors)
 
 	nodeSelectorRenderer := &NodeSelectorRenderer{podNodeSelectors: podNodeSelectors}
 	for _, opt := range opts {
@@ -48,7 +49,7 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 		nsr.enableSelectorLabel(v1.CPUManager)
 	}
 	if nsr.hyperv {
-		copySelectors(hypervNodeSelectors(nsr.vmiFeatures), nsr.podNodeSelectors)
+		maps.Copy(nsr.podNodeSelectors, hypervNodeSelectors(nsr.vmiFeatures))
 	}
 	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) {
 		nsr.enableSelectorLabel(nsr.cpuModelLabel)
@@ -75,12 +76,6 @@ func (nsr *NodeSelectorRenderer) isManualTSCFrequencyRequired() bool {
 func WithDedicatedCPU() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.hasDedicatedCPU = true
-	}
-}
-
-func copySelectors(src map[string]string, dst map[string]string) {
-	for k, v := range src {
-		dst[k] = v
 	}
 }
 

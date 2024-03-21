@@ -43,6 +43,7 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	k8sptr "k8s.io/utils/pointer"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
@@ -495,6 +496,28 @@ var _ = Describe("Validating VM Admitter", func() {
 					VolumeSource: &v1.HotplugVolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "cdRomtest",
+						}},
+					},
+				},
+			},
+		},
+			false),
+		Entry("with invalid request to add volume with dedicated IOThreads", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testDisk",
+					Disk: &v1.Disk{
+						Name: "testDisk",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "scsi",
+							},
+						},
+						DedicatedIOThread: k8sptr.BoolPtr(true),
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "diskTest",
 						}},
 					},
 				},
@@ -1928,14 +1951,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(response.Result.Details.Causes).To(ContainElement(cause))
 			},
-				Entry("resource limits are configured", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-					vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-				}, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.resources",
-					Message: "Configuration of Memory limits is not allowed when Memory live update is enabled",
-				}),
 				Entry("hugepages is configured", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
 						PageSize: "2Mi",

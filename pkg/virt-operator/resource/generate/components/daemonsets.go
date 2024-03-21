@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -22,6 +24,7 @@ const (
 	kubeletPodsPath = "/var/lib/kubelet/pods"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
+	SidecarShimName = "sidecar-shim"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
@@ -48,7 +51,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 	}
 }
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) (*appsv1.DaemonSet, error) {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -67,7 +70,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			podTemplateSpec.ObjectMeta.Annotations = make(map[string]string)
 		}
 		// Join the pod to the migration network and name the corresponding interface "migration0"
-		podTemplateSpec.ObjectMeta.Annotations["k8s.v1.cni.cncf.io/networks"] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
+		podTemplateSpec.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
 	}
 
 	daemonset := &appsv1.DaemonSet{
@@ -328,6 +331,9 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	}
 	if prHelperImage == "" {
 		prHelperImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, PrHelperName, AddVersionSeparatorPrefix(prHelperVersion))
+	}
+	if sidecarShimImage == "" {
+		sidecarShimImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, SidecarShimName, AddVersionSeparatorPrefix(sidecarShimVersion))
 	}
 
 	if enablePrHelper {

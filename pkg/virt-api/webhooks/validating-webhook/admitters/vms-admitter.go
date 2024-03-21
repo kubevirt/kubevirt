@@ -470,14 +470,6 @@ func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes 
 }
 
 func validateLiveUpdateMemory(field *k8sfield.Path, domain *v1.DomainSpec, architecture string) (causes []metav1.StatusCause) {
-	if hasMemoryLimits(&domain.Resources) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Configuration of Memory limits is not allowed when Memory live update is enabled"),
-			Field:   field.Child("template", "spec", "domain", "resources").String(),
-		})
-	}
-
 	if domain.CPU != nil &&
 		domain.CPU.Realtime != nil {
 		causes = append(causes, metav1.StatusCause{
@@ -584,7 +576,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 	if vm.Status.Ready {
 		var err error
 
-		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil && vmi.DeletionTimestamp == nil {
@@ -741,6 +733,13 @@ func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause 
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
 	}
+	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "IOThreads are not supported by scsi bus.",
+			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+		}}
+	}
 
 	return nil
 }
@@ -818,9 +817,4 @@ func hasCPURequestsOrLimits(rr *v1.ResourceRequirements) bool {
 	}
 
 	return false
-}
-
-func hasMemoryLimits(rr *v1.ResourceRequirements) bool {
-	_, ok := rr.Limits[corev1.ResourceMemory]
-	return ok
 }

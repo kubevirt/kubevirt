@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/api/core"
@@ -180,7 +181,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			newPreset, err := getPreset(virtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newPreset)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newPreset)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -206,7 +207,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -233,7 +234,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			// reset the label so it will not match
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -248,7 +249,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:1603]Should not be applied to existing VMIs", func() {
 			// create the VirtualMachineInstance first
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -285,7 +286,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
 			vmi.Annotations = map[string]string{exclusionMarking: "true"}
 
-			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -334,7 +335,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			vmi.Labels = map[string]string{flavorKey: memoryFlavor, conflictKey: conflictFlavor}
 			By("creating the VirtualMachineInstance")
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -376,11 +377,11 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			vmi.Labels = map[string]string{overrideKey: overrideFlavor}
 			vmi.Spec.Domain.Resources.Requests["memory"] = vmiMemory
 
-			newVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			newVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
-			Expect(newVmi.Annotations).To(BeNil())
+			Expect(newVmi.Annotations).To(Equal(vmi.Annotations))
 
 			label, ok := vmi.Labels[overrideKey]
 			Expect(ok).To(BeTrue())
@@ -478,11 +479,11 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			time.Sleep(3 * time.Second)
 
 			By("Creating first VirtualMachineInstance")
-			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7)
+			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating second VirtualMachineInstance")
-			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10)
+			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset matched bot VMs")
@@ -540,11 +541,11 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			time.Sleep(3 * time.Second)
 
 			By("Creating first VirtualMachineInstance")
-			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7)
+			newVmi7, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin7, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating second VirtualMachineInstance")
-			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10)
+			newVmi10, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmiWin10, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset matched the first VMI")

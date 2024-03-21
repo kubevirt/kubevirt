@@ -71,6 +71,7 @@ const (
 	SNAPSHOT_FLAG       = "--snapshot"
 	INSECURE_FLAG       = "--insecure"
 	KEEP_FLAG           = "--keep-vme"
+	DELETE_FLAG         = "--delete-vme"
 	FORMAT_FLAG         = "--format"
 	PVC_FLAG            = "--pvc"
 	TTL_FLAG            = "--ttl"
@@ -130,6 +131,7 @@ var (
 	outputFile           string
 	insecure             bool
 	keepVme              bool
+	deleteVme            bool
 	shouldCreate         bool
 	includeSecret        bool
 	exportManifest       bool
@@ -142,22 +144,11 @@ var (
 	manifestOutputFormat string
 )
 
-type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
-
-type HTTPClientCreator func(*http.Transport, bool) *http.Client
-
-type PortForwardFunc func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error
-
-type exportCompleteFunc func(kubecli.KubevirtClient, *VMExportInfo, time.Duration, time.Duration) error
-
-// ExportProcessingComplete is used to store the function to wait for the export object to be ready.
-// Useful for unit tests.
-var ExportProcessingComplete exportCompleteFunc = waitForVirtualMachineExport
-
 type VMExportInfo struct {
 	ShouldCreate   bool
 	Insecure       bool
 	KeepVme        bool
+	DeleteVme      bool
 	IncludeSecret  bool
 	ExportManifest bool
 	Decompress     bool
@@ -179,11 +170,27 @@ type command struct {
 	cmd          *cobra.Command
 }
 
+type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
+
+type HTTPClientCreator func(*http.Transport, bool) *http.Client
+
+type PortForwardFunc func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error
+
+type exportCompleteFunc func(kubecli.KubevirtClient, *VMExportInfo, time.Duration, time.Duration) error
+
+type printToOutputFunc func(string, ...interface{}) (n int, err error)
+
+// ExportProcessingComplete is used to store the function to wait for the export object to be ready.
+// Useful for unit tests.
+var ExportProcessingComplete exportCompleteFunc = waitForVirtualMachineExport
+
 var exportFunction exportFunc
 
 var httpClientCreatorFunc HTTPClientCreator
 
 var startPortForward PortForwardFunc
+
+var printToOutput printToOutputFunc
 
 // SetHTTPClientCreator allows overriding the default http client (useful for unit testing)
 func SetHTTPClientCreator(f HTTPClientCreator) {
@@ -205,9 +212,20 @@ func SetDefaultPortForwarder() {
 	startPortForward = runPortForward
 }
 
+// SetPrintToOutput allows overriding the default printer
+func setPrintToOutput(f printToOutputFunc) {
+	printToOutput = f
+}
+
+// SetDefaultOutputPrinter sets the printer back to default
+func SetDefaultOutputPrinter() {
+	printToOutput = fmt.Printf
+}
+
 func init() {
 	SetDefaultHTTPClientCreator()
 	SetDefaultPortForwarder()
+	SetDefaultOutputPrinter()
 }
 
 // usage provides several valid usage examples of vmexport
@@ -254,6 +272,8 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 		},
 	}
 
+	shouldCreate = false
+
 	cmd.Flags().StringVar(&vm, "vm", "", "Sets VirtualMachine as vmexport kind and specifies the vm name.")
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Sets VirtualMachineSnapshot as vmexport kind and specifies the snapshot name.")
 	cmd.Flags().StringVar(&pvc, "pvc", "", "Sets PersistentVolumeClaim as vmexport kind and specifies the PVC name.")
@@ -262,7 +282,9 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
 	cmd.Flags().StringVar(&format, "format", "", "Used to specify the format of the downloaded image. There's two options: gzip (default) and raw.")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
-	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
+	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should always be retained after the download finishes.")
+	cmd.Flags().BoolVar(&deleteVme, "delete-vme", false, "When used with the 'download' option, specifies that the vmexport object should always be deleted after the download finishes.")
+	cmd.MarkFlagsMutuallyExclusive("keep-vme", "delete-vme")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
 	cmd.Flags().StringVar(&manifestOutputFormat, "manifest-output-format", "", "Manifest output format, defaults to Yaml. Valid options are yaml or json")
 	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use in the returned manifest, instead of the external URL in the Virtual Machine export status. This is useful for NodePorts or if you don't have an external URL configured")
@@ -345,9 +367,9 @@ func (c *command) parseExportArguments(args []string, vmeInfo *VMExportInfo) err
 
 func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.ExportSource = getExportSource()
-	vmeInfo.OutputFile = outputFile
 	// User wants the output in a file, create
 	if outputFile != "" && outputFile != "-" {
+		vmeInfo.OutputFile = outputFile
 		output, err := os.Create(vmeInfo.OutputFile)
 		if err != nil {
 			return err
@@ -355,6 +377,12 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 		vmeInfo.OutputWriter = output
 	} else {
 		vmeInfo.OutputWriter = c.cmd.OutOrStdout()
+		vmeInfo.OutputFile = ""
+		// Setting standard printer to output into stderr. We can then output
+		// the volume into stdout without any interfering prints.
+		setPrintToOutput(func(format string, a ...interface{}) (int, error) {
+			return fmt.Fprintf(os.Stderr, format, a...)
+		})
 	}
 	// If raw format is specified, we'll attempt to download and decompress a gzipped volume
 	if format == RAW_FORMAT {
@@ -363,6 +391,7 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
+	vmeInfo.DeleteVme = deleteVme
 	vmeInfo.VolumeName = volumeName
 	vmeInfo.ServiceURL = serviceUrl
 	vmeInfo.OutputFormat = manifestOutputFormat
@@ -437,7 +466,7 @@ func CreateVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		return err
 	}
 
-	fmt.Printf("VirtualMachineExport '%s/%s' created succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	printToOutput("VirtualMachineExport '%s/%s' created succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -447,11 +476,11 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		fmt.Printf("VirtualMachineExport '%s/%s' does not exist\n", vmeInfo.Namespace, vmeInfo.Name)
+		printToOutput("VirtualMachineExport '%s/%s' does not exist\n", vmeInfo.Namespace, vmeInfo.Name)
 		return nil
 	}
 
-	fmt.Printf("VirtualMachineExport '%s/%s' deleted succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
+	printToOutput("VirtualMachineExport '%s/%s' deleted succesfully\n", vmeInfo.Namespace, vmeInfo.Name)
 	return nil
 }
 
@@ -465,7 +494,7 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 		}
 	}
 
-	if !vmeInfo.KeepVme && !vmeInfo.ExportManifest {
+	if shouldDeleteVMExport(vmeInfo) {
 		defer DeleteVirtualMachineExport(client, vmeInfo)
 	}
 
@@ -568,11 +597,15 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 		return err
 	}
 
-	// Prevent this output ending up in the stdout
-	if vmeInfo.OutputFile != "" {
-		fmt.Println("Download finished succesfully")
-	}
+	printToOutput("Download finished succesfully\n")
+
 	return nil
+}
+
+// shouldDeleteVMExport decides wether we should retain or delete a VMExport after a download. If delete/retain are not explicitly specified,
+// the vmexport will be deleted when is created in the same instance as the download, retained otherwise.
+func shouldDeleteVMExport(vmeInfo *VMExportInfo) bool {
+	return !vmeInfo.ExportManifest && (vmeInfo.DeleteVme || (vmeInfo.ShouldCreate && !vmeInfo.KeepVme))
 }
 
 func replaceUrlWithServiceUrl(manifestUrl string, vmeInfo *VMExportInfo) (string, error) {
@@ -677,7 +710,7 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 		}
 
 		if vmexport == nil {
-			fmt.Printf("couldn't get VM Export %s, waiting for it to be created...\n", vmeInfo.Name)
+			printToOutput("couldn't get VM Export %s, waiting for it to be created...\n", vmeInfo.Name)
 			return false, nil
 		}
 
@@ -686,18 +719,18 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 		}
 
 		if vmexport.Status.Phase != exportv1.Ready {
-			fmt.Printf("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
+			printToOutput("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
 			return false, nil
 		}
 
 		if vmeInfo.ServiceURL == "" {
 			if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil {
-				fmt.Printf("waiting for VM Export %s external links to be available...\n", vmeInfo.Name)
+				printToOutput("waiting for VM Export %s external links to be available...\n", vmeInfo.Name)
 				return false, nil
 			}
 		} else {
 			if vmexport.Status.Links == nil || vmexport.Status.Links.Internal == nil {
-				fmt.Printf("waiting for VM Export %s internal links to be available...\n", vmeInfo.Name)
+				printToOutput("waiting for VM Export %s internal links to be available...\n", vmeInfo.Name)
 				return false, nil
 			}
 		}
@@ -778,7 +811,7 @@ func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress b
 		}
 		defer gzipReader.Close()
 		rd = gzipReader
-		fmt.Println("Decompressing image:")
+		printToOutput("Decompressing image:\n")
 	}
 
 	_, err := io.Copy(output, rd)
@@ -881,6 +914,9 @@ func handleCreateFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, CREATE)
 	}
+	if deleteVme {
+		return fmt.Errorf(ErrIncompatibleFlag, DELETE_FLAG, CREATE)
+	}
 	if portForward {
 		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, CREATE)
 	}
@@ -914,6 +950,9 @@ func handleDeleteFlags() error {
 	}
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, DELETE)
+	}
+	if deleteVme {
+		return fmt.Errorf(ErrIncompatibleFlag, DELETE_FLAG, DELETE)
 	}
 	if portForward {
 		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, DELETE)
@@ -964,7 +1003,7 @@ func handleDownloadFlags() error {
 		}
 	}
 	if !exportManifest && outputFile == "" {
-		return fmt.Errorf("Warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file.", OUTPUT_FLAG, OUTPUT_FLAG)
+		return fmt.Errorf("warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file", OUTPUT_FLAG, OUTPUT_FLAG)
 	}
 
 	return nil
@@ -1015,19 +1054,19 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 		}
 
 		if vmexport.Status == nil || vmexport.Status.Phase != exportv1.Ready {
-			fmt.Printf("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
+			printToOutput("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
 			return false, nil
 		}
 
 		service, err = client.CoreV1().Services(vmeInfo.Namespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				fmt.Printf("waiting for service %s to be ready before port-forwarding...\n", serviceName)
+				printToOutput("waiting for service %s to be ready before port-forwarding...\n", serviceName)
 				return false, nil
 			}
 			return false, err
 		}
-		fmt.Printf("service %s is ready for port-forwarding\n", service.Name)
+		printToOutput("service %s is ready for port-forwarding\n", service.Name)
 		return true, nil
 	})
 	return service, err
@@ -1047,12 +1086,12 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	// List the pods matching the selector
 	podList, err := client.CoreV1().Pods(vmeInfo.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podSelector.String()})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list pods: %v", err)
+		return nil, fmt.Errorf("failed to list pods: %v", err)
 	}
 
 	// Pick the first pod to forward the port
 	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("No pods found for the service %s", service.Name)
+		return nil, fmt.Errorf("no pods found for the service %s", service.Name)
 	}
 
 	// Set up the port forwarding ports
@@ -1069,7 +1108,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	// Wait for the port forwarding to be ready
 	select {
 	case <-readyChan:
-		fmt.Println("Port forwarding is ready.")
+		printToOutput("Port forwarding is ready.\n")
 		// Using 0 allows listening on a random available port.
 		// Now we need to find out which port was used
 		if vmeInfo.LocalPort == "0" {
@@ -1078,7 +1117,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%d", localPort)
 		}
 	case <-time.After(30 * time.Second):
-		return nil, fmt.Errorf("Timeout waiting for port forwarding to be ready.")
+		return nil, fmt.Errorf("timeout waiting for port forwarding to be ready")
 	}
 	return stopChan, nil
 }
@@ -1100,7 +1139,7 @@ func runPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace stri
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
 
 	// Start port-forwarding
-	fw, err := portforward.New(dialer, ports, stopChan, readyChan, os.Stdout, os.Stderr)
+	fw, err := portforward.New(dialer, ports, stopChan, readyChan, os.Stderr, os.Stderr)
 	if err != nil {
 		log.Fatalf("Failed to setup port forward: %v", err)
 	}

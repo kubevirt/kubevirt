@@ -36,24 +36,23 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, func() {
 
-	var virtClient kubecli.KubevirtClient
-
 	var CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
-		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		Expect(err).NotTo(HaveOccurred())
 
 		for _, volume := range vmi.Spec.Volumes {
 			var path = ""
@@ -67,7 +66,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 			if len(path) > 0 {
 				cmdCheck := []string{"stat", "--printf='%s'", path}
-				out, err := exec.ExecuteCommandOnPod(virtClient, pod, "compute", cmdCheck)
+				out, err := exec.ExecuteCommandOnPod(pod, "compute", cmdCheck)
 				Expect(err).NotTo(HaveOccurred())
 				size, err := strconv.Atoi(strings.Trim(out, "'"))
 				Expect(err).NotTo(HaveOccurred())
@@ -75,10 +74,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 		}
 	}
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
 
 	Context("With a ConfigMap defined", func() {
 
@@ -108,16 +103,17 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
+				vmi := libvmifact.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podOutput, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -164,7 +160,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			It("[test_id:783]Should start VMI with multiple ConfigMaps", func() {
-				vmi := libvmi.NewAlpine(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithConfigMapDisk(configMaps[0], configMaps[0]),
 					libvmi.WithConfigMapDisk(configMaps[1], configMaps[1]),
 					libvmi.WithConfigMapDisk(configMaps[2], configMaps[2]))
@@ -202,16 +198,16 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutput := "adminredhat"
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if Secret has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
 				podOutput, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -257,7 +253,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			It("[test_id:780]Should start VMI with multiple Secrets", func() {
-				vmi := libvmi.NewAlpine(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithSecretDisk(secrets[0], secrets[0]),
 					libvmi.WithSecretDisk(secrets[1], secrets[1]),
 					libvmi.WithSecretDisk(secrets[2], secrets[2]))
@@ -275,16 +271,17 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := libvmi.NewAlpine(libvmi.WithServiceAccountDisk("default"))
+			vmi := libvmifact.NewAlpine(libvmi.WithServiceAccountDisk("default"))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if ServiceAccount has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			namespace, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"cat",
@@ -296,7 +293,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(namespace).To(Equal(testsuite.GetTestNamespace(vmi)))
 
 			token, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"tail", "-c", "20",
@@ -364,7 +360,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutputSecret := "adminredhat"
 
 				By("Running VMI")
-				vmi := libvmi.NewFedora(libvmi.WithConfigMapDisk(configMapName, configMapName),
+				vmi := libvmifact.NewFedora(libvmi.WithConfigMapDisk(configMapName, configMapName),
 					libvmi.WithSecretDisk(secretName, secretName),
 					libvmi.WithLabelledConfigMapDisk(configMapName, "random1", "configlabel"),
 					libvmi.WithLabelledSecretDisk(secretName, "random2", "secretlabel"))
@@ -384,9 +380,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if ConfigMap has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podOutputCfgMap, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -413,7 +410,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking if Secret has also been attached to the same pod")
 				podOutputSecret, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -484,16 +480,17 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedPublicKey := string(publicKeyBytes)
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
 
 				By("Checking if Secret has been attached to the pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
 				podOutput1, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -504,7 +501,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
 
 				podOutput2, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
@@ -543,7 +539,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := libvmi.NewAlpine(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIDisk(downwardAPIName))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -552,9 +548,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			CheckIsoVolumeSizes(vmi)
 
 			By("Checking if DownwardAPI has been attached to the pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(nil))
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			podOutput, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
 				[]string{"grep", testLabelKey,

@@ -41,7 +41,6 @@ if [[ "$download_cluster_up" == true ]]; then
     echo "downloading cluster-up"
     rm -rf cluster-up
     curl --fail -L https://github.com/kubevirt/kubevirtci/archive/refs/tags/${kubevirtci_git_hash}.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
-    git restore cluster-up/OWNERS
 
     echo ${kubevirtci_git_hash} >${version_file}
     new_sha=$(getClusterUpShasum)

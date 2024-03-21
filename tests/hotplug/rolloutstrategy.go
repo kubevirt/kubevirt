@@ -9,13 +9,15 @@ import (
 	. "github.com/onsi/gomega"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -54,7 +56,7 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 
 		It("should set RestartRequired when changing any spec field", func() {
 			By("Creating a VM with CPU topology")
-			vmi := libvmi.NewCirros()
+			vmi := libvmifact.NewCirros()
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Sockets:    1,
@@ -66,7 +68,7 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				return err
 			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)

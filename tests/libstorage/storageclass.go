@@ -253,6 +253,19 @@ func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, 
 	return sc, foundSC
 }
 
+// GetAvailableRWFileSystemStorageClass returns any RWX or RWO access mode filesystem storage class available, i.e,
+// If the available filesystem storage classes only support RWO access mode, it returns that SC or vice versa.
+// This method to get a filesystem storage class is recommended when the access mode is not relevant for the purpose of
+// the test.
+func GetAvailableRWFileSystemStorageClass() (string, bool) {
+	sc, foundSC := GetRWXFileSystemStorageClass()
+	if !foundSC {
+		sc, foundSC = GetRWOFileSystemStorageClass()
+	}
+
+	return sc, foundSC
+}
+
 // GetNoVolumeSnapshotStorageClass goes over all the existing storage classes
 // and returns one which doesnt have volume snapshot ability
 // if the preference storage class exists and is without snapshot

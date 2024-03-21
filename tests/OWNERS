@@ -3,3 +3,5 @@ reviewers:
   - sig-test-reviewers
 approvers:
   - sig-test-approvers
+labels:
+  - sig/test

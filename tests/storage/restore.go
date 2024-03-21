@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -44,8 +45,9 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -146,7 +148,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return false
 			}
@@ -181,16 +183,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	waitDVReady := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
 		libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
 		return dv
-	}
-
-	waitPVCReady := func(pvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
-		Eventually(func() bool {
-			var err error
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return pvc.Annotations["cdi.kubevirt.io/storage.pod.phase"] == string(corev1.PodSucceeded)
-		}, 180*time.Second, time.Second).Should(BeTrue())
-		return pvc
 	}
 
 	deleteVM := func(vm *v1.VirtualMachine) {
@@ -272,7 +264,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		BeforeEach(func() {
 			vm = libvmi.NewVirtualMachine(
-				libvmi.NewCirros(
+				libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				))
@@ -481,7 +473,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
-				newVM := libvmi.NewVirtualMachine(libvmi.NewCirros())
+				newVM := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), newVM)
 				Expect(err).ToNot(HaveOccurred())
 				defer deleteVM(newVM)
@@ -553,7 +545,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(newVMInterfaces[0].MacAddress).ToNot(Equal(oldVMInterfaces[0].MacAddress))
 
 					By("Making sure new VM is runnable")
-					tests.StartVMAndExpectRunning(virtClient, newVM)
+					tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, newVM, v1.RunStrategyAlways)
 				})
 
 			})
@@ -633,7 +625,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				if toRunSourceVM {
 					By("Starting the VM and expecting it to run")
-					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				}
 
 				By("Creating a VirtualMachineSnapshot")
@@ -667,7 +659,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			DescribeTable("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func(toRunSourceVM bool) {
 				if toRunSourceVM {
 					By("Starting the VM and expecting it to run")
-					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				}
 
 				By("Creating a VirtualMachineSnapshot")
@@ -941,7 +933,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				if !onlineSnapshot {
 					By("Starting VM")
 					vm = tests.StartVirtualMachine(vm)
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(login(vmi)).To(Succeed())
@@ -972,7 +964,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				targetVM = tests.StartVirtualMachine(targetVM)
-				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, &metav1.GetOptions{})
+				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying original file contents")
@@ -1172,9 +1164,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				dv = waitDVReady(dv)
 
 				vm, vmi = createAndStartVM(vm)
+				dv = waitDVReady(dv)
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
@@ -1203,33 +1195,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a PVC", func(restoreToNewVM bool) {
-				quantity, err := resource.ParseQuantity("1Gi")
-				Expect(err).ToNot(HaveOccurred())
-				pvc := &corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "restore-pvc-" + rand.String(12),
-						Namespace: testsuite.GetTestNamespace(nil),
-						Annotations: map[string]string{
-							"cdi.kubevirt.io/storage.import.source":   "registry",
-							"cdi.kubevirt.io/storage.import.endpoint": cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-						},
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								"storage": quantity,
-							},
-						},
-						StorageClassName: &snapshotStorageClass,
-					},
-				}
+				dv := libdv.NewDataVolume(
+					libdv.WithName("restore-pvc-"+rand.String(12)),
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+				)
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				pvc = waitPVCReady(pvc)
 
-				originalPVCName := pvc.Name
+				originalPVCName := dv.Name
 
 				memory := "128Mi"
 				if checks.IsARM64(testsuite.Arch) {
@@ -1240,7 +1215,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithResourceMemory(memory),
-					libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
+					libvmi.WithPersistentVolumeClaim("disk0", originalPVCName),
 					libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
 				)
 				vm = libvmi.NewVirtualMachine(vmi)
@@ -1283,7 +1258,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			DescribeTable("should restore a vm with containerdisk and blank datavolume", func(restoreToNewVM bool) {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi = libvmi.NewCirros(
+				vmi = libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
@@ -1476,7 +1451,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			DescribeTable("should restore a vm from an online snapshot with guest agent", func(restoreToNewVM bool) {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi = tests.NewRandomFedoraVMI()
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = libvmi.NewVirtualMachine(vmi)
 				dvName := "dv-" + vm.Name
@@ -1582,7 +1557,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				newVM = tests.StopVirtualMachine(updatedVM)
 				newVM = tests.StartVirtualMachine(newVM)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(newMemory))
 
@@ -1596,7 +1571,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				tests.StartVirtualMachine(newVM)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
@@ -1616,6 +1591,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By(creatingSnapshot)
+				targetVM = tests.StartVirtualMachine(targetVM)
 				snapshot = createSnapshot(targetVM)
 				newVM = tests.StopVirtualMachine(targetVM)
 
@@ -1648,7 +1624,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				targetVM := getTargetVM(restoreToNewVM)
-				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, &metav1.GetOptions{})
+				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(targetVMI.Spec.Volumes).To(HaveLen(2))
 				foundHotPlug := false
@@ -1743,7 +1719,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", console.LoginToFedora)
 
 					targetVM := getTargetVM(restoreToNewVM)
-					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, &metav1.GetOptions{})
+					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(targetVMI.Spec.Volumes).To(HaveLen(1))
 					foundMemoryDump := false
@@ -1834,10 +1810,17 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
 					)
 
-					vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-					tests.AddUserData(vmi, "cloud-init", bashHelloScript)
-					vm := libvmi.NewVirtualMachine(vmi)
-					libstorage.AddDataVolumeTemplate(vm, dataVolume)
+					vm := libvmi.NewVirtualMachine(
+						libvmi.New(
+							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithNetwork(v1.DefaultPodNetwork()),
+							libvmi.WithDataVolume("disk0", dataVolume.Name),
+							libvmi.WithResourceMemory("1Gi"),
+							libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
+							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+						),
+						libvmi.WithDataVolumeTemplate(dataVolume),
+					)
 					return vm
 				}
 
@@ -1865,9 +1848,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					defer libstorage.DeleteDataVolume(&dv)
-					waitDVReady(dv)
 
 					vm, vmi = createAndStartVM(vm)
+					waitDVReady(dv)
 
 					checkCloneAnnotations(vm, true)
 					if deleteSourcePVC {

@@ -123,7 +123,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				}
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				By("Finding virt-launcher pod")
@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		Context("with SM BIOS hook sidecar", func() {
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -169,7 +169,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 			It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -186,7 +186,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
 				clientcmd.SkipIfNoCmd("kubectl")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
@@ -198,7 +198,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
 				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
 
 				Eventually(func() bool {
@@ -226,7 +226,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("should receive Terminal signal on VMI deletion", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
 
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -303,17 +303,24 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
-			It("should update domain XML with SM BIOS properties", func() {
+			DescribeTable("should update domain XML with SM BIOS properties", func(withImage bool) {
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMap(hooksv1alpha2.Version, cm.Name)
+				if withImage {
+					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapPlusImage(hooksv1alpha2.Version, cm.Name)
+				} else {
+					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
+				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
 				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
-			})
+			},
+				Entry("when sidecar image is specified", true),
+				Entry("when sidecar image is not specified", false),
+			)
 		})
 
 		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
@@ -323,7 +330,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 			It("[test_id:2666]should not start with hook sidecar annotation", func() {
 				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
 				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
 			})
@@ -362,10 +369,17 @@ func RenderInvalidSMBiosSidecar() map[string]string {
 	}
 }
 
-func RenderSidecarWithConfigMap(version, name string) map[string]string {
+func RenderSidecarWithConfigMapPlusImage(version, name string) map[string]string {
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "image":"%s/%s:%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
-			version, flags.KubeVirtUtilityRepoPrefix, sidecarShimImage, flags.KubeVirtUtilityVersionTag, name, configMapKey),
+			version, flags.KubeVirtUtilityRepoPrefix, sidecarShimImage, flags.KubeVirtVersionTag, name, configMapKey),
+	}
+}
+
+func RenderSidecarWithConfigMapWithoutImage(version, name string) map[string]string {
+	return map[string]string{
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+			version, name, configMapKey),
 	}
 }
 

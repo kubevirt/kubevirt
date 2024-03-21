@@ -248,7 +248,7 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	shouldExpectVirtualMachineInstancePatch := func(vmi *virtv1.VirtualMachineInstance, patch string) {
-		vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+		vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 	}
 
 	shouldExpectMigrationCondition := func(migration *virtv1.VirtualMachineInstanceMigration, conditionType virtv1.VirtualMachineInstanceMigrationConditionType) {
@@ -444,6 +444,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(targetPod)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectAttachmentPodCreation(vmi.UID, migration.UID)
 
 			controller.Execute()
@@ -633,6 +634,7 @@ var _ = Describe("Migration watcher", func() {
 					return vmiReturn, nil
 				})
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
@@ -643,6 +645,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
@@ -661,6 +664,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 
 			controller.Execute()
 		})
@@ -693,6 +697,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -715,6 +720,8 @@ var _ = Describe("Migration watcher", func() {
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
 			}
+
+			shouldExpectGenericMigrationUpdate()
 
 			controller.Execute()
 		})
@@ -749,6 +756,8 @@ var _ = Describe("Migration watcher", func() {
 				Expect(podInformer.GetStore().Add(pod)).To(Succeed())
 			}
 
+			shouldExpectGenericMigrationUpdate()
+
 			controller.Execute()
 		})
 
@@ -769,6 +778,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -791,6 +801,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 			}
 
+			shouldExpectGenericMigrationUpdate()
 			controller.Execute()
 		})
 
@@ -845,6 +856,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 2, 1, 1)
 
 			controller.Execute()
@@ -1448,7 +1460,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
 		})
@@ -1488,7 +1500,7 @@ var _ = Describe("Migration watcher", func() {
 			if initializeMigrationState {
 				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(ctx context.Context, name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}, _ ...string) (*virtv1.VirtualMachineInstance, error) {
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).DoAndReturn(func(ctx context.Context, name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}, _ ...string) (*virtv1.VirtualMachineInstance, error) {
 
 					vmiSP, err := apimachpatch.UnmarshalPatch(vmiStatusPatch)
 					Expect(err).ToNot(HaveOccurred())
@@ -1550,6 +1562,8 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addNode(node)
 
+			shouldExpectGenericMigrationUpdate()
+
 			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
 				podHasCpuModeLabelSelector := false
 				for key, _ := range pod.Spec.NodeSelector {
@@ -1589,6 +1603,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPDB(pdb)
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPDBPatch(vmi, migration)
 			controller.Execute()
 
@@ -1611,6 +1626,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPDB(pdb)
 
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
@@ -1631,6 +1647,7 @@ var _ = Describe("Migration watcher", func() {
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
+				shouldExpectGenericMigrationUpdate()
 				addPDB(pdb)
 
 				shouldExpectPDBPatch(vmi, migration)
@@ -2016,6 +2033,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectTargetPodWithSELinuxLevel("s0:c1,c2")
 
 			controller.Execute()
@@ -2034,6 +2052,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			shouldExpectGenericMigrationUpdate()
 			shouldExpectTargetPodWithSELinuxLevel("")
 
 			controller.Execute()

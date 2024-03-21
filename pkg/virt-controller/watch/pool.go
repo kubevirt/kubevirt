@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -389,14 +390,6 @@ func (c *PoolController) resolveControllerRef(namespace string, controllerRef *m
 	return pool.(*poolv1.VirtualMachinePool)
 }
 
-func mapCopy(src map[string]string) map[string]string {
-	dst := map[string]string{}
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
-
 // listControllerFromNamespace takes a namespace and returns all Pools from the Pool cache which run in this namespace
 func (c *PoolController) listControllerFromNamespace(namespace string) ([]*poolv1.VirtualMachinePool, error) {
 	objs, err := c.poolInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
@@ -764,8 +757,8 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 
 			vm := virtv1.NewVMReferenceFromNameWithNS(pool.Namespace, name)
 
-			vm.Labels = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
-			vm.Annotations = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
+			vm.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
+			vm.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vm.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
 			vm = injectPoolRevisionLabelsIntoVM(vm, revisionName)
 
@@ -846,8 +839,8 @@ func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vm
 
 			vmCopy := vm.DeepCopy()
 
-			vmCopy.Labels = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
-			vmCopy.Annotations = mapCopy(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
+			vmCopy.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
+			vmCopy.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vmCopy.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
@@ -903,7 +896,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 			}
 			switch updateType {
 			case proactiveUpdateTypeRestart:
-				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, &v1.DeleteOptions{})
+				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
 				if err != nil {
 					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting outdated VMI: %v", vm.Namespace, vm.Name, err)
 					errChan <- err
@@ -944,7 +937,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 
 				patchBytes := controller.GeneratePatchBytes(patchOps)
 
-				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, &v1.PatchOptions{})
+				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 				if err != nil {
 					errChan <- fmt.Errorf("patching of vmi labels with new pool revision name: %v", err)
 					return

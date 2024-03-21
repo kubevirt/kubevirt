@@ -155,6 +155,11 @@ func (c *ClusterConfig) GetMemoryOvercommit() int {
 }
 
 func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
+	oldEmulatedMachines := c.GetConfig().EmulatedMachines
+	if oldEmulatedMachines != nil {
+		return oldEmulatedMachines
+	}
+
 	switch arch {
 	case "arm64":
 		return c.GetConfig().ArchitectureConfiguration.Arm64.EmulatedMachines
@@ -187,7 +192,7 @@ func (c *ClusterConfig) GetDefaultArchitecture() string {
 
 func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
 	autoAttach := spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && *autoAttach == false {
+	if autoAttach != nil && !*autoAttach {
 		return nil
 	}
 
@@ -244,6 +249,11 @@ func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 }
 
 func (c *ClusterConfig) GetOVMFPath(arch string) string {
+	oldOvmfPath := c.GetConfig().OVMFPath
+	if oldOvmfPath != "" {
+		return oldOvmfPath
+	}
+
 	switch arch {
 	case "arm64":
 		return c.GetConfig().ArchitectureConfiguration.Arm64.OVMFPath

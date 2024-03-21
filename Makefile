@@ -206,9 +206,10 @@ format:
 fmt: format
 
 lint:
-	if [ $$(wc -l < tests/utils.go) -gt 2027 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
+	if [ $$(wc -l < tests/utils.go) -gt 1401 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 	hack/dockerized "golangci-lint run --timeout 20m --verbose \
 	  pkg/instancetype/... \
+	  pkg/libvmi/... \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
 	  pkg/network/sriov/... \
@@ -216,7 +217,7 @@ lint:
 	  tests/libnet/... \
 	  tests/libnode/... \
 	  tests/libpod/... \
-	  tests/libvmi/... \
+	  tests/libvmifact/... \
 	  && \
 	  golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
 	  ./pkg/... \

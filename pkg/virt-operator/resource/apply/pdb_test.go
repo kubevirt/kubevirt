@@ -3,8 +3,6 @@ package apply
 import (
 	"encoding/json"
 
-	"kubevirt.io/kubevirt/tests"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -78,7 +76,19 @@ var _ = Describe("Apply PDBs", func() {
 			Registry:        Registry,
 			KubeVirtVersion: Version,
 		}
-		deployment, err = tests.GetDefaultVirtApiDeployment(Namespace, virtApiConfig)
+		deployment, err = components.NewApiServerDeployment(
+			Namespace,
+			virtApiConfig.GetImageRegistry(),
+			virtApiConfig.GetImagePrefix(),
+			virtApiConfig.GetApiVersion(),
+			"",
+			"",
+			"",
+			virtApiConfig.VirtApiImage,
+			virtApiConfig.GetImagePullPolicy(),
+			virtApiConfig.GetImagePullSecrets(),
+			virtApiConfig.GetVerbosity(),
+			virtApiConfig.GetExtraEnv())
 		Expect(err).ToNot(HaveOccurred())
 
 		kv.Status.TargetKubeVirtRegistry = Registry

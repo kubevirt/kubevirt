@@ -31,6 +31,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -39,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -55,7 +56,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			libvmi.WithSEV(withES),
 		}
 		opts = append(sevOptions, opts...)
-		return libvmi.NewFedora(opts...)
+		return libvmifact.NewFedora(opts...)
 	}
 
 	// As per section 6.5 LAUNCH_MEASURE of the AMD SEV specification the launch
@@ -222,7 +223,6 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 		execOnHelperPod := func(command string) (string, error) {
 			stdout, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				helperPod,
 				helperPod.Spec.Containers[0].Name,
 				[]string{tests.BinBash, "-c", command})
@@ -354,7 +354,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := newSEVFedora(false, libvmi.WithSEVAttestation())
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
 

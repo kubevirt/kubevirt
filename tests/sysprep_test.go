@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -229,7 +229,7 @@ func addExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
-	firmware := types.UID(libvmi.WindowsFirmware)
+	firmware := types.UID(libvmifact.WindowsFirmware)
 	_false := false
 	return v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
@@ -335,14 +335,14 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the windows VirtualMachineInstance")
-			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
+			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(windowsVMI,
 				libwait.WithTimeout(720),
 			)
 
-			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
+			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), windowsVMI.Name, metav1.GetOptions{})
 			vmiIp = windowsVMI.Status.Interfaces[0].IP
 			cli = []string{
 				winrmCliCmd,
@@ -360,7 +360,6 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			Eventually(func() error {
 				fmt.Printf("Running \"%s\" command via winrm-cli\n", command)
 				output, err = exec.ExecuteCommandOnPod(
-					virtClient,
 					winrmcliPod,
 					winrmcliPod.Spec.Containers[0].Name,
 					command,

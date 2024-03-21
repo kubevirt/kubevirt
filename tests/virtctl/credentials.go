@@ -16,9 +16,11 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -48,7 +50,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 		sshKeySecretName = sshKeySecretNamePrefix + rand.String(6)
 		passwordSecretName = passwordSecretNamePrefix + rand.String(6)
 
-		vmi := libvmi.NewFedora()
+		vmi := libvmifact.NewFedora()
 		vmi.Namespace = util.NamespaceTestDefault
 
 		vm = libvmi.NewVirtualMachine(vmi)

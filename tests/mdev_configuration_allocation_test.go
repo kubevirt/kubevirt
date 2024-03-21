@@ -31,8 +31,10 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -237,7 +239,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 		cleanupConfiguredMdevs := func() {
 			By("Deleting the VMI")
-			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -252,7 +254,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		It("Should successfully passthrough a mediated device", func() {
 
 			By("Creating a Fedora VMI")
-			vmi = tests.NewRandomFedoraVMI()
+			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
 			vGPUs := []v1.GPU{
 				{
@@ -261,7 +263,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -283,7 +285,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		It("Should successfully passthrough a mediated device with a disabled display", func() {
 			_false := false
 			By("Creating a Fedora VMI")
-			vmi = tests.NewRandomFedoraVMI()
+			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
 			vGPUs := []v1.GPU{
 				{
@@ -297,7 +299,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -333,7 +335,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
 
 			By("Creating a Fedora VMI")
-			vmi = tests.NewRandomFedoraVMI()
+			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
 			vGPUs := []v1.GPU{
 				{
@@ -342,7 +344,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			libwait.WaitForSuccessfulVMIStart(vmi)

@@ -22,7 +22,6 @@ package infrastructure
 import (
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -40,7 +39,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests"
 )
@@ -72,7 +73,7 @@ var _ = DescribeInfra("changes to the kubernetes client", func() {
 
 	It("on the controller rate limiter should lead to delayed VMI starts", func() {
 		By("first getting the basetime for a replicaset")
-		replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
+		replicaset := tests.NewRandomReplicaSetFromVMI(libvmifact.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
 		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(replicaset)
 		Expect(err).ToNot(HaveOccurred())
 		start := time.Now()
@@ -100,7 +101,7 @@ var _ = DescribeInfra("changes to the kubernetes client", func() {
 		Expect(slowDuration.Seconds()).To(BeNumerically(">", 2*fastDuration.Seconds()))
 	})
 
-	It("[QUARANTINE] on the virt handler rate limiter should lead to delayed VMI running states", decorators.Quarantine, func() {
+	It("on the virt handler rate limiter should lead to delayed VMI running states", func() {
 		By("first getting the basetime for a replicaset")
 		targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 		vmi := libvmi.New(

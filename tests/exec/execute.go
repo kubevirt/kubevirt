@@ -23,6 +23,8 @@ import (
 	"bytes"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -30,8 +32,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
-	stdout, stderr, err := ExecuteCommandOnPodWithResults(virtCli, pod, containerName, command)
+func ExecuteCommandOnPod(pod *k8sv1.Pod, containerName string, command []string) (string, error) {
+	stdout, stderr, err := ExecuteCommandOnPodWithResults(pod, containerName, command)
 
 	if err != nil {
 		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
@@ -44,7 +46,7 @@ func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, contain
 	return stdout, nil
 }
 
-func ExecuteCommandOnPodWithResults(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
+func ExecuteCommandOnPodWithResults(pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
 	var (
 		stdoutBuf bytes.Buffer
 		stderrBuf bytes.Buffer
@@ -54,12 +56,12 @@ func ExecuteCommandOnPodWithResults(virtCli kubecli.KubevirtClient, pod *k8sv1.P
 		Stderr: &stderrBuf,
 		Tty:    false,
 	}
-	err = ExecuteCommandOnPodWithOptions(virtCli, pod, containerName, command, options)
+	err = ExecuteCommandOnPodWithOptions(pod, containerName, command, options)
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
-func ExecuteCommandOnPodWithOptions(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
-	req := virtCli.CoreV1().RESTClient().Post().
+func ExecuteCommandOnPodWithOptions(pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
+	req := kubevirt.Client().CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).
 		Namespace(pod.Namespace).

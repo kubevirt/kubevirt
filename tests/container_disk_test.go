@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -46,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -102,14 +104,14 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1464]should not modify the spec on status update", func() {
-				vmi := libvmi.NewCirros()
+				vmi := libvmifact.NewCirros()
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 				By("Starting the VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
-				startedVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.ObjectMeta.Name, &metav1.GetOptions{})
+				startedVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.ObjectMeta.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VirtualMachineInstance spec did not change")
 				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
@@ -126,12 +128,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmi.NewCirros()
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi := libvmifact.NewCirros()
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
 				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceSynchronized && condition.Status == k8sv1.ConditionFalse {
@@ -152,8 +154,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				for i := 0; i < count; i++ {
 					// Provide 1Mi of memory to prevent VMIs from actually booting.
 					// We only care about the volume containers inside the virt-launcher Pod.
-					vmi := libvmi.NewCirros(libvmi.WithResourceMemory("1Mi"))
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+					vmi := libvmifact.NewCirros(libvmi.WithResourceMemory("1Mi"))
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					vmis = append(vmis, vmi)
 				}
@@ -188,7 +190,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting with virtio-win", func() {
 		Context("with virtio-win as secondary disk", func() {
 			It("[test_id:1467]should boot and have the virtio as sata CDROM", func() {
-				vmi := libvmi.NewAlpine(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithEphemeralCDRom("disk4", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskVirtio)),
 				)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -216,7 +218,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:4052][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", func() {
-				vmi := libvmi.NewAlpine()
+				vmi := libvmifact.NewAlpine()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("Ensuring VMI is running by logging in")
@@ -229,7 +231,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				writableImagePath := fmt.Sprintf("/var/run/kubevirt-ephemeral-disks/disk-data/%v/disk.qcow2", vmi.Spec.Domain.Devices.Disks[0].Name)
 
 				writableImageOctalMode, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					pod,
 					"compute",
 					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("stat -c %%a %s", writableImagePath)},
@@ -240,7 +241,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("640"), "Octal Mode of writable Image should be 640")
 
 				readonlyImageOctalMode, err := exec.ExecuteCommandOnPod(
-					virtClient,
 					pod,
 					"compute",
 					[]string{"/usr/bin/bash", "-c", "stat -c %a /var/run/kubevirt/container-disks/disk_0.img"},
@@ -256,7 +256,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("Bogus container disk path", func() {
 		Context("that points to outside of the volume", func() {
 			It("should be rejected on VMI creation", func() {
-				vmi := libvmi.NewAlpine()
+				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"
 				By("Starting the VirtualMachineInstance")
 				_, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()

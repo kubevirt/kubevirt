@@ -273,7 +273,7 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv
 	if err != nil {
 		return err
 	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, &metav1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
 		return err

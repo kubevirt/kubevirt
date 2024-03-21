@@ -29,9 +29,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("Network interface hot{un}plug", func() {

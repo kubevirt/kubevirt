@@ -30,11 +30,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 const (
@@ -52,7 +54,7 @@ func newLabeledVMI(label string) (vmi *v1.VirtualMachineInstance) {
 		{Name: "test-port-tcp", Port: 1500, Protocol: "TCP"},
 		{Name: "udp", Port: 82, Protocol: "UDP"},
 		{Name: "test-port-udp", Port: 1500, Protocol: "UDP"}}
-	vmi = libvmi.NewAlpineWithTestTooling(
+	vmi = libvmifact.NewAlpineWithTestTooling(
 		libnet.WithMasqueradeNetworking(ports...)...,
 	)
 	vmi.Labels = map[string]string{"expose": label}
@@ -370,7 +372,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						launcher, err := libpod.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace())
 						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
 							launcher,
 							node,
 							k8sv1.IPv6Protocol)
@@ -485,7 +486,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						launcher, err := libpod.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace())
 						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
-							virtClient,
 							launcher,
 							node,
 							k8sv1.IPv6Protocol)
@@ -535,7 +535,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			// TODO: add label to list options
 			// check size of list
 			// remove check for owner
-			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(context.Background(), &k8smetav1.ListOptions{})
+			vms, err := virtClient.VirtualMachineInstance(vmrs.ObjectMeta.Namespace).List(context.Background(), k8smetav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
@@ -605,7 +605,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By("Getting the running VMI")
 			var vmi *v1.VirtualMachineInstance
 			Eventually(func() bool {
-				vmi, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.Status.Phase == v1.Running
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
@@ -697,7 +697,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				runJobsAgainstService(svc, vmObj.Namespace, job.NewHelloWorldJobTCP)
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
-				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(context.Background(), vmObj.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(context.Background(), vmObj.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
@@ -708,7 +708,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("Verifying the VMI is back up AFTER restart (in Running status with new UID).")
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(context.Background(), vmObj.Name, &k8smetav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(context.Background(), vmObj.Name, k8smetav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -782,10 +782,9 @@ func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 	return nil
 }
 
-func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
+func resolveNodeIp(pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
 	ahostsCmd := string("ahosts" + ipFamily[2:])
 	output, err := exec.ExecuteCommandOnPod(
-		virtclient,
 		pod,
 		"compute",
 		[]string{"getent", ahostsCmd, hostname})
@@ -803,10 +802,10 @@ func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname s
 	return "", fmt.Errorf("could not resolve an %s address from %s name", ipFamily, hostname)
 }
 
-func resolveNodeIPAddrByFamily(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.Pod, node k8sv1.Node, ipFamily k8sv1.IPFamily) (string, error) {
+func resolveNodeIPAddrByFamily(sourcePod *k8sv1.Pod, node k8sv1.Node, ipFamily k8sv1.IPFamily) (string, error) {
 	hostname := getNodeHostname(node.Status.Addresses)
 	if hostname == nil {
 		return "", fmt.Errorf("could not get node hostname")
 	}
-	return resolveNodeIp(virtClient, sourcePod, *hostname, ipFamily)
+	return resolveNodeIp(sourcePod, *hostname, ipFamily)
 }

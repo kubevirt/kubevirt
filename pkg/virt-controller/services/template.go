@@ -22,7 +22,9 @@ package services
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 
@@ -54,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -76,8 +79,6 @@ const PrDevice = "devices.kubevirt.io/pr-helper"
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
 const virtiofsDebugLogs = "virtiofsdDebugLogs"
-
-const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 const qemuTimeoutJitterRange = 120
 
@@ -690,6 +691,10 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
 		sidecarOpts = append(sidecarOpts, WithDropALLCapabilities())
 	}
+	if requestedHookSidecar.Image == "" {
+		requestedHookSidecar.Image = os.Getenv(operatorutil.SidecarShimImageEnvName)
+	}
+
 	return NewContainerSpecRenderer(
 		sidecarName,
 		requestedHookSidecar.Image,
@@ -1316,9 +1321,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
-	for k, v := range filterVMIAnnotationsForPod(vmi.Annotations) {
-		annotationsSet[k] = v
-	}
+	maps.Copy(annotationsSet, filterVMIAnnotationsForPod(vmi.Annotations))
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
@@ -1331,7 +1334,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		return nil, err
 	}
 	if multusAnnotation != "" {
-		annotationsSet[MultusNetworksAnnotation] = multusAnnotation
+		annotationsSet[networkv1.NetworkAttachmentAnnot] = multusAnnotation
 	}
 
 	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {

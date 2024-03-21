@@ -8,7 +8,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/migration"
 
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -24,7 +24,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -58,7 +60,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 	Context("A VM with memory liveUpdate enabled", func() {
 
 		createHotplugVM := func(guest, maxGuest *resource.Quantity, sockets *uint32, maxSockets uint32) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-			vmi := libvmi.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libnet.WithMasqueradeNetworking()...,
 			)
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -80,7 +82,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			EventuallyWithOffset(1, ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
+			EventuallyWithOffset(1, ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 			return vm, vmi
 		}
@@ -137,14 +139,14 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Ensuring the libvirt domain has more available guest memory")
 			Eventually(func() int64 {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return getCurrentDomainMemory(vmi).Value()
 			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
 
 			By("Ensuring the VMI has more available guest memory")
 			Eventually(func() int64 {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return vmi.Status.Memory.GuestCurrent.Value()
 			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
@@ -171,7 +173,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Checking that hotplug was successful")
 			Eventually(func() int64 {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return vmi.Status.Memory.GuestCurrent.Value()
 			}, 360*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
@@ -179,14 +181,14 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			By("Stopping the VM")
 			stopOptions := &v1.StopOptions{GracePeriod: pointer.P(int64(0))}
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, stopOptions)
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 			By("Restarting the VM")
 			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 480*time.Second, 1*time.Second).Should(beReady())
+			Eventually(ThisVM(vm), 480*time.Second, 1*time.Second).Should(BeReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Checking the new guest memory base value")
@@ -234,20 +236,20 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Checking that Memory hotplug was successful")
 			Eventually(func() int64 {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return vmi.Status.Memory.GuestCurrent.Value()
 			}, 360*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
 
 			By("Checking that CPU hotplug was successful")
 			Eventually(func() bool {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return vmi.Status.CurrentCPUTopology.Sockets == newSockets
 			}, 360*time.Second, time.Second).Should(BeTrue())
 
 			By("Checking the correctness of the VMI memory requests")
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Spec.Domain.Resources.Requests.Memory().Value()).To(Equal(newGuestMemory.Value()))
 		})

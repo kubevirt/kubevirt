@@ -73,6 +73,7 @@ type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
 	maxFails     int
+	alwaysReport bool
 }
 
 type commands struct {
@@ -85,6 +86,15 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 		failureCount: 0,
 		artifactsDir: artifactsDir,
 		maxFails:     maxFailures,
+	}
+}
+
+func (r *KubernetesReporter) ConfigurePerSpecReporting(report Report) {
+	// we want to emit k8s logs anyhow if we focus tests by i.e. FIt
+	r.alwaysReport = report.SuiteHasProgrammaticFocus
+	_, err := fmt.Fprintf(GinkgoWriter, "ConfigurePerSpecReporting r.alwaysReport = %t", r.alwaysReport)
+	if err != nil {
+		GinkgoT().Error(err)
 	}
 }
 
@@ -104,13 +114,12 @@ func (r *KubernetesReporter) Report(report types.Report) {
 
 func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
-
-	if r.failureCount > r.maxFails {
+	if !r.alwaysReport && r.failureCount > r.maxFails {
 		return
 	}
 	if specReport.Failed() {
 		r.failureCount++
-	} else {
+	} else if !r.alwaysReport {
 		return
 	}
 
@@ -320,7 +329,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 			}
 
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
-			stdout, _, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, virtHandlerName, commands)
+			stdout, _, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, commands)
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
@@ -381,7 +390,7 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, logsdi
 			}
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
 			getAuditLogCmd := []string{"cat", "/proc/1/root/var/log/audit/audit.log"}
-			stdout, _, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, virtHandlerName, getAuditLogCmd)
+			stdout, _, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, getAuditLogCmd)
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
@@ -496,12 +505,12 @@ func (r *KubernetesReporter) logVirtLauncherPrivilegedCommands(virtCli kubecli.K
 		if virtHandlerPod, ok := nodeMap[virtLauncherPod.Spec.NodeName]; ok {
 			labels := virtLauncherPod.GetLabels()
 			if uid, ok := labels["kubevirt.io/created-by"]; ok {
-				pid, err := getVirtLauncherMonitorPID(virtCli, &virtHandlerPod, uid)
+				pid, err := getVirtLauncherMonitorPID(&virtHandlerPod, uid)
 				if err != nil {
 					continue
 				}
 
-				r.executePriviledgedVirtLauncherCommands(virtCli, &virtHandlerPod, logsdir, pid, virtLauncherPod.ObjectMeta.Name)
+				r.executePriviledgedVirtLauncherCommands(&virtHandlerPod, logsdir, pid, virtLauncherPod.ObjectMeta.Name)
 			}
 		}
 	}
@@ -604,7 +613,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 		}
 		commands = append(commands, unitCommandArgs...)
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, virtHandlerName, commands)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, virtHandlerName, commands)
 		if err != nil {
 			fmt.Fprintf(
 				os.Stderr,
@@ -917,7 +926,7 @@ func getVirtHandlerList(virtCli kubecli.KubevirtClient) *v1.PodList {
 
 func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList {
 
-	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
+	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v\n", err)
 		return nil
@@ -941,7 +950,7 @@ func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.Vi
 	runningVMIs := []v12.VirtualMachineInstance{}
 
 	for _, ns := range namespace {
-		nsVMIs, err := virtCli.VirtualMachineInstance(ns).List(context.Background(), &metav1.ListOptions{})
+		nsVMIs, err := virtCli.VirtualMachineInstance(ns).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get vmis from namespace %s: %v\n", ns, err)
 			continue
@@ -1235,7 +1244,7 @@ func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtCl
 	for _, cmd := range cmds {
 		command := []string{"sh", "-c", cmd.command}
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, container, command)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, container, command)
 		if err != nil {
 			fmt.Fprintf(
 				os.Stderr,
@@ -1305,10 +1314,10 @@ func (r *KubernetesReporter) executeVMICommands(vmi v12.VirtualMachineInstance, 
 	}
 }
 
-func (r *KubernetesReporter) executePriviledgedVirtLauncherCommands(virtCli kubecli.KubevirtClient, virtHandlerPod *v1.Pod, logsdir, pid, target string) {
+func (r *KubernetesReporter) executePriviledgedVirtLauncherCommands(virtHandlerPod *v1.Pod, logsdir, pid, target string) {
 	nftCommand := strings.Split(fmt.Sprintf("nsenter -t %s -n -- nft list ruleset", pid), " ")
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, virtHandlerName, nftCommand)
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtHandlerPod, virtHandlerName, nftCommand)
 	if err != nil {
 		fmt.Fprintf(
 			os.Stderr,
@@ -1357,14 +1366,14 @@ func (r *KubernetesReporter) executeCloudInitCommands(vmi v12.VirtualMachineInst
 	}
 }
 
-func getVirtLauncherMonitorPID(virtCli kubecli.KubevirtClient, virtHandlerPod *v1.Pod, uid string) (string, error) {
+func getVirtLauncherMonitorPID(virtHandlerPod *v1.Pod, uid string) (string, error) {
 	command := []string{
 		"/bin/bash",
 		"-c",
 		fmt.Sprintf("pgrep -f \"monitor.*uid %s\"", uid),
 	}
 
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, virtHandlerPod, virtHandlerName, command)
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtHandlerPod, virtHandlerName, command)
 	if err != nil {
 		fmt.Fprintf(
 			os.Stderr,

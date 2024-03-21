@@ -16,8 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v12 "kubevirt.io/api/core/v1"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -166,7 +164,7 @@ func (o *Command) RunE(args []string) error {
 	switch vmType {
 	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
 		// get the VM
-		vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, &options)
+		vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, options)
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
@@ -316,7 +314,7 @@ func convertIPFamilyPolicy(strIPFamilyPolicy string, ipFamilies []v1.IPFamily) (
 	}
 }
 
-func podNetworkPorts(vmiSpec *v12.VirtualMachineInstanceSpec) []v1.ServicePort {
+func podNetworkPorts(vmiSpec *virtv1.VirtualMachineInstanceSpec) []v1.ServicePort {
 	podNetworkName := ""
 	for _, network := range vmiSpec.Networks {
 		if network.Pod != nil {

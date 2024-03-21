@@ -45,7 +45,7 @@ type PVC struct {
 }
 
 type HookSidecar struct {
-	Image           string           `json:"image"`
+	Image           string           `json:"image,omitempty"`
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy"`
 	Command         []string         `json:"command,omitempty"`
 	Args            []string         `json:"args,omitempty"`

@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -28,7 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -45,7 +46,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error
-		cpuVMI := libvmi.NewCirros()
+		cpuVMI := libvmifact.NewCirros()
 		cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 		cpuVMI.Spec.Domain.CPU = &v1.CPU{
 			Cores:                 3,
@@ -57,13 +58,13 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 		}
 
 		By("Starting a VirtualMachineInstance")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), cpuVMI)
+		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		cpuVMI = libwait.WaitForSuccessfulVMIStart(cpuVMI)
 		By("Fetching the numa memory mapping")
 		handler, err := libnode.GetVirtHandlerPod(virtClient, cpuVMI.Status.NodeName)
 		Expect(err).ToNot(HaveOccurred())
-		pid := getQEMUPID(virtClient, handler, cpuVMI)
+		pid := getQEMUPID(handler, cpuVMI)
 
 		By("Checking if the pinned numa memory chunks match the VMI memory size")
 		scanner := bufio.NewScanner(strings.NewReader(getNUMAMapping(virtClient, handler, pid)))
@@ -109,12 +110,12 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 
 })
 
-func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
+func getQEMUPID(handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 	var stdout, stderr string
 	// Using `ps` here doesn't work reliably. Grepping /proc instead.
 	// The "[g]" prevents grep from finding its own process
 	Eventually(func() (err error) {
-		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, handlerPod, "virt-handler",
+		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(handlerPod, "virt-handler",
 			[]string{
 				"/bin/bash",
 				"-c",
@@ -132,7 +133,7 @@ func getQEMUPID(virtClient kubecli.KubevirtClient, handlerPod *k8sv1.Pod, vmi *v
 }
 
 func getNUMAMapping(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, pid string) string {
-	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler",
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler",
 		[]string{
 			"/bin/bash",
 			"-c",

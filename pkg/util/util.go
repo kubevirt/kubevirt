@@ -112,7 +112,7 @@ func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) &&
 		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
 		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
-		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState == true
+		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
 }
 
 // Check if a VMI spec requests SEV with attestation
@@ -165,7 +165,7 @@ func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bo
 func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true)
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface)
 }
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
@@ -215,7 +215,7 @@ func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func IsReadOnlyDisk(disk *v1.Disk) bool {
-	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly == true)
+	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly)
 
 	return isReadOnlyCDRom
 }
