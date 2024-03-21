@@ -17,20 +17,23 @@
  *
  */
 
-package mutators
+package mutators_test
 
 import (
 	"encoding/json"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	admissionv1 "k8s.io/api/admission/v1"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 )
 
 var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
@@ -50,7 +53,7 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		}
 
 		By("Mutating the Migration")
-		mutator := &MigrationCreateMutator{}
+		mutator := &mutators.MigrationCreateMutator{}
 		resp := mutator.Mutate(ar)
 		Expect(resp.Allowed).To(BeTrue())
 
