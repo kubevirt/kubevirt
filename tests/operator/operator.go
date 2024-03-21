@@ -718,7 +718,16 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
-				vmi := libvmifact.NewCirros(
+				virtCli := kubevirt.Client()
+
+				_, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: secretName},
+					StringData: secret_data,
+				}, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					util2.PanicOnError(err)
+				}
+				vmi := libvmi.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithConfigMapDisk(configMapName, configMapName),

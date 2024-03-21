@@ -20,13 +20,19 @@
 package virtiofs
 
 import (
+	"context"
 	"fmt"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
@@ -122,7 +128,15 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				"user":     "admin",
 				"password": "redhat",
 			}
-			tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
+			virtCli := kubevirt.Client()
+
+			_, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.Secret{
+				ObjectMeta: v1.ObjectMeta{Name: secretName},
+				StringData: data,
+			}, v1.CreateOptions{})
+			if !errors.IsAlreadyExists(err) {
+				util.PanicOnError(err)
+			}
 		})
 
 		It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {

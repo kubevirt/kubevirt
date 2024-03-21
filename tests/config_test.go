@@ -19,6 +19,7 @@
 package tests_test
 
 import (
+	"context"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -33,6 +34,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -43,9 +47,11 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	util2 "kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, func() {
@@ -187,7 +193,15 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"user":     "admin",
 					"password": "redhat",
 				}
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
+
+				virtCli := kubevirt.Client()
+
+				_, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: secretName},
+					StringData: data,
+				}, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
 			})
 
 			AfterEach(func() {
@@ -240,7 +254,18 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			BeforeEach(func() {
 				for i := 0; i < secretsCnt; i++ {
 					name := "secret-" + uuid.NewString()
-					tests.CreateSecret(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
+					data := map[string]string{
+						"option": "value",
+					}
+					virtCli := kubevirt.Client()
+
+					_, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.Secret{
+						ObjectMeta: metav1.ObjectMeta{Name: name},
+						StringData: data,
+					}, metav1.CreateOptions{})
+					if !errors.IsAlreadyExists(err) {
+						util2.PanicOnError(err)
+					}
 					secrets = append(secrets, name)
 				}
 			})
@@ -347,7 +372,15 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), configData)
 
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secretData)
+				virtCli := kubevirt.Client()
+
+				_, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: secretName},
+					StringData: secretData,
+				}, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					util2.PanicOnError(err)
+				}
 			})
 
 			AfterEach(func() {
@@ -468,7 +501,15 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"ssh-privatekey": string(privateKeyBytes),
 					"ssh-publickey":  string(publicKeyBytes),
 				}
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
+				virtCli := kubevirt.Client()
+
+				_, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: secretName},
+					StringData: data,
+				}, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					util2.PanicOnError(err)
+				}
 			})
 
 			AfterEach(func() {
