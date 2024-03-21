@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "native.go",
-        "native_unsupported.go",
         "scp.go",
         "wrapped.go",
     ],

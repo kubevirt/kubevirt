@@ -849,7 +849,8 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMach
 			if dvt.Name != dvName {
 				continue
 			}
-			return m.inferDefaultsFromDataVolumeSpec(&dvt.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
+			dvtSpec := dvt.Spec
+			return m.inferDefaultsFromDataVolumeSpec(&dvtSpec, defaultNameLabel, defaultKindLabel, vm.Namespace)
 		}
 	}
 	dv, err := m.Clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})

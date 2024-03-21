@@ -44,23 +44,29 @@ rules_proto_toolchains()
 
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "099a9fb96a376ccbbb7d291ed4ecbdfd42f6bc822ab77ae6f1b5cb9e914e94fa",
+    sha256 = "91585017debb61982f7054c9688857a2ad1fd823fc3f9cb05048b0025c47d023",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
-        "https://storage.googleapis.com/builddeps/099a9fb96a376ccbbb7d291ed4ecbdfd42f6bc822ab77ae6f1b5cb9e914e94fa",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.42.0/rules_go-v0.42.0.zip",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.42.0/rules_go-v0.42.0.zip",
     ],
 )
 
-# XXX: For now stick with 0.24. The resultion mode changed from 'external' to 'static' which causes some import troubles.
-# See https://github.com/bazelbuild/bazel-gazelle/pull/1264#issuecomment-1288680264 for details. Can be resolved at some point.
+# FIXME: added to make update of gazelle possible, see https://github.com/bazelbuild/bazel-gazelle/issues/1290#issuecomment-1312809060
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "c6966ec828da198c5d9adbaa94c05e3a1c7f21bd012a0b29ba8ddbccb2c93b0d",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.1.1/bazel-skylib-1.1.1.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.1.1/bazel-skylib-1.1.1.tar.gz",
+    ],
+)
+
 http_archive(
     name = "bazel_gazelle",
-    sha256 = "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
+    sha256 = "d3fa66a39028e97d76f9e2db8f1b0c11c099e8e01bf363a923074784e451f809",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.33.0/bazel-gazelle-v0.33.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.33.0/bazel-gazelle-v0.33.0.tar.gz",
     ],
 )
 
@@ -149,7 +155,7 @@ load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
 go_rules_dependencies()
 
 go_register_toolchains(
-    go_version = "1.19.9",
+    go_version = "1.21.8",
     nogo = "@//:nogo_vet",
 )
 
@@ -272,16 +278,16 @@ container_deps()
 # Pull go_image_base
 container_pull(
     name = "go_image_base",
-    digest = "sha256:6c871aa3c9019984dfd7f520635bd658d740ad20c6268a82faa433f69dfc9a0b",
+    digest = "sha256:9d6c97c160bff0f78a443b583811dd0c8dde5c5086fe8fd2aaf2c23ee7e9590a",
     registry = "gcr.io",
-    repository = "distroless/base",
+    repository = "distroless/base-debian12",
 )
 
 container_pull(
     name = "go_image_base_aarch64",
-    digest = "sha256:4f81adb2fa054fd2ea49a918e2eb025325992b1235733da5ba51ab75bf9bd386",
+    digest = "sha256:b251ebd844116427f92523668ca5e9f8d803e479eef44705b62090176d5e8cc7",
     registry = "gcr.io",
-    repository = "distroless/base",
+    repository = "distroless/base-debian12",
 )
 
 # Pull nfs-server image
