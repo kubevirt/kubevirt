@@ -308,7 +308,6 @@ func (c *VMController) execute(key string) error {
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
-		vm := vm.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(vm)
 		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 
@@ -706,8 +705,7 @@ func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.V
 	var ops []string
 
 	if vm.Spec.Template.Spec.Affinity != nil {
-		vmAffinity := vm.Spec.Template.Spec.Affinity.DeepCopy()
-		vmAffinityJson, err := json.Marshal(vmAffinity)
+		vmAffinityJson, err := json.Marshal(vm.Spec.Template.Spec.Affinity)
 		if err != nil {
 			return err
 		}
