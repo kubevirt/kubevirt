@@ -37,19 +37,16 @@ import (
 )
 
 var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
-	var migration *v1.VirtualMachineInstanceMigration
+	It("Should mutate the VirtualMachineInstanceMigration object", func() {
+		migration := newMigration()
 
-	getMigrationSpecMetaFromResponse := func() (*v1.VirtualMachineInstanceMigrationSpec, *k8smetav1.ObjectMeta) {
-		By("Creating the test admissions review from the Migration object")
 		ar, err := newAdmissionReview(migration)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Mutating the Migration")
 		mutator := &mutators.MigrationCreateMutator{}
 		resp := mutator.Mutate(ar)
 		Expect(resp.Allowed).To(BeTrue())
 
-		By("Getting the VMI spec from the response")
 		migrationSpec := &v1.VirtualMachineInstanceMigrationSpec{}
 		migrationMeta := &k8smetav1.ObjectMeta{}
 		patchOps := []patch.PatchOperation{
@@ -60,25 +57,9 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(patchOps).NotTo(BeEmpty())
 
-		return migrationSpec, migrationMeta
-	}
-
-	BeforeEach(func() {
-		migration = newMigration()
-	})
-
-	It("should verify migration spec", func() {
-		migrationSpec, _ := getMigrationSpecMetaFromResponse()
 		Expect(migrationSpec.VMIName).To(Equal("testVmi"))
-	})
-
-	It("should apply finalizer on migration create", func() {
-		_, migrationMeta := getMigrationSpecMetaFromResponse()
 		Expect(migrationMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceMigrationFinalizer))
-	})
 
-	It("should add the selector label", func() {
-		_, migrationMeta := getMigrationSpecMetaFromResponse()
 		Expect(migrationMeta.Labels).ToNot(BeNil())
 		Expect(migrationMeta.Labels[v1.MigrationSelectorLabel]).To(Equal(migration.Spec.VMIName))
 	})
