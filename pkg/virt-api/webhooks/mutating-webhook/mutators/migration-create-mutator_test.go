@@ -40,17 +40,9 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 	var migration *v1.VirtualMachineInstanceMigration
 
 	getMigrationSpecMetaFromResponse := func() (*v1.VirtualMachineInstanceMigrationSpec, *k8smetav1.ObjectMeta) {
-		migrationBytes, err := json.Marshal(migration)
-		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the Migration object")
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
-				Object: runtime.RawExtension{
-					Raw: migrationBytes,
-				},
-			},
-		}
+		ar, err := newAdmissionReview(migration)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Mutating the Migration")
 		mutator := &mutators.MigrationCreateMutator{}
@@ -101,4 +93,24 @@ func newMigration() *v1.VirtualMachineInstanceMigration {
 			VMIName: "testVmi",
 		},
 	}
+}
+
+func newAdmissionReview(migration *v1.VirtualMachineInstanceMigration) (*admissionv1.AdmissionReview, error) {
+	migrationBytes, err := json.Marshal(migration)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: k8smetav1.GroupVersionResource{
+				Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
+				Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
+				Resource: "virtualmachineinstancemigrations",
+			},
+			Object: runtime.RawExtension{
+				Raw: migrationBytes,
+			},
+		},
+	}, nil
 }
