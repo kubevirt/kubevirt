@@ -184,6 +184,11 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 		})
 
+		shouldExpectGracePeriodPatched := func(expectedGracePeriod int64, vmi *virtv1.VirtualMachineInstance) {
+			patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, expectedGracePeriod)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+		}
+
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
@@ -2062,6 +2067,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.DeletionTimestamp = now()
+			vm.DeletionGracePeriodSeconds = kvpointer.P(v1.DefaultGracePeriodSeconds)
 
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
@@ -2069,6 +2075,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
+			shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds, vmi)
 
 			sanityExecute(vm)
 
@@ -3326,6 +3333,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, vmi := DefaultVirtualMachine(true)
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+					vm.DeletionGracePeriodSeconds = kvpointer.P(v1.DefaultGracePeriodSeconds)
 					vmi.Status.Phase = phase
 
 					if condType != "" {
@@ -3337,6 +3345,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
+					shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds, vmi)
 					vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).AnyTimes()
 					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
