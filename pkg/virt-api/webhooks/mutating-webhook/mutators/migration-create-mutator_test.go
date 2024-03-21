@@ -33,6 +33,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 )
 
@@ -40,23 +41,23 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 	It("Should mutate the VirtualMachineInstanceMigration object", func() {
 		migration := newMigration()
 
-		ar, err := newAdmissionReview(migration)
+		admissionReview, err := newAdmissionReview(migration)
 		Expect(err).ToNot(HaveOccurred())
 
 		mutator := &mutators.MigrationCreateMutator{}
-		resp := mutator.Mutate(ar)
-		Expect(resp.Allowed).To(BeTrue())
 
-		migrationMeta := k8smetav1.ObjectMeta{}
-		patchOps := []patch.PatchOperation{
-			{Value: &migrationMeta},
-		}
+		expectedJSONPatch, err := expectedJSONPatch(
+			expectedMigrationObjectMeta(migration.ObjectMeta, migration.Spec.VMIName),
+		)
+		Expect(err).NotTo(HaveOccurred())
 
-		err = json.Unmarshal(resp.Patch, &patchOps)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(patchOps).NotTo(BeEmpty())
-
-		Expect(migrationMeta).To(Equal(expectedMigrationObjectMeta(migration.ObjectMeta, migration.Spec.VMIName)))
+		Expect(mutator.Mutate(admissionReview)).To(Equal(
+			&admissionv1.AdmissionResponse{
+				Allowed:   true,
+				PatchType: pointer.P(admissionv1.PatchTypeJSONPatch),
+				Patch:     expectedJSONPatch,
+			},
+		))
 	})
 })
 
@@ -98,4 +99,14 @@ func expectedMigrationObjectMeta(currentObjectMeta k8smetav1.ObjectMeta, vmiName
 	expectedObjectMeta.Finalizers = []string{v1.VirtualMachineInstanceMigrationFinalizer}
 
 	return expectedObjectMeta
+}
+
+func expectedJSONPatch(expectedObjectMeta k8smetav1.ObjectMeta) ([]byte, error) {
+	return patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
+			Path:  "/metadata",
+			Value: expectedObjectMeta,
+		},
+	)
 }
