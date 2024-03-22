@@ -418,6 +418,7 @@ type StorageProfileSpec struct {
 	// CloneStrategy defines the preferred method for performing a CDI clone
 	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 	// ClaimPropertySets is a provided set of properties applicable to PVC
+	// +kubebuilder:validation:MaxItems=8
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
 	// DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
 	DataImportCronSourceFormat *DataImportCronSourceFormat `json:"dataImportCronSourceFormat,omitempty"`
@@ -434,6 +435,7 @@ type StorageProfileStatus struct {
 	// CloneStrategy defines the preferred method for performing a CDI clone
 	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 	// ClaimPropertySets computed from the spec and detected in the system
+	// +kubebuilder:validation:MaxItems=8
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
 	// DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
 	DataImportCronSourceFormat *DataImportCronSourceFormat `json:"dataImportCronSourceFormat,omitempty"`
@@ -445,12 +447,13 @@ type StorageProfileStatus struct {
 type ClaimPropertySet struct {
 	// AccessModes contains the desired access modes the volume should have.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
-	// +optional
-	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,1,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
+	// +kubebuilder:validation:MaxItems=4
+	// +kubebuilder:validation:XValidation:rule="self.all(am, am in ['ReadWriteOnce', 'ReadOnlyMany', 'ReadWriteMany', 'ReadWriteOncePod'])", message="Illegal AccessMode"
+	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes"`
 	// VolumeMode defines what type of volume is required by the claim.
 	// Value of Filesystem is implied when not included in claim spec.
-	// +optional
-	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty" protobuf:"bytes,6,opt,name=volumeMode,casttype=PersistentVolumeMode"`
+	// +kubebuilder:validation:Enum="Block";"Filesystem"
+	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode"`
 }
 
 // StorageProfileList provides the needed parameters to request a list of StorageProfile from the system

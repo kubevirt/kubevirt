@@ -307,14 +307,14 @@ rules:
   - watch
   - create
   - update
-  - delete
+  - deletecollection
 - apiGroups:
   - batch
   resources:
   - jobs
   verbs:
   - create
-  - delete
+  - deletecollection
   - list
   - watch
 - apiGroups:
@@ -2982,6 +2982,14 @@ rules:
   - cdis
   verbs:
   - get
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - cdiconfigs
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - cdi.kubevirt.io
   resources:
