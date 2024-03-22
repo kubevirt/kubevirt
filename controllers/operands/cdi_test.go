@@ -2,6 +2,7 @@ package operands
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -101,10 +102,7 @@ var _ = Describe("CDI Operand", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			for k, v := range expectedLabels {
 				outdatedResource.Labels[k] = "wrong_" + v
 			}
@@ -136,10 +134,7 @@ var _ = Describe("CDI Operand", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			outdatedResource.Labels[userLabelKey] = userLabelValue
 			delete(outdatedResource.Labels, hcoutil.AppLabelVersion)
 

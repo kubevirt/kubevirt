@@ -2,6 +2,7 @@ package operands
 
 import (
 	"errors"
+	"maps"
 	"reflect"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
@@ -222,10 +223,7 @@ func hcoConfig2CnaoPlacement(hcoConf *sdkapi.NodePlacement) *networkaddonsshared
 
 	if len(hcoConf.NodeSelector) > 0 {
 		empty = false
-		cnaoPlacement.NodeSelector = make(map[string]string)
-		for k, v := range hcoConf.NodeSelector {
-			cnaoPlacement.NodeSelector[k] = v
-		}
+		cnaoPlacement.NodeSelector = maps.Clone(hcoConf.NodeSelector)
 	}
 
 	if empty {

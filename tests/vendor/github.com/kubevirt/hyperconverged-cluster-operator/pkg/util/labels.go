@@ -1,6 +1,8 @@
 package util
 
 import (
+	"maps"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -13,9 +15,8 @@ func MergeLabels(src, tgt *metav1.ObjectMeta) {
 	if tgt.Labels == nil {
 		tgt.Labels = make(map[string]string, len(src.Labels))
 	}
-	for key, val := range src.Labels {
-		tgt.Labels[key] = val
-	}
+
+	maps.Copy(tgt.Labels, src.Labels)
 }
 
 // CompareLabels reports whether src labels are contained into tgt ones; extra labels on tgt are ignored.

@@ -2,6 +2,7 @@ package operands
 
 import (
 	"context"
+	"maps"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -678,10 +679,7 @@ var _ = Describe("imageStream tests", func() {
 				},
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
-			expectedLabels := make(map[string]string, len(exists.Labels))
-			for k, v := range exists.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(exists.Labels)
 			exists.Labels[userLabelKey] = userLabelValue
 			for k, v := range expectedLabels {
 				exists.Labels[k] = "wrong_" + v

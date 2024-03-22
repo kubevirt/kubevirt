@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"strings"
@@ -231,10 +232,7 @@ var _ = Describe("QuickStart tests", func() {
 
 			By("getting opinionated labels", func() {
 				for _, quickstart := range quickstartObjects.Items {
-					expectedLabels[quickstart.Name] = make(map[string]string)
-					for k, v := range quickstart.Labels {
-						expectedLabels[quickstart.Name][k] = v
-					}
+					expectedLabels[quickstart.Name] = maps.Clone(quickstart.Labels)
 				}
 			})
 
@@ -298,10 +296,7 @@ var _ = Describe("QuickStart tests", func() {
 
 			By("getting opinionated labels", func() {
 				for _, quickstart := range quickstartObjects.Items {
-					expectedLabels[quickstart.Name] = make(map[string]string)
-					for k, v := range quickstart.Labels {
-						expectedLabels[quickstart.Name][k] = v
-					}
+					expectedLabels[quickstart.Name] = maps.Clone(quickstart.Labels)
 				}
 			})
 

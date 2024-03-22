@@ -2,6 +2,7 @@ package operands
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,11 +19,12 @@ import (
 
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 )
 
 var _ = Describe("CNA Operand", func() {
@@ -133,10 +135,7 @@ var _ = Describe("CNA Operand", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			for k, v := range expectedLabels {
 				outdatedResource.Labels[k] = "wrong_" + v
 			}
@@ -168,10 +167,7 @@ var _ = Describe("CNA Operand", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			outdatedResource.Labels[userLabelKey] = userLabelValue
 			delete(outdatedResource.Labels, hcoutil.AppLabelVersion)
 

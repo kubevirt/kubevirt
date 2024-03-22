@@ -3,6 +3,7 @@ package operands
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"time"
 
@@ -301,10 +302,7 @@ Version: 1.2.3`)
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewKubeVirt(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			for k, v := range expectedLabels {
 				outdatedResource.Labels[k] = "wrong_" + v
 			}
@@ -337,10 +335,7 @@ Version: 1.2.3`)
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewKubeVirt(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			outdatedResource.Labels[userLabelKey] = userLabelValue
 			delete(outdatedResource.Labels, hcoutil.AppLabelVersion)
 

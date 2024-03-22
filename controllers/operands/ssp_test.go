@@ -3,6 +3,7 @@ package operands
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"strings"
@@ -131,10 +132,7 @@ var _ = Describe("SSP Operands", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			for k, v := range expectedLabels {
 				outdatedResource.Labels[k] = "wrong_" + v
 			}
@@ -166,10 +164,7 @@ var _ = Describe("SSP Operands", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			outdatedResource.Labels[userLabelKey] = userLabelValue
 			delete(outdatedResource.Labels, hcoutil.AppLabelVersion)
 

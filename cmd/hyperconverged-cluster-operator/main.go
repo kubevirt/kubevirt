@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
@@ -266,14 +267,10 @@ func getCacheOption(operatorNamespace string, isMonitoringAvailable, isOpenshift
 	}
 
 	if isMonitoringAvailable {
-		for k, v := range cacheOptionsByOjectForMonitoring {
-			cacheOptions.ByObject[k] = v
-		}
+		maps.Copy(cacheOptions.ByObject, cacheOptionsByOjectForMonitoring)
 	}
 	if isOpenshift {
-		for k, v := range cacheOptionsByOjectForOpenshift {
-			cacheOptions.ByObject[k] = v
-		}
+		maps.Copy(cacheOptions.ByObject, cacheOptionsByOjectForOpenshift)
 	}
 
 	return cacheOptions

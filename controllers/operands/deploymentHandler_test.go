@@ -2,6 +2,7 @@ package operands
 
 import (
 	"context"
+	"maps"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -108,10 +109,7 @@ var _ = Describe("Deployment Handler", func() {
 			const userLabelKey = "userLabelKey"
 			const userLabelValue = "userLabelValue"
 			outdatedResource := NewExpectedDeployment(hco)
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 
 			for k, v := range expectedLabels {
 				outdatedResource.Labels[k] = "wrong_" + v
@@ -143,10 +141,7 @@ var _ = Describe("Deployment Handler", func() {
 			const userLabelKey = "userLabelKey"
 			const userLabelValue = "userLabelValue"
 			outdatedResource := NewExpectedDeployment(hco)
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 
 			removed := false
 			for k := range outdatedResource.Labels {

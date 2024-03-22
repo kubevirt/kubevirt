@@ -2,6 +2,7 @@ package operands
 
 import (
 	"errors"
+	"maps"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -56,10 +57,7 @@ func (h cmHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 			req.Logger.Info("Reconciling an externally updated Configmap to its opinionated values", "name", h.required.Name)
 		}
 		util.MergeLabels(&h.required.ObjectMeta, &found.ObjectMeta)
-		found.Data = make(map[string]string, len(h.required.Data))
-		for k, v := range h.required.Data {
-			found.Data[k] = v
-		}
+		found.Data = maps.Clone(h.required.Data)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err

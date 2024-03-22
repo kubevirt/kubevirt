@@ -2,6 +2,7 @@ package operands
 
 import (
 	"errors"
+	"maps"
 	"os"
 	filepath "path/filepath"
 	"strings"
@@ -68,9 +69,7 @@ func processDashboardConfigMapFile(path string, info os.FileInfo, logger log.Log
 		if err != nil {
 			logger.Error(err, "Can't generate a Configmap object from yaml file", "file name", path)
 		} else {
-			for k, v := range getLabels(hc, util.AppComponentCompute) {
-				cm.Labels[k] = v
-			}
+			maps.Copy(cm.Labels, getLabels(hc, util.AppComponentCompute))
 			return newCmHandler(Client, Scheme, cm), nil
 		}
 	}

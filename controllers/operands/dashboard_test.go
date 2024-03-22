@@ -3,6 +3,7 @@ package operands
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"strings"
@@ -195,10 +196,7 @@ var _ = Describe("Dashboard tests", func() {
 
 			By("getting opinionated labels", func() {
 				for _, cm := range cmList.Items {
-					expectedLabels[cm.Name] = make(map[string]string)
-					for k, v := range cm.Labels {
-						expectedLabels[cm.Name][k] = v
-					}
+					expectedLabels[cm.Name] = maps.Clone(cm.Labels)
 				}
 			})
 
@@ -261,10 +259,7 @@ var _ = Describe("Dashboard tests", func() {
 
 			By("getting opinionated labels", func() {
 				for _, cm := range cmList.Items {
-					expectedLabels[cm.Name] = make(map[string]string)
-					for k, v := range cm.Labels {
-						expectedLabels[cm.Name][k] = v
-					}
+					expectedLabels[cm.Name] = maps.Clone(cm.Labels)
 				}
 			})
 

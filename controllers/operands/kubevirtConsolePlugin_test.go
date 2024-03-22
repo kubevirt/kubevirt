@@ -2,6 +2,7 @@ package operands
 
 import (
 	"context"
+	"maps"
 	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -193,10 +194,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			const userLabelKey = "userLabelKey"
 			const userLabelValue = "userLabelValue"
 			outdatedResource := NewKVConsolePlugin(hco)
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			for k, v := range expectedLabels {
 				outdatedResource.Labels[k] = "wrong_" + v
 			}
@@ -227,10 +225,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			const userLabelKey = "userLabelKey"
 			const userLabelValue = "userLabelValue"
 			outdatedResource := NewExpectedDeployment(hco)
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			removed := false
 			for k := range outdatedResource.Labels {
 				if !removed {

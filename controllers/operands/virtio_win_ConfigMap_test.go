@@ -2,6 +2,8 @@ package operands
 
 import (
 	"context"
+	"maps"
+	"os"
 	"reflect"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -14,8 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
-	"os"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -135,10 +135,7 @@ var _ = Describe("VirtioWin", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewVirtioWinCm(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			for k, v := range expectedLabels {
 				outdatedResource.Labels[k] = "wrong_" + v
 			}
@@ -169,10 +166,7 @@ var _ = Describe("VirtioWin", func() {
 			const userLabelValue = "userLabelValue"
 			outdatedResource, err := NewVirtioWinCm(hco)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLabels := make(map[string]string, len(outdatedResource.Labels))
-			for k, v := range outdatedResource.Labels {
-				expectedLabels[k] = v
-			}
+			expectedLabels := maps.Clone(outdatedResource.Labels)
 			outdatedResource.Labels[userLabelKey] = userLabelValue
 			delete(outdatedResource.Labels, hcoutil.AppLabelVersion)
 

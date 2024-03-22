@@ -3,6 +3,7 @@ package operands
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 
@@ -172,10 +173,7 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 
 	if hc.Spec.Infra.NodePlacement != nil {
 		if hc.Spec.Infra.NodePlacement.NodeSelector != nil {
-			deployment.Spec.Template.Spec.NodeSelector = make(map[string]string)
-			for key, value := range hc.Spec.Infra.NodePlacement.NodeSelector {
-				deployment.Spec.Template.Spec.NodeSelector[key] = value
-			}
+			deployment.Spec.Template.Spec.NodeSelector = maps.Clone(hc.Spec.Infra.NodePlacement.NodeSelector)
 		} else {
 			deployment.Spec.Template.Spec.NodeSelector = nil
 		}

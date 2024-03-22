@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"strconv"
@@ -740,10 +741,7 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, infrastructur
 		}
 
 		if hcoConfig.NodePlacement.NodeSelector != nil {
-			kvConfig.NodePlacement.NodeSelector = make(map[string]string)
-			for k, v := range hcoConfig.NodePlacement.NodeSelector {
-				kvConfig.NodePlacement.NodeSelector[k] = v
-			}
+			kvConfig.NodePlacement.NodeSelector = maps.Clone(hcoConfig.NodePlacement.NodeSelector)
 		}
 
 		for _, hcoTolr := range hcoConfig.NodePlacement.Tolerations {
