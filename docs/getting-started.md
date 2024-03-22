@@ -21,6 +21,8 @@ Then build the manifests and images:
 make && make push && make manifests
 ```
 
+**Note:** If the `make && make push && make manifests` command gives an unexpected disconnect or Early EOF while fetching the repositories during the building of manifests and images, then adjusting the default timeout using `export PULLER_TIMEOUT=10000` will solve the issue. 
+
 Finally, push the manifests to your cluster:
 
 ```bash
