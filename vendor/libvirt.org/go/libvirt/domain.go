@@ -670,7 +670,8 @@ const (
 type DomainBlockResizeFlags uint
 
 const (
-	DOMAIN_BLOCK_RESIZE_BYTES = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_BYTES)
+	DOMAIN_BLOCK_RESIZE_BYTES    = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_BYTES)
+	DOMAIN_BLOCK_RESIZE_CAPACITY = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_CAPACITY)
 )
 
 type Domain struct {
@@ -2336,7 +2337,7 @@ func (d *Domain) BlockRebase(disk string, base string, bandwidth uint64, flags D
 	defer C.free(unsafe.Pointer(cdisk))
 	var cbase *C.char
 	if base != "" {
-		cbase := C.CString(base)
+		cbase = C.CString(base)
 		defer C.free(unsafe.Pointer(cbase))
 	}
 	var err C.virError
@@ -4237,7 +4238,7 @@ func (d *Domain) FSThaw(mounts []string, flags uint32) error {
 func (d *Domain) FSTrim(mount string, minimum uint64, flags uint32) error {
 	var cmount *C.char
 	if mount != "" {
-		cmount := C.CString(mount)
+		cmount = C.CString(mount)
 		defer C.free(unsafe.Pointer(cmount))
 	}
 
@@ -4649,8 +4650,11 @@ func (d *Domain) Save(destFile string) error {
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSaveFlags
 func (d *Domain) SaveFlags(destFile string, destXml string, flags DomainSaveRestoreFlags) error {
 	cDestFile := C.CString(destFile)
-	cDestXml := C.CString(destXml)
-	defer C.free(unsafe.Pointer(cDestXml))
+	var cDestXml *C.char
+	if destXml != "" {
+		cDestXml = C.CString(destXml)
+		defer C.free(unsafe.Pointer(cDestXml))
+	}
 	defer C.free(unsafe.Pointer(cDestFile))
 	var err C.virError
 	result := C.virDomainSaveFlagsWrapper(d.ptr, cDestFile, cDestXml, C.uint(flags), &err)
@@ -5541,9 +5545,9 @@ func (d *Domain) GetGuestInfo(types DomainGuestInfoTypes, flags uint32) (*Domain
 			if diskLengths.DependencyCountSet && diskLengths.DependencyCount > 0 {
 				info.Disks[i].Dependencies = make([]DomainGuestInfoDiskDependency, diskLengths.DependencyCount)
 				for j := 0; j < int(diskLengths.DependencyCount); j++ {
-					diskInfo := getDomainGuestInfoDiskDependencyFieldInfo(i, j, &info.Disks[i].Dependencies[j])
+					diskInfoDep := getDomainGuestInfoDiskDependencyFieldInfo(i, j, &info.Disks[i].Dependencies[j])
 
-					_, gerr = typedParamsUnpack(cparams, cnparams, diskInfo)
+					_, gerr = typedParamsUnpack(cparams, cnparams, diskInfoDep)
 					if gerr != nil {
 						return nil, gerr
 					}
