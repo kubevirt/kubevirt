@@ -24,9 +24,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"kubevirt.io/client-go/log"
 
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -82,7 +82,7 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 func DefaultSSHOptions() SSHOptions {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		glog.Warningf("failed to determine user home directory: %v", err)
+		log.Log.Warningf("failed to determine user home directory: %v", err)
 	}
 	options := SSHOptions{
 		SSHPort:                   22,
