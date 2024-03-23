@@ -699,7 +699,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 						if toRunSourceVM {
 							By("Starting the VM and expecting it to run")
-							sourceVM = StartVMAndExpectRunning(virtClient, sourceVM)
+							sourceVM = RunVMAndExpectLaunchWithRunStrategy(virtClient, sourceVM, virtv1.RunStrategyAlways)
 						}
 
 						vmClone = generateCloneFromVM()

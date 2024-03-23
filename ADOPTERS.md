@@ -27,6 +27,7 @@
 | Vendor | H3C | 2019 | [link](https://www.h3c.com/en/Products_Technology/Enterprise_Products/Cloud_Computing/Cloud_Computing_Products/H3C_CloudOS/H3C_CloudOS_full-stack/) | We distribute KubeVirt as part of CloudOS to enable VM workloads on Kubernetes at customer sites. |
 | Vendor | KUBERMATIC | 2019 | [link](https://www.kubermatic.com/products/kubevirt/) | As a distributor we are running KubeVirt to enable VM workload on Kubermatic Virtualization. |
 | Vendor | KUBESPHERE | 2020 | [link](https://kubesphere.cloud/en/ksv/) | KubeSphere Virtualization (KSV) provides lightweight VM management capability based on KubeVirt. |
+| Vendor | Microsoft | 2023 | [link](https://www.microsoft.com/) | Microsoft is leveraging KubeVirt to host VM workloads as part of the [Azure Operator Nexus](https://azure.microsoft.com/en-us/products/operator-nexus) platform. |
 | Vendor | Oracle | 2023 | [link](https://www.oracle.com) | As a distributor we are leveraging KubeVirt to enable VM workload on [Oracle Cloud Native Environment](https://www.oracle.com/linux/cloud-native-environment/), the Oracle multicloud and on-premises Kubernetes distribution. |
 | Vendor | PLATFORM9 | | [link](https://platform9.com/managed-kubevirt/) | Run Legacy and Cloud-Native Applications on Platform9 |
 | Vendor | Red Hat, Inc. | 2016 | [link](https://www.redhat.com) | As a distributor we are building OpenShift Virtualization on KubeVirt in order to enable VM workloads and -flows on Kubernetes. |

@@ -27,7 +27,6 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -545,7 +544,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(newVMInterfaces[0].MacAddress).ToNot(Equal(oldVMInterfaces[0].MacAddress))
 
 					By("Making sure new VM is runnable")
-					tests.StartVMAndExpectRunning(virtClient, newVM)
+					tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, newVM, v1.RunStrategyAlways)
 				})
 
 			})
@@ -598,12 +597,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(nil)).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
-				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+				vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: instancetype.Name,
 					Kind: "VirtualMachineInstanceType",
 				}
-				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+				vm.Spec.Preference = &v1.PreferenceMatcher{
 					Name: preference.Name,
 					Kind: "VirtualMachinePreference",
 				}
@@ -625,7 +624,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				if toRunSourceVM {
 					By("Starting the VM and expecting it to run")
-					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				}
 
 				By("Creating a VirtualMachineSnapshot")
@@ -659,7 +658,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			DescribeTable("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func(toRunSourceVM bool) {
 				if toRunSourceVM {
 					By("Starting the VM and expecting it to run")
-					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+					vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				}
 
 				By("Creating a VirtualMachineSnapshot")
@@ -1069,12 +1068,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-					testsuite.GetTestNamespace(nil),
-					bashHelloScript,
-					snapshotStorageClass,
-				))
+				vm, vmi = createAndStartVM(newVMWithDataVolumeForRestore(snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
@@ -1100,12 +1094,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			// behavior. In case of running this test with other provisioner or if ceph
 			// will change this behavior it will fail.
 			DescribeTable("should restore a vm with restore size bigger then PVC size", func(restoreToNewVM bool) {
-				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-					testsuite.GetTestNamespace(nil),
-					bashHelloScript,
-					snapshotStorageClass,
-				)
+				vm = newVMWithDataVolumeForRestore(snapshotStorageClass)
 				quantity, err := resource.ParseQuantity("1528Mi")
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.DataVolumeTemplates[0].Spec.PVC.Resources.Requests["storage"] = quantity
@@ -1137,12 +1126,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a datavolumetemplate", func(restoreToNewVM bool) {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-					testsuite.GetTestNamespace(nil),
-					bashHelloScript,
-					snapshotStorageClass,
-				))
+				vm, vmi = createAndStartVM(newVMWithDataVolumeForRestore(snapshotStorageClass))
 
 				originalDVName := vm.Spec.DataVolumeTemplates[0].Name
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
@@ -1153,12 +1137,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should restore a vm that boots from a datavolume (not template)", func(restoreToNewVM bool) {
-				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-					testsuite.GetTestNamespace(nil),
-					bashHelloScript,
-					snapshotStorageClass,
-				)
+				vm = newVMWithDataVolumeForRestore(snapshotStorageClass)
 				dv := orphanDataVolumeTemplate(vm, 0)
 				originalPVCName := dv.Name
 
@@ -1324,12 +1303,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			)
 
 			It("should reject vm start if restore in progress", func() {
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-					testsuite.GetTestNamespace(nil),
-					bashHelloScript,
-					snapshotStorageClass,
-				))
+				vm, vmi = createAndStartVM(newVMWithDataVolumeForRestore(snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = tests.StopVirtualMachine(vm)
@@ -1428,12 +1402,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			DescribeTable("should restore a vm from an online snapshot", func(restoreToNewVM bool) {
-				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-					testsuite.GetTestNamespace(nil),
-					bashHelloScript,
-					snapshotStorageClass,
-				)
+				vm = newVMWithDataVolumeForRestore(snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 				vm, vmi = createAndStartVM(vm)
 
@@ -1868,3 +1837,26 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		})
 	})
 })
+
+func newVMWithDataVolumeForRestore(storageClass string) *v1.VirtualMachine {
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+			libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+		),
+	)
+	vm := libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithDataVolume("disk0", dv.Name),
+			libvmi.WithResourceMemory("256Mi"),
+			libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
+			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		),
+		libvmi.WithDataVolumeTemplate(dv),
+	)
+
+	return vm
+}

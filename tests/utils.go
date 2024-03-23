@@ -70,7 +70,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -95,30 +94,6 @@ const (
 	DiskWindowsSysprep     = "disk-windows-sysprep"
 	DiskCustomHostPath     = "disk-custom-host-path"
 )
-
-func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
-	var cpuDenyList = map[string]bool{
-		"qemu64":     true,
-		"Opteron_G2": true,
-	}
-	cpuMap := make(map[string]bool)
-	for _, node := range nodes.Items {
-		for key := range node.Labels {
-			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
-				if _, ok := cpuDenyList[cpu]; !ok {
-					cpuMap[cpu] = true
-				}
-			}
-		}
-	}
-
-	cpus := make([]string, 0)
-	for model := range cpuMap {
-		cpus = append(cpus, model)
-	}
-	return cpus
-}
 
 func CreateConfigMap(name, namespace string, data map[string]string) {
 	virtCli := kubevirt.Client()
@@ -222,22 +197,6 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	}
 
 	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
-func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
-	pscmd := `ps -LC ` + emulator + ` -o lwp,comm | grep "CPU ` + cpu + `"  | cut -f1 -dC`
-	args := []string{BinBash, "-c", pscmd}
-	Eventually(func() error {
-		output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
-		return err
-	}).Should(Succeed())
-	vcpupid := strings.TrimSpace(strings.Trim(output, "\n"))
-	tasksetcmd := "taskset -c -p " + vcpupid + " | cut -f2 -d:"
-	args = []string{BinBash, "-c", tasksetcmd}
-	output, err = exec.ExecuteCommandOnPod(pod, "compute", args)
-	Expect(err).ToNot(HaveOccurred())
-
-	return strings.TrimSpace(output), err
 }
 
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
@@ -354,16 +313,6 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-// NewRandomVMWithEphemeralDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	return vm
-}
-
 // NewRandomVMWithDataVolumeWithRegistryImport
 //
 // Deprecated: Use libvmi directly
@@ -415,29 +364,6 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm, true
-}
-
-// NewRandomVMWithDataVolumeAndUserDataInStorageClass
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl))),
-	)
-	vm := libvmi.NewVirtualMachine(
-		libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithDataVolume("disk0", dataVolume.Name),
-			libvmi.WithResourceMemory("1Gi"),
-			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libvmi.WithCloudInitNoCloudEncodedUserData(userData),
-		),
-		libvmi.WithDataVolumeTemplate(dataVolume),
-	)
-
-	return vm
 }
 
 // NewRandomVMIWithEphemeralDisk
@@ -1359,15 +1285,14 @@ func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, node
 	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
 }
 
-func StartVMAndExpectRunning(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
-	runStrategyAlways := v1.RunStrategyAlways
+func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
 
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = nil
-		updatedVM.Spec.RunStrategy = &runStrategyAlways
+		updatedVM.Spec.RunStrategy = &runStrategy
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

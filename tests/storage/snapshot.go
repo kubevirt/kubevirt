@@ -1317,7 +1317,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("vmsnapshot should update error if vmsnapshotcontent is unready to use and error", func() {
-				vm = tests.StartVMAndExpectRunning(virtClient, vm)
+				vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
 				// Delete DV and wait pvc get deletionTimestamp
 				// when pvc is deleting snapshot is not possible
 				volumeName := vm.Spec.DataVolumeTemplates[0].Name
