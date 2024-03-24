@@ -59,6 +59,7 @@ func WithCloudInitNoCloudNetworkData(data string) Option {
 
 		volume := getVolume(vmi, cloudInitDiskName)
 		volume.CloudInitNoCloud.NetworkData = data
+		volume.CloudInitNoCloud.NetworkDataBase64 = ""
 		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
 	}
 }
