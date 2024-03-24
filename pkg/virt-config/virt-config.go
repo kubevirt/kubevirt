@@ -25,6 +25,8 @@ package virtconfig
 
 import (
 	"fmt"
+	"strings"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
@@ -113,11 +115,15 @@ func (c *ClusterConfig) GetFeaturesToDisable() map[string]*cmdv1.FeaturesToDisab
 		    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283
 					https://gitlab.com/libvirt/libvirt/-/issues/304
 
+					Additionally, to handle future issues, we allow setting a configuration named
+					cpuFeaturesToDisable in Kubevirt CR configuration.
+					This enables quick and targeted disabling of problematic features.
+
 					Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
 					once the issue is resolved we can remove the key,value pairs with the mpx feature
 	*/
 
-	return map[string]*cmdv1.FeaturesToDisable{
+	cpuModelToFeaturesToDisable := map[string]*cmdv1.FeaturesToDisable{
 		"Cascadelake-Server-noTSX":  {Features: []string{"mpx"}},
 		"Cascadelake-Server":        {Features: []string{"mpx"}},
 		"Icelake-Client-noTSX":      {Features: []string{"mpx"}},
@@ -131,6 +137,16 @@ func (c *ClusterConfig) GetFeaturesToDisable() map[string]*cmdv1.FeaturesToDisab
 		"Skylake-Server-noTSX-IBRS": {Features: []string{"mpx"}},
 		"Skylake-Server":            {Features: []string{"mpx"}},
 	}
+
+	cpuModelToFeaturesToDisableFromConfig := c.GetConfig().CpuFeaturesToDisable
+	for model, features := range cpuModelToFeaturesToDisableFromConfig {
+		var knownFeatures []string
+		if _, ok := cpuModelToFeaturesToDisable[model]; ok {
+			knownFeatures = cpuModelToFeaturesToDisable[model].Features
+		}
+		cpuModelToFeaturesToDisable[model] = &cmdv1.FeaturesToDisable{Features: mergeStringSlicesNoDuplications(knownFeatures, features)}
+	}
+	return cpuModelToFeaturesToDisable
 }
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
@@ -517,4 +533,21 @@ func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugi
 		return networkConfig.Binding
 	}
 	return nil
+}
+
+func mergeStringSlicesNoDuplications(slice1, slice2 []string) []string {
+	mergedMap := make(map[string]bool)
+	for _, s := range slice1 {
+		mergedMap[strings.TrimSpace(s)] = true
+	}
+
+	for _, s := range slice2 {
+		mergedMap[strings.TrimSpace(s)] = true
+	}
+
+	var mergedSlice []string
+	for s := range mergedMap {
+		mergedSlice = append(mergedSlice, s)
+	}
+	return mergedSlice
 }
