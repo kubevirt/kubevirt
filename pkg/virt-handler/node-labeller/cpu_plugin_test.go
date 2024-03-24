@@ -78,7 +78,7 @@ var _ = Describe("Node-labeller config", func() {
 		cpuModels := nlController.getSupportedCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
 		cpuFeatures := nlController.getSupportedCpuFeatures()
 
-		Expect(cpuModels).To(HaveLen(5), "number of models must match")
+		Expect(cpuModels).To(HaveLen(4), "number of models must match")
 
 		Expect(cpuFeatures).To(HaveLen(4), "number of features must match")
 		counter, err := nlController.capabilities.GetTSCCounter()
