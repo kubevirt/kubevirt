@@ -21,7 +21,6 @@ package prometheus
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -30,8 +29,6 @@ import (
 	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -683,17 +680,6 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 
 	vmiMetrics := newVmiMetrics(vmi, ps.ch)
 	vmiMetrics.updateMetrics(vmi, vmStats)
-}
-
-func Handler(MaxRequestsInFlight int) http.Handler {
-	return promhttp.InstrumentMetricHandler(
-		prometheus.DefaultRegisterer,
-		promhttp.HandlerFor(
-			prometheus.DefaultGatherer,
-			promhttp.HandlerOpts{
-				MaxRequestsInFlight: MaxRequestsInFlight,
-			}),
-	)
 }
 
 type vmiMetrics struct {
