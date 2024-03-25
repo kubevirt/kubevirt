@@ -243,6 +243,7 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 github.com/kubevirt/monitoring/pkg/metrics/parser
 # github.com/machadovilaca/operator-observability v0.0.20
 ## explicit; go 1.21
+github.com/machadovilaca/operator-observability/pkg/docs
 github.com/machadovilaca/operator-observability/pkg/operatormetrics
 github.com/machadovilaca/operator-observability/pkg/operatorrules
 # github.com/mailru/easyjson v0.7.7
