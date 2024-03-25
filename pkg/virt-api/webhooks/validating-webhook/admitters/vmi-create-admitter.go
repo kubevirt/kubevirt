@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -143,7 +144,6 @@ func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeNameMap := make(map[string]*v1.Volume)
-	networkNameMap := make(map[string]*v1.Network)
 
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
@@ -172,9 +172,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
 	causes = append(causes, newCauses...)
-	validateNetworks(spec, networkNameMap)
 
-	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
+	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, bootOrderMap)
 	causes = append(causes, newCauses...)
 	if done {
 		return causes
@@ -259,7 +258,8 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
+	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
 
 	done = false
 
@@ -275,14 +275,14 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		networkData, networkExists := networkNameMap[iface.Name]
 
-		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, networkData, config, numOfInterfaces)...)
+		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, &networkData, config, numOfInterfaces)...)
 
 		causes = append(causes, validateInterfaceNameUnique(field, networkInterfaceMap, iface, idx)...)
 		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
 
 		networkInterfaceMap[iface.Name] = struct{}{}
 
-		causes = append(causes, validatePortConfiguration(field, networkExists, networkData, iface, idx, portForwardMap)...)
+		causes = append(causes, validatePortConfiguration(field, networkExists, &networkData, iface, idx, portForwardMap)...)
 		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
 		causes = append(causes, validateMacAddress(field, iface, idx)...)
 		causes = append(causes, validateInterfaceBootOrder(field, iface, idx, bootOrderMap)...)
@@ -876,12 +876,6 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 		}
 	}
 	return causes
-}
-
-func validateNetworks(spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) {
-	for idx := range spec.Networks {
-		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
-	}
 }
 
 func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
