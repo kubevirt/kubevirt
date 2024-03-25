@@ -11,8 +11,8 @@ import (
 
 const CancelMigrationFailedVmiNotMigratingErr = "failed to cancel migration - vmi is not migrating"
 
-func ListUnfinishedMigrations(informer cache.SharedIndexInformer) []*v1.VirtualMachineInstanceMigration {
-	objs := informer.GetStore().List()
+func ListUnfinishedMigrations(indexer cache.Indexer) []*v1.VirtualMachineInstanceMigration {
+	objs := indexer.List()
 	migrations := []*v1.VirtualMachineInstanceMigration{}
 	for _, obj := range objs {
 		migration := obj.(*v1.VirtualMachineInstanceMigration)

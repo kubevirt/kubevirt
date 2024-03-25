@@ -339,7 +339,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 
 	lookup := make(map[string]bool)
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer)
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer.GetIndexer())
 
 	for _, migration := range migrations {
 		lookup[migration.Namespace+"/"+migration.Spec.VMIName] = true
