@@ -1182,7 +1182,9 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			if err != nil {
 				return &syncErrorImpl{err, FailedPodPatchReason}
 			}
-			*pod = *patchedPod
+			if patchedPod != nil {
+				*pod = *patchedPod
+			}
 		}
 
 		hotplugVolumes := getHotplugVolumes(vmi, pod)
@@ -2295,7 +2297,9 @@ func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []vi
 		if err != nil {
 			return err
 		}
-		*pod = *patchedPod
+		if patchedPod != nil {
+			*pod = *patchedPod
+		}
 	}
 
 	return nil
