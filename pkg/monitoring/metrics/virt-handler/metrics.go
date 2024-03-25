@@ -20,6 +20,7 @@ package virt_handler
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
