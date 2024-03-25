@@ -143,7 +143,6 @@ func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeNameMap := make(map[string]*v1.Volume)
-	networkNameMap := make(map[string]*v1.Network)
 
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
@@ -172,9 +171,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
 	causes = append(causes, newCauses...)
-	validateNetworks(spec, networkNameMap)
 
-	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
+	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, bootOrderMap)
 	causes = append(causes, newCauses...)
 	if done {
 		return causes
@@ -259,7 +257,11 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
+	networkNameMap := make(map[string]*v1.Network)
+	for idx := range spec.Networks {
+		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
+	}
 
 	done = false
 
@@ -876,12 +878,6 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 		}
 	}
 	return causes
-}
-
-func validateNetworks(spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) {
-	for idx := range spec.Networks {
-		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
-	}
 }
 
 func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
