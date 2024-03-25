@@ -170,10 +170,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	netValidator := netadmitter.NewValidator(field, spec, config)
 	causes = append(causes, netValidator.Validate()...)
 
-	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
-	causes = append(causes, newCauses...)
+	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
-	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, bootOrderMap)
+	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config)
 	causes = append(causes, newCauses...)
 	if done {
 		return causes
@@ -258,7 +257,7 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
 	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
 
 	done = false
@@ -285,7 +284,6 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 		causes = append(causes, validatePortConfiguration(field, networkExists, &networkData, iface, idx, portForwardMap)...)
 		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
 		causes = append(causes, validateMacAddress(field, iface, idx)...)
-		causes = append(causes, validateInterfaceBootOrder(field, iface, idx, bootOrderMap)...)
 		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
 
 		newCauses, newDone := validateDHCPExtraOptions(field, iface)
@@ -390,26 +388,28 @@ func validateInterfacePciAddress(field *k8sfield.Path, iface v1.Interface, idx i
 	return causes
 }
 
-func validateInterfaceBootOrder(field *k8sfield.Path, iface v1.Interface, idx int, bootOrderMap map[uint]bool) (causes []metav1.StatusCause) {
-	if iface.BootOrder != nil {
-		order := *iface.BootOrder
-		// Verify boot order is greater than 0, if provided
-		if order < 1 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
-				Field:   field.Index(idx).Child("bootOrder").String(),
-			})
-		} else {
-			// verify that there are no duplicate boot orders
-			if bootOrderMap[order] {
+func validateInterfaceBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, bootOrderMap map[uint]bool) (causes []metav1.StatusCause) {
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+		if iface.BootOrder != nil {
+			order := *iface.BootOrder
+			// Verify boot order is greater than 0, if provided
+			if order < 1 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String()),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String(),
+					Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
+					Field:   field.Index(idx).Child("bootOrder").String(),
 				})
+			} else {
+				// verify that there are no duplicate boot orders
+				if bootOrderMap[order] {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String()),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String(),
+					})
+				}
+				bootOrderMap[order] = true
 			}
-			bootOrderMap[order] = true
 		}
 	}
 	return causes
@@ -878,9 +878,10 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
-func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
+func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) []metav1.StatusCause {
+	var causes []metav1.StatusCause
 	// used to validate uniqueness of boot orders among disks and interfaces
-	bootOrderMap = make(map[uint]bool)
+	bootOrderMap := make(map[uint]bool)
 
 	for i, volume := range spec.Volumes {
 		volumeNameMap[volume.Name] = &spec.Volumes[i]
@@ -940,7 +941,9 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 		}
 	}
 
-	return bootOrderMap, causes
+	causes = append(causes, validateInterfaceBootOrder(field, spec, bootOrderMap)...)
+
+	return causes
 }
 
 func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
