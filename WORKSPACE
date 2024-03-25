@@ -1383,100 +1383,67 @@ rpm(
 rpm(
     name = "glibc-0__2.34-88.el9.aarch64",
     sha256 = "bc553c8c569bfb2051f1395d981d7c9c6e259b57a41dced51f7fac20b63fc929",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-2.34-88.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/bc553c8c569bfb2051f1395d981d7c9c6e259b57a41dced51f7fac20b63fc929",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/bc553c8c569bfb2051f1395d981d7c9c6e259b57a41dced51f7fac20b63fc929"],
 )
 
 rpm(
     name = "glibc-0__2.34-88.el9.x86_64",
     sha256 = "6a590a3ac551dcd27ea5fc0097d19915e32af47ecddb52bcabbef12bbda97a54",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-2.34-88.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/6a590a3ac551dcd27ea5fc0097d19915e32af47ecddb52bcabbef12bbda97a54",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/6a590a3ac551dcd27ea5fc0097d19915e32af47ecddb52bcabbef12bbda97a54"],
 )
 
 rpm(
     name = "glibc-common-0__2.34-88.el9.aarch64",
     sha256 = "c4814302b6884c0626afd04dc1fdb28cb3d7f92af307a91785ce37e5309e53a9",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-common-2.34-88.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/c4814302b6884c0626afd04dc1fdb28cb3d7f92af307a91785ce37e5309e53a9",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/c4814302b6884c0626afd04dc1fdb28cb3d7f92af307a91785ce37e5309e53a9"],
 )
 
 rpm(
     name = "glibc-common-0__2.34-88.el9.x86_64",
     sha256 = "f19cf4786a59ab7b7064d31230e7b59d8d47723061ee3f6eb8168bbece13938f",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-common-2.34-88.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f19cf4786a59ab7b7064d31230e7b59d8d47723061ee3f6eb8168bbece13938f",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/f19cf4786a59ab7b7064d31230e7b59d8d47723061ee3f6eb8168bbece13938f"],
 )
 
 rpm(
     name = "glibc-devel-0__2.34-88.el9.aarch64",
     sha256 = "6483807486e2c20f02202d39f32d1bac055e8d24135f0af213e123b72b9d8e59",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/glibc-devel-2.34-88.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/6483807486e2c20f02202d39f32d1bac055e8d24135f0af213e123b72b9d8e59",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/6483807486e2c20f02202d39f32d1bac055e8d24135f0af213e123b72b9d8e59"],
 )
 
 rpm(
     name = "glibc-devel-0__2.34-88.el9.x86_64",
     sha256 = "7a4067c3a52eb334c520c53b2ec0d1beae2be57af0eec75ba7fcd728feb59e45",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/glibc-devel-2.34-88.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/7a4067c3a52eb334c520c53b2ec0d1beae2be57af0eec75ba7fcd728feb59e45",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/7a4067c3a52eb334c520c53b2ec0d1beae2be57af0eec75ba7fcd728feb59e45"],
 )
 
 rpm(
     name = "glibc-headers-0__2.34-88.el9.x86_64",
     sha256 = "76cd179192536f23c0a112fc56e532c4a2c681956439cbda2a3f0a101edaa72b",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/glibc-headers-2.34-88.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/76cd179192536f23c0a112fc56e532c4a2c681956439cbda2a3f0a101edaa72b",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/76cd179192536f23c0a112fc56e532c4a2c681956439cbda2a3f0a101edaa72b"],
 )
 
 rpm(
     name = "glibc-minimal-langpack-0__2.34-88.el9.aarch64",
     sha256 = "dddcc43e175550a9759671d6fb7889f4cecdcb18ad83ea9a766a9247dd910990",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-minimal-langpack-2.34-88.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/dddcc43e175550a9759671d6fb7889f4cecdcb18ad83ea9a766a9247dd910990",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/dddcc43e175550a9759671d6fb7889f4cecdcb18ad83ea9a766a9247dd910990"],
 )
 
 rpm(
     name = "glibc-minimal-langpack-0__2.34-88.el9.x86_64",
     sha256 = "f1224ca96983442834cb93c940859c668393a6132e93dee871b74b2fe703a748",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-minimal-langpack-2.34-88.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f1224ca96983442834cb93c940859c668393a6132e93dee871b74b2fe703a748",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/f1224ca96983442834cb93c940859c668393a6132e93dee871b74b2fe703a748"],
 )
 
 rpm(
     name = "glibc-static-0__2.34-88.el9.aarch64",
     sha256 = "4f68cb7013c8f0011aabea5a5fd7a934106a47620b68f3d684c32b86e65e3ddf",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/Packages/glibc-static-2.34-88.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/4f68cb7013c8f0011aabea5a5fd7a934106a47620b68f3d684c32b86e65e3ddf",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/4f68cb7013c8f0011aabea5a5fd7a934106a47620b68f3d684c32b86e65e3ddf"],
 )
 
 rpm(
     name = "glibc-static-0__2.34-88.el9.x86_64",
     sha256 = "828c1702e243fb2828d826229a7d97cae3fc04c497166eb26b048bca4d993ccd",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/glibc-static-2.34-88.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/828c1702e243fb2828d826229a7d97cae3fc04c497166eb26b048bca4d993ccd",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/828c1702e243fb2828d826229a7d97cae3fc04c497166eb26b048bca4d993ccd"],
 )
 
 rpm(
@@ -4524,37 +4491,25 @@ rpm(
 rpm(
     name = "selinux-policy-0__38.1.27-1.el9.aarch64",
     sha256 = "45b29730452b1d9072815b64286155610b7c53aa98a008c4b1b1713df5084c69",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/selinux-policy-38.1.27-1.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/45b29730452b1d9072815b64286155610b7c53aa98a008c4b1b1713df5084c69",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/45b29730452b1d9072815b64286155610b7c53aa98a008c4b1b1713df5084c69"],
 )
 
 rpm(
     name = "selinux-policy-0__38.1.27-1.el9.x86_64",
     sha256 = "45b29730452b1d9072815b64286155610b7c53aa98a008c4b1b1713df5084c69",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/selinux-policy-38.1.27-1.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/45b29730452b1d9072815b64286155610b7c53aa98a008c4b1b1713df5084c69",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/45b29730452b1d9072815b64286155610b7c53aa98a008c4b1b1713df5084c69"],
 )
 
 rpm(
     name = "selinux-policy-targeted-0__38.1.27-1.el9.aarch64",
     sha256 = "ec583e298817b23ac110c53626682c53ef752c5ae4d9f18cd3d63aa4578700df",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/selinux-policy-targeted-38.1.27-1.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/ec583e298817b23ac110c53626682c53ef752c5ae4d9f18cd3d63aa4578700df",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/ec583e298817b23ac110c53626682c53ef752c5ae4d9f18cd3d63aa4578700df"],
 )
 
 rpm(
     name = "selinux-policy-targeted-0__38.1.27-1.el9.x86_64",
     sha256 = "ec583e298817b23ac110c53626682c53ef752c5ae4d9f18cd3d63aa4578700df",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/selinux-policy-targeted-38.1.27-1.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/ec583e298817b23ac110c53626682c53ef752c5ae4d9f18cd3d63aa4578700df",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/ec583e298817b23ac110c53626682c53ef752c5ae4d9f18cd3d63aa4578700df"],
 )
 
 rpm(
