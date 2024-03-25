@@ -32,7 +32,6 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/client-go/version"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -53,14 +52,6 @@ var (
 
 	// Preffixes used when transforming K8s metadata into metric labels
 	labelPrefix = "kubernetes_vmi_label_"
-
-	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
-	versionDesc = prometheus.NewDesc(
-		"kubevirt_info",
-		"Version information",
-		[]string{"goversion", "kubeversion"},
-		nil,
-	)
 )
 
 func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch chan<- prometheus.Metric) {
@@ -552,15 +543,6 @@ func (metrics *vmiMetrics) updateFilesystem(vmFSStats k6tv1.VirtualMachineInstan
 	}
 }
 
-func updateVersion(ch chan<- prometheus.Metric) {
-	verinfo := version.Get()
-	ch <- prometheus.MustNewConstMetric(
-		versionDesc, prometheus.GaugeValue,
-		1.0,
-		verinfo.GoVersion, verinfo.GitVersion,
-	)
-}
-
 type DomainStatsCollector struct {
 	virtShareDir  string
 	nodeName      string
@@ -588,8 +570,6 @@ func (co *DomainStatsCollector) Describe(_ chan<- *prometheus.Desc) {
 
 // Note that Collect could be called concurrently
 func (co *DomainStatsCollector) Collect(ch chan<- prometheus.Metric) {
-	updateVersion(ch)
-
 	cachedObjs := co.vmiInformer.GetIndexer().List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMIs detected")

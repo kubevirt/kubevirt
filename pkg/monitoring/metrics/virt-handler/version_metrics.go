@@ -14,35 +14,31 @@
  * limitations under the License.
  *
  * Copyright the KubeVirt Authors.
+ *
  */
 
 package virt_handler
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
-
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
+	"kubevirt.io/client-go/version"
 )
 
-func SetupMetrics() error {
-	if err := workqueue.SetupMetrics(); err != nil {
-		return err
+var (
+	versionMetrics = []operatormetrics.Metric{
+		versionInfo,
 	}
 
-	if err := client.SetupMetrics(); err != nil {
-		return err
-	}
+	versionInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_info",
+			Help: "Version information.",
+		},
+		[]string{"goversion", "kubeversion"},
+	)
+)
 
-	if err := operatormetrics.RegisterMetrics(versionMetrics); err != nil {
-		return err
-	}
-	SetVersionInfo()
-
-	return operatormetrics.RegisterCollector(domainstats.Collector)
-}
-
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+func SetVersionInfo() {
+	info := version.Get()
+	versionInfo.WithLabelValues(info.GoVersion, info.GitVersion).Set(1)
 }
