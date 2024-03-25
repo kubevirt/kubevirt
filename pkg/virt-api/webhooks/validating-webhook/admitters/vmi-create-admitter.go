@@ -21,7 +21,6 @@ package admitters
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -172,11 +171,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
-	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config)
+	networkInterfaceMap, newCauses := validateNetworksMatchInterfaces(field, spec, config)
 	causes = append(causes, newCauses...)
-	if done {
-		return causes
-	}
 
 	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
 
@@ -257,10 +253,8 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause) {
 	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
-
-	done = false
 
 	// Make sure interfaces and networks are 1to1 related
 	networkInterfaceMap = make(map[string]struct{})
@@ -285,17 +279,10 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
 		causes = append(causes, validateMacAddress(field, iface, idx)...)
 		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
-
-		newCauses, newDone := validateDHCPExtraOptions(field, iface)
-		causes = append(causes, newCauses...)
-		done = newDone
-		if done {
-			return nil, causes, done
-		}
-
+		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}
-	return networkInterfaceMap, causes, done
+	return networkInterfaceMap, causes
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
@@ -323,20 +310,23 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
 	return causes
 }
 
-func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) (causes []metav1.StatusCause, done bool) {
-	done = false
+func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) []metav1.StatusCause {
+	var causes []metav1.StatusCause
 	if iface.DHCPOptions != nil {
-		PrivateOptions := iface.DHCPOptions.PrivateOptions
-		err := ValidateDuplicateDHCPPrivateOptions(PrivateOptions)
-		if err != nil {
-			causes = appendStatusCauseForDuplicateDHCPOptionFound(field, causes, err)
-			done = true
+		privateOptions := iface.DHCPOptions.PrivateOptions
+		if countUniqueDHCPPrivateOptions(privateOptions) < len(privateOptions) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Found Duplicates: you have provided duplicate DHCPPrivateOptions",
+				Field:   field.String(),
+			})
 		}
-		for _, DHCPPrivateOption := range PrivateOptions {
+
+		for _, DHCPPrivateOption := range privateOptions {
 			causes = append(causes, validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption)...)
 		}
 	}
-	return causes, done
+	return causes
 }
 
 func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
@@ -362,15 +352,6 @@ func validateDHCPPrivateOptionsWithinRange(field *k8sfield.Path, DHCPPrivateOpti
 			Field:   field.String(),
 		})
 	}
-	return causes
-}
-
-func appendStatusCauseForDuplicateDHCPOptionFound(field *k8sfield.Path, causes []metav1.StatusCause, err error) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("Found Duplicates: %v", err),
-		Field:   field.String(),
-	})
 	return causes
 }
 
@@ -1573,15 +1554,12 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	return causes
 }
 
-func ValidateDuplicateDHCPPrivateOptions(PrivateOptions []v1.DHCPPrivateOptions) error {
-	isUnique := map[int]bool{}
-	for _, DHCPPrivateOption := range PrivateOptions {
-		if isUnique[DHCPPrivateOption.Option] {
-			return errors.New("you have provided duplicate DHCPPrivateOptions")
-		}
-		isUnique[DHCPPrivateOption.Option] = true
+func countUniqueDHCPPrivateOptions(privateOptions []v1.DHCPPrivateOptions) int {
+	optionSet := map[int]struct{}{}
+	for _, DHCPPrivateOption := range privateOptions {
+		optionSet[DHCPPrivateOption.Option] = struct{}{}
 	}
-	return nil
+	return len(optionSet)
 }
 
 // Copied from kubernetes/pkg/apis/core/validation/validation.go

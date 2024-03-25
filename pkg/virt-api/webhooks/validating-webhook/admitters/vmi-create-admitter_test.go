@@ -21,7 +21,6 @@ package admitters
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -1799,21 +1798,32 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should return error if not unique DHCPPrivateOptions", func() {
-			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
-				{Option: 240, Value: "extra.options.kubevirt.io"},
-				{Option: 240, Value: "sameextra.options.kubevirt.io"},
+			vmiSpec := v1.VirtualMachineInstanceSpec{}
+			vmiSpec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vmiSpec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmiSpec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{
+					{Option: 240, Value: "extra.options.kubevirt.io"},
+					{Option: 240, Value: "sameextra.options.kubevirt.io"},
+				},
 			}
-			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
-			Expect(err).To(Equal(errors.New("you have provided duplicate DHCPPrivateOptions")))
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmiSpec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal("Found Duplicates: you have provided duplicate DHCPPrivateOptions"))
 		})
 
 		It("should not return error if unique DHCPPrivateOptions", func() {
-			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
-				{Option: 240, Value: "extra.options.kubevirt.io"},
-				{Option: 241, Value: "sameextra.options.kubevirt.io"},
+			vmiSpec := v1.VirtualMachineInstanceSpec{}
+			vmiSpec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vmiSpec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmiSpec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{
+					{Option: 240, Value: "extra.options.kubevirt.io"},
+					{Option: 241, Value: "sameextra.options.kubevirt.io"},
+				},
 			}
-			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
-			Expect(err).ToNot(HaveOccurred())
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmiSpec, config)
+			Expect(causes).To(BeEmpty())
 		})
 
 		It("should allow BlockMultiQueue with CPU settings", func() {
