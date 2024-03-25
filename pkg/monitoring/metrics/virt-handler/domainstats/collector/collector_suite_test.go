@@ -1,4 +1,4 @@
-package vms
+package collector
 
 import (
 	"testing"

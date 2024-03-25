@@ -6,7 +6,7 @@ go_library(
         "collector.go",
         "scraper.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/monitoring/domainstats",
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats/collector",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-handler/cmd-client:go_default_library",

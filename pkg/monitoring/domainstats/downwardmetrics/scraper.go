@@ -14,14 +14,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	metricspkg "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/metrics"
-	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats/collector"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 const DownwardmetricsRefreshDuration = 5 * time.Second
-const DownwardmetricsCollectionTimeout = vms.CollectionTimeout
+const DownwardmetricsCollectionTimeout = collector.CollectionTimeout
 const qemuVersionUnknown = "qemu-unknown"
 
 type StaticHostMetrics struct {
@@ -34,6 +34,8 @@ type Scraper struct {
 	isolation isolation.PodIsolationDetector
 	reporter  *DownwardMetricsReporter
 }
+
+func (s *Scraper) Complete() {}
 
 func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 	if !vmi.IsRunning() || !downwardmetrics.HasDownwardMetricDisk(vmi) {
@@ -100,7 +102,7 @@ func (r *DownwardMetricsReporter) Report(socketFile string) (*api.Metrics, error
 	// In the best case the information is stale, in the worst case the information is stale *and*
 	// the reporting channel is already closed, leading to a possible panic - see below
 	elapsed := time.Now().Sub(ts)
-	if elapsed > vms.StatsMaxAge {
+	if elapsed > collector.StatsMaxAge {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 		return nil, fmt.Errorf("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 	}
@@ -142,7 +144,7 @@ func guestMemoryMetrics(vmStats *stats.DomainStats) []api.Metric {
 }
 
 type Collector struct {
-	concCollector *vms.ConcurrentCollector
+	concCollector *collector.ConcurrentCollector
 }
 
 func NewReporter(nodeName string) *DownwardMetricsReporter {
@@ -161,7 +163,7 @@ func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiIn
 		isolation: isolation,
 		reporter:  NewReporter(nodeName),
 	}
-	collector := vms.NewConcurrentCollector(1)
+	collector := collector.NewConcurrentCollector(1)
 
 	go func() {
 		ticker := time.NewTicker(DownwardmetricsRefreshDuration)
