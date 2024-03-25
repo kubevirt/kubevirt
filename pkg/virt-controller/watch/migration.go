@@ -416,7 +416,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	if podExists {
 		pod = pods[0]
 
-		if attachmentPods, err := controller.AttachmentPods(pod, c.podInformer); err != nil {
+		if attachmentPods, err := controller.AttachmentPods(pod, c.podInformer.GetIndexer()); err != nil {
 			return fmt.Errorf(failedGetAttractionPodsFmt, err)
 		} else {
 			attachmentPodExists = len(attachmentPods) > 0
@@ -889,7 +889,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 	vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
 
 	if controller.VMIHasHotplugVolumes(vmiCopy) {
-		attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+		attachmentPods, err := controller.AttachmentPods(pod, c.podInformer.GetIndexer())
 		if err != nil {
 			return fmt.Errorf(failedGetAttractionPodsFmt, err)
 		}
@@ -1292,7 +1292,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
 		} else if isPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
-				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer.GetIndexer())
 				if err != nil {
 					return fmt.Errorf(failedGetAttractionPodsFmt, err)
 				}
