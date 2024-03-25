@@ -19,9 +19,7 @@
 
 package domainstats
 
-import (
-	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
-)
+import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
 var (
 	memoryResident = operatormetrics.NewGauge(
@@ -66,14 +64,14 @@ var (
 		},
 	)
 
-	memoryPgmajfaultTotal = operatormetrics.NewGauge(
+	memoryPgmajfaultTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_pgmajfault_total",
 			Help: "The number of page faults when disk IO was required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is required, it is considered as major fault.",
 		},
 	)
 
-	memoryPgminfaultTotal = operatormetrics.NewGauge(
+	memoryPgminfaultTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_pgminfault_total",
 			Help: "The number of other page faults, when disk IO was not required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is NOT required, it is considered as minor fault.",

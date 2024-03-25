@@ -27,28 +27,28 @@ var (
 	migrateVMIDataRemaining = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migration_data_remaining_bytes",
-			Help: "Number of bytes that still need to be transferred",
+			Help: "The remaining guest OS data to be migrated to the new VM.",
 		},
 	)
 
 	migrateVMIDataProcessed = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migration_data_processed_bytes",
-			Help: "Number of bytes transferred from the beginning of the job.",
+			Help: "The total Guest OS data processed and migrated to the new VM.",
 		},
 	)
 
 	migrateVmiDirtyMemoryRate = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migration_dirty_memory_rate_bytes",
-			Help: "Number of memory pages dirtied by the guest per second.",
+			Help: "The rate of memory being dirty in the Guest OS.",
 		},
 	)
 
 	migrateVmiMemoryTransferRate = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migration_disk_transfer_rate_bytes",
-			Help: "Network throughput used while migrating memory in Bytes per second.",
+			Help: "The rate at which the memory is being transferred.",
 		},
 	)
 )

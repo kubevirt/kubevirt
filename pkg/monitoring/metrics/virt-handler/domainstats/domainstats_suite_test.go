@@ -20,10 +20,11 @@
 package domainstats
 
 import (
+	"testing"
+
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
-	"testing"
 
 	"kubevirt.io/client-go/testutils"
 )
