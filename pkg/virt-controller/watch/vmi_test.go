@@ -62,7 +62,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -794,7 +794,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
-			Expect(pod.Annotations).ToNot(HaveKey(sriov.NetworkPCIMapAnnot))
+			Expect(pod.Annotations).ToNot(HaveKey(deviceinfo.NetworkPCIMapAnnot))
 		})
 		It("should patch network-pci-map when SR-IOV networks exist", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -836,7 +836,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			prependInjectPodPatch(pod)
 			controller.Execute()
-			Expect(pod.Annotations).To(HaveKeyWithValue(sriov.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
+			Expect(pod.Annotations).To(HaveKeyWithValue(deviceinfo.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
 		})
 	})
 

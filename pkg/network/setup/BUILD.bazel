@@ -13,6 +13,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/cache:go_default_library",
+        "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/dhcp:go_default_library",
         "//pkg/network/domainspec:go_default_library",
         "//pkg/network/driver:go_default_library",
@@ -22,7 +23,6 @@ go_library(
         "//pkg/network/netns:go_default_library",
         "//pkg/network/setup/netpod:go_default_library",
         "//pkg/network/setup/netpod/masquerade:go_default_library",
-        "//pkg/network/sriov:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -48,11 +48,11 @@ go_test(
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/network/cache:go_default_library",
+        "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/dhcp:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/setup/netpod:go_default_library",
-        "//pkg/network/sriov:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/os/fs:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

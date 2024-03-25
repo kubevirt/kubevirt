@@ -17,7 +17,7 @@
  *
  */
 
-package sriov_test
+package deviceinfo_test
 
 import (
 	"testing"
