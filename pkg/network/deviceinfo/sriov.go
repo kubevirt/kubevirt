@@ -17,7 +17,7 @@
  *
  */
 
-package sriov
+package deviceinfo
 
 import (
 	"encoding/json"
@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	AliasPrefix        = "sriov-"
+	SRIOVAliasPrefix   = "sriov-"
 	NetworkPCIMapAnnot = "kubevirt.io/network-pci-map"
 	MountPath          = "/etc/podinfo"
 	VolumeName         = "network-pci-map-annotation"

@@ -17,7 +17,7 @@
  *
  */
 
-package sriov_test
+package deviceinfo_test
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestSRIOV(t *testing.T) {
+func TestDeviceInfo(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

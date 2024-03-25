@@ -53,8 +53,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1251,10 +1251,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 	if !isTempPod(pod) && isPodReady(pod) {
 		if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
-			networkPCIMapAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(
+			networkPCIMapAnnotationValue := deviceinfo.CreateNetworkPCIAnnotationValue(
 				vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot],
 			)
-			newAnnotations := map[string]string{sriov.NetworkPCIMapAnnot: networkPCIMapAnnotationValue}
+			newAnnotations := map[string]string{deviceinfo.NetworkPCIMapAnnot: networkPCIMapAnnotationValue}
 			patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
 			if err != nil {
 				return &syncErrorImpl{err, FailedPodPatchReason}
