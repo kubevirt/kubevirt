@@ -139,7 +139,15 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			"user":     "admin",
 			"password": "redhat",
 		}
-		tests.CreateSecret(name, namespace, data)
+		virtCli := kubevirt.Client()
+
+		_, err := virtCli.CoreV1().Secrets(namespace).Create(context.Background(), &k8sv1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			StringData: data,
+		}, metav1.CreateOptions{})
+		if !errors.IsAlreadyExists(err) {
+			util.PanicOnError(err)
+		}
 		return name
 	}
 
@@ -1886,7 +1894,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
-				vmi := libvmifact.NewAlpine(
+				virtCli := kubevirt.Client()
+
+				_, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: secretName},
+					StringData: secret_data,
+				}, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					util.PanicOnError(err)
+				}
+				vmi := libvmi.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithConfigMapDisk(configMapName, configMapName),
