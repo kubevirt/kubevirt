@@ -195,7 +195,7 @@ var _ = Describe("SRIOV", func() {
   "dns": {}
 }
 ]`
-	DescribeTable("should fail to prepare network pci map on the pod network-pci-map anotation",
+	DescribeTable("should fail to prepare network pci map on the pod network-pci-map annotation",
 		func(networkList []virtv1.Network, interfaceList []virtv1.Interface, networkStatusAnnotationValue string) {
 			networkPCIAnnotationValue := deviceinfo.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)
 			Expect(networkPCIAnnotationValue).To(Equal("{}"))
@@ -317,39 +317,5 @@ func newSRIOVInterface(name string) virtv1.Interface {
 	return virtv1.Interface{
 		Name:                   name,
 		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{SRIOV: &virtv1.InterfaceSRIOV{}},
-	}
-}
-
-func newBridgeInterface(name string) virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Bridge: &virtv1.InterfaceBridge{}},
-	}
-}
-
-func newMasqueradePrimaryInterface() virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   "testmasquerade",
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Masquerade: &virtv1.InterfaceMasquerade{}},
-	}
-}
-
-func newMasqueradeDefaultNetwork() virtv1.Network {
-	return virtv1.Network{
-		Name: "testmasquerade",
-		NetworkSource: virtv1.NetworkSource{
-			Pod: &virtv1.PodNetwork{},
-		},
-	}
-}
-
-func newMultusNetwork(name, networkName string) virtv1.Network {
-	return virtv1.Network{
-		Name: name,
-		NetworkSource: virtv1.NetworkSource{
-			Multus: &virtv1.MultusNetwork{
-				NetworkName: networkName,
-			},
-		},
 	}
 }

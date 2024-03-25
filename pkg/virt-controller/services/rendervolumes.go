@@ -492,10 +492,10 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 
 func withSRIOVPciMapAnnotation() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(deviceinfo.VolumeName, deviceinfo.MountPath))
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(deviceinfo.NetwrokPCIMapVolumeName, deviceinfo.MountPath))
 		renderer.podVolumes = append(renderer.podVolumes,
 			downwardAPIDirVolume(
-				deviceinfo.VolumeName, deviceinfo.VolumePath, fmt.Sprintf("metadata.annotations['%s']", deviceinfo.NetworkPCIMapAnnot)),
+				deviceinfo.NetwrokPCIMapVolumeName, deviceinfo.NetworkPCIMapVolumePath, fmt.Sprintf("metadata.annotations['%s']", deviceinfo.NetworkPCIMapAnnot)),
 		)
 		return nil
 	}

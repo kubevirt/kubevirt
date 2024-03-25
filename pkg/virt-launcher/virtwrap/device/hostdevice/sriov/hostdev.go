@@ -49,7 +49,7 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 	if len(SRIOVInterfaces) == 0 {
 		return []api.HostDevice{}, nil
 	}
-	netStatusPath := path.Join(deviceinfo.MountPath, deviceinfo.VolumePath)
+	netStatusPath := path.Join(deviceinfo.MountPath, deviceinfo.NetworkPCIMapVolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
 		return nil, err
