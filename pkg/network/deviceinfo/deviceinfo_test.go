@@ -121,7 +121,7 @@ var _ = Describe("DeviceInfo", func() {
 			[]virtv1.Interface{
 				newBindingPluginInterface("foo"),
 			},
-			fmt.Sprintf(networkStatusWithNoDeviceInfoFmt, fooHashedIfaceName, booHashedIfaceName),
+			fmt.Sprintf(networkStatusWithNoDeviceInfoFmt, fooHashedIfaceName),
 		),
 		Entry("when pod's networkStatus Annotation does not exist",
 			[]virtv1.Network{newMultusNetwork("foo", "default/nad1")},
