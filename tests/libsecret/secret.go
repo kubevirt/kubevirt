@@ -13,13 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
-package util
+package libsecret
 
-const (
-	KubevirtIoTest       = "kubevirt.io/test"
-	KubernetesIoHostName = "kubernetes.io/hostname"
+import (
+	kubev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// SecretLabel set this label to make the test suite namespace clean-up delete the secret on teardown
+const SecretLabel = "kubevirt.io/secret"
+
+// New return Secret of Opaque type with "kubevirt.io/secret" label
+func New(name string, data map[string][]byte) *kubev1.Secret {
+	return &kubev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				SecretLabel: name,
+			},
+		},
+		Data: data,
+	}
+}
