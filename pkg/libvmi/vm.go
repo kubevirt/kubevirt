@@ -76,8 +76,27 @@ func WithDataVolumeTemplate(datavolume *v1beta1.DataVolume) VMOption {
 	}
 }
 
+func resourcesRemovedFromVMI(vmiSpec *v1.VirtualMachineInstanceSpec) {
+	vmiSpec.Domain.CPU = nil
+	vmiSpec.Domain.Memory = nil
+	vmiSpec.Domain.Resources = v1.ResourceRequirements{}
+}
+
+func preferencesRemovedFromVMI(vmiSpec *v1.VirtualMachineInstanceSpec) {
+	vmiSpec.TerminationGracePeriodSeconds = nil
+	vmiSpec.Domain.Features = nil
+	vmiSpec.Domain.Machine = nil
+	for diskIndex := range vmiSpec.Domain.Devices.Disks {
+		disk := vmiSpec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk
+		if disk != nil && disk.Bus != "" {
+			disk.Bus = ""
+		}
+	}
+}
+
 func WithClusterInstancetype(name string) VMOption {
 	return func(vm *v1.VirtualMachine) {
+		resourcesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			Name: name,
 		}
@@ -86,6 +105,7 @@ func WithClusterInstancetype(name string) VMOption {
 
 func WithClusterPreference(name string) VMOption {
 	return func(vm *v1.VirtualMachine) {
+		preferencesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			Name: name,
 		}
@@ -94,6 +114,7 @@ func WithClusterPreference(name string) VMOption {
 
 func WithInstancetype(name string) VMOption {
 	return func(vm *v1.VirtualMachine) {
+		resourcesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			Name: name,
 			Kind: instancetypeapi.SingularResourceName,
@@ -103,6 +124,7 @@ func WithInstancetype(name string) VMOption {
 
 func WithPreference(name string) VMOption {
 	return func(vm *v1.VirtualMachine) {
+		preferencesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			Name: name,
 			Kind: instancetypeapi.SingularPreferenceResourceName,
@@ -112,6 +134,7 @@ func WithPreference(name string) VMOption {
 
 func WithInstancetypeInferredFromVolume(name string) VMOption {
 	return func(vm *v1.VirtualMachine) {
+		resourcesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			InferFromVolume: name,
 		}
@@ -120,6 +143,7 @@ func WithInstancetypeInferredFromVolume(name string) VMOption {
 
 func WithPreferenceInferredFromVolume(name string) VMOption {
 	return func(vm *v1.VirtualMachine) {
+		preferencesRemovedFromVMI(&vm.Spec.Template.Spec)
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			InferFromVolume: name,
 		}

@@ -125,7 +125,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewGuestless()
-			libinstancetype.RemoveResourcesFromVMI(vmi)
 		})
 
 		It("[test_id:CNV-9086] should fail to create VM with non-existing cluster instancetype", func() {
@@ -162,7 +161,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewGuestless()
-			libinstancetype.RemoveResourcesFromVMI(vmi)
 		})
 
 		It("[test_id:CNV-9091] should fail to create VM with non-existing cluster preference", func() {
@@ -218,7 +216,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			// Remove any requested resources from the VMI before generating the VM
-			libinstancetype.RemoveResourcesFromVMI(vmi)
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithInstancetype(instancetype.Name),
 				libvmi.WithPreference(preference.Name),
@@ -245,7 +242,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewGuestless()
-			libinstancetype.RemoveResourcesFromVMI(vmi)
 		})
 
 		It("[test_id:CNV-9094] should find and apply cluster instancetype and preferences when kind isn't provided", func() {
@@ -601,7 +597,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a second VirtualMachine using the now updated VirtualMachineInstancetype and original VirtualMachinePreference")
 			newVMI := libvmifact.NewGuestless()
-			libinstancetype.RemoveResourcesFromVMI(newVMI)
 			newVM := libvmi.NewVirtualMachine(newVMI,
 				libvmi.WithInstancetype(instancetype.Name),
 				libvmi.WithPreference(preference.Name),
@@ -1325,7 +1320,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			libinstancetype.RemoveResourcesFromVMI(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterInstancetype(clusterInstancetype.Name))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
