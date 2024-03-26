@@ -41,31 +41,31 @@ const (
 	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
 
 	DownwardMetricsFeatureGate = "DownwardMetrics"
-	Root                       = "Root"
-	ClusterProfiler            = "ClusterProfiler"
-	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
+	RootGate                       = "Root"
+	ClusterProfilerGate            = "ClusterProfiler"
+	WorkloadEncryptionSEVGate      = "WorkloadEncryptionSEV"
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
-	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
+	DockerSELinuxMCSWorkaroundGate = "DockerSELinuxMCSWorkaround"
 	VSOCKGate                  = "VSOCK"
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
-	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
+	DisableCustomSELinuxPolicyGate = "DisableCustomSELinuxPolicy"
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
 	// user can tell Kubevirt to use it
-	KubevirtSeccompProfile = "KubevirtSeccompProfile"
+	KubevirtSeccompProfileGate = "KubevirtSeccompProfile"
 	// DisableMediatedDevicesHandling disables the handling of mediated
 	// devices, its creation and deletion
-	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
+	DisableMediatedDevicesHandlingGate = "DisableMDEVConfiguration"
 	// HotplugNetworkIfacesGate enables the virtio network interface hotplug feature
 	HotplugNetworkIfacesGate = "HotplugNICs"
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
-	PersistentReservation = "PersistentReservation"
+	PersistentReservationGate = "PersistentReservation"
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
-	VMPersistentState = "VMPersistentState"
-	Multiarchitecture = "MultiArchitecture"
+	VMPersistentStateGate = "VMPersistentState"
+	MultiarchitectureGate = "MultiArchitecture"
 	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
-	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
+	BochsDisplayForEFIGuestsGate = "BochsDisplayForEFIGuests"
 	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
 	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
 	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
@@ -176,19 +176,19 @@ func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 }
 
 func (config *ClusterConfig) RootEnabled() bool {
-	return config.isFeatureGateEnabled(Root)
+	return config.isFeatureGateEnabled(RootGate)
 }
 
 func (config *ClusterConfig) ClusterProfilerEnabled() bool {
-	return config.isFeatureGateEnabled(ClusterProfiler)
+	return config.isFeatureGateEnabled(ClusterProfilerGate)
 }
 
 func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
-	return config.isFeatureGateEnabled(WorkloadEncryptionSEV)
+	return config.isFeatureGateEnabled(WorkloadEncryptionSEVGate)
 }
 
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
-	return config.isFeatureGateEnabled(DockerSELinuxMCSWorkaround)
+	return config.isFeatureGateEnabled(DockerSELinuxMCSWorkaroundGate)
 }
 
 func (config *ClusterConfig) VSOCKEnabled() bool {
@@ -196,15 +196,15 @@ func (config *ClusterConfig) VSOCKEnabled() bool {
 }
 
 func (config *ClusterConfig) CustomSELinuxPolicyDisabled() bool {
-	return config.isFeatureGateEnabled(DisableCustomSELinuxPolicy)
+	return config.isFeatureGateEnabled(DisableCustomSELinuxPolicyGate)
 }
 
 func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
-	return config.isFeatureGateEnabled(DisableMediatedDevicesHandling)
+	return config.isFeatureGateEnabled(DisableMediatedDevicesHandlingGate)
 }
 
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
-	return config.isFeatureGateEnabled(KubevirtSeccompProfile)
+	return config.isFeatureGateEnabled(KubevirtSeccompProfileGate)
 }
 
 func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
@@ -212,15 +212,15 @@ func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
 }
 
 func (config *ClusterConfig) PersistentReservationEnabled() bool {
-	return config.isFeatureGateEnabled(PersistentReservation)
+	return config.isFeatureGateEnabled(PersistentReservationGate)
 }
 
 func (config *ClusterConfig) VMPersistentStateEnabled() bool {
-	return config.isFeatureGateEnabled(VMPersistentState)
+	return config.isFeatureGateEnabled(VMPersistentStateGate)
 }
 
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
-	return config.isFeatureGateEnabled(Multiarchitecture)
+	return config.isFeatureGateEnabled(MultiarchitectureGate)
 }
 
 func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
@@ -228,7 +228,7 @@ func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
 }
 
 func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {
-	return config.isFeatureGateEnabled(BochsDisplayForEFIGuests)
+	return config.isFeatureGateEnabled(BochsDisplayForEFIGuestsGate)
 }
 
 func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
