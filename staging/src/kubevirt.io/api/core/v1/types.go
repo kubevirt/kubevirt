@@ -125,6 +125,8 @@ type VirtualMachineInstanceSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
+	// +listType=map
+	// +listMapKey=name
 	Volumes []Volume `json:"volumes,omitempty"`
 	// Periodic probe of VirtualMachineInstance liveness.
 	// VirtualmachineInstances will be stopped if the probe fails.

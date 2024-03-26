@@ -143,7 +143,6 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInst
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceReplicaSetStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceSpec,Networks
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceSpec,Tolerations
-API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceSpec,Volumes
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceStatus,Interfaces
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineSpec,DataVolumeTemplates

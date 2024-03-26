@@ -5531,6 +5531,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   by virtual CPU. forbid   - Guest creation will fail
                                   if the feature is supported by host CPU. Defaults
                                   to require'
+                                enum:
+                                - force
+                                - require
+                                - optional
+                                - disable
+                                - forbid
                                 type: string
                             required:
                             - name
@@ -5746,6 +5752,7 @@ var CRDsValidation map[string]string = map[string]string{
                               serial:
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
+                                maxLength: 256
                                 type: string
                               shareable:
                                 description: If specified the disk is made sharable
@@ -5760,6 +5767,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         downwardMetrics:
                           description: DownwardMetrics creates a virtio serials for
                             exposing the downward metrics to the vmi.
@@ -5852,6 +5862,9 @@ var CRDsValidation map[string]string = map[string]string{
                               bus:
                                 description: 'Bus indicates the bus of input device
                                   to emulate. Supported values: virtio, usb.'
+                                enum:
+                                - virtio
+                                - usb
                                 type: string
                               name:
                                 description: Name is the device name
@@ -5859,6 +5872,8 @@ var CRDsValidation map[string]string = map[string]string{
                               type:
                                 description: 'Type indicated the type of input device.
                                   Supported values: tablet.'
+                                enum:
+                                - tablet
                                 type: string
                             required:
                             - name
@@ -5953,15 +5968,22 @@ var CRDsValidation map[string]string = map[string]string{
                                   network using netfilter rules to nat the traffic.
                                 type: object
                               model:
+                                default: virtio
                                 description: 'Interface model. One of: e1000, e1000e,
-                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports
-                                  them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.'
+                                enum:
+                                - e1000
+                                - e1000e
+                                - ne2k_pci
+                                - pcnet
+                                - rtl8139
+                                - virtio
                                 type: string
                               name:
                                 description: Logical name of the interface as well
                                   as a reference to the associated networks. Must
                                   match the Name of a Network.
+                                pattern: ^[A-Za-z0-9-_]+$
                                 type: string
                               passt:
                                 description: Deprecated, please refer to Kubevirt
@@ -5990,11 +6012,19 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Number of port to expose for the
                                         virtual machine. This must be a valid port
                                         number, 0 < x < 65536.
+                                      exclusiveMaximum: true
+                                      exclusiveMinimum: true
                                       format: int32
+                                      maximum: 65536
+                                      minimum: 0
                                       type: integer
                                     protocol:
+                                      default: TCP
                                       description: Protocol for port. Must be UDP
                                         or TCP. Defaults to "TCP".
+                                      enum:
+                                      - TCP
+                                      - UDP
                                       type: string
                                   required:
                                   - port
@@ -6013,6 +6043,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   state of the interface. The (only) value supported
                                   is 'absent', expressing a request to remove the
                                   interface.
+                                enum:
+                                - absent
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -6024,6 +6056,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         logSerialConsole:
                           description: Whether to log the auto-attached default serial
                             console or not. Serial console logs will be collect to
@@ -6046,12 +6081,17 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to emulate a sound device.
                           properties:
                             model:
+                              default: ich9
                               description: 'We only support ich9 or ac97. If SoundDevice
                                 is not set: No sound card is emulated. If SoundDevice
                                 is set but Model is not: ich9'
+                              enum:
+                              - ich9
+                              - ac97
                               type: string
                             name:
                               description: User's defined name for this sound device
+                              minLength: 1
                               type: string
                           required:
                           - name
@@ -6402,6 +6442,8 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         serial:
                           description: The system-serial-number in SMBIOS
+                          maxLength: 256
+                          pattern: ^[A-Za-z0-9_.+-]+$
                           type: string
                         uuid:
                           description: UUID reported by the vmi bios. Defaults to
@@ -6412,6 +6454,9 @@ var CRDsValidation map[string]string = map[string]string{
                       description: 'Controls whether or not disks will share IOThreads.
                         Omitting IOThreadsPolicy disables use of IOThreads. One of:
                         shared, auto'
+                      enum:
+                      - shared
+                      - auto
                       type: string
                     launchSecurity:
                       description: Launch Security setting of the vmi.
@@ -7492,6 +7537,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
               required:
               - domain
               type: object
@@ -7752,6 +7800,7 @@ var CRDsValidation map[string]string = map[string]string{
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
+                        maxLength: 256
                         type: string
                       shareable:
                         description: If specified the disk is made sharable and multiple
@@ -8387,6 +8436,12 @@ var CRDsValidation map[string]string = map[string]string{
                       will not be supported by virtual CPU. forbid   - Guest creation
                       will fail if the feature is supported by host CPU. Defaults
                       to require'
+                    enum:
+                    - force
+                    - require
+                    - optional
+                    - disable
+                    - forbid
                     type: string
                 required:
                 - name
@@ -10149,6 +10204,12 @@ var CRDsValidation map[string]string = map[string]string{
                           disable  - The feature will not be supported by virtual
                           CPU. forbid   - Guest creation will fail if the feature
                           is supported by host CPU. Defaults to require'
+                        enum:
+                        - force
+                        - require
+                        - optional
+                        - disable
+                        - forbid
                         type: string
                     required:
                     - name
@@ -10349,6 +10410,7 @@ var CRDsValidation map[string]string = map[string]string{
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
+                        maxLength: 256
                         type: string
                       shareable:
                         description: If specified the disk is made sharable and multiple
@@ -10363,6 +10425,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 downwardMetrics:
                   description: DownwardMetrics creates a virtio serials for exposing
                     the downward metrics to the vmi.
@@ -10452,6 +10517,9 @@ var CRDsValidation map[string]string = map[string]string{
                       bus:
                         description: 'Bus indicates the bus of input device to emulate.
                           Supported values: virtio, usb.'
+                        enum:
+                        - virtio
+                        - usb
                         type: string
                       name:
                         description: Name is the device name
@@ -10459,6 +10527,8 @@ var CRDsValidation map[string]string = map[string]string{
                       type:
                         description: 'Type indicated the type of input device. Supported
                           values: tablet.'
+                        enum:
+                        - tablet
                         type: string
                     required:
                     - name
@@ -10550,13 +10620,21 @@ var CRDsValidation map[string]string = map[string]string{
                           using netfilter rules to nat the traffic.
                         type: object
                       model:
+                        default: virtio
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
-                          pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
-                          switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          pcnet, rtl8139, virtio. Defaults to virtio.'
+                        enum:
+                        - e1000
+                        - e1000e
+                        - ne2k_pci
+                        - pcnet
+                        - rtl8139
+                        - virtio
                         type: string
                       name:
                         description: Logical name of the interface as well as a reference
                           to the associated networks. Must match the Name of a Network.
+                        pattern: ^[A-Za-z0-9-_]+$
                         type: string
                       passt:
                         description: Deprecated, please refer to Kubevirt user guide
@@ -10584,11 +10662,19 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Number of port to expose for the virtual
                                 machine. This must be a valid port number, 0 < x <
                                 65536.
+                              exclusiveMaximum: true
+                              exclusiveMinimum: true
                               format: int32
+                              maximum: 65536
+                              minimum: 0
                               type: integer
                             protocol:
+                              default: TCP
                               description: Protocol for port. Must be UDP or TCP.
                                 Defaults to "TCP".
+                              enum:
+                              - TCP
+                              - UDP
                               type: string
                           required:
                           - port
@@ -10606,6 +10692,8 @@ var CRDsValidation map[string]string = map[string]string{
                         description: State represents the requested operational state
                           of the interface. The (only) value supported is 'absent',
                           expressing a request to remove the interface.
+                        enum:
+                        - absent
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -10616,6 +10704,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 logSerialConsole:
                   description: Whether to log the auto-attached default serial console
                     or not. Serial console logs will be collect to a file and then
@@ -10636,12 +10727,17 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to emulate a sound device.
                   properties:
                     model:
+                      default: ich9
                       description: 'We only support ich9 or ac97. If SoundDevice is
                         not set: No sound card is emulated. If SoundDevice is set
                         but Model is not: ich9'
+                      enum:
+                      - ich9
+                      - ac97
                       type: string
                     name:
                       description: User's defined name for this sound device
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -10961,6 +11057,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 serial:
                   description: The system-serial-number in SMBIOS
+                  maxLength: 256
+                  pattern: ^[A-Za-z0-9_.+-]+$
                   type: string
                 uuid:
                   description: UUID reported by the vmi bios. Defaults to a random
@@ -10970,6 +11068,9 @@ var CRDsValidation map[string]string = map[string]string{
             ioThreadsPolicy:
               description: 'Controls whether or not disks will share IOThreads. Omitting
                 IOThreadsPolicy disables use of IOThreads. One of: shared, auto'
+              enum:
+              - shared
+              - auto
               type: string
             launchSecurity:
               description: Launch Security setting of the vmi.
@@ -11994,6 +12095,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           maxItems: 256
           type: array
+          x-kubernetes-list-map-keys:
+          - name
+          x-kubernetes-list-type: map
       required:
       - domain
       type: object
@@ -12950,6 +13054,12 @@ var CRDsValidation map[string]string = map[string]string{
                           disable  - The feature will not be supported by virtual
                           CPU. forbid   - Guest creation will fail if the feature
                           is supported by host CPU. Defaults to require'
+                        enum:
+                        - force
+                        - require
+                        - optional
+                        - disable
+                        - forbid
                         type: string
                     required:
                     - name
@@ -13150,6 +13260,7 @@ var CRDsValidation map[string]string = map[string]string{
                       serial:
                         description: Serial provides the ability to specify a serial
                           number for the disk device.
+                        maxLength: 256
                         type: string
                       shareable:
                         description: If specified the disk is made sharable and multiple
@@ -13164,6 +13275,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 downwardMetrics:
                   description: DownwardMetrics creates a virtio serials for exposing
                     the downward metrics to the vmi.
@@ -13253,6 +13367,9 @@ var CRDsValidation map[string]string = map[string]string{
                       bus:
                         description: 'Bus indicates the bus of input device to emulate.
                           Supported values: virtio, usb.'
+                        enum:
+                        - virtio
+                        - usb
                         type: string
                       name:
                         description: Name is the device name
@@ -13260,6 +13377,8 @@ var CRDsValidation map[string]string = map[string]string{
                       type:
                         description: 'Type indicated the type of input device. Supported
                           values: tablet.'
+                        enum:
+                        - tablet
                         type: string
                     required:
                     - name
@@ -13351,13 +13470,21 @@ var CRDsValidation map[string]string = map[string]string{
                           using netfilter rules to nat the traffic.
                         type: object
                       model:
+                        default: virtio
                         description: 'Interface model. One of: e1000, e1000e, ne2k_pci,
-                          pcnet, rtl8139, virtio. Defaults to virtio. TODO:(ihar)
-                          switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                          pcnet, rtl8139, virtio. Defaults to virtio.'
+                        enum:
+                        - e1000
+                        - e1000e
+                        - ne2k_pci
+                        - pcnet
+                        - rtl8139
+                        - virtio
                         type: string
                       name:
                         description: Logical name of the interface as well as a reference
                           to the associated networks. Must match the Name of a Network.
+                        pattern: ^[A-Za-z0-9-_]+$
                         type: string
                       passt:
                         description: Deprecated, please refer to Kubevirt user guide
@@ -13385,11 +13512,19 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Number of port to expose for the virtual
                                 machine. This must be a valid port number, 0 < x <
                                 65536.
+                              exclusiveMaximum: true
+                              exclusiveMinimum: true
                               format: int32
+                              maximum: 65536
+                              minimum: 0
                               type: integer
                             protocol:
+                              default: TCP
                               description: Protocol for port. Must be UDP or TCP.
                                 Defaults to "TCP".
+                              enum:
+                              - TCP
+                              - UDP
                               type: string
                           required:
                           - port
@@ -13407,6 +13542,8 @@ var CRDsValidation map[string]string = map[string]string{
                         description: State represents the requested operational state
                           of the interface. The (only) value supported is 'absent',
                           expressing a request to remove the interface.
+                        enum:
+                        - absent
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -13417,6 +13554,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 logSerialConsole:
                   description: Whether to log the auto-attached default serial console
                     or not. Serial console logs will be collect to a file and then
@@ -13437,12 +13577,17 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to emulate a sound device.
                   properties:
                     model:
+                      default: ich9
                       description: 'We only support ich9 or ac97. If SoundDevice is
                         not set: No sound card is emulated. If SoundDevice is set
                         but Model is not: ich9'
+                      enum:
+                      - ich9
+                      - ac97
                       type: string
                     name:
                       description: User's defined name for this sound device
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -13762,6 +13907,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
                 serial:
                   description: The system-serial-number in SMBIOS
+                  maxLength: 256
+                  pattern: ^[A-Za-z0-9_.+-]+$
                   type: string
                 uuid:
                   description: UUID reported by the vmi bios. Defaults to a random
@@ -13771,6 +13918,9 @@ var CRDsValidation map[string]string = map[string]string{
             ioThreadsPolicy:
               description: 'Controls whether or not disks will share IOThreads. Omitting
                 IOThreadsPolicy disables use of IOThreads. One of: shared, auto'
+              enum:
+              - shared
+              - auto
               type: string
             launchSecurity:
               description: Launch Security setting of the vmi.
@@ -15132,6 +15282,12 @@ var CRDsValidation map[string]string = map[string]string{
                                   by virtual CPU. forbid   - Guest creation will fail
                                   if the feature is supported by host CPU. Defaults
                                   to require'
+                                enum:
+                                - force
+                                - require
+                                - optional
+                                - disable
+                                - forbid
                                 type: string
                             required:
                             - name
@@ -15347,6 +15503,7 @@ var CRDsValidation map[string]string = map[string]string{
                               serial:
                                 description: Serial provides the ability to specify
                                   a serial number for the disk device.
+                                maxLength: 256
                                 type: string
                               shareable:
                                 description: If specified the disk is made sharable
@@ -15361,6 +15518,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         downwardMetrics:
                           description: DownwardMetrics creates a virtio serials for
                             exposing the downward metrics to the vmi.
@@ -15453,6 +15613,9 @@ var CRDsValidation map[string]string = map[string]string{
                               bus:
                                 description: 'Bus indicates the bus of input device
                                   to emulate. Supported values: virtio, usb.'
+                                enum:
+                                - virtio
+                                - usb
                                 type: string
                               name:
                                 description: Name is the device name
@@ -15460,6 +15623,8 @@ var CRDsValidation map[string]string = map[string]string{
                               type:
                                 description: 'Type indicated the type of input device.
                                   Supported values: tablet.'
+                                enum:
+                                - tablet
                                 type: string
                             required:
                             - name
@@ -15554,15 +15719,22 @@ var CRDsValidation map[string]string = map[string]string{
                                   network using netfilter rules to nat the traffic.
                                 type: object
                               model:
+                                default: virtio
                                 description: 'Interface model. One of: e1000, e1000e,
-                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports
-                                  them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                  ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.'
+                                enum:
+                                - e1000
+                                - e1000e
+                                - ne2k_pci
+                                - pcnet
+                                - rtl8139
+                                - virtio
                                 type: string
                               name:
                                 description: Logical name of the interface as well
                                   as a reference to the associated networks. Must
                                   match the Name of a Network.
+                                pattern: ^[A-Za-z0-9-_]+$
                                 type: string
                               passt:
                                 description: Deprecated, please refer to Kubevirt
@@ -15591,11 +15763,19 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Number of port to expose for the
                                         virtual machine. This must be a valid port
                                         number, 0 < x < 65536.
+                                      exclusiveMaximum: true
+                                      exclusiveMinimum: true
                                       format: int32
+                                      maximum: 65536
+                                      minimum: 0
                                       type: integer
                                     protocol:
+                                      default: TCP
                                       description: Protocol for port. Must be UDP
                                         or TCP. Defaults to "TCP".
+                                      enum:
+                                      - TCP
+                                      - UDP
                                       type: string
                                   required:
                                   - port
@@ -15614,6 +15794,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   state of the interface. The (only) value supported
                                   is 'absent', expressing a request to remove the
                                   interface.
+                                enum:
+                                - absent
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -15625,6 +15807,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         logSerialConsole:
                           description: Whether to log the auto-attached default serial
                             console or not. Serial console logs will be collect to
@@ -15647,12 +15832,17 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to emulate a sound device.
                           properties:
                             model:
+                              default: ich9
                               description: 'We only support ich9 or ac97. If SoundDevice
                                 is not set: No sound card is emulated. If SoundDevice
                                 is set but Model is not: ich9'
+                              enum:
+                              - ich9
+                              - ac97
                               type: string
                             name:
                               description: User's defined name for this sound device
+                              minLength: 1
                               type: string
                           required:
                           - name
@@ -16003,6 +16193,8 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         serial:
                           description: The system-serial-number in SMBIOS
+                          maxLength: 256
+                          pattern: ^[A-Za-z0-9_.+-]+$
                           type: string
                         uuid:
                           description: UUID reported by the vmi bios. Defaults to
@@ -16013,6 +16205,9 @@ var CRDsValidation map[string]string = map[string]string{
                       description: 'Controls whether or not disks will share IOThreads.
                         Omitting IOThreadsPolicy disables use of IOThreads. One of:
                         shared, auto'
+                      enum:
+                      - shared
+                      - auto
                       type: string
                     launchSecurity:
                       description: Launch Security setting of the vmi.
@@ -17093,6 +17288,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
               required:
               - domain
               type: object
@@ -19489,6 +19687,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           CPU. forbid   - Guest creation will fail
                                           if the feature is supported by host CPU.
                                           Defaults to require'
+                                        enum:
+                                        - force
+                                        - require
+                                        - optional
+                                        - disable
+                                        - forbid
                                         type: string
                                     required:
                                     - name
@@ -19719,6 +19923,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       serial:
                                         description: Serial provides the ability to
                                           specify a serial number for the disk device.
+                                        maxLength: 256
                                         type: string
                                       shareable:
                                         description: If specified the disk is made
@@ -19735,6 +19940,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   maxItems: 256
                                   type: array
+                                  x-kubernetes-list-map-keys:
+                                  - name
+                                  x-kubernetes-list-type: map
                                 downwardMetrics:
                                   description: DownwardMetrics creates a virtio serials
                                     for exposing the downward metrics to the vmi.
@@ -19832,6 +20040,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: 'Bus indicates the bus of input
                                           device to emulate. Supported values: virtio,
                                           usb.'
+                                        enum:
+                                        - virtio
+                                        - usb
                                         type: string
                                       name:
                                         description: Name is the device name
@@ -19839,6 +20050,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       type:
                                         description: 'Type indicated the type of input
                                           device. Supported values: tablet.'
+                                        enum:
+                                        - tablet
                                         type: string
                                     required:
                                     - name
@@ -19940,16 +20153,23 @@ var CRDsValidation map[string]string = map[string]string{
                                           to nat the traffic.
                                         type: object
                                       model:
+                                        default: virtio
                                         description: 'Interface model. One of: e1000,
                                           e1000e, ne2k_pci, pcnet, rtl8139, virtio.
-                                          Defaults to virtio. TODO:(ihar) switch to
-                                          enums once opengen-api supports them. See:
-                                          https://github.com/kubernetes/kube-openapi/issues/51'
+                                          Defaults to virtio.'
+                                        enum:
+                                        - e1000
+                                        - e1000e
+                                        - ne2k_pci
+                                        - pcnet
+                                        - rtl8139
+                                        - virtio
                                         type: string
                                       name:
                                         description: Logical name of the interface
                                           as well as a reference to the associated
                                           networks. Must match the Name of a Network.
+                                        pattern: ^[A-Za-z0-9-_]+$
                                         type: string
                                       passt:
                                         description: Deprecated, please refer to Kubevirt
@@ -19981,11 +20201,19 @@ var CRDsValidation map[string]string = map[string]string{
                                               description: Number of port to expose
                                                 for the virtual machine. This must
                                                 be a valid port number, 0 < x < 65536.
+                                              exclusiveMaximum: true
+                                              exclusiveMinimum: true
                                               format: int32
+                                              maximum: 65536
+                                              minimum: 0
                                               type: integer
                                             protocol:
+                                              default: TCP
                                               description: Protocol for port. Must
                                                 be UDP or TCP. Defaults to "TCP".
+                                              enum:
+                                              - TCP
+                                              - UDP
                                               type: string
                                           required:
                                           - port
@@ -20006,6 +20234,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           operational state of the interface. The
                                           (only) value supported is 'absent', expressing
                                           a request to remove the interface.
+                                        enum:
+                                        - absent
                                         type: string
                                       tag:
                                         description: If specified, the virtual network
@@ -20017,6 +20247,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   maxItems: 256
                                   type: array
+                                  x-kubernetes-list-map-keys:
+                                  - name
+                                  x-kubernetes-list-type: map
                                 logSerialConsole:
                                   description: Whether to log the auto-attached default
                                     serial console or not. Serial console logs will
@@ -20041,14 +20274,19 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Whether to emulate a sound device.
                                   properties:
                                     model:
+                                      default: ich9
                                       description: 'We only support ich9 or ac97.
                                         If SoundDevice is not set: No sound card is
                                         emulated. If SoundDevice is set but Model
                                         is not: ich9'
+                                      enum:
+                                      - ich9
+                                      - ac97
                                       type: string
                                     name:
                                       description: User's defined name for this sound
                                         device
+                                      minLength: 1
                                       type: string
                                   required:
                                   - name
@@ -20416,6 +20654,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 serial:
                                   description: The system-serial-number in SMBIOS
+                                  maxLength: 256
+                                  pattern: ^[A-Za-z0-9_.+-]+$
                                   type: string
                                 uuid:
                                   description: UUID reported by the vmi bios. Defaults
@@ -20426,6 +20666,9 @@ var CRDsValidation map[string]string = map[string]string{
                               description: 'Controls whether or not disks will share
                                 IOThreads. Omitting IOThreadsPolicy disables use of
                                 IOThreads. One of: shared, auto'
+                              enum:
+                              - shared
+                              - auto
                               type: string
                             launchSecurity:
                               description: Launch Security setting of the vmi.
@@ -21579,6 +21822,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                       required:
                       - domain
                       type: object
@@ -21774,6 +22020,12 @@ var CRDsValidation map[string]string = map[string]string{
                       will not be supported by virtual CPU. forbid   - Guest creation
                       will fail if the feature is supported by host CPU. Defaults
                       to require'
+                    enum:
+                    - force
+                    - require
+                    - optional
+                    - disable
+                    - forbid
                     type: string
                 required:
                 - name
@@ -24647,6 +24899,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               Guest creation will fail if the feature
                                               is supported by host CPU. Defaults to
                                               require'
+                                            enum:
+                                            - force
+                                            - require
+                                            - optional
+                                            - disable
+                                            - forbid
                                             type: string
                                         required:
                                         - name
@@ -24886,6 +25144,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: Serial provides the ability
                                               to specify a serial number for the disk
                                               device.
+                                            maxLength: 256
                                             type: string
                                           shareable:
                                             description: If specified the disk is
@@ -24902,6 +25161,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                       maxItems: 256
                                       type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
                                     downwardMetrics:
                                       description: DownwardMetrics creates a virtio
                                         serials for exposing the downward metrics
@@ -25004,6 +25266,9 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: 'Bus indicates the bus of
                                               input device to emulate. Supported values:
                                               virtio, usb.'
+                                            enum:
+                                            - virtio
+                                            - usb
                                             type: string
                                           name:
                                             description: Name is the device name
@@ -25011,6 +25276,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           type:
                                             description: 'Type indicated the type
                                               of input device. Supported values: tablet.'
+                                            enum:
+                                            - tablet
                                             type: string
                                         required:
                                         - name
@@ -25115,16 +25382,23 @@ var CRDsValidation map[string]string = map[string]string{
                                               to nat the traffic.
                                             type: object
                                           model:
+                                            default: virtio
                                             description: 'Interface model. One of:
                                               e1000, e1000e, ne2k_pci, pcnet, rtl8139,
-                                              virtio. Defaults to virtio. TODO:(ihar)
-                                              switch to enums once opengen-api supports
-                                              them. See: https://github.com/kubernetes/kube-openapi/issues/51'
+                                              virtio. Defaults to virtio.'
+                                            enum:
+                                            - e1000
+                                            - e1000e
+                                            - ne2k_pci
+                                            - pcnet
+                                            - rtl8139
+                                            - virtio
                                             type: string
                                           name:
                                             description: Logical name of the interface
                                               as well as a reference to the associated
                                               networks. Must match the Name of a Network.
+                                            pattern: ^[A-Za-z0-9-_]+$
                                             type: string
                                           passt:
                                             description: Deprecated, please refer
@@ -25158,12 +25432,20 @@ var CRDsValidation map[string]string = map[string]string{
                                                     for the virtual machine. This
                                                     must be a valid port number, 0
                                                     < x < 65536.
+                                                  exclusiveMaximum: true
+                                                  exclusiveMinimum: true
                                                   format: int32
+                                                  maximum: 65536
+                                                  minimum: 0
                                                   type: integer
                                                 protocol:
+                                                  default: TCP
                                                   description: Protocol for port.
                                                     Must be UDP or TCP. Defaults to
                                                     "TCP".
+                                                  enum:
+                                                  - TCP
+                                                  - UDP
                                                   type: string
                                               required:
                                               - port
@@ -25184,6 +25466,8 @@ var CRDsValidation map[string]string = map[string]string{
                                               operational state of the interface.
                                               The (only) value supported is 'absent',
                                               expressing a request to remove the interface.
+                                            enum:
+                                            - absent
                                             type: string
                                           tag:
                                             description: If specified, the virtual
@@ -25196,6 +25480,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                       maxItems: 256
                                       type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
                                     logSerialConsole:
                                       description: Whether to log the auto-attached
                                         default serial console or not. Serial console
@@ -25220,14 +25507,19 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Whether to emulate a sound device.
                                       properties:
                                         model:
+                                          default: ich9
                                           description: 'We only support ich9 or ac97.
                                             If SoundDevice is not set: No sound card
                                             is emulated. If SoundDevice is set but
                                             Model is not: ich9'
+                                          enum:
+                                          - ich9
+                                          - ac97
                                           type: string
                                         name:
                                           description: User's defined name for this
                                             sound device
+                                          minLength: 1
                                           type: string
                                       required:
                                       - name
@@ -25607,6 +25899,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: object
                                     serial:
                                       description: The system-serial-number in SMBIOS
+                                      maxLength: 256
+                                      pattern: ^[A-Za-z0-9_.+-]+$
                                       type: string
                                     uuid:
                                       description: UUID reported by the vmi bios.
@@ -25617,6 +25911,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: 'Controls whether or not disks will
                                     share IOThreads. Omitting IOThreadsPolicy disables
                                     use of IOThreads. One of: shared, auto'
+                                  enum:
+                                  - shared
+                                  - auto
                                   type: string
                                 launchSecurity:
                                   description: Launch Security setting of the vmi.
@@ -26817,6 +27114,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                               maxItems: 256
                               type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                           required:
                           - domain
                           type: object
@@ -27102,6 +27402,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   serial:
                                     description: Serial provides the ability to specify
                                       a serial number for the disk device.
+                                    maxLength: 256
                                     type: string
                                   shareable:
                                     description: If specified the disk is made sharable

@@ -202,6 +202,7 @@ type DomainSpec struct {
 	// Omitting IOThreadsPolicy disables use of IOThreads.
 	// One of: shared, auto
 	// +optional
+	// +kubebuilder:validation:Enum:=shared;auto
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
 	// Chassis specifies the chassis info passed to the domain.
 	// +optional
@@ -373,6 +374,7 @@ type CPUFeature struct {
 	// forbid   - Guest creation will fail if the feature is supported by host CPU.
 	// Defaults to require
 	// +optional
+	// +kubebuilder:validation:Enum:=force;require;optional;disable;forbid
 	Policy string `json:"policy,omitempty"`
 }
 
@@ -423,6 +425,8 @@ type Firmware struct {
 	// +optional
 	Bootloader *Bootloader `json:"bootloader,omitempty"`
 	// The system-serial-number in SMBIOS
+	// +kubebuilder:validation:MaxLength:=256
+	// +kubebuilder:validation:Pattern:="^[A-Za-z0-9_.+-]+$"
 	Serial string `json:"serial,omitempty"`
 	// Settings to set the kernel for booting.
 	// +optional
@@ -447,11 +451,15 @@ type Devices struct {
 	DisableHotplug bool `json:"disableHotplug,omitempty"`
 	// Disks describes disks, cdroms and luns which are connected to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
+	// +listType:=map
+	// +listMapKey:=name
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
+	// +listType:=map
+	// +listMapKey:=name
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Inputs describe input devices
 	Inputs []Input `json:"inputs,omitempty"`
@@ -534,11 +542,14 @@ const (
 // Represents the user's configuration to emulate sound cards in the VMI.
 type SoundDevice struct {
 	// User's defined name for this sound device
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// We only support ich9 or ac97.
 	// If SoundDevice is not set: No sound card is emulated.
 	// If SoundDevice is set but Model is not: ich9
 	// +optional
+	// +kubebuilder:validation:Enum:=ich9;ac97
+	// +kubebuilder:default:=ich9
 	Model string `json:"model,omitempty"`
 }
 
@@ -565,9 +576,13 @@ const (
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
 	// Supported values: virtio, usb.
+	// +kubebuilder:validation:Enum:=virtio;usb
+	// +kubebuilder:validation:Optional
 	Bus InputBus `json:"bus,omitempty"`
 	// Type indicated the type of input device.
 	// Supported values: tablet.
+	// +kubebuilder:validation:Enum:=tablet
+	// +kubebuilder:validation:Required
 	Type InputType `json:"type"`
 	// Name is the device name
 	Name string `json:"name"`
@@ -632,6 +647,7 @@ type Disk struct {
 	BootOrder *uint `json:"bootOrder,omitempty"`
 	// Serial provides the ability to specify a serial number for the disk device.
 	// +optional
+	// +kubebuilder:validation:MaxLength:=256
 	Serial string `json:"serial,omitempty"`
 	// dedicatedIOThread indicates this disk should have an exclusive IO Thread.
 	// Enabling this implies useIOThreads = true.
@@ -1239,11 +1255,13 @@ type I6300ESBWatchdog struct {
 type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks.
 	// Must match the Name of a Network.
+	// +kubebuilder:validation:Pattern:="^[A-Za-z0-9-_]+$"
 	Name string `json:"name"`
 	// Interface model.
 	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
 	// Defaults to virtio.
-	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
+	// +kubebuilder:validation:Enum:=e1000;e1000e;ne2k_pci;pcnet;rtl8139;virtio
+	// +kubebuilder:default:=virtio
 	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.
@@ -1279,6 +1297,7 @@ type Interface struct {
 	// State represents the requested operational state of the interface.
 	// The (only) value supported is `absent`, expressing a request to remove the interface.
 	// +optional
+	// +kubebuilder:validation:Enum:=absent
 	State InterfaceState `json:"state,omitempty"`
 }
 
@@ -1384,9 +1403,16 @@ type Port struct {
 	// Protocol for port. Must be UDP or TCP.
 	// Defaults to "TCP".
 	// +optional
+	//+kubebuilder:validation:Enum=TCP;UDP
+	// +kubebuilder:default="TCP"
 	Protocol string `json:"protocol,omitempty"`
 	// Number of port to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
+	// +kubebuilder:validation:ExclusiveMaximum:=true
+	// +kubebuilder:validation:ExclusiveMinimum:=true
+	// +kubebuilder:validation:Maximum:=65536
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Required
 	Port int32 `json:"port"`
 }
 

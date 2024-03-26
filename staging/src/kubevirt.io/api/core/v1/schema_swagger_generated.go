@@ -92,7 +92,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
 		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, and others",
-		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional\n+kubebuilder:validation:Enum:=shared;auto",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
 		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
 	}
@@ -193,7 +193,7 @@ func (CPUFeature) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "CPUFeature allows specifying a CPU feature.",
 		"name":   "Name of the CPU feature",
-		"policy": "Policy is the CPU feature attribute which can have the following attributes:\nforce    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU.\nrequire  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it.\noptional - The feature will be supported by virtual CPU if and only if it is supported by host CPU.\ndisable  - The feature will not be supported by virtual CPU.\nforbid   - Guest creation will fail if the feature is supported by host CPU.\nDefaults to require\n+optional",
+		"policy": "Policy is the CPU feature attribute which can have the following attributes:\nforce    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU.\nrequire  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it.\noptional - The feature will be supported by virtual CPU if and only if it is supported by host CPU.\ndisable  - The feature will not be supported by virtual CPU.\nforbid   - Guest creation will fail if the feature is supported by host CPU.\nDefaults to require\n+optional\n+kubebuilder:validation:Enum:=force;require;optional;disable;forbid",
 	}
 }
 
@@ -231,7 +231,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"uuid":       "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
 		"bootloader": "Settings to control the bootloader that is used.\n+optional",
-		"serial":     "The system-serial-number in SMBIOS",
+		"serial":     "The system-serial-number in SMBIOS\n+kubebuilder:validation:MaxLength:=256\n+kubebuilder:validation:Pattern:=\"^[A-Za-z0-9_.+-]+$\"",
 		"kernelBoot": "Settings to set the kernel for booting.\n+optional",
 		"acpi":       "Information that can be set in the ACPI table",
 	}
@@ -247,9 +247,9 @@ func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"useVirtioTransitional":      "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.\nThis is helpful for old machines like CentOS6 or RHEL6 which\ndo not understand virtio_non_transitional (virtio 1.0).",
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
-		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.\n+kubebuilder:validation:MaxItems:=256",
+		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.\n+kubebuilder:validation:MaxItems:=256\n+listType:=map\n+listMapKey:=name",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.\n+kubebuilder:validation:MaxItems:=256",
+		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.\n+kubebuilder:validation:MaxItems:=256\n+listType:=map\n+listMapKey:=name",
 		"inputs":                     "Inputs describe input devices",
 		"autoattachPodInterface":     "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
@@ -280,8 +280,8 @@ func (ClientPassthroughDevices) SwaggerDoc() map[string]string {
 func (SoundDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "Represents the user's configuration to emulate sound cards in the VMI.",
-		"name":  "User's defined name for this sound device",
-		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
+		"name":  "User's defined name for this sound device\n+kubebuilder:validation:MinLength=1",
+		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional\n+kubebuilder:validation:Enum:=ich9;ac97\n+kubebuilder:default:=ich9",
 	}
 }
 
@@ -293,8 +293,8 @@ func (TPMDevice) SwaggerDoc() map[string]string {
 
 func (Input) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.",
-		"type": "Type indicated the type of input device.\nSupported values: tablet.",
+		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.\n+kubebuilder:validation:Enum:=virtio;usb\n+kubebuilder:validation:Optional",
+		"type": "Type indicated the type of input device.\nSupported values: tablet.\n+kubebuilder:validation:Enum:=tablet\n+kubebuilder:validation:Required",
 		"name": "Name is the device name",
 	}
 }
@@ -343,7 +343,7 @@ func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":              "Name is the device name",
 		"bootOrder":         "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
-		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
+		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional\n+kubebuilder:validation:MaxLength:=256",
 		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
 		"cache":             "Cache specifies which kvm disk cache mode should be used.\nSupported values are: CacheNone, CacheWriteThrough.\n+optional",
 		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
@@ -667,8 +667,8 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":        "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
-		"model":       "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"name":        "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.\n+kubebuilder:validation:Pattern:=\"^[A-Za-z0-9-_]+$\"",
+		"model":       "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.\n+kubebuilder:validation:Enum:=e1000;e1000e;ne2k_pci;pcnet;rtl8139;virtio\n+kubebuilder:default:=virtio",
 		"binding":     "Binding specifies the binding plugin that will be used to connect the interface to the guest.\nIt provides an alternative to InterfaceBindingMethod.\nversion: 1alphav1",
 		"ports":       "List of ports to be forwarded to the virtual machine.",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
@@ -677,7 +677,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
 		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 		"acpiIndex":   "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes\nin PCI addresses assigned to the device.\nThis value is required to be unique across all devices and be between 1 and (16*1024-1).\n+optional",
-		"state":       "State represents the requested operational state of the interface.\nThe (only) value supported is `absent`, expressing a request to remove the interface.\n+optional",
+		"state":       "State represents the requested operational state of the interface.\nThe (only) value supported is `absent`, expressing a request to remove the interface.\n+optional\n+kubebuilder:validation:Enum:=absent",
 	}
 }
 
@@ -754,8 +754,8 @@ func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Port represents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
 		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
-		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
-		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
+		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional\n+kubebuilder:validation:Enum=TCP;UDP\n+kubebuilder:default=\"TCP\"",
+		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.\n+kubebuilder:validation:ExclusiveMaximum:=true\n+kubebuilder:validation:ExclusiveMinimum:=true\n+kubebuilder:validation:Maximum:=65536\n+kubebuilder:validation:Minimum:=0\n+kubebuilder:validation:Required",
 	}
 }
 
