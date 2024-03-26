@@ -26,11 +26,16 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -61,4 +66,81 @@ func EnsureControllerRevisionObjectsEqual(crNameA, crNameB string, virtClient ku
 	crB, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameB, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return equality.Semantic.DeepEqual(crA.Data.Object, crB.Data.Object)
+}
+
+func NewInstancetypeFromVMI(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineInstancetype {
+	return &instancetypev1beta1.VirtualMachineInstancetype{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-instancetype-",
+			Namespace:    testsuite.GetTestNamespace(nil),
+		},
+		Spec: newInstancetypeSpecFromVMI(vmi),
+	}
+}
+
+func NewClusterInstancetypeFromVMI(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineClusterInstancetype {
+	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-cluster-instancetype-",
+			Namespace:    testsuite.GetTestNamespace(nil),
+			Labels: map[string]string{
+				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
+			},
+		},
+		Spec: newInstancetypeSpecFromVMI(vmi),
+	}
+}
+
+func newInstancetypeSpecFromVMI(vmi *v1.VirtualMachineInstance) instancetypev1beta1.VirtualMachineInstancetypeSpec {
+	// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
+	guestMemory := resource.MustParse("128M")
+	if vmi != nil {
+		if _, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
+			guestMemory = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
+		}
+	}
+	return instancetypev1beta1.VirtualMachineInstancetypeSpec{
+		CPU: instancetypev1beta1.CPUInstancetype{
+			Guest: uint32(1),
+		},
+		Memory: instancetypev1beta1.MemoryInstancetype{
+			Guest: guestMemory,
+		},
+	}
+}
+
+func NewPreference() *instancetypev1beta1.VirtualMachinePreference {
+	return &instancetypev1beta1.VirtualMachinePreference{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-preference-",
+			Namespace:    testsuite.GetTestNamespace(nil),
+		},
+	}
+}
+
+func NewClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference {
+	return &instancetypev1beta1.VirtualMachineClusterPreference{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "vm-cluster-preference-",
+			Namespace:    testsuite.GetTestNamespace(nil),
+			Labels: map[string]string{
+				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
+			},
+		},
+	}
+}
+
+func RemoveResourcesFromVMI(vmi *v1.VirtualMachineInstance) {
+	vmi.Spec.Domain.CPU = nil
+	vmi.Spec.Domain.Memory = nil
+	vmi.Spec.TerminationGracePeriodSeconds = nil
+	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+	vmi.Spec.Domain.Features = &v1.Features{}
+	vmi.Spec.Domain.Machine = &v1.Machine{}
+
+	for diskIndex := range vmi.Spec.Domain.Devices.Disks {
+		if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil && vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus != "" {
+			vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus = ""
+		}
+	}
 }
