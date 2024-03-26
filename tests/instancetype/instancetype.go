@@ -11,6 +11,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libinstancetype"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -59,7 +59,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Instancetype validation", func() {
 		It("[test_id:CNV-9082] should allow valid instancetype", func() {
-			instancetype := newVirtualMachineInstancetype(nil)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(nil)
 			_, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -110,7 +110,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Preference validation", func() {
 		It("[test_id:CNV-9084] should allow valid preference", func() {
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -209,21 +209,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
 			vmi := libvmifact.NewCirros()
 
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
 
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Remove any requested resources from the VMI before generating the VM
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 
 			vm := libvmi.NewVirtualMachine(vmi)
 
@@ -259,12 +259,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("[test_id:CNV-9094] should find and apply cluster instancetype and preferences when kind isn't provided", func() {
 			vmi := libvmifact.NewCirros()
 
-			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
+			clusterInstancetype := libinstancetype.NewClusterInstancetypeFromVMI(vmi)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			clusterPreference := newVirtualMachineClusterPreference()
+			clusterPreference := libinstancetype.NewClusterPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			clusterPreference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
@@ -274,7 +274,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 
 			vm := libvmi.NewVirtualMachine(vmi)
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
@@ -296,7 +296,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("[test_id:CNV-9095] should apply instancetype and preferences to VMI", func() {
 			vmi := libvmifact.NewCirros()
 
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Annotations = map[string]string{
 				"required-annotation-1": "1",
 				"required-annotation-2": "2",
@@ -305,7 +305,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			preference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
@@ -339,7 +339,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			// Remove any requested resources from the VMI before generating the VM
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 
 			vm := libvmi.NewVirtualMachine(vmi)
 
@@ -401,21 +401,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("should apply memory overcommit instancetype to VMI", func() {
 			vmi := libvmifact.NewCirros()
 
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
 
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Remove any requested resources from the VMI before generating the VM
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 
 			vm := libvmi.NewVirtualMachine(vmi)
 
@@ -449,12 +449,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", func() {
 			vmi := libvmifact.NewCirros()
 
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 
 			vm := libvmi.NewVirtualMachine(vmi)
 			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
@@ -492,7 +492,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
 
 			vmi := libvmifact.NewCirros()
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -541,7 +541,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {
 			vmi := libvmifact.NewCirros()
 
-			clusterPreference := newVirtualMachineClusterPreference()
+			clusterPreference := libinstancetype.NewClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 				PreferredInterfaceModel: v1.VirtIO,
 			}
@@ -569,7 +569,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("[test_id:CNV-9303] should apply preferences to default volume disks", func() {
 			vmi := libvmifact.NewCirros()
 
-			clusterPreference := newVirtualMachineClusterPreference()
+			clusterPreference := libinstancetype.NewClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 				PreferredDiskBus: v1.DiskBusVirtio,
 			}
@@ -601,14 +601,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi := libvmifact.NewCirros()
 
 			By("Creating a VirtualMachineInstancetype")
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			originalInstancetypeCPUGuest := instancetype.Spec.CPU.Guest
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachinePreference")
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
@@ -620,7 +620,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachine")
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 			vm := libvmi.NewVirtualMachine(vmi)
 
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
@@ -683,7 +683,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a second VirtualMachine using the now updated VirtualMachineInstancetype and original VirtualMachinePreference")
 			newVMI := libvmifact.NewCirros()
-			removeResourcesAndPreferencesFromVMI(newVMI)
+			libinstancetype.RemoveResourcesFromVMI(newVMI)
 			newVM := libvmi.NewVirtualMachine(newVMI)
 			newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: instancetype.Name,
@@ -730,13 +730,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi := libvmifact.NewCirros()
 
 			By("Creating a VirtualMachineInstancetype")
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachine")
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 			vm := libvmi.NewVirtualMachine(vmi)
 
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
@@ -891,7 +891,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi := libvmifact.NewCirros()
-				removeResourcesAndPreferencesFromVMI(vmi)
+				libinstancetype.RemoveResourcesFromVMI(vmi)
 				vm := libvmi.NewVirtualMachine(vmi)
 				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 					Name:         "dummy",
@@ -1148,12 +1148,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			namespace = testsuite.GetTestNamespace(nil)
 
 			By("Creating a VirtualMachineInstancetype")
-			instancetype = newVirtualMachineInstancetype(nil)
+			instancetype = libinstancetype.NewInstancetypeFromVMI(nil)
 			instancetype, err = virtClient.VirtualMachineInstancetype(namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachinePreference")
-			preference = newVirtualMachinePreference()
+			preference = libinstancetype.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferCores
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
@@ -1419,13 +1419,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("should be accepted and result in running VirtualMachineInstance", func() {
 			vmi := libvmifact.NewCirros()
 
-			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
+			clusterInstancetype := libinstancetype.NewClusterInstancetypeFromVMI(vmi)
 			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.Bool(true)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			removeResourcesAndPreferencesFromVMI(vmi)
+			libinstancetype.RemoveResourcesFromVMI(vmi)
 			vm := libvmi.NewVirtualMachine(vmi)
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 				Name: clusterInstancetype.Name,
@@ -2437,80 +2437,3 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 	})
 })
-
-func newVirtualMachineInstancetype(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineInstancetype {
-	return &instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-instancetype-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-		},
-		Spec: newVirtualMachineInstancetypeSpec(vmi),
-	}
-}
-
-func newVirtualMachineClusterInstancetype(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineClusterInstancetype {
-	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-cluster-instancetype-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
-			},
-		},
-		Spec: newVirtualMachineInstancetypeSpec(vmi),
-	}
-}
-
-func newVirtualMachineInstancetypeSpec(vmi *v1.VirtualMachineInstance) instancetypev1beta1.VirtualMachineInstancetypeSpec {
-	// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
-	guestMemory := resource.MustParse("128M")
-	if vmi != nil {
-		if _, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
-			guestMemory = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
-		}
-	}
-	return instancetypev1beta1.VirtualMachineInstancetypeSpec{
-		CPU: instancetypev1beta1.CPUInstancetype{
-			Guest: uint32(1),
-		},
-		Memory: instancetypev1beta1.MemoryInstancetype{
-			Guest: guestMemory,
-		},
-	}
-}
-
-func newVirtualMachinePreference() *instancetypev1beta1.VirtualMachinePreference {
-	return &instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-preference-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-		},
-	}
-}
-
-func newVirtualMachineClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference {
-	return &instancetypev1beta1.VirtualMachineClusterPreference{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-cluster-preference-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
-			},
-		},
-	}
-}
-
-func removeResourcesAndPreferencesFromVMI(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.CPU = nil
-	vmi.Spec.Domain.Memory = nil
-	vmi.Spec.TerminationGracePeriodSeconds = nil
-	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-	vmi.Spec.Domain.Features = &v1.Features{}
-	vmi.Spec.Domain.Machine = &v1.Machine{}
-
-	for diskIndex := range vmi.Spec.Domain.Devices.Disks {
-		if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil && vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus != "" {
-			vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus = ""
-		}
-	}
-}

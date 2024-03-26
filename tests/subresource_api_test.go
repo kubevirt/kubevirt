@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libinstancetype"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -435,7 +436,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				instancetype = newVirtualMachineInstancetype(nil)
+				instancetype = libinstancetype.NewInstancetypeFromVMI(nil)
 				instancetype.Spec.CPU.Guest = 2
 				instancetype, err = virtCli.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 					Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -445,7 +446,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Kind: instancetypeapi.SingularResourceName,
 				}
 
-				clusterInstancetype = newVirtualMachineClusterInstancetype(nil)
+				clusterInstancetype = libinstancetype.NewClusterInstancetypeFromVMI(nil)
 				clusterInstancetype.Spec.CPU.Guest = 2
 				clusterInstancetype, err = virtCli.VirtualMachineClusterInstancetype().
 					Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
@@ -580,7 +581,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				preference = newVirtualMachinePreference()
+				preference = libinstancetype.NewPreference()
 				preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 				}
@@ -592,7 +593,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
-				clusterPreference = newVirtualMachineClusterPreference()
+				clusterPreference = libinstancetype.NewClusterPreference()
 				clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 				}
