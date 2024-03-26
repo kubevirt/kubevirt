@@ -215,6 +215,7 @@ lint:
 	  pkg/network/domainspec/... \
 	  pkg/network/deviceinfo/... \
 	  tests/console/... \
+	  tests/instancetype/... \
 	  tests/libinstancetype/... \
 	  tests/libnet/... \
 	  tests/libnode/... \
