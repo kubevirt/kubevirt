@@ -2590,7 +2590,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2712,7 +2712,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -3468,4 +3468,29 @@ func getVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error
 	Expect(err).ToNot(HaveOccurred())
 
 	return strings.TrimSpace(output), err
+}
+
+func getPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
+	const (
+		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+	)
+
+	output, err = exec.ExecuteCommandOnPod(
+		pod,
+		"compute",
+		[]string{"cat", cgroupV2cpusetPath},
+	)
+
+	if err == nil {
+		return
+	}
+
+	output, err = exec.ExecuteCommandOnPod(
+		pod,
+		"compute",
+		[]string{"cat", cgroupV1cpusetPath},
+	)
+
+	return
 }

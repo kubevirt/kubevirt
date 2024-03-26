@@ -199,31 +199,6 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
 
-func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
-	const (
-		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-	)
-
-	output, err = exec.ExecuteCommandOnPod(
-		pod,
-		"compute",
-		[]string{"cat", cgroupV2cpusetPath},
-	)
-
-	if err == nil {
-		return
-	}
-
-	output, err = exec.ExecuteCommandOnPod(
-		pod,
-		"compute",
-		[]string{"cat", cgroupV1cpusetPath},
-	)
-
-	return
-}
-
 // NewRandomVirtualMachineInstanceWithDisk
 //
 // Deprecated: Use libvmi directly
