@@ -151,16 +151,11 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 		usbredirExecResChan <- err
 	}()
 
-	sigStopChan := make(chan struct{}, 1)
-	go func() {
-		defer close(sigStopChan)
-		interrupt := make(chan os.Signal, 1)
-		signal.Notify(interrupt, os.Interrupt)
-		<-interrupt
-	}()
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
 
 	select {
-	case <-sigStopChan:
+	case <-interrupt:
 	case err = <-k8ResChan:
 	case err = <-usbredirExecResChan:
 	case err = <-streamResChan:
