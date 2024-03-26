@@ -181,7 +181,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:3178]should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(
-					libvmi.WithCloudInitNoCloudEncodedUserData(""),
+					withoutCloudInitNoCloud(),
 					libvmi.WithCloudInitConfigDriveEncodedUserData(userData),
 				)
 
@@ -304,7 +304,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 			It("[test_id:3180] with cloudInitConfigDrive userData source", func() {
 				vmi := libvmifact.NewCirros(
-					libvmi.WithCloudInitNoCloudEncodedUserData(""),
+					withoutCloudInitNoCloud(),
 					libvmi.WithCloudInitConfigDriveUserData(userData),
 				)
 				runTest(vmi, cloudinit.DataSourceConfigDrive)
@@ -632,4 +632,15 @@ func lookupCloudInitNoCloudVolume(volumes []v1.Volume) *v1.Volume {
 		}
 	}
 	return nil
+}
+
+func withoutCloudInitNoCloud() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		for i, volume := range vmi.Spec.Volumes {
+			if volume.CloudInitNoCloud != nil {
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes[:i], vmi.Spec.Volumes[i+1:]...)
+				break
+			}
+		}
+	}
 }
