@@ -215,6 +215,7 @@ lint:
 	  pkg/network/domainspec/... \
 	  pkg/network/sriov/... \
 	  tests/console/... \
+	  tests/instancetype/... \
 	  tests/libinstancetype/... \
 	  tests/libnet/... \
 	  tests/libnode/... \

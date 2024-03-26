@@ -1,3 +1,4 @@
+//nolint:dupl,lll,gomnd,stylecheck,govet,staticcheck
 package instancetype
 
 import (
