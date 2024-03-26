@@ -129,18 +129,3 @@ func NewClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference
 		},
 	}
 }
-
-func RemoveResourcesFromVMI(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.CPU = nil
-	vmi.Spec.Domain.Memory = nil
-	vmi.Spec.TerminationGracePeriodSeconds = nil
-	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-	vmi.Spec.Domain.Features = &v1.Features{}
-	vmi.Spec.Domain.Machine = &v1.Machine{}
-
-	for diskIndex := range vmi.Spec.Domain.Devices.Disks {
-		if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil && vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus != "" {
-			vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus = ""
-		}
-	}
-}
