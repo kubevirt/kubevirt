@@ -23,6 +23,5 @@ go_library(
         "//vendor/golang.org/x/tools/go/types/objectpath:go_default_library",
         "//vendor/golang.org/x/tools/internal/pkgbits:go_default_library",
         "//vendor/golang.org/x/tools/internal/tokeninternal:go_default_library",
-        "//vendor/golang.org/x/tools/internal/typeparams:go_default_library",
     ],
 )
