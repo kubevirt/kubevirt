@@ -126,7 +126,7 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 		streamResChan <- err
 	}()
 
-	port := ln.Addr().(*net.TCPAddr).Port
+	address := ln.Addr().String()
 
 	// execute local usbredir binary
 	usbredirExecResChan := make(chan error)
@@ -135,10 +135,9 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 
 		bin := usbredirClient
 		args := []string{}
-		port_arg := fmt.Sprintf("localhost:%v", port)
-		args = append(args, "--device", usbdeviceArg, "--to", port_arg)
+		args = append(args, "--device", usbdeviceArg, "--to", address)
 
-		log.Log.Infof("port_arg: '%s'", port_arg)
+		log.Log.Infof("hostaddr: '%s'", address)
 		log.Log.Infof("args: '%v'", args)
 		log.Log.Infof("Executing commandline: '%s %v'", bin, args)
 
