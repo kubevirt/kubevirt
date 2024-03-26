@@ -22,6 +22,7 @@ package libvmi
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -72,5 +73,55 @@ func WithDataVolumeTemplate(datavolume *v1beta1.DataVolume) VMOption {
 				Spec:       datavolume.Spec,
 			},
 		)
+	}
+}
+
+func WithClusterInstancetype(name string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+			Name: name,
+		}
+	}
+}
+
+func WithClusterPreference(name string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: name,
+		}
+	}
+}
+
+func WithInstancetype(name string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+			Name: name,
+			Kind: instancetypeapi.SingularResourceName,
+		}
+	}
+}
+
+func WithPreference(name string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name: name,
+			Kind: instancetypeapi.SingularPreferenceResourceName,
+		}
+	}
+}
+
+func WithInstancetypeInferredFromVolume(name string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+			InferFromVolume: name,
+		}
+	}
+}
+
+func WithPreferenceInferredFromVolume(name string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			InferFromVolume: name,
+		}
 	}
 }
