@@ -95,7 +95,7 @@ pciHostDevices:
 	})
 
 	It("Should validate DPI devices", func() {
-		iommuToPCIMap := make(map[string]string)
+		iommuToPCIMap := make(map[string][]string)
 		supportedPCIDeviceMap := make(map[string]string)
 		for _, pciDev := range fakePermittedHostDevices.PciHostDevices {
 			// do not add a device plugin for this resource if it's being provided via an external device plugin
