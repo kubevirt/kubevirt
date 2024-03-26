@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -49,7 +50,7 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 	if len(SRIOVInterfaces) == 0 {
 		return []api.HostDevice{}, nil
 	}
-	netStatusPath := path.Join(deviceinfo.MountPath, deviceinfo.NetworkPCIMapVolumePath)
+	netStatusPath := path.Join(downwardapi.MountPath, deviceinfo.NetworkPCIMapVolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
 		return nil, err

@@ -171,3 +171,14 @@ func FilterInterfacesByNetworks(interfaces []v1.Interface, networks []v1.Network
 	}
 	return ifaces
 }
+
+func BindingPluginNetworkWithDeviceInfoExist(ifaces []v1.Interface, bindingPlugins map[string]v1.InterfaceBindingPlugin) bool {
+	for _, iface := range ifaces {
+		if iface.Binding != nil {
+			if binding, exist := bindingPlugins[iface.Binding.Name]; exist && binding.DownwardAPI == v1.DeviceInfo {
+				return true
+			}
+		}
+	}
+	return false
+}
