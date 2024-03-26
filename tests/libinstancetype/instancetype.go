@@ -16,7 +16,7 @@
  * Copyright 2022 Red Hat, Inc.
  *
  */
-
+//nolint:lll
 package libinstancetype
 
 import (
