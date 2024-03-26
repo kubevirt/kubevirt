@@ -160,7 +160,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource", func() {
 		Context("with a restart endpoint", func() {
 			It("[test_id:1304] should restart a VM", func() {
-				vm := libvmi.NewVirtualMachine(tests.NewRandomVMI())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -182,7 +182,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			})
 
 			It("[test_id:1305][posneg:negative] should return an error when VM is not running", func() {
-				vm := libvmi.NewVirtualMachine(tests.NewRandomVMI())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -191,7 +191,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			})
 
 			It("[test_id:2265][posneg:negative] should return an error when VM has not been found but VMI is running", func() {
-				vmi := tests.NewRandomVMI()
+				vmi := libvmifact.NewGuestless()
 				tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Restart(context.Background(), vmi.Name, &v1.RestartOptions{})
@@ -201,7 +201,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 		Context("With manual RunStrategy", func() {
 			It("[test_id:3174]Should not restart when VM is not running", func() {
-				vm := libvmi.NewVirtualMachine(tests.NewRandomVMI())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.RunStrategy = &manual
 				vm.Spec.Running = nil
 
@@ -215,7 +215,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			})
 
 			It("[test_id:3175]Should restart when VM is running", func() {
-				vm := libvmi.NewVirtualMachine(tests.NewRandomVMI())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.RunStrategy = &manual
 				vm.Spec.Running = nil
 
@@ -255,7 +255,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 		Context("With RunStrategy RerunOnFailure", func() {
 			It("[test_id:3176]Should restart the VM", func() {
-				vm := libvmi.NewVirtualMachine(tests.NewRandomVMI())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 				vm.Spec.RunStrategy = &restartOnError
 				vm.Spec.Running = nil
 
