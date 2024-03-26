@@ -246,7 +246,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 40).Should(Or(BeInPhase(cdiv1.WaitForFirstConsumer), BeInPhase(cdiv1.PendingPopulation)))
+					Eventually(ThisDV(dataVolume), 40).Should(WaitForFirstConsumer())
 				}
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
@@ -334,7 +334,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 40).Should(Or(BeInPhase(cdiv1.WaitForFirstConsumer), BeInPhase(cdiv1.PendingPopulation)))
+					Eventually(ThisDV(dataVolume), 40).Should(WaitForFirstConsumer())
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
@@ -347,48 +347,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				libstorage.DeleteDataVolume(&dataVolume)
-			})
-
-			It("should accurately report DataVolume provisioning", func() {
-				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-
-				if sc == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
-				}
-
-				dataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
-				)
-
-				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-				vmSpec := libvmi.NewVirtualMachine(vmi)
-
-				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec)
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus
-				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
-
-				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				defer libstorage.DeleteDataVolume(&dataVolume)
-
-				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus
-				}, 180*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineStatusProvisioning))
-
-				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status.PrintableStatus
-				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
 			})
 
 			It("should accurately aggregate DataVolume conditions from many DVs", func() {

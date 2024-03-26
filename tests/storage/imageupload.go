@@ -120,7 +120,8 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 				"--image-path", imagePath,
 				sizeArg, pvcSize,
 				"--storage-class", sc,
-				"--block-volume",
+				"--force-bind",
+				"--volume-mode", "block",
 				insecureArg)
 			err := virtctlCmd()
 			if err != nil {

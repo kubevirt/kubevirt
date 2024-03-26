@@ -327,8 +327,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			createAndStartVM := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 				var vmi *v1.VirtualMachineInstance
-				t := true
-				vm.Spec.Running = &t
+				vm.Spec.Running = pointer.BoolPtr(true)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
@@ -856,14 +855,13 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				const noGuestAgentString = "No guest agent, exiting"
 				By("Creating VM")
 				var vmi *v1.VirtualMachineInstance
-				running := false
 				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					testsuite.GetTestNamespace(nil),
 					snapshotStorageClass,
 					corev1.ReadWriteOnce,
 				)
-				vm.Spec.Running = &running
+				vm.Spec.Running = pointer.BoolPtr(false)
 
 				vm, vmi = createAndStartVM(vm)
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1023,20 +1021,29 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		Context("With more complicated VM", func() {
 			BeforeEach(func() {
-				running := false
 				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					testsuite.GetTestNamespace(nil),
 					snapshotStorageClass,
 					corev1.ReadWriteOnce,
 				)
-				vm.Spec.Running = &running
+				wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
+				if wffcSC {
+					// with wffc need to start the virtual machine
+					// in order for the pvc to be populated
+					vm.Spec.Running = pointer.BoolPtr(true)
+				} else {
+					vm.Spec.Running = pointer.BoolPtr(false)
+				}
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					waitDataVolumePopulated(vm.Namespace, dvt.Name)
+				}
+				if wffcSC {
+					vm = tests.StopVirtualMachine(vm)
 				}
 			})
 
@@ -1323,20 +1330,30 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			DescribeTable("should successfully create a snapshot", func(ttl *int32) {
 				libstorage.SetDataVolumeGC(virtClient, ttl)
 
-				running := false
 				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
 					testsuite.GetTestNamespace(nil),
 					snapshotStorageClass,
 					corev1.ReadWriteOnce,
 				)
-				vm.Spec.Running = &running
+				wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
+				if wffcSC {
+					// with wffc need to start the virtual machine
+					// in order for the pvc to be populated
+					vm.Spec.Running = pointer.BoolPtr(true)
+				} else {
+					vm.Spec.Running = pointer.BoolPtr(false)
+				}
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					waitDataVolumePopulated(vm.Namespace, dvt.Name)
+				}
+
+				if wffcSC {
+					vm = tests.StopVirtualMachine(vm)
 				}
 
 				snapshot = newSnapshot()
@@ -1445,6 +1462,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				includedDataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+					libdv.WithForceBindAnnotation(),
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), includedDataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1454,6 +1472,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				excludedDataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 					libdv.WithPVC(libdv.PVCWithStorageClass(noSnapshotSC)),
+					libdv.WithForceBindAnnotation(),
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), excludedDataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1528,8 +1547,11 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					Name: instancetype.Name,
 					Kind: "VirtualMachineInstanceType",
 				}
+				vm.Spec.Running = pointer.BoolPtr(true)
+				By("Starting the VM and expecting it to run")
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 360).Should(matcher.BeInPhase(v1.Running))
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					waitDataVolumePopulated(vm.Namespace, dvt.Name)
@@ -1537,9 +1559,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			DescribeTable("Bug #8435 - should create a snapshot successfully", func(toRunSourceVM bool) {
-				if toRunSourceVM {
-					By("Starting the VM and expecting it to run")
-					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+				if !toRunSourceVM {
+					By("Stoping the VM")
+					vm = tests.StopVirtualMachine(vm)
 				}
 
 				snapshot = newSnapshot()
@@ -1565,7 +1587,6 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 	dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
 	volumeSource := &v1.HotplugVolumeSource{
 		DataVolume: &v1.DataVolumeSource{
 			Name: dv.Name,
@@ -1599,6 +1620,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	verifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
+	libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
 
 	return addVolumeName
 }
