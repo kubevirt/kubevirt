@@ -878,12 +878,12 @@ var _ = Describe("CDI Operand", func() {
 			Expect(foundResource.Spec.Config.ScratchSpaceStorageClass).To(BeNil())
 			Expect(foundResource.Spec.Config.PodResourceRequirements).To(BeNil())
 			Expect(foundResource.Spec.Config.FilesystemOverhead).To(BeNil())
-			Expect(foundResource.Spec.Config.FeatureGates).To(HaveLen(1))
-			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
+			Expect(foundResource.Spec.Config.FeatureGates).To(HaveLen(2))
+			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElements(honorWaitForFirstConsumerGate, dataVolumeClaimAdoptionGate))
 			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
 		})
 
-		It("should add HonorWaitForFirstConsumer feature gate if Spec.Config if empty", func() {
+		It("should add HonorWaitForFirstConsumer and DataVolumeClaimAdoption feature gates if Spec.Config if empty", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 			expectedResource.Spec.Config = nil
@@ -906,7 +906,8 @@ var _ = Describe("CDI Operand", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 			Expect(foundResource.Spec.Config).ToNot(BeNil())
-			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
+			Expect(foundResource.Spec.Config.FeatureGates).To(HaveLen(2))
+			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElements(honorWaitForFirstConsumerGate, dataVolumeClaimAdoptionGate))
 			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
 		})
 
@@ -1100,7 +1101,7 @@ var _ = Describe("CDI Operand", func() {
 
 				cdi, err := NewCDI(hco)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(2))
+				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(3))
 				Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
 				Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
 				Expect(cdi.Spec.Config.FilesystemOverhead.Global).To(BeEquivalentTo("50"))
@@ -1150,7 +1151,7 @@ var _ = Describe("CDI Operand", func() {
 						cdi),
 				).ToNot(HaveOccurred())
 
-				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(2))
+				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(3))
 				Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
 				Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
 				Expect(cdi.Spec.Config.FilesystemOverhead.Global).To(BeEquivalentTo("50"))

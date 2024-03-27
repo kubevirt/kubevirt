@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	HonorWaitForFirstConsumerGate = "HonorWaitForFirstConsumer"
+	honorWaitForFirstConsumerGate = "HonorWaitForFirstConsumer"
+	dataVolumeClaimAdoptionGate   = "DataVolumeClaimAdoption"
 	cdiConfigAuthorityAnnotation  = "cdi.kubevirt.io/configAuthority"
 )
 
@@ -89,7 +90,7 @@ func (*cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 func (*cdiHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func getDefaultFeatureGates() []string {
-	return []string{HonorWaitForFirstConsumerGate}
+	return []string{honorWaitForFirstConsumerGate, dataVolumeClaimAdoptionGate}
 }
 
 func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, error) {
