@@ -98,7 +98,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "NoLeadingVirtOperator",
 			Expr:  intstr.FromString("kubevirt_virt_operator_leading == 0"),
-			For:   ptr.To(promv1.Duration("60m")),
+			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "No leading virt-operator was detected for the last 10 min.",
 			},
