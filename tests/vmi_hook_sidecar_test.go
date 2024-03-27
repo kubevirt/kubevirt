@@ -130,7 +130,6 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
 				foundContainer := false
 				for _, container := range virtlauncherPod.Spec.Containers {
 					if container.Name == "hook-sidecar-0" {

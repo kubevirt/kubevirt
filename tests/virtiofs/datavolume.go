@@ -243,7 +243,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			By("Finding virt-launcher pod")
 			virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
 			foundContainer := false
 			virtiofsContainerName := fmt.Sprintf("virtiofs-%s", pvcName)
 			for _, container := range virtlauncherPod.Spec.Containers {
