@@ -246,22 +246,8 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 			By("Finding virt-launcher pod")
-			var virtlauncherPod *k8sv1.Pod
-			Eventually(func() *k8sv1.Pod {
-				podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-				if err != nil {
-					return nil
-				}
-				for _, pod := range podList.Items {
-					for _, ownerRef := range pod.GetOwnerReferences() {
-						if ownerRef.UID == vmi.GetUID() {
-							virtlauncherPod = &pod
-							break
-						}
-					}
-				}
-				return virtlauncherPod
-			}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
+			virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
 			foundContainer := false
 			virtiofsContainerName := fmt.Sprintf("virtiofs-%s", pvcName)

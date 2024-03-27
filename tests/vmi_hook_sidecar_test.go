@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -127,22 +128,8 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				By("Finding virt-launcher pod")
-				var virtlauncherPod *k8sv1.Pod
-				Eventually(func() *k8sv1.Pod {
-					podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-					if err != nil {
-						return nil
-					}
-					for _, pod := range podList.Items {
-						for _, ownerRef := range pod.GetOwnerReferences() {
-							if ownerRef.UID == vmi.GetUID() {
-								virtlauncherPod = &pod
-								break
-							}
-						}
-					}
-					return virtlauncherPod
-				}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
+				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
 				Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
 				foundContainer := false
 				for _, container := range virtlauncherPod.Spec.Containers {
