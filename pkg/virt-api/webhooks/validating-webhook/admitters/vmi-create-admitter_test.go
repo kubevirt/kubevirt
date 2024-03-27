@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
 	"kubevirt.io/client-go/api"
@@ -112,7 +114,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	It("should reject invalid VirtualMachineInstance spec on create", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := newBaseVmi()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -133,7 +135,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].name"))
 	})
 	It("should reject VMIs without memory after presets were applied", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := newBaseVmi()
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 		vmiBytes, _ := json.Marshal(&vmi)
 
@@ -349,16 +351,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	It("should accept valid vmi spec on create", func() {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
-		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "testdisk",
-			VolumeSource: v1.VolumeSource{
-				ContainerDisk: testutils.NewFakeContainerDiskSource(),
-			},
-		})
+		vmi := newBaseVmi(libvmi.WithContainerDisk("testdisk", "testimage"))
 		vmiBytes, _ := json.Marshal(&vmi)
 
 		ar := &admissionv1.AdmissionReview{
@@ -2326,8 +2319,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi = api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+			vmi = newBaseVmi(libvmi.WithDedicatedCPUPlacement())
 			enableFeatureGate(virtconfig.NUMAFeatureGate)
 		})
 		It("should reject NUMA passthrough without DedicatedCPUPlacement without the NUMA feature gate", func() {
@@ -2499,16 +2491,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with AccessCredentials", func() {
 		It("should accept a valid ssh access credential with configdrive propagation", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk",
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "testdisk",
-				VolumeSource: v1.VolumeSource{
-					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{UserData: " "},
-				},
-			})
+			vmi := newBaseVmi(libvmi.WithCloudInitConfigDriveUserData(" "))
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -5225,3 +5208,8 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		Expect(causes).To(BeEmpty())
 	})
 })
+
+func newBaseVmi(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	opts = append(opts, libvmi.WithResourceMemory("512Mi"))
+	return libvmi.New(opts...)
+}

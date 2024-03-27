@@ -104,6 +104,7 @@ go_test(
     deps = [
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/webhooks:go_default_library",
