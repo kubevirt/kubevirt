@@ -78,7 +78,7 @@ func (n *nodeTopologyUpdater) sync(nodes []*v1.Node) *updateStats {
 func calculateNodeLabelChanges(original *v1.Node, requiredFrequencies []int64) (modified *v1.Node, err error) {
 	nodeFreq, scalable, err := TSCFrequencyFromNode(original)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Object(original).Error("Can't determine TSC frequency of the original")
+		log.DefaultLogger().Reason(err).Object(original).Errorf("Can't determine original TSC frequency of node %s", original.Name)
 		return nil, err
 	}
 	freqsOnNode := TSCFrequenciesOnNode(original)
