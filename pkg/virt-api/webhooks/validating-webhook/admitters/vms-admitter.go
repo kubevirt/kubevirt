@@ -358,6 +358,12 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
+	// Check if there are any DataVolumeTemplates present in the spec
+	if len(spec.DataVolumeTemplates) == 0 {
+		// If no DataVolumeTemplates present, return empty causes
+		return causes
+	}
+
 	for idx, dataVolume := range spec.DataVolumeTemplates {
 		if dataVolume.Name == "" {
 			causes = append(causes, metav1.StatusCause{
@@ -383,7 +389,7 @@ func isDataVolumeReferenced(dataVolumeName string, volumes []v1.Volume) bool {
 	// TODO: Assuming here that PVC name == DV name which might not be the case in the future
 	for _, volume := range volumes {
 		if (volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == dataVolumeName) ||
-			(volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolumeName) {
+			(volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name != "" && volume.VolumeSource.DataVolume.Name == dataVolumeName) {
 			return true
 		}
 	}
