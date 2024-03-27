@@ -29,7 +29,7 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 			Help: "The current available memory of the VM containers based on the working set.",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
+		Expr:       intstr.FromString("sum by(pod, container, namespace) (kube_pod_container_resource_requests{pod=~'virt-launcher-.*', container='compute', resource='memory'}- on(pod,container, namespace) max by(pod, container, namespace) (container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}))"),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
