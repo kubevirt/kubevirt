@@ -117,8 +117,25 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			if !volumeExpansionAllowed {
 				Skip("Skip when volume expansion storage class not available")
 			}
-			vmi, dataVolume := tests.NewRandomVirtualMachineInstanceWithDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), testsuite.GetTestNamespace(nil), sc, k8sv1.ReadWriteOnce, volumeMode)
-			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+					libdv.PVCWithVolumeMode(volumeMode),
+				),
+			)
+			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := libvmi.New(
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
+			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
 
 			By("Expecting the VirtualMachineInstance console")
