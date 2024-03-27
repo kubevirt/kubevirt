@@ -42,7 +42,7 @@ func (n *nodeTopologyUpdater) Run(interval time.Duration, stopChan <-chan struct
 		)
 		stats := n.sync(nodes)
 		if stats.updated != 0 || stats.error != 0 {
-			log.DefaultLogger().Infof("TSC Freqency node update status: %d updated, %d skipped, %d errors", stats.updated, stats.skipped, stats.error)
+			log.DefaultLogger().Infof("TSC Frequency node update status: %d updated, %d skipped, %d errors", stats.updated, stats.skipped, stats.error)
 		}
 	}, interval, 1.2, true, stopChan)
 }
