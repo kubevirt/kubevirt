@@ -114,19 +114,17 @@ http_file(
 
 http_file(
     name = "cirros_image",
-    sha256 = "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
+    sha256 = "07e44a73e54c94d988028515403c1ed762055e01b83a767edf3c2b387f78ce00",
     urls = [
-        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img",
-        "https://storage.googleapis.com/builddeps/932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
+        "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img",
     ],
 )
 
 http_file(
     name = "cirros_image_aarch64",
-    sha256 = "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629",
+    sha256 = "6a2222bd7ba89384d35378b5065bd5e838857f25db08c7abbff99b6d9bb48986",
     urls = [
-        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img",
-        "https://storage.googleapis.com/builddeps/889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629",
+        "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-aarch64-disk.img",
     ],
 )
 
