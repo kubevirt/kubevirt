@@ -170,7 +170,7 @@ func NewVMIController(templateService services.TemplateService,
 	}
 
 	c.hasSynced = func() bool {
-		return vmiInformer.HasSynced() && vmInformer.HasSynced() && podInformer.HasSynced() && pvcInformer.HasSynced() && dataVolumeInformer.HasSynced() && cdiInformer.HasSynced()
+		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() && pvcInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
