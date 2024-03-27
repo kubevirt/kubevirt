@@ -23,6 +23,9 @@ import (
 	"context"
 	"strings"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tests/libkvconfig"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -46,18 +49,34 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Slirp", decorators.Networking, func() {
+var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingPlugins, Serial, func() {
 
 	BeforeEach(libnet.SkipWhenClusterNotSupportIpv4)
+
+	BeforeEach(func() {
+		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+	})
+
+	const slirpBindingName = "slirp"
+
+	BeforeEach(func() {
+		const slirpSidecarImage = "registry:5000/kubevirt/network-slirp-binding:devel"
+
+		Expect(libkvconfig.WithNetBindingPlugin(slirpBindingName, v1.InterfaceBindingPlugin{
+			SidecarImage: slirpSidecarImage,
+		})).To(Succeed())
+	})
 
 	It("VMI with SLIRP interface, custom mac and port is configured correctly", func() {
 		vmi := libvmifact.NewCirros(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithInterface(
-				libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name, v1.Port{Name: "http", Port: 80}),
-			),
+			libvmi.WithInterface(v1.Interface{
+				Name:       v1.DefaultPodNetwork().Name,
+				Binding:    &v1.PluginBinding{Name: slirpBindingName},
+				MacAddress: "de:ad:00:00:be:af",
+				Ports:      []v1.Port{{Name: "http", Port: 80}},
+			}),
 		)
-		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 		var err error
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -72,13 +91,8 @@ var _ = SIGDescribe("Slirp", decorators.Networking, func() {
 		vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 
-		var container k8sv1.Container
-		for _, containerSpec := range vmiPod.Spec.Containers {
-			if containerSpec.Name == "compute" {
-				container = containerSpec
-				break
-			}
-		}
+		container := lookupComputeContainer(vmiPod.Spec.Containers)
+		Expect(container).NotTo(BeNil(), "could not find the compute container")
 		Expect(container.Name).ToNot(Equal(""))
 		Expect(container.Ports).ToNot(BeNil())
 		Expect(container.Ports[0].Name).To(Equal("http"))
@@ -115,3 +129,12 @@ var _ = SIGDescribe("Slirp", decorators.Networking, func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+func lookupComputeContainer(containers []k8sv1.Container) *k8sv1.Container {
+	for idx := range containers {
+		if containers[idx].Name == "compute" {
+			return &containers[idx]
+		}
+	}
+	return nil
+}
