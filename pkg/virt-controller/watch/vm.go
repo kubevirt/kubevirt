@@ -61,11 +61,13 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
@@ -640,11 +642,39 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) 
 }
 
 func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	test := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vmi.Spec.Domain.CPU.Sockets), 10))
-	update := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vm.Spec.Template.Spec.Domain.CPU.Sockets), 10))
-	patch := fmt.Sprintf("[%s, %s]", test, update)
+	patchSet := patch.New(
+		patch.WithTest("/spec/domain/cpu/sockets", vmi.Spec.Domain.CPU.Sockets),
+		patch.WithReplace("/spec/domain/cpu/sockets", vm.Spec.Template.Spec.Domain.CPU.Sockets),
+	)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
+	vcpusDelta := hardware.GetNumberOfVCPUs(vm.Spec.Template.Spec.Domain.CPU) - hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+	resourcesDelta := resource.NewMilliQuantity(vcpusDelta*int64(1000/c.clusterConfig.GetCPUAllocationRatio()), resource.DecimalSI)
+
+	if !vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().IsZero() {
+		newCpuReq := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
+		newCpuReq.Add(*resourcesDelta)
+
+		patchSet.AddOption(
+			patch.WithTest("/spec/domain/resources/requests/cpu", vmi.Spec.Domain.Resources.Requests.Cpu().String()),
+			patch.WithReplace("/spec/domain/resources/requests/cpu", newCpuReq.String()),
+		)
+	}
+	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().IsZero() {
+		newCpuLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
+		newCpuLimit.Add(*resourcesDelta)
+
+		patchSet.AddOption(
+			patch.WithTest("/spec/domain/resources/limits/cpu", vmi.Spec.Domain.Resources.Limits.Cpu().String()),
+			patch.WithReplace("/spec/domain/resources/limits/cpu", newCpuLimit.String()),
+		)
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 
 	return err
 }
