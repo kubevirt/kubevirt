@@ -27,7 +27,7 @@ import "kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 const (
 	ExpandDisksGate       = "ExpandDisks"
-	CPUManager            = "CPUManager"
+	CPUManagerGate        = "CPUManager"
 	NUMAFeatureGate       = "NUMA"
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	HypervStrictCheckGate = "HypervStrictCheck"
@@ -104,7 +104,7 @@ func (config *ClusterConfig) ExpandDisksEnabled() bool {
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
-	return config.isFeatureGateEnabled(CPUManager)
+	return config.isFeatureGateEnabled(CPUManagerGate)
 }
 
 func (config *ClusterConfig) NUMAEnabled() bool {
