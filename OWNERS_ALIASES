@@ -139,6 +139,7 @@ aliases:
   sig-buildsystem-reviewers:
     - brianmcarey
     - enp0s3
+    - vamsikrishna-siddu  # s390x arch
     - xpivarc
 
   #
