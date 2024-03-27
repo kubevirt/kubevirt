@@ -1218,8 +1218,8 @@ var _ = Describe("Template", func() {
 				config, kvInformer, svc = configFactory(arch)
 
 				nodeSelector := map[string]string{
-					"kubernetes.io/hostname": "master",
-					v1.NodeSchedulable:       "true",
+					k8sv1.LabelHostname: "master",
+					v1.NodeSchedulable:  "true",
 				}
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -1243,9 +1243,9 @@ var _ = Describe("Template", func() {
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
-					"kubernetes.io/hostname": "master",
-					v1.NodeSchedulable:       "true",
-					k8sv1.LabelArchStable:    arch,
+					k8sv1.LabelHostname:   "master",
+					v1.NodeSchedulable:    "true",
+					k8sv1.LabelArchStable: arch,
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
 					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
@@ -1330,7 +1330,7 @@ var _ = Describe("Template", func() {
 			It("should add node selectors from kubevirt-config configMap", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
-				nodeSelectors := map[string]string{"kubernetes.io/hostname": "node02", "node-role.kubernetes.io/compute": "true"}
+				nodeSelectors := map[string]string{k8sv1.LabelHostname: "node02", "node-role.kubernetes.io/compute": "true"}
 				kvConfig.Spec.Configuration.DeveloperConfiguration.NodeSelectors = nodeSelectors
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
@@ -1346,7 +1346,7 @@ var _ = Describe("Template", func() {
 				}
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "node02"))
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(k8sv1.LabelHostname, "node02"))
 				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("node-role.kubernetes.io/compute", "true"))
 			})
 
@@ -1570,8 +1570,8 @@ var _ = Describe("Template", func() {
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				nodeSelector := map[string]string{
-					"kubernetes.io/hostname": "master",
-					v1.NodeSchedulable:       "true",
+					k8sv1.LabelHostname: "master",
+					v1.NodeSchedulable:  "true",
 				}
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,

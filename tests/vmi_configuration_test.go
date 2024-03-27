@@ -1141,7 +1141,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 							NodeSelectorTerms: []kubev1.NodeSelectorTerm{
 								{
 									MatchExpressions: []kubev1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
+										{Key: k8sv1.LabelHostname, Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
 									},
 								},
 							},
@@ -2904,7 +2904,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						kubev1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
-				cpuvmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				cpuvmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 2,
@@ -2914,7 +2914,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						kubev1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 			})
 
 			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {

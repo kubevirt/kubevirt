@@ -659,7 +659,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 				virtv1.CreatedByLabel: string(vmi.UID),
 			},
 		},
-		TopologyKey: "kubernetes.io/hostname",
+		TopologyKey: k8sv1.LabelHostname,
 	}
 	antiAffinityRule := &k8sv1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{antiAffinityTerm},

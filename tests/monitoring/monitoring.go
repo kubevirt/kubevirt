@@ -36,6 +36,7 @@ import (
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -143,7 +144,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			Eventually(func() string {
 				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return vh.Spec.Template.Spec.NodeSelector["kubernetes.io/hostname"]
+				return vh.Spec.Template.Spec.NodeSelector[k8sv1.LabelHostname]
 			}, 90*time.Second, 5*time.Second).Should(Equal("does-not-exist"))
 
 			Eventually(func() int {

@@ -333,7 +333,7 @@ func CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.
 				{
 					MatchExpressions: []k8sv1.NodeSelectorRequirement{
 						{
-							Key:      "kubernetes.io/hostname",
+							Key:      k8sv1.LabelHostname,
 							Operator: k8sv1.NodeSelectorOpIn,
 							Values:   []string{sourceNode.Name, targetNode.Name},
 						},
@@ -346,7 +346,7 @@ func CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.
 				Preference: k8sv1.NodeSelectorTerm{
 					MatchExpressions: []k8sv1.NodeSelectorRequirement{
 						{
-							Key:      "kubernetes.io/hostname",
+							Key:      k8sv1.LabelHostname,
 							Operator: k8sv1.NodeSelectorOpIn,
 							Values:   []string{sourceNode.Name},
 						},

@@ -316,7 +316,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						Weight: int32(1),
 						Preference: k8sv1.NodeSelectorTerm{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{controlPlaneNodes.Items[0].Name}},
+								{Key: k8sv1.LabelHostname, Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{controlPlaneNodes.Items[0].Name}},
 							},
 						},
 					}
@@ -405,7 +405,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 										Values:   []string{""}},
 								},
 							},
-							TopologyKey: "kubernetes.io/hostname",
+							TopologyKey: k8sv1.LabelHostname,
 						},
 					}
 					vmi_evict1 := alpineVMIWithEvictionStrategy(
