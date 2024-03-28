@@ -16,9 +16,9 @@ import (
 )
 
 func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig) []k8sv1.Container {
-	passthroughFSVolumes := make(map[string]struct{})
+	passthroughFSVolumes := make(map[string]v1.FilesystemVirtiofs)
 	for i := range vmi.Spec.Domain.Devices.Filesystems {
-		passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+		passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = *vmi.Spec.Domain.Devices.Filesystems[i].Virtiofs
 	}
 	if len(passthroughFSVolumes) == 0 {
 		return nil
@@ -26,9 +26,9 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 
 	containers := []k8sv1.Container{}
 	for _, volume := range vmi.Spec.Volumes {
-		if _, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
+		if virtioFS, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
 			resources := resourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
-			container := generateContainerFromVolume(config, &volume, image, resources)
+			container := generateContainerFromVolume(config, &volume, &virtioFS, image, resources)
 			containers = append(containers, container)
 
 		}
@@ -153,7 +153,7 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 	return volumeMountPoint
 }
 
-func generateContainerFromVolume(config *virtconfig.ClusterConfig, volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
+func generateContainerFromVolume(config *virtconfig.ClusterConfig, volume *v1.Volume, virtioFS *v1.FilesystemVirtiofs, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
@@ -182,6 +182,8 @@ func generateContainerFromVolume(config *virtconfig.ClusterConfig, volume *v1.Vo
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: virtioFSMountPoint(volume),
+			SubPath:   virtioFS.SubPath,
+			ReadOnly:  virtioFS.ReadOnly,
 		})
 	}
 
