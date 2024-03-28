@@ -212,13 +212,23 @@ var _ = Describe("VirtualMachine", func() {
 		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).DoAndReturn(
+				func(_, _, _, _, _ any, _ ...any) (*virtv1.VirtualMachine, error) {
+					vm := vm.DeepCopy()
+					vm.Finalizers = append(vm.Finalizers, virtv1.VirtualMachineControllerFinalizer)
+					return vm, nil
+				})
 		}
 
 		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).DoAndReturn(
+				func(_, _, _, _, _ any, _ ...any) (*virtv1.VirtualMachine, error) {
+					vm := vm.DeepCopy()
+					vm.Finalizers = []string{}
+					return vm, nil
+				})
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -460,13 +470,13 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
-			}).Return(vm, nil)
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+				return vm, nil
+			})
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				// vol request shouldn't be cleared until update status observes the new volume change
-				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(vm, nil)
 
 			sanityExecute(vm)
@@ -475,6 +485,292 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("that is running", true),
 			Entry("that is not running", false),
 		)
+
+		Context("add volume request", func() {
+			It("should not be cleared when hotplug fails on Running VM", func() {
+				By("Running VM")
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+
+				By("Simulate a failure in hotplug")
+				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(fmt.Errorf("error"))
+
+				By("Expecting to not clear volume requests")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(vm, nil)
+
+				By("Not expecting to see a status update")
+				sanityExecute(vm)
+			})
+
+			It("should not be cleared when VM update fails on Running VM", func() {
+				By("Running VM")
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+				By("Simulate hotplug")
+				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(nil)
+
+				By("Simulate update failure")
+				vmInterface.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("conflict"))
+				By("Expecting Volume request not to be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(vm, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should be cleared when hotplug on Stopped VM", func() {
+				By("Stopped VM")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Expecting Volume to be added to VM")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+					return vm, nil
+				})
+
+				By("Expecting Volume request to be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(BeEmpty(),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should not be cleared when hotplug fails on Stopped VM", func() {
+				By("Stopped VM")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &virtv1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &virtv1.Disk{},
+							VolumeSource: &virtv1.HotplugVolumeSource{},
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Simulate a conflict on Update")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+					return nil, fmt.Errorf("conflict")
+				})
+
+				By("Expecting Volume request to not be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+		})
+
+		Context("remove volume request", func() {
+			It("should not be cleared when hotplug fails on Running VM", func() {
+				By("Running VM with a disk and matching volume")
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				volume := virtv1.Volume{
+					Name: "vol1",
+					VolumeSource: virtv1.VolumeSource{
+						ContainerDisk: &virtv1.ContainerDiskSource{
+							Image: "random",
+						},
+					},
+				}
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+
+				disk := virtv1.Disk{
+					Name: "vol1",
+					DiskDevice: virtv1.DiskDevice{
+						Disk: &virtv1.DiskTarget{},
+					},
+				}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
+							Name: "vol1",
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+				By("Simulate a un-hotplug failure")
+				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions).Return(fmt.Errorf("error"))
+
+				By("Expecting Volume request to not be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(vm, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should be cleared when hotplug on Stopped VM", func() {
+				By("Stopped VM with a disk and matching volume")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+					virtv1.Volume{
+						Name: "vol1",
+						VolumeSource: virtv1.VolumeSource{
+							ContainerDisk: &virtv1.ContainerDiskSource{
+								Image: "random",
+							},
+						},
+					},
+				)
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+					virtv1.Disk{
+						Name: "vol1",
+						DiskDevice: virtv1.DiskDevice{
+							Disk: &virtv1.DiskTarget{},
+						},
+					},
+				)
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
+							Name: "vol1",
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Expect the volume to be cleared")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					return vm, nil
+				})
+
+				By("Expect the volume request to be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(BeEmpty(),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+
+			It("should not be cleared when hotplug fails on Stopped VM", func() {
+				By("Stopped VM with a disk and matching volume")
+				vm, _ := DefaultVirtualMachine(false)
+				vm.Status.Created = false
+				vm.Status.Ready = false
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+					virtv1.Volume{
+						Name: "vol1",
+						VolumeSource: virtv1.VolumeSource{
+							ContainerDisk: &virtv1.ContainerDiskSource{
+								Image: "random",
+							},
+						},
+					},
+				)
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+					virtv1.Disk{
+						Name: "vol1",
+						DiskDevice: virtv1.DiskDevice{
+							Disk: &virtv1.DiskTarget{},
+						},
+					},
+				)
+				vm.Status.VolumeRequests = []virtv1.VirtualMachineVolumeRequest{
+					{
+						RemoveVolumeOptions: &virtv1.RemoveVolumeOptions{
+							Name: "vol1",
+						},
+					},
+				}
+
+				addVirtualMachine(vm)
+
+				By("Simulate a conflict on VM update")
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					return nil, fmt.Errorf("conflict")
+				})
+
+				By("Expecting a Volume request to not be cleared")
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, vm *virtv1.VirtualMachine) {
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				}).Return(nil, nil)
+
+				sanityExecute(vm)
+			})
+		})
 
 		DescribeTable("should unhotplug a vm", func(isRunning bool) {
 			vm, vmi := DefaultVirtualMachine(isRunning)
@@ -509,13 +805,13 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-			}).Return(vm, nil)
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+				return vm, nil
+			})
 
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				// vol request shouldn't be cleared until update status observes the new volume change occured
-				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
+				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(vm, nil)
 
 			sanityExecute(vm)
@@ -2707,9 +3003,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIVolumesAddPatched(vmi)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-				}).Return(vm, nil)
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(
+					func(_ any, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+						Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
+						return vm, nil
+					})
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 				sanityExecute(vm)
@@ -2922,10 +3220,13 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-				}).Return(vm, nil)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					return vm, nil
+				})
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).DoAndReturn(func(_ any, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+					return vm, nil
+				})
 
 				sanityExecute(vm)
 			})
@@ -3059,6 +3360,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmi.Status.Phase = virtv1.Running
 					vmiFeeder.Add(vmi)
 				}
+				vmiInterface.EXPECT().Create(gomock.Any(), gomock.Any()).AnyTimes()
 
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
