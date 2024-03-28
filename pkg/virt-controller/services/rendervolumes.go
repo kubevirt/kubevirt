@@ -502,6 +502,16 @@ func withSRIOVPciMapAnnotation() VolumeRendererOption {
 	}
 }
 
+func withNetworkDeviceInfoMapAnnotation() VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumes = append(renderer.podVolumes,
+			downwardAPIDirVolume(
+				downwardapi.NetworkInfoVolumeName, downwardapi.NetworkInfoVolumePath, fmt.Sprintf("metadata.annotations['%s']", downwardapi.NetworkInfoAnnot)),
+		)
+		return nil
+	}
+}
+
 func imgPullSecrets(volumes ...v1.Volume) []k8sv1.LocalObjectReference {
 	var imagePullSecrets []k8sv1.LocalObjectReference
 	for _, volume := range volumes {
