@@ -21,6 +21,11 @@ Then build the manifests and images:
 make && make push && make manifests
 ```
 
+**Note:** If you see failures related to fetching some modules, try increasing bazel's timeout with:
+ ```bash
+ export PULLER_TIMEOUT=10000
+ ```
+
 Finally, push the manifests to your cluster:
 
 ```bash
