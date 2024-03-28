@@ -212,6 +212,16 @@ func NewController(
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-vm")
 
+	containerDiskState := filepath.Join(virtPrivateDir, "container-disk-mount-state")
+	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
+		return nil, err
+	}
+
+	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
+	if err := os.MkdirAll(hotplugState, 0700); err != nil {
+		return nil, err
+	}
+
 	c := &VirtualMachineController{
 		Queue:                       queue,
 		recorder:                    recorder,
@@ -226,8 +236,8 @@ func NewController(
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
-		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, filepath.Join(virtPrivateDir, "container-disk-mount-state"), clusterConfig),
-		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(filepath.Join(virtPrivateDir, "hotplug-volume-mount-state"), kubeletPodsDir),
+		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
 		clusterConfig:               clusterConfig,
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 		capabilities:                capabilities,

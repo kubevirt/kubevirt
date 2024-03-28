@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -61,7 +62,7 @@ var _ = Describe("ContainerDisk", func() {
 
 		m = &mounter{
 			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
-			mountStateDir:          tmpDir,
+			checkpointManager:      checkpoint.NewSimpleCheckpointManager(tmpDir),
 			suppressWarningTimeout: 1 * time.Minute,
 			socketPathGetter:       containerdisk.NewSocketPathGetter(""),
 		}
