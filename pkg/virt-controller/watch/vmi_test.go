@@ -3414,7 +3414,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			It("pod multus status cannot be updated", func() {
 				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod)).To(HaveOccurred())
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod, map[string]network.IPAMClaimParams{})).To(HaveOccurred())
 			})
 		})
 
@@ -3431,8 +3431,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			DescribeTable("update pods network annotation with", func(networks []v1.Network, interfaces []v1.Interface, matchers ...gomegaTypes.GomegaMatcher) {
 				vmi.Spec.Networks = networks
 				vmi.Spec.Domain.Devices.Interfaces = interfaces
+
 				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod, map[string]network.IPAMClaimParams{})).To(Succeed())
 				for _, matcher := range matchers {
 					Expect(pod.Annotations).To(matcher)
 				}
@@ -3487,7 +3488,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 					prependInjectPodPatch(pod)
 
-					Expect(controller.updateMultusAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
+					Expect(controller.updateMultusAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod, map[string]network.IPAMClaimParams{})).To(Succeed())
 
 					Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
 					Expect(pod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
@@ -3958,7 +3959,7 @@ func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 func NewPodForVirtualMachineWithMultusAnnotations(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase, config *virtconfig.ClusterConfig, podNetworkStatus ...networkv1.NetworkStatus) (*k8sv1.Pod, error) {
 	pod := NewPodForVirtualMachine(vmi, phase)
 
-	multusAnnotations, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)
+	multusAnnotations, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, map[string]network.IPAMClaimParams{}, config)
 	if err != nil {
 		return nil, err
 	}

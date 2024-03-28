@@ -17,48 +17,53 @@
  *
  */
 
-package network
+package network_test
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
+
+	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
+	"kubevirt.io/client-go/kubecli"
 )
 
-var _ = Describe("getResourceNameForNetwork", func() {
-	It("should return empty string when resource name is not specified", func() {
-		network := &networkv1.NetworkAttachmentDefinition{}
-		Expect(getResourceNameForNetwork(network)).To(Equal(""))
-	})
+var _ = Describe("ExtractNetworkToResourceMap", func() {
+	var (
+		virtClient     *kubecli.MockKubevirtClient
+		networkClient  *fakenetworkclient.Clientset
+		multusNetworks []v1.Network
+	)
 
-	It("should return resource name if specified", func() {
-		network := &networkv1.NetworkAttachmentDefinition{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					MULTUS_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
-				},
-			},
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+
+		networkClient = fakenetworkclient.NewSimpleClientset()
+		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
+
+		multusNetworks = []v1.Network{
+			logicalSecondaryNetwork(redNetworkLogicalName, redNetworkNadName),
+			logicalSecondaryNetwork(blueNetworkLogicalName, blueNetworkNadName),
 		}
-		Expect(getResourceNameForNetwork(network)).To(Equal("fake.com/fakeResource"))
-	})
-})
 
-var _ = Describe("getNamespaceAndNetworkName", func() {
-	It("should return vmi namespace when namespace is implicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, "testnet")
-		Expect(namespace).To(Equal("testns"))
-		Expect(networkName).To(Equal("testnet"))
+		Expect(createNADs(networkClient, namespace, multusNetworks, map[string]struct{}{})).To(Succeed())
 	})
 
-	It("should return namespace from networkName when namespace is explicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, "otherns/testnet")
-		Expect(namespace).To(Equal("otherns"))
-		Expect(networkName).To(Equal("testnet"))
+	It("should return map the expected networkToResourceMap", func() {
+		nads, err := network.GetNetworkAttachmentDefinitions(virtClient, namespace, multusNetworks)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(nads)).To(Equal(2))
+		for networkName, nad := range nads {
+			Expect(nad.Name).To(Equal(networkName + nadSuffix))
+			Expect(nad.Namespace).To(Equal(namespace))
+		}
+
+		networkToResourceMap := network.ExtractNetworkToResourceMap(nads)
+		Expect(networkToResourceMap).To(Equal(map[string]string{"red": resourceName, "blue": resourceName}))
 	})
 })

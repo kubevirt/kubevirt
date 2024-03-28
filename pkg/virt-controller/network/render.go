@@ -24,32 +24,38 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/precond"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 
-func GetNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
-	networkToResourceMap = make(map[string]string)
-	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil {
-			namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, network.Multus.NetworkName)
-			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(context.Background(), networkName, metav1.GetOptions{})
-			if err != nil {
-				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
-			}
-			networkToResourceMap[network.Name] = getResourceNameForNetwork(crd)
+func GetNetworkAttachmentDefinitions(virtClient kubecli.KubevirtClient, namespace string, multusNetworks []virtv1.Network) (map[string]*networkv1.NetworkAttachmentDefinition, error) {
+	nadMap := map[string]*networkv1.NetworkAttachmentDefinition{}
+	for _, network := range multusNetworks {
+		namespace, networkName := getNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
+		nad, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(context.Background(), networkName, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to locate network attachment definition %s/%s", namespace, networkName)
 		}
+		nadMap[network.Name] = nad
 	}
-	return
+	return nadMap, nil
+}
+
+func ExtractNetworkToResourceMap(nadMap map[string]*networkv1.NetworkAttachmentDefinition) map[string]string {
+	networkToResourceMap := map[string]string{}
+	for networkName, nad := range nadMap {
+		networkToResourceMap[networkName] = getResourceNameForNetwork(nad)
+	}
+	return networkToResourceMap
 }
 
 func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {

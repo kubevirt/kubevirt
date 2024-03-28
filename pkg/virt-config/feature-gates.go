@@ -78,6 +78,8 @@ const (
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
+	// PersistentIPsGate enables IPAM persistent IPs feature.
+	PersistentIPsGate = "PersistentIPs"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -245,4 +247,8 @@ func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(AlignCPUsGate)
+}
+
+func (config *ClusterConfig) PersistentIPsEnabled() bool {
+	return config.isFeatureGateEnabled(PersistentIPsGate)
 }
