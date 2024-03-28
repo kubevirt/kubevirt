@@ -24,6 +24,12 @@ Indicates whether the Software Emulation is enabled in the configuration. Type: 
 ### kubevirt_console_active_connections
 Amount of active Console connections, broken down by namespace and vmi name. Type: Gauge.
 
+### kubevirt_memory_rss_to_requested_diff_bytes
+The diff between the pod with highest memory RSS and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
+
+### kubevirt_memory_working_set_to_requested_diff_bytes
+The diff between the pod with highest memory working set and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
+
 ### kubevirt_nodes_with_kvm
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 
