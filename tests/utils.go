@@ -366,15 +366,6 @@ func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
 `, commands)
 }
 
-// NewRandomVMIWithEphemeralDiskAndUserdata
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	AddUserData(vmi, "disk1", userData)
-	return vmi
-}
-
 // NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata
 //
 // Deprecated: Use libvmi directly
