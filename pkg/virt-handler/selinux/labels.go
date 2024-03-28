@@ -130,43 +130,7 @@ func (se *SELinuxImpl) selinux(args ...string) (out []byte, err error) {
 	return se.execFunc(virt_chroot.GetChrootBinaryPath(), argsArray...)
 }
 
-func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
-	sourceFile := filepath.Join("/", policyName+".cil")
-	// #nosec No risk for path injection. Using static string path
-	input, err := os.ReadFile(sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to read a policy file %v: %v ", sourceFile, err)
-	}
-
-	destinationFile := filepath.Join(dir, sourceFile)
-	err = os.WriteFile(destinationFile, input, 0600)
-	if err != nil {
-		return fmt.Errorf("failed to create a policy file %v: %v ", destinationFile, err)
-	}
-	return nil
-}
-
-func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
-	for _, policyName := range POLICY_FILES {
-		fileDest := filepath.Join(dir, policyName+".cil")
-		err := se.copyPolicyFunc(policyName, dir)
-		if err != nil {
-			return fmt.Errorf("failed to copy policy %v - err: %v", fileDest, err)
-		}
-		out, err := se.semodule("-i", fileDest)
-		if err != nil {
-			if len(out) > 0 {
-				return fmt.Errorf("failed to install policy %v - out: %q, error: %v", fileDest, string(out), err)
-			} else {
-				return fmt.Errorf("failed to install policy %v - err: %v", fileDest, err)
-			}
-		}
-	}
-	return nil
-}
-
 type SELinux interface {
-	InstallPolicy(dir string) (err error)
 	Mode() string
 	IsPermissive() bool
 }
