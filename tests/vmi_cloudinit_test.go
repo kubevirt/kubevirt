@@ -349,8 +349,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with cloudInitNoCloud networkData", func() {
 			It("[test_id:3181]should have cloud-init network-config with NetworkData source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, false)
+				vmi := libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(testNetworkData),
+				)
 				vmi = LaunchVMI(vmi)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
@@ -364,8 +367,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 			It("[test_id:3182]should have cloud-init network-config with NetworkDataBase64 source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", testNetworkData, true)
+				vmi := libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudEncodedNetworkData(testNetworkData),
+				)
 				vmi = LaunchVMI(vmi)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
@@ -379,30 +385,20 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 			It("[test_id:3183]should have cloud-init network-config from k8s secret", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", "", false)
+				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 
-				idx := 0
-				for i, volume := range vmi.Spec.Volumes {
-					if volume.CloudInitNoCloud == nil {
-						continue
-					}
-					idx = i
+				vmi := libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkDataSecretName(secretID),
+				)
 
-					secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
-					spec := volume.CloudInitNoCloud
-					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
-
-					// Store cloudinit data as k8s secret
-					By("Creating a secret with network data")
-					secret := libsecret.New(secretID, map[string][]byte{
-						"networkdata": []byte(testNetworkData),
-					})
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					break
-				}
+				By("Creating a secret with network data")
+				secret := libsecret.New(secretID, map[string][]byte{
+					"networkdata": []byte(testNetworkData),
+				})
+				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				vmi = LaunchVMI(vmi)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -418,10 +414,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				// Expect that the secret is not present on the vmi itself
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkData).To(BeEmpty())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
+
+				testVolume := lookupCloudInitNoCloudVolume(vmi.Spec.Volumes)
+				Expect(testVolume).ToNot(BeNil(), "should find cloud-init volume in vmi spec")
+				Expect(testVolume.CloudInitNoCloud.UserData).To(BeEmpty())
+				Expect(testVolume.CloudInitNoCloud.NetworkData).To(BeEmpty())
+				Expect(testVolume.CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
 			})
 
 		})
@@ -622,3 +620,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	})
 })
+
+func lookupCloudInitNoCloudVolume(volumes []v1.Volume) *v1.Volume {
+	for i, volume := range volumes {
+		if volume.CloudInitNoCloud != nil {
+			return &volumes[i]
+		}
+	}
+	return nil
+}
