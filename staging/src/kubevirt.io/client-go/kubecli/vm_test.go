@@ -31,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -60,7 +61,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		fetchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get(context.Background(), "testvm", &k8smetav1.GetOptions{})
+		fetchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Get(context.Background(), "testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -78,7 +79,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testvm")),
 		))
-		_, err = client.VirtualMachine(k8sv1.NamespaceDefault).Get(context.Background(), "testvm", &k8smetav1.GetOptions{})
+		_, err = client.VirtualMachine(k8sv1.NamespaceDefault).Get(context.Background(), "testvm", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -97,7 +98,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMList(*vm)),
 		))
-		fetchedVMList, err := client.VirtualMachine(k8sv1.NamespaceDefault).List(context.Background(), &k8smetav1.ListOptions{})
+		fetchedVMList, err := client.VirtualMachine(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
 		apiVersion, kind := v1.VirtualMachineGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
@@ -120,7 +121,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, vm),
 		))
-		createdVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(context.Background(), vm)
+		createdVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -139,7 +140,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(context.Background(), vm)
+		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(context.Background(), vm, metav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -163,7 +164,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
 
-		patchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Patch(context.Background(), vm.Name, types.MergePatchType, []byte("{\"spec\":{\"running\":true}}"), &k8smetav1.PatchOptions{})
+		patchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Patch(context.Background(), vm.Name, types.MergePatchType, []byte("{\"spec\":{\"running\":true}}"), k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -185,7 +186,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, vm),
 		))
 
-		patchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Patch(context.Background(), vm.Name, types.MergePatchType, []byte("{\"spec\":{\"running\":true}}"), &k8smetav1.PatchOptions{})
+		patchedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Patch(context.Background(), vm.Name, types.MergePatchType, []byte("{\"spec\":{\"running\":true}}"), k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
@@ -203,7 +204,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachine(k8sv1.NamespaceDefault).Delete(context.Background(), "testvm", &k8smetav1.DeleteOptions{})
+		err = client.VirtualMachine(k8sv1.NamespaceDefault).Delete(context.Background(), "testvm", k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

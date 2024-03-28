@@ -227,7 +227,7 @@ func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCo
 	for i := 1; i <= vmCount; i++ {
 		vm := vmCreateFunc()
 		By(fmt.Sprintf("Creating VM %s", vm.ObjectMeta.Name))
-		_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// interval for throughput control

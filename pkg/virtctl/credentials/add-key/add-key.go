@@ -94,7 +94,7 @@ func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSshKeyFl
 		return fmt.Errorf("error getting kubevirt client: %w", err)
 	}
 
-	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, &metav1.GetOptions{})
+	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
@@ -127,11 +127,11 @@ func addSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlag
 	accessCredentialPatch := patchToAddAccessCredential(accessCredential)
 
 	// First, Try to add the new access credential to the existing array.
-	_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(), vm.Name, types.JSONPatchType, common.MustMarshalPatch(accessCredentialPatch), &metav1.PatchOptions{})
+	_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(), vm.Name, types.JSONPatchType, common.MustMarshalPatch(accessCredentialPatch), metav1.PatchOptions{})
 	if err != nil {
 		// If it fails, it probably means that the array is nil. Try to add the array.
 		fullPatch := common.MustMarshalPatch(append(patchToAddAccessCredentialsArray(), accessCredentialPatch)...)
-		_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(), vm.Name, types.JSONPatchType, fullPatch, &metav1.PatchOptions{})
+		_, err = cli.VirtualMachine(vm.Namespace).Patch(cmd.Context(), vm.Name, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("error patching virtual machine: %w", err)
 		}

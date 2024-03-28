@@ -66,7 +66,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 		BeforeEach(func() {
 			vm = libvmi.NewVirtualMachine(libvmifact.NewCirros())
-			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 		Context("with a restart endpoint", func() {
 			It("[test_id:1304] should restart a VM", func() {
 				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				tests.StartVirtualMachine(vm)
@@ -183,7 +183,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			It("[test_id:1305][posneg:negative] should return an error when VM is not running", func() {
 				vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
@@ -206,7 +206,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				vm.Spec.Running = nil
 
 				By("Creating VM")
-				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Trying to start VM via Restart subresource")
@@ -220,7 +220,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				vm.Spec.Running = nil
 
 				By("Creating VM")
-				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VM via Start subresource")
@@ -260,7 +260,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				vm.Spec.Running = nil
 
 				By("Creating VM")
-				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to start")
@@ -309,7 +309,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				var err error
 				vmi := libvmifact.NewCirros()
 				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-				vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
+				vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
 					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -347,7 +347,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 				vmi.Namespace = testsuite.GetTestNamespace(vmi)
 				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-				vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
+				vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
 					vmi, err = virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -474,7 +474,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			Context("with existing VM", func() {
 				It("[test_id:TODO] should return unchanged VirtualMachine, if instancetype is not used", func() {
 					vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
-					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).
@@ -487,7 +487,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					vm := libvmi.NewVirtualMachine(libvmi.New())
 					vm.Spec.Instancetype = matcherFn()
 
-					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).
@@ -619,7 +619,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					// Using NewCirros() here to have some data in spec.
 					vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 
-					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).
@@ -633,7 +633,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 					vm.Spec.Preference = matcherFn()
 
-					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+					vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).

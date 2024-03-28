@@ -93,7 +93,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 				ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("CPU_CORES", MatchRegexp(`^[0-9]+$`)), "invalid CPU_CORES parameter: %q is not unsigned integer", templateParams["CPU_CORES"])
 				ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("MEMORY", MatchRegexp(`^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$`)), "invalid MEMORY parameter: %q is not valid quantity", templateParams["MEMORY"])
 				vmName = templateParams["NAME"]
-				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 				ExpectWithOffset(1, k8serrors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
 			}
 		}
@@ -114,7 +114,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 						case "NAME":
 							ExpectWithOffset(1, value).NotTo(BeEmpty(), "invalid NAME parameter: VirtualMachine name cannot be empty string")
 							vmName = value
-							vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+							vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 							ExpectWithOffset(1, k8serrors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil).To(BeTrue(), "invalid NAME parameter: VirtualMachine %q already exists", vmName)
 						case "CPU_CORES":
 							ExpectWithOffset(1, templateParams).To(HaveKeyWithValue("CPU_CORES", MatchRegexp(`^[0-9]+$`)), "invalid CPU_CORES parameter: %q is not unsigned integer", templateParams["CPU_CORES"])
@@ -129,11 +129,11 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 
 		AssertTestCleanupSuccess := func() func() {
 			return func() {
-				if vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{}); err == nil && vm.ObjectMeta.DeletionTimestamp == nil {
+				if vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{}); err == nil && vm.ObjectMeta.DeletionTimestamp == nil {
 					By("Deleting the VirtualMachine")
-					ExpectWithOffset(1, virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vmName, &metav1.DeleteOptions{})).To(Succeed(), "failed to delete VirtualMachine %q: %v", vmName, err)
+					ExpectWithOffset(1, virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vmName, metav1.DeleteOptions{})).To(Succeed(), "failed to delete VirtualMachine %q: %v", vmName, err)
 					EventuallyWithOffset(1, func() bool {
-						obj, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+						obj, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 						return k8serrors.IsNotFound(err) || obj.ObjectMeta.DeletionTimestamp != nil
 					}).Should(BeTrue(), "VirtualMachine %q still exists and the deletion timestamp was not set", vmName)
 				}
@@ -159,7 +159,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 				ExpectWithOffset(1, out).To(MatchRegexp(`"?%s"? created\n`, vmName), "command \"%s | oc create -f -\" did not print expected message: %s", strings.Join(ocProcessCommand, " "), out+stderr)
 				By("Checking if the VirtualMachine exists")
 				EventuallyWithOffset(1, func() error {
-					_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 					return err
 				}).Should(Succeed(), "VirtualMachine %q still does not exist", vmName)
 			}
@@ -186,7 +186,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 
 				By("Checking if the VM does not exist anymore")
 				EventuallyWithOffset(1, func() bool {
-					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 					return k8serrors.IsNotFound(err) || vm.ObjectMeta.DeletionTimestamp != nil
 				}).Should(BeTrue(), "the VirtualMachine %q still exists and deletion timestamp was not set", vmName)
 			}
@@ -225,7 +225,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 
 				By("Checking if the VirtualMachine has status ready")
 				EventuallyWithOffset(1, func() bool {
-					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to fetch VirtualMachine %q: %v", vmName, err)
 					return vm.Status.Ready
 				}).Should(BeTrue(), "VirtualMachine %q still does not have status ready", vmName)

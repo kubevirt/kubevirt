@@ -290,7 +290,7 @@ func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, k
 }
 
 func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
-	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	causes := validateCloneSourceExists(err, sourceField, virtualMachineKind, name, namespace)
 
 	if causes != nil {
