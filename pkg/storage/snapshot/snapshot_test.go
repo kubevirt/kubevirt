@@ -561,7 +561,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "VM snapshot is deleting"),
-					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+					newReadyCondition(corev1.ConditionFalse, "VM snapshot is deleting"),
 				}
 				addVirtualMachineSnapshot(vmSnapshot)
 				expectVMSnapshotContentDelete(vmSnapshotClient, content.Name)
@@ -620,6 +620,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent := content.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Finalizers = []string{}
+
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &content.Name
 
 				vmSnapshotContentSource.Add(content)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
