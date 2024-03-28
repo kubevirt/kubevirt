@@ -284,9 +284,9 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k
 	return curPod, nil
 }
 
-func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.SharedIndexInformer) int {
+func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodIndexer cache.Indexer) int {
 
-	objs, err := vmiPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := vmiPodIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return 0
 	}
@@ -393,8 +393,8 @@ func VMIHasHotplugMemory(vmi *v1.VirtualMachineInstance) bool {
 	return vmiHasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 }
 
-func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) ([]*k8sv1.Pod, error) {
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
+func AttachmentPods(ownerPod *k8sv1.Pod, podIndexer cache.Indexer) ([]*k8sv1.Pod, error) {
+	objs, err := podIndexer.ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
 	if err != nil {
 		return nil, err
 	}
