@@ -1338,7 +1338,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.StatusCode()).To(Equal(statusCode))
 		},
-			Entry("VM with a memory dump request without claim name with assocaited memory dump should succeed",
+			Entry("VM with a memory dump request without claim name with associated memory dump should succeed",
 				&v1.VirtualMachineMemoryDumpRequest{},
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: testPVCName,
@@ -1346,7 +1346,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				}, http.StatusAccepted),
 			Entry("VM with a memory dump request missing claim name without previous memory dump should fail",
 				&v1.VirtualMachineMemoryDumpRequest{}, nil, http.StatusBadRequest),
-			Entry("VM with a memory dump request with claim name different then assocaited memory dump should fail",
+			Entry("VM with a memory dump request with claim name different then associated memory dump should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "diffPVCName",
 				},

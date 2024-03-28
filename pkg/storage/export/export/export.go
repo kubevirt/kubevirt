@@ -109,7 +109,7 @@ const (
 
 	kvm = 107
 
-	// secretTokenLength is the lenght of the randomly generated token
+	// secretTokenLength is the length of the randomly generated token
 	secretTokenLength = 20
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
@@ -693,7 +693,7 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 // handleVMExportToken checks if a secret has been specified for the current export object and, if not, creates one specific to it
 func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMachineExport) error {
 	// If a tokenSecretRef has been specified, we assume that the corresponding
-	// secret has already been created and managed appropiately by the user
+	// secret has already been created and managed appropriately by the user
 	if vmExport.Spec.TokenSecretRef != nil {
 		vmExport.Status.TokenSecretRef = vmExport.Spec.TokenSecretRef
 		return nil
