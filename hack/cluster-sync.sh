@@ -39,6 +39,7 @@ function main() {
 
     ./hack/deploy-to-nodes.sh
     ./hack/cluster-deploy.sh
+    ./hack/kwok-deploy.sh
 }
 
 main "$@"
