@@ -30,7 +30,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
@@ -44,31 +43,25 @@ import (
 )
 
 type SocketDevicePlugin struct {
-	devs             []*pluginapi.Device
-	server           *grpc.Server
+	DevicePluginBase
 	pluginSocketPath string
-	stop             <-chan struct{}
-	health           chan deviceHealth
 	socketDir        string
 	socket           string
 	socketName       string
-	resourceName     string
-	done             chan struct{}
-	initialized      bool
-	lock             *sync.Mutex
-	deregistered     chan struct{}
 }
 
 func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int) *SocketDevicePlugin {
 	dpi := &SocketDevicePlugin{
+		DevicePluginBase: DevicePluginBase{
+			health:       make(chan deviceHealth),
+			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
+			initialized:  false,
+			lock:         &sync.Mutex{},
+		},
 		pluginSocketPath: SocketPath(strings.Replace(socketName, "/", "-", -1)),
 		socket:           socket,
 		socketDir:        socketDir,
 		socketName:       socketName,
-		health:           make(chan deviceHealth),
-		resourceName:     fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
-		initialized:      false,
-		lock:             &sync.Mutex{},
 	}
 	for i := 0; i < maxDevices; i++ {
 		deviceId := dpi.socketName + strconv.Itoa(i)
@@ -133,26 +126,6 @@ func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	return err
 }
 
-// Stop stops the gRPC server
-func (dpi *SocketDevicePlugin) stopDevicePlugin() error {
-	defer func() {
-		if !IsChanClosed(dpi.done) {
-			close(dpi.done)
-		}
-	}()
-
-	// Give the device plugin one second to properly deregister
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-	select {
-	case <-dpi.deregistered:
-	case <-ticker.C:
-	}
-	dpi.server.Stop()
-	dpi.setInitialized(false)
-	return dpi.cleanup()
-}
-
 // Register registers the device plugin for the given resourceName with Kubelet.
 func (dpi *SocketDevicePlugin) register() error {
 	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
@@ -172,33 +145,6 @@ func (dpi *SocketDevicePlugin) register() error {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (dpi *SocketDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-
-	done := false
-	for {
-		select {
-		case <-dpi.health:
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.stop:
-			done = true
-		case <-dpi.done:
-			done = true
-		}
-		if done {
-			break
-		}
-	}
-	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
-	// There exists no explicit way to deregister devices
-	emptyList := []*pluginapi.Device{}
-	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.socketName)
-	}
-	close(dpi.deregistered)
 	return nil
 }
 
@@ -241,18 +187,6 @@ func (dpi *SocketDevicePlugin) cleanup() error {
 	}
 
 	return nil
-}
-
-func (dpi *SocketDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
-	}
-	return options, nil
-}
-
-func (dpi *SocketDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-	res := &pluginapi.PreStartContainerResponse{}
-	return res, nil
 }
 
 func (dpi *SocketDevicePlugin) healthCheck() error {
@@ -315,16 +249,4 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 			}
 		}
 	}
-}
-
-func (dpi *SocketDevicePlugin) GetInitialized() bool {
-	dpi.lock.Lock()
-	defer dpi.lock.Unlock()
-	return dpi.initialized
-}
-
-func (dpi *SocketDevicePlugin) setInitialized(initialized bool) {
-	dpi.lock.Lock()
-	defer dpi.lock.Unlock()
-	dpi.initialized = initialized
 }

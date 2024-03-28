@@ -22,7 +22,6 @@ package device_manager
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -71,18 +70,10 @@ func (dev *USBDevice) GetID() string {
 
 // The actual plugin
 type USBDevicePlugin struct {
-	socketPath   string
-	stop         <-chan struct{}
-	update       chan struct{}
-	done         chan struct{}
-	deregistered chan struct{}
-	server       *grpc.Server
-	resourceName string
-	devices      []*PluginDevices
-	logger       *log.FilteredLogger
-
-	initialized bool
-	lock        *sync.Mutex
+	DevicePluginBase
+	update  chan struct{}
+	devices []*PluginDevices
+	logger  *log.FilteredLogger
 }
 
 type PluginDevices struct {
@@ -187,53 +178,6 @@ func (plugin *USBDevicePlugin) stopDevicePlugin() error {
 	return plugin.cleanup()
 }
 
-func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
-	plugin.stop = stop
-	plugin.done = make(chan struct{})
-	plugin.deregistered = make(chan struct{})
-
-	err := plugin.cleanup()
-	if err != nil {
-		return fmt.Errorf("error on cleanup: %v", err)
-	}
-
-	sock, err := net.Listen("unix", plugin.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	plugin.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer plugin.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(plugin.server, plugin)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- plugin.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(plugin.socketPath, 5*time.Second)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = plugin.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- plugin.healthCheck()
-	}()
-
-	plugin.setInitialized(true)
-	plugin.logger.Infof("%s device plugin started", plugin.resourceName)
-	err = <-errChan
-
-	return err
-}
-
 func (plugin *USBDevicePlugin) healthCheck() error {
 	monitoredDevices := make(map[string]string)
 	watcher, err := fsnotify.NewWatcher()
@@ -295,14 +239,6 @@ func (plugin *USBDevicePlugin) healthCheck() error {
 	}
 }
 
-func (plugin *USBDevicePlugin) cleanup() error {
-	err := os.Remove(plugin.socketPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return nil
-}
-
 func (plugin *USBDevicePlugin) register() error {
 	conn, err := grpc.Dial(pluginapi.KubeletSocket,
 		grpc.WithInsecure(),
@@ -329,12 +265,6 @@ func (plugin *USBDevicePlugin) register() error {
 		return err
 	}
 	return nil
-}
-
-func (plugin *USBDevicePlugin) GetDevicePluginOptions(ctx context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-	return &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
-	}, nil
 }
 
 // Interface to expose Devices: IDs, health and Topology
@@ -423,10 +353,6 @@ func (plugin *USBDevicePlugin) Allocate(_ context.Context, allocRequest *plugina
 	}
 
 	return allocResponse, nil
-}
-
-func (plugin *USBDevicePlugin) PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-	return &pluginapi.PreStartContainerResponse{}, nil
 }
 
 func parseSysUeventFile(path string) *USBDevice {
@@ -634,11 +560,13 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices) *US
 	}
 	resourceID = fmt.Sprintf("usb-%s", resourceID)
 	return &USBDevicePlugin{
-		socketPath:   SocketPath(resourceID),
-		resourceName: resourceName,
-		devices:      pluginDevices,
-		logger:       log.Log.With("subcomponent", resourceID),
-		initialized:  false,
-		lock:         &sync.Mutex{},
+		DevicePluginBase: DevicePluginBase{
+			socketPath:   SocketPath(resourceID),
+			resourceName: resourceName,
+			initialized:  false,
+			lock:         &sync.Mutex{},
+		},
+		devices: pluginDevices,
+		logger:  log.Log.With("subcomponent", resourceID),
 	}
 }
