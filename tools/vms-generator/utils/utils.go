@@ -1189,7 +1189,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 
 	vmi.ObjectMeta.Annotations = map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha3\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 	return vmi
@@ -1202,7 +1202,7 @@ func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 
-	annotation := `[{"args": ["--version", "v1alpha2"], "image":` +
+	annotation := `[{"args": ["--version", "v1alpha3"], "image":` +
 		`"registry:5000/kubevirt/sidecar-shim:devel", "configMap": {"name": "my-config-map",` +
 		`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`
 

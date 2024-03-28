@@ -20,3 +20,4 @@
 package v1alpha3
 
 const Version = "v1alpha3"
+const Deprecated = false
