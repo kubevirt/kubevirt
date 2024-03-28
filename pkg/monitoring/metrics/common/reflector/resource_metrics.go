@@ -13,16 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
- *
+ * Copyright the KubeVirt Authors.
  */
 
-package main
+package reflector
 
-import (
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+
+var (
+	resourceMetrics = []operatormetrics.Metric{
+		lastResourceVersion,
+	}
+
+	lastResourceVersion = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "reflector_last_resource_version",
+			Help: "Last resource version seen by the reflector",
+		},
+		[]string{"name"},
+	)
 )
-
-func main() {
-	watch.Execute()
-}

@@ -13,16 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
- *
+ * Copyright the KubeVirt Authors.
  */
 
-package main
+package client
 
 import (
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+	"context"
+	"net/url"
+	"time"
+
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 )
 
-func main() {
-	watch.Execute()
+type latencyAdapter struct {
+	m *operatormetrics.HistogramVec
+}
+
+func (l *latencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
+	l.m.WithLabelValues(verb, u.String()).Observe(latency.Seconds())
 }

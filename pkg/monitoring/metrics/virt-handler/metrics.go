@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
- *
+ * Copyright the KubeVirt Authors.
  */
 
-package virt_api
+package virt_handler
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
@@ -28,10 +27,6 @@ import (
 )
 
 func SetupMetrics() error {
-	if err := client.SetupMetrics(); err != nil {
-		return err
-	}
-
 	if err := reflector.SetupMetrics(); err != nil {
 		return err
 	}
@@ -40,10 +35,7 @@ func SetupMetrics() error {
 		return err
 	}
 
-	return operatormetrics.RegisterMetrics(
-		connectionMetrics,
-		vmMetrics,
-	)
+	return client.SetupMetrics()
 }
 
 func ListMetrics() []operatormetrics.Metric {
