@@ -180,7 +180,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with cloudInitConfigDrive userDataBase64 source", func() {
 			It("[test_id:3178]should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
+				vmi := libvmifact.NewCirros(
+					withoutCloudInitNoCloud(),
+					libvmi.WithCloudInitConfigDriveEncodedUserData(userData),
+				)
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -300,9 +303,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				runTest(vmi, cloudinit.DataSourceNoCloud)
 			})
 			It("[test_id:3180] with cloudInitConfigDrive userData source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros),
-					userData)
+				vmi := libvmifact.NewCirros(
+					withoutCloudInitNoCloud(),
+					libvmi.WithCloudInitConfigDriveUserData(userData),
+				)
 				runTest(vmi, cloudinit.DataSourceConfigDrive)
 			})
 		})
@@ -622,3 +626,14 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	})
 })
+
+func withoutCloudInitNoCloud() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		for i, volume := range vmi.Spec.Volumes {
+			if volume.CloudInitNoCloud != nil {
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes[:i], vmi.Spec.Volumes[i+1:]...)
+				break
+			}
+		}
+	}
+}
