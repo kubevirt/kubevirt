@@ -24,9 +24,9 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
-
 	"libvirt.org/go/libvirt"
+
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -172,19 +172,30 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 	return domainInterfaces
 }
 
+type SetDomainFunc func(*v1.VirtualMachineInstance, *api.DomainSpec) (cli.VirDomain, error)
+
 // withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
 // to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
-	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
-	dom, err := f(vmi, domainSpecWithIfacesResource)
+func withNetworkIfacesResources(
+	vmi *v1.VirtualMachineInstance,
+	domainSpec *api.DomainSpec,
+	f SetDomainFunc,
+) (cli.VirDomain, error) {
+	onRootComplex := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]
+	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 || onRootComplex == "true" {
+		return f(vmi, domainSpec)
+	}
+
+	originalIfaces := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
+	dom, err := f(vmi, domainSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(domainSpec.Devices.Interfaces) == len(domainSpecWithIfacesResource.Devices.Interfaces) {
+	if len(domainSpec.Devices.Interfaces) == len(originalIfaces) {
 		return dom, nil
 	}
 
@@ -192,7 +203,7 @@ func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.
 	if err != nil {
 		return nil, err
 	}
-	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
+	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = originalIfaces
 	// Only the devices are taken into account because some parameters are not assured to be returned when
 	// getting the domain spec (e.g. the `qemu:commandline` section).
 	domainSpecWithoutIfacePlaceholders.Devices.DeepCopyInto(&domainSpec.Devices)
@@ -200,22 +211,18 @@ func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.
 	return f(vmi, domainSpec)
 }
 
-func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
-	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
-		return domainSpec
-	}
-	if val := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]; val == "true" {
-		return domainSpec
-	}
-	domainSpecWithIfacesResource := domainSpec.DeepCopy()
+func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) []api.Interface {
+	originalIfaces := make([]api.Interface, len(domainSpec.Devices.Interfaces))
+	copy(originalIfaces, domainSpec.Devices.Interfaces)
+
 	interfacePlaceholderCount := ReservedInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
 	for i := 0; i < interfacePlaceholderCount; i++ {
-		domainSpecWithIfacesResource.Devices.Interfaces = append(
-			domainSpecWithIfacesResource.Devices.Interfaces,
+		domainSpec.Devices.Interfaces = append(
+			domainSpec.Devices.Interfaces,
 			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional)),
 		)
 	}
-	return domainSpecWithIfacesResource
+	return originalIfaces
 }
 
 func newInterfacePlaceholder(index int, modelType string) api.Interface {
