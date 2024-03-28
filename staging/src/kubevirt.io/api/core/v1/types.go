@@ -2392,6 +2392,20 @@ type KubeVirtConfiguration struct {
 	// field is set it overrides the cluster level one.
 	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
 
+	// CpuFeaturesToDisable is a map used to disable specific CPU features across the entire cluster for CPU Models.
+	// The key of CpuFeaturesToDisable should match the CPU Model name, and the value should be a list of CPU features to disable.
+	// For example, if we have an entry like Skylake-Client-noTSX-IBRS: {"aes","mpx"}, it means that whenever the CPU Model is
+	// Skylake-Client-noTSX-IBRS, the features aes and mpx will be disabled.
+	//
+	// Note: This map does not affect the scheduling of virtual machines. It only influences the libvirt domain XML input provided by KubeVirt,
+	// resulting in feature disablement at the QEMU level.
+	//
+	// If This map conflicts with the CPU features specified in VMI.Spec.Domain.CPU.Features,
+	// the configuration policy specified in VMI.Spec.Domain.CPU.Features will determine the behavior.
+	//
+	// Additionally, please note that changes made using this map will not affect existing virtual machines.
+	CpuFeaturesToDisable map[string][]string `json:"cpuFeaturesToDisable,omitempty"`
+
 	// AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure
 	// overhead. This is useful, since the calculation of this overhead is not accurate and cannot
 	// be entirely known in advance. The ratio that is being set determines by which factor to increase

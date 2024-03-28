@@ -25,13 +25,14 @@ package virtconfig
 
 import (
 	"fmt"
-
-	"kubevirt.io/client-go/log"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
@@ -99,6 +100,53 @@ func IsARM64(arch string) bool {
 
 func IsPPC64(arch string) bool {
 	return arch == "ppc64le"
+}
+
+func (c *ClusterConfig) GetFeaturesToDisable() map[string]*cmdv1.FeaturesToDisable {
+	/*
+					Libvirt validation fails when a CPU model is usable
+					by QEMU but lacks features listed in
+					`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
+
+					To avoid the validation error mentioned above we will disable
+					some of the features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files
+					for some of the cpu models.
+					Examples of validation error:
+		    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283
+					https://gitlab.com/libvirt/libvirt/-/issues/304
+
+					Additionally, to handle future issues, we allow setting a configuration named
+					cpuFeaturesToDisable in Kubevirt CR configuration.
+					This enables quick and targeted disabling of problematic features.
+
+					Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
+					once the issue is resolved we can remove the key,value pairs with the mpx feature
+	*/
+
+	cpuModelToFeaturesToDisable := map[string]*cmdv1.FeaturesToDisable{
+		"Cascadelake-Server-noTSX":  {Features: []string{"mpx"}},
+		"Cascadelake-Server":        {Features: []string{"mpx"}},
+		"Icelake-Client-noTSX":      {Features: []string{"mpx"}},
+		"Icelake-Client":            {Features: []string{"mpx"}},
+		"Icelake-Server-noTSX":      {Features: []string{"mpx"}},
+		"Icelake-Server":            {Features: []string{"mpx"}},
+		"Skylake-Client-IBRS":       {Features: []string{"mpx"}},
+		"Skylake-Client-noTSX-IBRS": {Features: []string{"mpx"}},
+		"Skylake-Client":            {Features: []string{"mpx"}},
+		"Skylake-Server-IBRS":       {Features: []string{"mpx"}},
+		"Skylake-Server-noTSX-IBRS": {Features: []string{"mpx"}},
+		"Skylake-Server":            {Features: []string{"mpx"}},
+	}
+
+	cpuModelToFeaturesToDisableFromConfig := c.GetConfig().CpuFeaturesToDisable
+	for model, features := range cpuModelToFeaturesToDisableFromConfig {
+		var knownFeatures []string
+		if _, ok := cpuModelToFeaturesToDisable[model]; ok {
+			knownFeatures = cpuModelToFeaturesToDisable[model].Features
+		}
+		cpuModelToFeaturesToDisable[model] = &cmdv1.FeaturesToDisable{Features: mergeStringSlicesNoDuplications(knownFeatures, features)}
+	}
+	return cpuModelToFeaturesToDisable
 }
 
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
@@ -485,4 +533,21 @@ func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugi
 		return networkConfig.Binding
 	}
 	return nil
+}
+
+func mergeStringSlicesNoDuplications(slice1, slice2 []string) []string {
+	mergedMap := make(map[string]bool)
+	for _, s := range slice1 {
+		mergedMap[strings.TrimSpace(s)] = true
+	}
+
+	for _, s := range slice2 {
+		mergedMap[strings.TrimSpace(s)] = true
+	}
+
+	var mergedSlice []string
+	for s := range mergedMap {
+		mergedSlice = append(mergedSlice, s)
+	}
+	return mergedSlice
 }

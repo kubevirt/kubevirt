@@ -22,7 +22,6 @@
 package nodelabeller
 
 import (
-	"path"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,12 +34,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-)
-
-var features = []string{"apic", "clflush", "cmov"}
-
-const (
-	x86PenrynXml = "x86_Penryn.xml"
 )
 
 var _ = Describe("Node-labeller config", func() {
@@ -72,32 +65,11 @@ var _ = Describe("Node-labeller config", func() {
 		}
 	})
 
-	It("should return correct cpu file path", func() {
-		p := getPathCPUFeatures(nlController.volumePath, x86PenrynXml)
-		correctPath := path.Join(nlController.volumePath, "cpu_map", x86PenrynXml)
-		Expect(p).To(Equal(correctPath), "cpu file path is not the same")
-	})
-
-	It("should load cpu features", func() {
-		fileName := x86PenrynXml
-		f, err := nlController.loadFeatures(fileName)
-		Expect(err).ToNot(HaveOccurred())
-		for _, val := range features {
-			if _, ok := f[val]; !ok {
-				Expect(ok).To(BeFalse(), "expect feature")
-			}
-		}
-
-	})
-
 	It("should return correct cpu models, features and tsc freqnency", func() {
 		err := nlController.loadDomCapabilities()
 		Expect(err).ToNot(HaveOccurred())
 
 		err = nlController.loadHostSupportedFeatures()
-		Expect(err).ToNot(HaveOccurred())
-
-		err = nlController.loadCPUInfo()
 		Expect(err).ToNot(HaveOccurred())
 
 		err = nlController.loadHostCapabilities()
@@ -106,7 +78,7 @@ var _ = Describe("Node-labeller config", func() {
 		cpuModels := nlController.getSupportedCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
 		cpuFeatures := nlController.getSupportedCpuFeatures()
 
-		Expect(cpuModels).To(HaveLen(5), "number of models must match")
+		Expect(cpuModels).To(HaveLen(4), "number of models must match")
 
 		Expect(cpuFeatures).To(HaveLen(4), "number of features must match")
 		counter, err := nlController.capabilities.GetTSCCounter()
@@ -119,9 +91,6 @@ var _ = Describe("Node-labeller config", func() {
 	It("No cpu model is usable", func() {
 		nlController.domCapabilitiesFileName = "virsh_domcapabilities_nothing_usable.xml"
 		err := nlController.loadDomCapabilities()
-		Expect(err).ToNot(HaveOccurred())
-
-		err = nlController.loadCPUInfo()
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(nlController.loadHostSupportedFeatures()).To(Succeed())

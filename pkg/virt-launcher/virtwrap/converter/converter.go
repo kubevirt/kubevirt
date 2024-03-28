@@ -134,6 +134,7 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	DomainAttachmentByInterfaceName map[string]string
+	CpuModelToFeaturesToDisable     map[string]*cmdv1.FeaturesToDisable
 }
 
 func contains(volumes []string, name string) bool {
@@ -1836,12 +1837,25 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		// Set VM CPU features
+		existingFeatures := make(map[string]struct{})
 		if vmi.Spec.Domain.CPU.Features != nil {
 			for _, feature := range vmi.Spec.Domain.CPU.Features {
+				existingFeatures[feature.Name] = struct{}{}
 				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 					Name:   feature.Name,
 					Policy: feature.Policy,
 				})
+			}
+		}
+
+		if featuresToDisable, ok := c.CpuModelToFeaturesToDisable[vmi.Spec.Domain.CPU.Model]; ok {
+			for _, feature := range featuresToDisable.Features {
+				if _, exists := existingFeatures[feature]; !exists {
+					domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
+						Name:   feature,
+						Policy: "disable",
+					})
+				}
 			}
 		}
 
