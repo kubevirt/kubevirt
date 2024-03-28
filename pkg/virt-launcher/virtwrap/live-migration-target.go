@@ -32,7 +32,6 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -158,7 +157,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	dom, err := l.preStartHook(vmi, domain, true, options)
+	_, err = l.preStartHook(vmi, domain, true, options)
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
@@ -175,11 +174,11 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	// TODO this should probably a OnPrepareMigration hook or something.
 	// Right now we need to call OnDefineDomain, so that additional setup, which might be done
 	// by the hook can also be done for the new target pod
-	hooksManager := hooks.GetManager()
+	/*FIXME:hooksManager := hooks.GetManager()
 	_, err = hooksManager.OnDefineDomain(&dom.Spec, vmi)
 	if err != nil {
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
-	}
+	}*/
 
 	if shouldBlockMigrationTargetPreparation(vmi) {
 		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
