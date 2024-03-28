@@ -47,4 +47,12 @@ var vmRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString("sum by (namespace) (count by (name,namespace) (kubevirt_vm_error_status_last_transition_timestamp_seconds + kubevirt_vm_migrating_status_last_transition_timestamp_seconds + kubevirt_vm_non_running_status_last_transition_timestamp_seconds + kubevirt_vm_running_status_last_transition_timestamp_seconds + kubevirt_vm_starting_status_last_transition_timestamp_seconds))"),
 	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_created_total",
+			Help: "The total number of VMs created by namespace, since install.",
+		},
+		MetricType: operatormetrics.CounterType,
+		Expr:       intstr.FromString("sum by (namespace) (kubevirt_vm_created_by_pod_total)"),
+	},
 }
