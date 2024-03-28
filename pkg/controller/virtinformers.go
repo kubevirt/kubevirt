@@ -114,6 +114,9 @@ type KubeInformerFactory interface {
 	// Watches for pods related only to kubevirt
 	KubeVirtPod() cache.SharedIndexInformer
 
+	// Watches for pods related only to virt-launcher
+	VirtLauncherPod() cache.SharedIndexInformer
+
 	// Watches for nodes
 	KubeVirtNode() cache.SharedIndexInformer
 
@@ -503,6 +506,19 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 	return f.getInformer("kubeVirtPodInformer", func() cache.SharedIndexInformer {
 		// Watch all pods with the kubevirt app label
 		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) VirtLauncherPod() cache.SharedIndexInformer {
+	return f.getInformer("virtLauncherPodInformer", func() cache.SharedIndexInformer {
+		// Watch all pods with the kubevirt app label associated to 'virt-launcher' value
+		labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", kubev1.AppLabel, "virt-launcher"))
 		if err != nil {
 			panic(err)
 		}

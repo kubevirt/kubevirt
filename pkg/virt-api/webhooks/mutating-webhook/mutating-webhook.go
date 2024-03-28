@@ -84,6 +84,10 @@ func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtc
 	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, VMIPresetInformer: informers.VMIPresetInformer})
 }
 
+func ServeVirtLauncherPods(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers) {
+	serve(resp, req, &mutators.VirtLauncherPodsMutator{ClusterConfig: clusterConfig, VirtLauncherPodInformer: informers.VirtLauncherPodInformer})
+}
+
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, &mutators.MigrationCreateMutator{})
 }
