@@ -627,7 +627,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			running := true
 
 			var foundSC bool
-			vm, foundSC = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
+			vm, foundSC = newRandomVMWithDataVolume()
 			if !foundSC {
 				Skip("Skip test when Filesystem storage is not present")
 			}
@@ -720,7 +720,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
 		Context("using Alpine http import", func() {
 			It("a DataVolume with preallocation shouldn't have discard=unmap", func() {
-				vm, foundSC := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
+				vm, foundSC := newRandomVMWithDataVolume()
 				if !foundSC {
 					Skip("Skip test when Filesystem storage is not present")
 				}
@@ -742,17 +742,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
 
-			DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
-				var (
-					vm      *v1.VirtualMachine
-					foundSC bool
-				)
-				if isHTTP {
-					vm, foundSC = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
-				} else {
-					url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
-					vm, foundSC = tests.NewRandomVMWithDataVolume(url, testsuite.GetTestNamespace(nil))
-				}
+			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
+				vm, foundSC := newRandomVMWithDataVolume()
 				if !foundSC {
 					Skip("Skip test when Filesystem storage is not present")
 				}
@@ -774,14 +765,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					}
 					vm = tests.StopVirtualMachine(vm)
 				}
-			},
-
-				Entry("with http import", true),
-				Entry("with registry import", false),
-			)
+			})
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
-				vm, foundSC := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
+				vm, foundSC := newRandomVMWithDataVolume()
 				if !foundSC {
 					Skip("Skip test when Filesystem storage is not present")
 				}
@@ -1098,7 +1085,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		DescribeTable("Verify DV of VM with DataVolumeTemplates is garbage collected when", func(ttlBefore, ttlAfter *int32, gcAnnotation string) {
 			libstorage.SetDataVolumeGC(virtClient, ttlBefore)
 
-			vm, foundSC := tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
+			vm, foundSC := newRandomVMWithDataVolume()
 			if !foundSC {
 				Skip("Skip test when Filesystem storage is not present")
 			}
@@ -1299,7 +1286,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		var virtualMachinePreference *instanceType.VirtualMachinePreference
 
 		BeforeEach(func() {
-			vm, _ = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))
+			vm, _ = newRandomVMWithDataVolume()
 
 			storageClass = &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1461,6 +1448,30 @@ func volumeExpansionAllowed(sc string) bool {
 	Expect(err).ToNot(HaveOccurred())
 	return storageClass.AllowVolumeExpansion != nil &&
 		*storageClass.AllowVolumeExpansion
+}
+
+func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
+	sc, exists := libstorage.GetRWOFileSystemStorageClass()
+	if !exists {
+		return nil, false
+	}
+
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+	)
+
+	vmi := libvmi.New(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithDataVolume("disk0", dataVolume.Name),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	)
+	vm := libvmi.NewVirtualMachine(vmi)
+
+	libstorage.AddDataVolumeTemplate(vm, dataVolume)
+	return vm, true
 }
 
 func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
