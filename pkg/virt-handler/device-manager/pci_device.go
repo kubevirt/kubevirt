@@ -27,6 +27,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -355,13 +356,59 @@ func (dpi *PCIDevicePlugin) cleanup() error {
 
 func (dpi *PCIDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
+		PreStartRequired:                false,
+		GetPreferredAllocationAvailable: true,
 	}
 	return options, nil
 }
 
 func (dpi *PCIDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	res := &pluginapi.PreStartContainerResponse{}
+	return res, nil
+}
+
+// GetPreferredAllocation returns a list of devices that are preferred to be used by the container.
+// The plugin returns the devices that are explicitly requested by the container first, followed by
+// the rest of the available devices.  The order of the explicitly requested devices is preserved,
+// and the rest of the available devices are sorted by their device IDs (IOMMU groups).
+// This helps ensure that devices in the same IOMMU group are allocated to the same container.
+func (dpi *PCIDevicePlugin) GetPreferredAllocation(_ context.Context, req *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+	res := &pluginapi.PreferredAllocationResponse{}
+
+	for _, containerRequest := range req.ContainerRequests {
+		deviceIDs := make([]string, 0, containerRequest.AllocationSize)
+
+		// Sort the device IDs to ensure that the order is deterministic
+		sort.Strings(containerRequest.MustIncludeDeviceIDs)
+		sort.Strings(containerRequest.AvailableDeviceIDs)
+
+		// First, try to allocate the devices that are explicitly requested
+		for _, deviceID := range containerRequest.MustIncludeDeviceIDs {
+			if len(deviceIDs) >= int(containerRequest.AllocationSize) {
+				break
+			}
+
+			deviceIDs = append(deviceIDs, deviceID)
+		}
+
+		// If there are not enough explicitly requested devices, allocate the rest
+		for _, deviceID := range containerRequest.AvailableDeviceIDs {
+			if len(deviceIDs) >= int(containerRequest.AllocationSize) {
+				break
+			}
+
+			for _, existing := range deviceIDs {
+				if existing == deviceID {
+					continue
+				}
+			}
+
+			deviceIDs = append(deviceIDs, deviceID)
+		}
+
+		res.ContainerResponses = append(res.ContainerResponses, &pluginapi.ContainerPreferredAllocationResponse{DeviceIDs: deviceIDs})
+	}
+
 	return res, nil
 }
 

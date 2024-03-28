@@ -34,6 +34,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -298,7 +300,8 @@ func (dpi *MediatedDevicePlugin) cleanup() error {
 
 func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
+		PreStartRequired:                false,
+		GetPreferredAllocationAvailable: false,
 	}
 	return options, nil
 }
@@ -306,6 +309,10 @@ func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pl
 func (dpi *MediatedDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	res := &pluginapi.PreStartContainerResponse{}
 	return res, nil
+}
+
+func (dpi *MediatedDevicePlugin) GetPreferredAllocation(_ context.Context, _ *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "GetPreferredAllocation is not implemented")
 }
 
 func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) map[string][]*MDEV {
