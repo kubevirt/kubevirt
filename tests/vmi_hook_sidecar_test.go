@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -357,22 +356,22 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 
 func RenderSidecar(version string) map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s", "imagePullPolicy": "IfNotPresent"}]`, version, util.GetUtilityImageFromRegistry(hookSidecarImage)),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
 
 func RenderInvalidSMBiosSidecar() map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s", "imagePullPolicy": "IfNotPresent"}]`, util.GetUtilityImageFromRegistry(hookSidecarImage)),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
 
 func RenderSidecarWithConfigMapPlusImage(version, name string) map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "image":"%s/%s:%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
-			version, flags.KubeVirtUtilityRepoPrefix, sidecarShimImage, flags.KubeVirtVersionTag, name, configMapKey),
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "image":"%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+			version, util.GetUtilityImageFromRegistry(sidecarShimImage), name, configMapKey),
 	}
 }
 
