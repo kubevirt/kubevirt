@@ -1,4 +1,5 @@
-package tests_test
+//nolint:dupl,lll,gomnd
+package instancetype
 
 import (
 	"context"
@@ -11,9 +12,14 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libinstancetype"
 
+	//nolint:all
 	. "github.com/onsi/ginkgo/v2"
+	//nolint:all
 	. "github.com/onsi/gomega"
+	//nolint:all
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -22,9 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
@@ -38,9 +42,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -59,7 +62,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Instancetype validation", func() {
 		It("[test_id:CNV-9082] should allow valid instancetype", func() {
-			instancetype := newVirtualMachineInstancetype(nil)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(nil)
 			_, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -110,7 +113,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Preference validation", func() {
 		It("[test_id:CNV-9084] should allow valid preference", func() {
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -118,18 +121,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("VM with invalid InstancetypeMatcher", func() {
-		It("[test_id:CNV-9086] should fail to create VM with non-existing cluster instancetype", func() {
-			vmi := libvmifact.NewCirros()
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: "non-existing-cluster-instancetype",
-			}
+		var vmi *virtv1.VirtualMachineInstance
 
+		BeforeEach(func() {
+			vmi = libvmifact.NewGuestless()
+		})
+
+		It("[test_id:CNV-9086] should fail to create VM with non-existing cluster instancetype", func() {
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterInstancetype("non-existing-cluster-instancetype"))
 			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
+
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
@@ -138,18 +142,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9089] should fail to create VM with non-existing namespaced instancetype", func() {
-			vmi := libvmifact.NewCirros()
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: "non-existing-instancetype",
-				Kind: instancetypeapi.SingularResourceName,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype("non-existing-instancetype"))
 			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
+
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
@@ -159,18 +157,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("VM with invalid PreferenceMatcher", func() {
-		It("[test_id:CNV-9091] should fail to create VM with non-existing cluster preference", func() {
-			vmi := libvmifact.NewCirros()
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: "non-existing-cluster-preference",
-			}
+		var vmi *virtv1.VirtualMachineInstance
 
+		BeforeEach(func() {
+			vmi = libvmifact.NewGuestless()
+		})
+
+		It("[test_id:CNV-9091] should fail to create VM with non-existing cluster preference", func() {
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterPreference("non-existing-cluster-preference"))
 			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
+
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
@@ -179,18 +178,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9090] should fail to create VM with non-existing namespaced preference", func() {
-			vmi := libvmifact.NewCirros()
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: "non-existing-preference",
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithPreference("non-existing-preference"))
 			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
+
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
@@ -207,40 +200,30 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
 		It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewGuestless()
 
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
 
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Remove any requested resources from the VMI before generating the VM
-			removeResourcesAndPreferencesFromVMI(vmi)
-
-			vm := libvmi.NewVirtualMachine(vmi)
-
-			// Add the instancetype and preference matchers to the VM spec
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithPreference(preference.Name),
+			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -255,16 +238,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("Instancetype and preference application", func() {
+		var vmi *virtv1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = libvmifact.NewGuestless()
+		})
 
 		It("[test_id:CNV-9094] should find and apply cluster instancetype and preferences when kind isn't provided", func() {
-			vmi := libvmifact.NewCirros()
-
-			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
+			clusterInstancetype := libinstancetype.NewClusterInstancetypeFromVMI(vmi)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			clusterPreference := newVirtualMachineClusterPreference()
+			clusterPreference := libinstancetype.NewClusterPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			clusterPreference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
@@ -274,29 +260,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			removeResourcesAndPreferencesFromVMI(vmi)
-
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: clusterInstancetype.Name,
-			}
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: clusterPreference.Name,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithClusterInstancetype(clusterInstancetype.Name),
+				libvmi.WithClusterPreference(clusterPreference.Name),
+			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
 
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:CNV-9095] should apply instancetype and preferences to VMI", func() {
-			vmi := libvmifact.NewCirros()
-
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Annotations = map[string]string{
 				"required-annotation-1": "1",
 				"required-annotation-2": "2",
@@ -305,29 +283,29 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			preference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
 			}
 			preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
-				PreferredDiskBus: v1.DiskBusSATA,
+				PreferredDiskBus: virtv1.DiskBusSATA,
 			}
 			preference.Spec.Features = &instancetypev1beta1.FeaturePreferences{
-				PreferredHyperv: &v1.FeatureHyperv{
-					VAPIC: &v1.FeatureState{
-						Enabled: pointer.Bool(true),
+				PreferredHyperv: &virtv1.FeatureHyperv{
+					VAPIC: &virtv1.FeatureState{
+						Enabled: pointer.P(true),
 					},
-					Relaxed: &v1.FeatureState{
-						Enabled: pointer.Bool(true),
+					Relaxed: &virtv1.FeatureState{
+						Enabled: pointer.P(true),
 					},
 				},
 			}
 			preference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
-				PreferredUseBios: pointer.Bool(true),
+				PreferredUseBios: pointer.P(true),
 			}
-			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.Int64(15)
-			preference.Spec.PreferredSubdomain = pointer.String("non-existent-subdomain")
+			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.P(int64(15))
+			preference.Spec.PreferredSubdomain = pointer.P("non-existent-subdomain")
 			preference.Spec.Annotations = map[string]string{
 				"preferred-annotation-1": "1",
 				"preferred-annotation-2": "use-vm-value",
@@ -338,29 +316,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// Remove any requested resources from the VMI before generating the VM
-			removeResourcesAndPreferencesFromVMI(vmi)
-
-			vm := libvmi.NewVirtualMachine(vmi)
-
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithPreference(preference.Name),
+			)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
 				"preferred-annotation-2": "2",
 			}
-
-			// Add the instancetype and preference matchers to the VM spec
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
-
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -389,50 +355,37 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Spec.Subdomain).To(Equal(*preference.Spec.PreferredSubdomain))
 
 			// Assert the correct annotations have been set
-			Expect(vmi.Annotations[v1.InstancetypeAnnotation]).To(Equal(instancetype.Name))
-			Expect(vmi.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(""))
-			Expect(vmi.Annotations[v1.PreferenceAnnotation]).To(Equal(preference.Name))
-			Expect(vmi.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(""))
+			Expect(vmi.Annotations[virtv1.InstancetypeAnnotation]).To(Equal(instancetype.Name))
+			Expect(vmi.Annotations[virtv1.ClusterInstancetypeAnnotation]).To(Equal(""))
+			Expect(vmi.Annotations[virtv1.PreferenceAnnotation]).To(Equal(preference.Name))
+			Expect(vmi.Annotations[virtv1.ClusterPreferenceAnnotation]).To(Equal(""))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("required-annotation-1", "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("required-annotation-2", "2"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
 		})
 		It("should apply memory overcommit instancetype to VMI", func() {
-			vmi := libvmifact.NewCirros()
-
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
 
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// Remove any requested resources from the VMI before generating the VM
-			removeResourcesAndPreferencesFromVMI(vmi)
-
-			vm := libvmi.NewVirtualMachine(vmi)
-
-			// Add the instancetype and preference matchers to the VM spec
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithPreference(preference.Name),
+			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -447,27 +400,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", func() {
-			vmi := libvmifact.NewCirros()
-
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			removeResourcesAndPreferencesFromVMI(vmi)
-
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 1, Cores: 1, Threads: 1}
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
+			vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{Sockets: 1, Cores: 1, Threads: 1}
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
+
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(3))
 
 			cause0 := apiStatus.Status().Details.Causes[0]
@@ -490,28 +434,20 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
-
-			vmi := libvmifact.NewCirros()
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm := libvmi.NewVirtualMachine(vmi)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
 			vm.Spec.Template.Spec.Domain.Resources = resources
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-
 			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
+
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
-
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, expectedField)))
 			Expect(cause.Field).To(Equal(expectedField))
@@ -539,26 +475,20 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {
-			vmi := libvmifact.NewCirros()
-
-			clusterPreference := newVirtualMachineClusterPreference()
+			clusterPreference := libinstancetype.NewClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
-				PreferredInterfaceModel: v1.VirtIO,
+				PreferredInterfaceModel: virtv1.VirtIO,
 			}
 
 			clusterPreference, err := virtClient.VirtualMachineClusterPreference().
 				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: clusterPreference.Name,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterPreference(clusterPreference.Name))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -567,27 +497,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9303] should apply preferences to default volume disks", func() {
-			vmi := libvmifact.NewCirros()
-
-			clusterPreference := newVirtualMachineClusterPreference()
+			clusterPreference := libinstancetype.NewClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
-				PreferredDiskBus: v1.DiskBusVirtio,
+				PreferredDiskBus: virtv1.DiskBusVirtio,
 			}
 
 			clusterPreference, err := virtClient.VirtualMachineClusterPreference().
 				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: clusterPreference.Name,
-			}
-			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{}
-
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterPreference(clusterPreference.Name))
+			vm.Spec.Template.Spec.Domain.Devices.Disks = []virtv1.Disk{}
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -598,17 +522,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9098] should store and use ControllerRevisions of VirtualMachineInstancetypeSpec and VirtualMachinePreferenceSpec", func() {
-			vmi := libvmifact.NewCirros()
-
 			By("Creating a VirtualMachineInstancetype")
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			originalInstancetypeCPUGuest := instancetype.Spec.CPU.Guest
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachinePreference")
-			preference := newVirtualMachinePreference()
+			preference := libinstancetype.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
@@ -620,18 +542,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachine")
-			removeResourcesAndPreferencesFromVMI(vmi)
-			vm := libvmi.NewVirtualMachine(vmi)
-
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithPreference(preference.Name),
+			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -682,17 +596,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(originalInstancetypeCPUGuest))
 
 			By("Creating a second VirtualMachine using the now updated VirtualMachineInstancetype and original VirtualMachinePreference")
-			newVMI := libvmifact.NewCirros()
-			removeResourcesAndPreferencesFromVMI(newVMI)
-			newVM := libvmi.NewVirtualMachine(newVMI)
-			newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-			newVM.Spec.Preference = &v1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
+			newVMI := libvmifact.NewGuestless()
+			newVM := libvmi.NewVirtualMachine(newVMI,
+				libvmi.WithInstancetype(instancetype.Name),
+				libvmi.WithPreference(preference.Name),
+			)
 			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), newVM)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -727,23 +635,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9304] should fail if stored ControllerRevisions are different", func() {
-			vmi := libvmifact.NewCirros()
-
 			By("Creating a VirtualMachineInstancetype")
-			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachine")
-			removeResourcesAndPreferencesFromVMI(vmi)
-			vm := libvmi.NewVirtualMachine(vmi)
-
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -768,7 +667,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// Wait until ControllerRevision is deleted
 			Eventually(func(g Gomega) metav1.StatusReason {
-				_, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(instancetype)).Get(context.Background(), instancetypeRevision.Name, metav1.GetOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(instancetype)).Get(context.Background(), instancetypeRevision.Name, metav1.GetOptions{})
 				g.Expect(err).To(HaveOccurred())
 				return errors.ReasonForError(err)
 			}, 5*time.Minute, time.Second).Should(Equal(metav1.StatusReasonNotFound))
@@ -788,25 +687,20 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			newInstancetypeRevision.Data.Raw, err = json.Marshal(stashedInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			newInstancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), newInstancetypeRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), newInstancetypeRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating and starting the VM and expecting a failure")
-			newVm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
-			newVm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: instancetype.Name,
-				Kind: instancetypeapi.SingularResourceName,
-			}
-
-			newVm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), newVm)
+			newVM := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning(), libvmi.WithInstancetype(instancetype.Name))
+			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), newVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega) {
-				foundVm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVm.Name, &metav1.GetOptions{})
+				foundVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVM.Name, &metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
 
 				cond := controller.NewVirtualMachineConditionManager().
-					GetCondition(foundVm, v1.VirtualMachineFailure)
+					GetCondition(foundVM, virtv1.VirtualMachineFailure)
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 				g.Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
@@ -890,8 +784,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preferenceRevision, err = virtClient.AppsV1().ControllerRevisions(namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi := libvmifact.NewCirros()
-				removeResourcesAndPreferencesFromVMI(vmi)
 				vm := libvmi.NewVirtualMachine(vmi)
 				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 					Name:         "dummy",
@@ -1084,8 +976,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("with inferFromVolume", func() {
 		var (
-			err          error
-			vm           *v1.VirtualMachine
+			vm           *virtv1.VirtualMachine
 			instancetype *instancetypev1beta1.VirtualMachineInstancetype
 			preference   *instancetypev1beta1.VirtualMachinePreference
 			sourceDV     *cdiv1beta1.DataVolume
@@ -1099,6 +990,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		createAndValidateVirtualMachine := func() {
 			By("Creating the VirtualMachine")
+			var err error
 			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1112,16 +1004,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
-			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyAlways)
+			vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, virtv1.RunStrategyAlways)
 
 			By("Validating the VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			var vmi *virtv1.VirtualMachineInstance
+			vmi, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(instancetype.Spec.CPU.Guest))
 		}
 
-		generateDataVolumeTemplatesFromDataVolume := func(dataVolume *cdiv1beta1.DataVolume) []v1.DataVolumeTemplateSpec {
-			return []v1.DataVolumeTemplateSpec{{
+		generateDataVolumeTemplatesFromDataVolume := func(dataVolume *cdiv1beta1.DataVolume) []virtv1.DataVolumeTemplateSpec {
+			return []virtv1.DataVolumeTemplateSpec{{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: dataVolumeTemplateName,
 				},
@@ -1129,11 +1022,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			}}
 		}
 
-		generateVolumesForDataVolumeTemplates := func() []v1.Volume {
-			return []v1.Volume{{
+		generateVolumesForDataVolumeTemplates := func() []virtv1.Volume {
+			return []virtv1.Volume{{
 				Name: inferFromVolumeName,
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: dataVolumeTemplateName,
 					},
 				},
@@ -1148,12 +1041,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			namespace = testsuite.GetTestNamespace(nil)
 
 			By("Creating a VirtualMachineInstancetype")
-			instancetype = newVirtualMachineInstancetype(nil)
+			instancetype = libinstancetype.NewInstancetypeFromVMI(nil)
+			var err error
 			instancetype, err = virtClient.VirtualMachineInstancetype(namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachinePreference")
-			preference = newVirtualMachinePreference()
+			preference = libinstancetype.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferCores
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
@@ -1181,37 +1075,37 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			libstorage.EventuallyDV(sourceDV, 180, HaveSucceeded())
 
 			// This is the default but it should still be cleared
-			failurePolicy := v1.RejectInferFromVolumeFailure
+			failurePolicy := virtv1.RejectInferFromVolumeFailure
 
-			vm = &v1.VirtualMachine{
+			vm = &virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "vm-",
 					Namespace:    namespace,
 				},
-				Spec: v1.VirtualMachineSpec{
-					Instancetype: &v1.InstancetypeMatcher{
+				Spec: virtv1.VirtualMachineSpec{
+					Instancetype: &virtv1.InstancetypeMatcher{
 						InferFromVolume:              inferFromVolumeName,
 						InferFromVolumeFailurePolicy: &failurePolicy,
 					},
-					Preference: &v1.PreferenceMatcher{
+					Preference: &virtv1.PreferenceMatcher{
 						InferFromVolume:              inferFromVolumeName,
 						InferFromVolumeFailurePolicy: &failurePolicy,
 					},
-					Template: &v1.VirtualMachineInstanceTemplateSpec{
-						Spec: v1.VirtualMachineInstanceSpec{
-							Domain: v1.DomainSpec{},
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Domain: virtv1.DomainSpec{},
 						},
 					},
-					Running: pointer.Bool(false),
+					Running: pointer.P(false),
 				},
 			}
 		})
 
 		It("should infer defaults from PersistentVolumeClaimVolumeSource", func() {
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+			vm.Spec.Template.Spec.Volumes = []virtv1.Volume{{
 				Name: inferFromVolumeName,
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: sourceDV.Name,
 						},
@@ -1222,10 +1116,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("should infer defaults from existing DataVolume with labels", func() {
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+			vm.Spec.Template.Spec.Volumes = []virtv1.Volume{{
 				Name: inferFromVolumeName,
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					DataVolume: &virtv1.DataVolumeSource{
 						Name: sourceDV.Name,
 					},
 				},
@@ -1233,20 +1127,20 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			createAndValidateVirtualMachine()
 		})
 
-		DescribeTable("should infer defaults from DataVolumeTemplates", func(generateDataVolumeTemplatesFunc func() []v1.DataVolumeTemplateSpec) {
+		DescribeTable("should infer defaults from DataVolumeTemplates", func(generateDataVolumeTemplatesFunc func() []virtv1.DataVolumeTemplateSpec) {
 			vm.Spec.DataVolumeTemplates = generateDataVolumeTemplatesFunc()
 			vm.Spec.Template.Spec.Volumes = generateVolumesForDataVolumeTemplates()
 			createAndValidateVirtualMachine()
 		},
 			Entry("and DataVolumeSourcePVC",
-				func() []v1.DataVolumeTemplateSpec {
+				func() []virtv1.DataVolumeTemplateSpec {
 					dv := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
 					)
-					return []v1.DataVolumeTemplateSpec{{
+					return []virtv1.DataVolumeTemplateSpec{{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: dataVolumeTemplateName,
 						},
@@ -1255,7 +1149,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			),
 			Entry(", DataVolumeSourceRef and DataSource",
-				func() []v1.DataVolumeTemplateSpec {
+				func() []virtv1.DataVolumeTemplateSpec {
 					By("Creating a DataSource")
 					// TODO - Replace with libds?
 					dataSource := &cdiv1beta1.DataSource{
@@ -1292,7 +1186,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			),
 			Entry(", DataVolumeSourceRef and DataSource with labels",
-				func() []v1.DataVolumeTemplateSpec {
+				func() []virtv1.DataVolumeTemplateSpec {
 					By("Createing a blank DV and PVC without labels")
 					blankDV := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
@@ -1300,7 +1194,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						libdv.WithBlankImageSource(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
 					)
-					blankDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), blankDV, metav1.CreateOptions{})
+					blankDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), blankDV, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					libstorage.EventuallyDV(sourceDV, 180, HaveSucceeded())
 
@@ -1326,7 +1220,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							},
 						},
 					}
-					dataSource, err := virtClient.CdiClient().CdiV1beta1().DataSources(namespace).Create(context.Background(), dataSource, metav1.CreateOptions{})
+					dataSource, err = virtClient.CdiClient().CdiV1beta1().DataSources(namespace).Create(context.Background(), dataSource, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					dataVolume := libdv.NewDataVolume(
@@ -1363,11 +1257,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm.Spec.DataVolumeTemplates = generateDataVolumeTemplatesFromDataVolume(dv)
 			vm.Spec.Template.Spec.Volumes = generateVolumesForDataVolumeTemplates()
 
-			failurePolicy := v1.IgnoreInferFromVolumeFailure
+			failurePolicy := virtv1.IgnoreInferFromVolumeFailure
 			vm.Spec.Instancetype.InferFromVolumeFailurePolicy = &failurePolicy
 			vm.Spec.Preference.InferFromVolumeFailurePolicy = &failurePolicy
 
 			By("Creating the VirtualMachine")
+			var err error
 			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1385,10 +1280,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Guest: &guestMemory,
 			}
 
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+			vm.Spec.Template.Spec.Volumes = []virtv1.Volume{{
 				Name: inferFromVolumeName,
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: sourceDV.Name,
 						},
@@ -1397,12 +1292,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			}}
 
 			if explicit {
-				failurePolicy := v1.RejectInferFromVolumeFailure
+				failurePolicy := virtv1.RejectInferFromVolumeFailure
 				vm.Spec.Instancetype.InferFromVolumeFailurePolicy = &failurePolicy
 			}
 
 			By("Creating the VirtualMachine")
-			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
+			_, err := virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
 			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field spec.template.spec.domain.memory conflicts with selected instance type"))
 		},
 			Entry("with explicitly setting RejectInferFromVolumeFailure", true),
@@ -1417,20 +1312,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("should be accepted and result in running VirtualMachineInstance", func() {
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewGuestless()
 
-			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
-			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.Bool(true)
+			clusterInstancetype := libinstancetype.NewClusterInstancetypeFromVMI(vmi)
+			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			removeResourcesAndPreferencesFromVMI(vmi)
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: clusterInstancetype.Name,
-			}
-
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterInstancetype(clusterInstancetype.Name))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1808,14 +1698,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			preferAny     = instancetypev1beta1.PreferAny
 		)
 
-		DescribeTable("should be accepted when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *v1.VirtualMachine) {
+		DescribeTable("should be accepted when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *virtv1.VirtualMachine) {
+			var err error
 			if instancetype != nil {
-				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				instancetype, err = virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.Instancetype.Name = instancetype.Name
 			}
 
-			preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
+			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference.Name = preference.Name
@@ -1845,21 +1736,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Instancetype: &v1.InstancetypeMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
-						Preference: &v1.PreferenceMatcher{
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{},
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{},
 							},
 						},
 					},
@@ -1888,21 +1779,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Instancetype: &v1.InstancetypeMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
-						Preference: &v1.PreferenceMatcher{
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{},
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{},
 							},
 						},
 					},
@@ -1922,19 +1813,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(1),
 										Threads: uint32(1),
 										Sockets: uint32(2),
@@ -1962,19 +1853,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(2),
 										Threads: uint32(1),
 										Sockets: uint32(1),
@@ -1999,18 +1890,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{},
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{},
 							},
 						},
 					},
@@ -2033,19 +1924,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(1),
 										Threads: uint32(2),
 										Sockets: uint32(1),
@@ -2073,19 +1964,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(2),
 										Threads: uint32(1),
 										Sockets: uint32(2),
@@ -2110,19 +2001,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									Memory: &v1.Memory{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									Memory: &virtv1.Memory{
 										Guest: resource.NewQuantity(2*1024*1024*1024, resource.BinarySI),
 									},
 								},
@@ -2133,14 +2024,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 		)
 
-		DescribeTable("should be rejected when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *v1.VirtualMachine, errorSubString string) {
+		DescribeTable("should be rejected when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *virtv1.VirtualMachine, errorSubString string) {
+			var err error
 			if instancetype != nil {
-				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				instancetype, err = virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.Instancetype.Name = instancetype.Name
 			}
 
-			preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
+			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference.Name = preference.Name
@@ -2172,21 +2064,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Instancetype: &v1.InstancetypeMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
-						Preference: &v1.PreferenceMatcher{
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{},
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{},
 							},
 						},
 					},
@@ -2216,21 +2108,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Instancetype: &v1.InstancetypeMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Instancetype: &virtv1.InstancetypeMatcher{
 							Kind: "VirtualMachineInstancetype",
 						},
-						Preference: &v1.PreferenceMatcher{
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{},
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{},
 							},
 						},
 					},
@@ -2251,19 +2143,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(1),
 										Threads: uint32(1),
 										Sockets: uint32(1),
@@ -2292,19 +2184,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(1),
 										Threads: uint32(1),
 										Sockets: uint32(1),
@@ -2333,19 +2225,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(1),
 										Threads: uint32(1),
 										Sockets: uint32(1),
@@ -2374,19 +2266,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									CPU: &v1.CPU{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									CPU: &virtv1.CPU{
 										Cores:   uint32(2),
 										Threads: uint32(1),
 										Sockets: uint32(1),
@@ -2412,19 +2304,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						},
 					},
 				},
-				&v1.VirtualMachine{
+				&virtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-",
 					},
-					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(false),
-						Preference: &v1.PreferenceMatcher{
+					Spec: virtv1.VirtualMachineSpec{
+						Running: pointer.P(false),
+						Preference: &virtv1.PreferenceMatcher{
 							Kind: "VirtualMachinePreference",
 						},
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: v1.VirtualMachineInstanceSpec{
-								Domain: v1.DomainSpec{
-									Memory: &v1.Memory{
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{
+									Memory: &virtv1.Memory{
 										Guest: resource.NewQuantity(1*1024*1024*1024, resource.BinarySI),
 									},
 								},
@@ -2437,80 +2329,3 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 	})
 })
-
-func newVirtualMachineInstancetype(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineInstancetype {
-	return &instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-instancetype-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-		},
-		Spec: newVirtualMachineInstancetypeSpec(vmi),
-	}
-}
-
-func newVirtualMachineClusterInstancetype(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineClusterInstancetype {
-	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-cluster-instancetype-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
-			},
-		},
-		Spec: newVirtualMachineInstancetypeSpec(vmi),
-	}
-}
-
-func newVirtualMachineInstancetypeSpec(vmi *v1.VirtualMachineInstance) instancetypev1beta1.VirtualMachineInstancetypeSpec {
-	// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
-	guestMemory := resource.MustParse("128M")
-	if vmi != nil {
-		if _, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
-			guestMemory = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
-		}
-	}
-	return instancetypev1beta1.VirtualMachineInstancetypeSpec{
-		CPU: instancetypev1beta1.CPUInstancetype{
-			Guest: uint32(1),
-		},
-		Memory: instancetypev1beta1.MemoryInstancetype{
-			Guest: guestMemory,
-		},
-	}
-}
-
-func newVirtualMachinePreference() *instancetypev1beta1.VirtualMachinePreference {
-	return &instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-preference-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-		},
-	}
-}
-
-func newVirtualMachineClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference {
-	return &instancetypev1beta1.VirtualMachineClusterPreference{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vm-cluster-preference-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
-			},
-		},
-	}
-}
-
-func removeResourcesAndPreferencesFromVMI(vmi *v1.VirtualMachineInstance) {
-	vmi.Spec.Domain.CPU = nil
-	vmi.Spec.Domain.Memory = nil
-	vmi.Spec.TerminationGracePeriodSeconds = nil
-	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-	vmi.Spec.Domain.Features = &v1.Features{}
-	vmi.Spec.Domain.Machine = &v1.Machine{}
-
-	for diskIndex := range vmi.Spec.Domain.Devices.Disks {
-		if vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk != nil && vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus != "" {
-			vmi.Spec.Domain.Devices.Disks[diskIndex].DiskDevice.Disk.Bus = ""
-		}
-	}
-}
