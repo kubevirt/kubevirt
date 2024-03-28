@@ -35,8 +35,8 @@ const (
 type NodeController struct {
 	clientset        kubecli.KubevirtClient
 	Queue            workqueue.RateLimitingInterface
-	nodeIndexer      cache.Store
-	vmiIndexer       cache.Store
+	nodeStore        cache.Store
+	vmiStore         cache.Store
 	recorder         record.EventRecorder
 	heartBeatTimeout time.Duration
 	recheckInterval  time.Duration
@@ -48,8 +48,8 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 	c := &NodeController{
 		clientset:        clientset,
 		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
-		nodeIndexer:      nodeInformer.GetIndexer(),
-		vmiIndexer:       vmiInformer.GetIndexer(),
+		nodeStore:        nodeInformer.GetStore(),
+		vmiStore:         vmiInformer.GetStore(),
 		recorder:         recorder,
 		heartBeatTimeout: 5 * time.Minute,
 		recheckInterval:  1 * time.Minute,
@@ -164,7 +164,7 @@ func (c *NodeController) Execute() bool {
 func (c *NodeController) execute(key string) error {
 	logger := log.DefaultLogger()
 
-	obj, nodeExists, err := c.nodeIndexer.GetByKey(key)
+	obj, nodeExists, err := c.nodeStore.GetByKey(key)
 	if err != nil {
 		return err
 	}

@@ -44,7 +44,7 @@ type PoolController struct {
 	clientset       kubecli.KubevirtClient
 	queue           workqueue.RateLimitingInterface
 	vmIndexer       cache.Indexer
-	vmiIndexer      cache.Store
+	vmiStore        cache.Store
 	poolIndexer     cache.Indexer
 	revisionIndexer cache.Indexer
 	recorder        record.EventRecorder
@@ -85,7 +85,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		clientset:       clientset,
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
 		poolIndexer:     poolInformer.GetIndexer(),
-		vmiIndexer:      vmiInformer.GetIndexer(),
+		vmiStore:        vmiInformer.GetStore(),
 		vmIndexer:       vmInformer.GetIndexer(),
 		revisionIndexer: revisionInformer.GetIndexer(),
 		recorder:        recorder,
@@ -882,7 +882,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 			vm := vmUpdatedList[idx]
 
 			vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
-			obj, exists, _ := c.vmiIndexer.GetByKey(vmiKey)
+			obj, exists, _ := c.vmiStore.GetByKey(vmiKey)
 			if !exists {
 				// no VMI to update
 				return
@@ -1113,7 +1113,7 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 		// Check to see what revision is used by the VMI, and remove
 		// that from the revision prune list
 		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
-		obj, exists, _ := c.vmiIndexer.GetByKey(vmiKey)
+		obj, exists, _ := c.vmiStore.GetByKey(vmiKey)
 		if exists {
 			vmi := obj.(*virtv1.VirtualMachineInstance)
 			revisionName, exists = vmi.Labels[virtv1.VirtualMachinePoolRevisionName]

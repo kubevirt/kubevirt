@@ -348,7 +348,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer.GetIndexer())
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer.GetStore())
 
 	return c.sync(node, vmis, migrations)
 }

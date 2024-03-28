@@ -236,11 +236,11 @@ func ListDataVolumesFromTemplates(namespace string, dvTemplates []virtv1.DataVol
 	return dataVolumes, nil
 }
 
-func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store, pvcIndexer cache.Indexer) ([]*cdiv1.DataVolume, error) {
+func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store, pvcStore cache.Store) ([]*cdiv1.DataVolume, error) {
 	dataVolumes := []*cdiv1.DataVolume{}
 
 	for _, volume := range volumes {
-		dataVolumeName := getDataVolumeName(namespace, volume, pvcIndexer)
+		dataVolumeName := getDataVolumeName(namespace, volume, pvcStore)
 		if dataVolumeName == nil {
 			continue
 		}
@@ -258,9 +258,9 @@ func ListDataVolumesFromVolumes(namespace string, volumes []virtv1.Volume, dataV
 	return dataVolumes, nil
 }
 
-func getDataVolumeName(namespace string, volume virtv1.Volume, pvcIndexer cache.Indexer) *string {
+func getDataVolumeName(namespace string, volume virtv1.Volume, pvcStore cache.Store) *string {
 	if volume.VolumeSource.PersistentVolumeClaim != nil {
-		pvcInterface, pvcExists, _ := pvcIndexer.
+		pvcInterface, pvcExists, _ := pvcStore.
 			GetByKey(fmt.Sprintf("%s/%s", namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
 		if pvcExists {
 			pvc := pvcInterface.(*v1.PersistentVolumeClaim)
@@ -275,14 +275,14 @@ func getDataVolumeName(namespace string, volume virtv1.Volume, pvcIndexer cache.
 	return nil
 }
 
-func DataVolumeByNameFunc(dataVolumeIndexer cache.Indexer, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
+func DataVolumeByNameFunc(dataVolumeStore cache.Store, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
 	return func(name, namespace string) (*cdiv1.DataVolume, error) {
 		for _, dataVolume := range dataVolumes {
 			if dataVolume.Name == name && dataVolume.Namespace == namespace {
 				return dataVolume, nil
 			}
 		}
-		dv, exists, _ := dataVolumeIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+		dv, exists, _ := dataVolumeStore.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 		if !exists {
 			return nil, fmt.Errorf("unable to find datavolume %s/%s", namespace, name)
 		}

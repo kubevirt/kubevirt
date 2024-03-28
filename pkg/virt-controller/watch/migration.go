@@ -92,23 +92,23 @@ const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 var migrationBackoffError = errors.New(MigrationBackoffReason)
 
 type MigrationController struct {
-	templateService        services.TemplateService
-	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.RateLimitingInterface
-	vmiIndexer             cache.Store
-	podIndexer             cache.Indexer
-	migrationIndexer       cache.Indexer
-	nodeIndexer            cache.Store
-	pvcIndexer             cache.Store
-	pdbIndexer             cache.Indexer
-	migrationPolicyIndexer cache.Store
-	resourceQuotaIndexer   cache.Indexer
-	recorder               record.EventRecorder
-	podExpectations        *controller.UIDTrackingControllerExpectations
-	migrationStartLock     *sync.Mutex
-	clusterConfig          *virtconfig.ClusterConfig
-	statusUpdater          *status.MigrationStatusUpdater
-	hasSynced              func() bool
+	templateService      services.TemplateService
+	clientset            kubecli.KubevirtClient
+	Queue                workqueue.RateLimitingInterface
+	vmiStore             cache.Store
+	podIndexer           cache.Indexer
+	migrationIndexer     cache.Indexer
+	nodeStore            cache.Store
+	pvcStore             cache.Store
+	pdbIndexer           cache.Indexer
+	migrationPolicyStore cache.Store
+	resourceQuotaIndexer cache.Indexer
+	recorder             record.EventRecorder
+	podExpectations      *controller.UIDTrackingControllerExpectations
+	migrationStartLock   *sync.Mutex
+	clusterConfig        *virtconfig.ClusterConfig
+	statusUpdater        *status.MigrationStatusUpdater
+	hasSynced            func() bool
 
 	// the set of cancelled migrations before being handed off to virt-handler.
 	// the map keys are migration keys
@@ -134,23 +134,23 @@ func NewMigrationController(templateService services.TemplateService,
 ) (*MigrationController, error) {
 
 	c := &MigrationController{
-		templateService:        templateService,
-		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
-		vmiIndexer:             vmiInformer.GetIndexer(),
-		podIndexer:             podInformer.GetIndexer(),
-		migrationIndexer:       migrationInformer.GetIndexer(),
-		nodeIndexer:            nodeInformer.GetIndexer(),
-		pvcIndexer:             pvcInformer.GetIndexer(),
-		pdbIndexer:             pdbInformer.GetIndexer(),
-		resourceQuotaIndexer:   resourceQuotaInformer.GetIndexer(),
-		migrationPolicyIndexer: migrationPolicyInformer.GetIndexer(),
-		recorder:               recorder,
-		clientset:              clientset,
-		podExpectations:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		migrationStartLock:     &sync.Mutex{},
-		clusterConfig:          clusterConfig,
-		statusUpdater:          status.NewMigrationStatusUpdater(clientset),
-		handOffMap:             make(map[string]struct{}),
+		templateService:      templateService,
+		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		vmiStore:             vmiInformer.GetStore(),
+		podIndexer:           podInformer.GetIndexer(),
+		migrationIndexer:     migrationInformer.GetIndexer(),
+		nodeStore:            nodeInformer.GetStore(),
+		pvcStore:             pvcInformer.GetStore(),
+		pdbIndexer:           pdbInformer.GetIndexer(),
+		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
+		migrationPolicyStore: migrationPolicyInformer.GetStore(),
+		recorder:             recorder,
+		clientset:            clientset,
+		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock:   &sync.Mutex{},
+		clusterConfig:        clusterConfig,
+		statusUpdater:        status.NewMigrationStatusUpdater(clientset),
+		handOffMap:           make(map[string]struct{}),
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
@@ -324,7 +324,7 @@ func (c *MigrationController) execute(key string) error {
 		return err
 	}
 
-	vmiObj, vmiExists, err := c.vmiIndexer.GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
+	vmiObj, vmiExists, err := c.vmiStore.GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
 	if err != nil {
 		return err
 	}
@@ -1075,7 +1075,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 
 	volumes := getHotplugVolumes(vmi, sourcePod)
 
-	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcIndexer, virtLauncherPod.Namespace)
+	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcStore, virtLauncherPod.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get PVC map: %v", err)
 	}
@@ -1805,7 +1805,7 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
 	sum := 0
 	for _, migration := range runningMigrations {
-		if vmi, exists, _ := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+		if vmi, exists, _ := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
 			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
 				sum = sum + 1
 			}
@@ -1827,7 +1827,7 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 			runningMigrations = append(runningMigrations, migration)
 			continue
 		}
-		vmi, exists, err := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		vmi, exists, err := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
 		if err != nil {
 			return nil, err
 		}
@@ -1846,7 +1846,7 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 }
 
 func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Node, error) {
-	obj, exists, err := c.nodeIndexer.GetByKey(vmi.Status.NodeName)
+	obj, exists, err := c.nodeStore.GetByKey(vmi.Status.NodeName)
 
 	if err != nil {
 		return nil, fmt.Errorf("cannot get nodes to migrate VMI with host-model CPU. error: %v", err)
@@ -1872,7 +1872,7 @@ func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.Virtua
 		}
 	}
 
-	nodes := c.nodeIndexer.List()
+	nodes := c.nodeStore.List()
 	for _, nodeInterface := range nodes {
 		node := nodeInterface.(*k8sv1.Node)
 
@@ -1952,7 +1952,7 @@ func (c *MigrationController) matchMigrationPolicy(vmi *virtv1.VirtualMachineIns
 
 	// Fetch cluster policies
 	var policies []v1alpha1.MigrationPolicy
-	migrationInterfaceList := c.migrationPolicyIndexer.List()
+	migrationInterfaceList := c.migrationPolicyStore.List()
 	for _, obj := range migrationInterfaceList {
 		policy := obj.(*v1alpha1.MigrationPolicy)
 		policies = append(policies, *policy)

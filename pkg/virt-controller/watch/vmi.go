@@ -154,7 +154,7 @@ func NewVMIController(templateService services.TemplateService,
 		templateService:   templateService,
 		Queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
 		vmiIndexer:        vmiInformer.GetIndexer(),
-		vmIndexer:         vmInformer.GetIndexer(),
+		vmStore:           vmInformer.GetStore(),
 		podIndexer:        podInformer.GetIndexer(),
 		pvcIndexer:        pvcInformer.GetIndexer(),
 		recorder:          recorder,
@@ -162,8 +162,8 @@ func NewVMIController(templateService services.TemplateService,
 		podExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeIndexer: dataVolumeInformer.GetIndexer(),
-		cdiIndexer:        cdiInformer.GetIndexer(),
-		cdiConfigIndexer:  cdiConfigInformer.GetIndexer(),
+		cdiStore:          cdiInformer.GetStore(),
+		cdiConfigStore:    cdiConfigInformer.GetStore(),
 		clusterConfig:     clusterConfig,
 		topologyHinter:    topologyHinter,
 		cidsMap:           newCIDsMap(),
@@ -259,7 +259,7 @@ type VMIController struct {
 	clientset         kubecli.KubevirtClient
 	Queue             workqueue.RateLimitingInterface
 	vmiIndexer        cache.Indexer
-	vmIndexer         cache.Store
+	vmStore           cache.Store
 	podIndexer        cache.Indexer
 	pvcIndexer        cache.Indexer
 	topologyHinter    topology.Hinter
@@ -267,8 +267,8 @@ type VMIController struct {
 	podExpectations   *controller.UIDTrackingControllerExpectations
 	vmiExpectations   *controller.UIDTrackingControllerExpectations
 	dataVolumeIndexer cache.Indexer
-	cdiIndexer        cache.Store
-	cdiConfigIndexer  cache.Store
+	cdiStore          cache.Store
+	cdiConfigStore    cache.Store
 	clusterConfig     *virtconfig.ClusterConfig
 	cidsMap           *cidsMap
 	hasSynced         func() bool
@@ -510,7 +510,7 @@ func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 		return false
 	}
 
-	obj, exists, _ := c.vmIndexer.GetByKey(vmi.Namespace + "/" + controllerRef.Name)
+	obj, exists, _ := c.vmStore.GetByKey(vmi.Namespace + "/" + controllerRef.Name)
 	if !exists {
 		return false
 	}
@@ -2295,7 +2295,7 @@ func (c *VMIController) volumeReady(phase virtv1.VolumePhase) bool {
 
 func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
 	// To avoid conflicts, we only allow having one CDI instance
-	if cdiInstances := len(c.cdiIndexer.List()); cdiInstances != 1 {
+	if cdiInstances := len(c.cdiStore.List()); cdiInstances != 1 {
 		if cdiInstances > 1 {
 			log.Log.V(3).Object(pvc).Reason(storagetypes.ErrMultipleCdiInstances).Infof(storagetypes.FSOverheadMsg)
 		} else {
@@ -2304,7 +2304,7 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 		return storagetypes.DefaultFSOverhead, nil
 	}
 
-	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigIndexer.GetByKey(storagetypes.ConfigName)
+	cdiConfigInterface, cdiConfigExists, err := c.cdiConfigStore.GetByKey(storagetypes.ConfigName)
 	if !cdiConfigExists || err != nil {
 		return "0", fmt.Errorf("Failed to find CDIConfig but CDI exists: %w", err)
 	}
