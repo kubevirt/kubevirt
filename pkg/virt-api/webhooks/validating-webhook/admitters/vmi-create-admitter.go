@@ -30,29 +30,26 @@ import (
 	"strconv"
 	"strings"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/link"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 const requiredFieldFmt = "%s is a required field"
@@ -145,7 +142,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	volumeNameMap := make(map[string]*v1.Volume)
 	networkNameMap := make(map[string]*v1.Network)
 
-	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
+	causes = append(causes, validateFieldValueNotConformingToDNSLabelRules(field.Child("hostname"), spec.Hostname)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
 	causes = append(causes, validateMemoryLimitsNegativeOrNull(field, spec)...)
@@ -1472,16 +1469,6 @@ func validateSubdomainDNSSubdomainRules(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
-func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Hostname != "" {
-		errors := validation.IsDNS1123Label(spec.Hostname)
-		if len(errors) != 0 {
-			causes = appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field, causes, errors)
-		}
-	}
-	return causes
-}
-
 func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Realtime != nil {
 		causes = append(causes, validateCPURealtime(field, spec)...)
@@ -1566,15 +1553,6 @@ func validateMemoryRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 		})
 	}
 	return causes
-}
-
-func appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, causes []metav1.StatusCause, errors []string) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type: metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules : %s",
-			field.Child("hostname").String(), strings.Join(errors, ", ")),
-		Field: field.Child("hostname").String(),
-	})
 }
 
 // ValidateVirtualMachineInstanceMandatoryFields should be invoked after all defaults and presets are applied.

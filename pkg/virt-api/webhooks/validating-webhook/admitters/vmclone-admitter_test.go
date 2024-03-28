@@ -378,6 +378,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("negation in the beginning", "!mykey/something"),
 		)
 	})
+
 	Context("Template Annotations and labels filters", func() {
 		testFilter := func(filter string, expectAllowed bool) {
 			vmClone.Spec.Template.LabelFilters = []string{filter}
@@ -403,6 +404,18 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("templateFilter wildcard in the end", "mykey/something*"),
 			Entry("templateFilter negation in the beginning", "!mykey/something"),
 		)
+	})
+
+	Context("Set a specify hostName for a CloneVM ", func() {
+		It("should accept valid hostname", func() {
+			vmClone.Spec.Hostname = "test"
+			admitter.admitAndExpect(vmClone, true)
+		})
+
+		It("should reject invalid hostname", func() {
+			vmClone.Spec.Hostname = "test+bad"
+			admitter.admitAndExpect(vmClone, false)
+		})
 	})
 
 })
@@ -437,6 +450,7 @@ func newValidClone() *clonev1lpha1.VirtualMachineClone {
 	vmClone.Spec.Source = newValidObjReference()
 	vmClone.Spec.Target = newValidObjReference()
 	vmClone.Spec.Target.Name = "clone-target-vm"
+	vmClone.Spec.Hostname = "target-hostname"
 
 	return vmClone
 }

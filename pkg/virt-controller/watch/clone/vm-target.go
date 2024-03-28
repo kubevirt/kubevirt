@@ -53,6 +53,9 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.Virt
 	firmwareUUIDPatches := generateFirmwareUUIDPatches(source.Spec.Template.Spec.Domain.Firmware)
 	patches = append(patches, firmwareUUIDPatches...)
 
+	hostnamePatches := generateHostnamePatches(cloneSpec.Hostname)
+	patches = append(patches, hostnamePatches...)
+
 	log.Log.V(defaultVerbosityLevel).Object(source).Infof("patches generated for vm %s clone: %v", source.Name, patches)
 	return patches
 }
@@ -196,4 +199,14 @@ func generateFirmwareUUIDPatches(firmware *k6tv1.Firmware) (patches []string) {
 	}
 
 	return []string{firmwareUUIDPatch}
+}
+
+func generateHostnamePatches(cloneHostname string) (patches []string) {
+	const hostnamePatchPattern = `{"op": "replace", "path": "/spec/template/spec/hostname", "value": "%s"}`
+
+	if cloneHostname == "" {
+		return nil
+	}
+	patch := fmt.Sprintf(hostnamePatchPattern, cloneHostname)
+	return []string{patch}
 }

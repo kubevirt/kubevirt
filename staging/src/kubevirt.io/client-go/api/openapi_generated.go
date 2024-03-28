@@ -15339,6 +15339,13 @@ func schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpec(ref common.Ref
 							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
 						},
 					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies the hostname of the clone vmi. If empty, the hostname will be set to the name of the target vmi.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"annotationFilters": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{

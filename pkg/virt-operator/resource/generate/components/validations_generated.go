@@ -7900,6 +7900,10 @@ var CRDsValidation map[string]string = map[string]string{
             type: string
           type: array
           x-kubernetes-list-type: atomic
+        hostname:
+          description: Specifies the hostname of the clone vmi. If empty, the hostname
+            will be set to the name of the target vmi.
+          type: string
         labelFilters:
           description: 'Example use: "!some/key*". For a detailed description, please
             refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.'

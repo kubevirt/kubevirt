@@ -136,7 +136,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		return snapshot
 	}
 
-	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName, targetHostname string) *clonev1alpha1.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
@@ -150,6 +150,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 		vmClone.Spec.Source = cloneSourceRef
 		vmClone.Spec.Target = cloneTargetRef
+		vmClone.Spec.Hostname = targetHostname
 
 		return vmClone
 	}
@@ -219,6 +220,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 		const (
 			targetVMName                     = "vm-clone-target"
+			targetHostname                   = "vm-hostname-target"
 			cloneShouldEqualSourceMsgPattern = "cloned VM's %s should be equal to source"
 
 			key1   = "key1"
@@ -283,7 +285,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		}
 
 		generateCloneFromVM := func() *clonev1alpha1.VirtualMachineClone {
-			return generateCloneFromVMWithParams(sourceVM, targetVMName)
+			return generateCloneFromVMWithParams(sourceVM, targetVMName, "")
 		}
 
 		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, func() {
@@ -410,6 +412,30 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 				expectEqualTemplateLabels(targetVM, sourceVM, key2)
 				expectEqualTemplateAnnotations(targetVM, sourceVM, key2)
+			})
+
+			It("clone and set hostname", func() {
+
+				sourceVM = createVM()
+
+				vmClone = generateCloneFromVMWithParams(sourceVM, targetVMName, targetHostname)
+				createCloneAndWaitForFinish(vmClone)
+
+				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By("Making sure target is runnable")
+				targetVM = expectVMRunnable(targetVM)
+
+				By("Making sure hostname is applied to target VM")
+				Expect(targetVM.Spec.Template.Spec.Hostname).ToNot(BeNil())
+				Expect(targetVM.Spec.Template.Spec.Hostname).To(Equal(targetHostname), fmt.Sprintf("The hostname of the cloned VM should be equal to the set: %s.", targetHostname))
+
+				expectEqualLabels(targetVM, sourceVM)
+				expectEqualAnnotations(targetVM, sourceVM)
+				expectEqualTemplateLabels(targetVM, sourceVM)
+				expectEqualTemplateAnnotations(targetVM, sourceVM)
 			})
 
 			It("clone with changed MAC address", func() {
@@ -735,7 +761,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						vmClone.Spec.Template.AnnotationFilters = filters
 					}
 					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
-						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName, "")
 						addCloneAnnotationAndLabelFilters(vmclone)
 						return vmclone
 					}
@@ -793,7 +819,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 							vmClone.Spec.Template.AnnotationFilters = filters
 						}
 						generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
-							vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+							vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName, "")
 							addCloneAnnotationAndLabelFilters(vmclone)
 							return vmclone
 						}
