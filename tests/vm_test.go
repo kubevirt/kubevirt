@@ -248,17 +248,17 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		It("[test_id:3161]should carry annotations to VMI", func() {
-			annotations := map[string]string{
-				"testannotation": "test",
-			}
-
 			vm := createVM(virtClient, libvmifact.NewCirros())
 
-			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, &k8smetav1.GetOptions{})
+			err = tests.RetryIfModified(func() error {
+				name := vm.ObjectMeta.Name
+				namespace := vm.ObjectMeta.Namespace
+				vm, err = virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vm.Spec.Template.ObjectMeta.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+				vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+					"testannotation": "test",
+				}
+				vm, err = virtClient.VirtualMachine(namespace).Update(context.Background(), vm)
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -272,18 +272,18 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:3162]should ignore kubernetes and kubevirt annotations to VMI", func() {
-			annotations := map[string]string{
-				"kubevirt.io/test":   "test",
-				"kubernetes.io/test": "test",
-			}
-
 			vm := createVM(virtClient, libvmifact.NewCirros())
 
-			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, &k8smetav1.GetOptions{})
+			err = tests.RetryIfModified(func() error {
+				name := vm.ObjectMeta.Name
+				namespace := vm.ObjectMeta.Namespace
+				vm, err = virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vm.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+				vm.Annotations = map[string]string{
+					"kubevirt.io/test":   "test",
+					"kubernetes.io/test": "test",
+				}
+				vm, err = virtClient.VirtualMachine(namespace).Update(context.Background(), vm)
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -2062,13 +2062,15 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 
 func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
-	err := tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, &k8smetav1.GetOptions{})
+	err := tests.RetryIfModified(func() error {
+		name := vm.ObjectMeta.Name
+		namespace := vm.ObjectMeta.Namespace
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vm.Spec.Running = nil
 		runStrategyAlways := v1.RunStrategyAlways
 		vm.Spec.RunStrategy = &runStrategyAlways
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+		_, err = virtClient.VirtualMachine(namespace).Update(context.Background(), vm)
 		return err
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -2087,13 +2089,15 @@ func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtu
 
 func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Stopping the VirtualMachine")
-	err := tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, &k8smetav1.GetOptions{})
+	err := tests.RetryIfModified(func() error {
+		name := vm.ObjectMeta.Name
+		namespace := vm.ObjectMeta.Namespace
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vm.Spec.Running = nil
 		runStrategyHalted := v1.RunStrategyHalted
 		vm.Spec.RunStrategy = &runStrategyHalted
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
+		_, err = virtClient.VirtualMachine(namespace).Update(context.Background(), vm)
 		return err
 	})
 	Expect(err).ToNot(HaveOccurred())
