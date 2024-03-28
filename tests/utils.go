@@ -246,30 +246,6 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-// NewRandomVMI
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMI() *v1.VirtualMachineInstance {
-	// To avoid mac address issue in the tests change the pod interface binding to masquerade
-	// https://github.com/kubevirt/kubevirt/issues/1494
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-	)
-	vmi.ObjectMeta.Namespace = testsuite.GetTestNamespace(vmi)
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
-
-	if checks.IsARM64(testsuite.Arch) {
-		// Cirros image need 256M to boot on ARM64,
-		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
-	} else {
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-	}
-
-	return vmi
-}
-
 // NewRandomVMWithDataVolumeWithRegistryImport
 //
 // Deprecated: Use libvmi directly
@@ -327,7 +303,22 @@ func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMa
 //
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
+	// To avoid mac address issue in the tests change the pod interface binding to masquerade
+	// https://github.com/kubevirt/kubevirt/issues/1494
+	vmi := libvmi.New(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	vmi.ObjectMeta.Namespace = testsuite.GetTestNamespace(vmi)
+	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+
+	if checks.IsARM64(testsuite.Arch) {
+		// Cirros image need 256M to boot on ARM64,
+		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
+	} else {
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+	}
 
 	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
