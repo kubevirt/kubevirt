@@ -373,7 +373,7 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("5m"),
-			corev1.ResourceMemory: resource.MustParse("500Mi"),
+			corev1.ResourceMemory: resource.MustParse("525Mi"),
 		},
 	}
 
@@ -470,7 +470,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("10m"),
-			corev1.ResourceMemory: resource.MustParse("275Mi"),
+			corev1.ResourceMemory: resource.MustParse("289Mi"),
 		},
 	}
 
@@ -598,7 +598,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceCPU:    resource.MustParse("10m"),
-									corev1.ResourceMemory: resource.MustParse("450Mi"),
+									corev1.ResourceMemory: resource.MustParse("472Mi"),
 								},
 							},
 							SecurityContext: &corev1.SecurityContext{
