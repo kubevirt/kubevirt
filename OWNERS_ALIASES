@@ -139,6 +139,8 @@ aliases:
   sig-buildsystem-reviewers:
     - brianmcarey
     - enp0s3
+  # Owns s390x, and ensures that kubevirt can be built on s390x.
+    - vamsikrishna-siddu
     - xpivarc
 
   #
