@@ -87,6 +87,7 @@ RUN set -x && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.20.2 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
     go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 && \
+    go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@latest && \
     go clean -cache -modcache
 
 RUN set -x && \
