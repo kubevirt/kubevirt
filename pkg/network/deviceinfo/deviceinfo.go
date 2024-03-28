@@ -31,8 +31,10 @@ import (
 )
 
 const (
-	NetworkDeviceInfoMapAnnot = "kubevirt.io/network-device-info-map"
-	MountPath                 = "/etc/podinfo"
+	NetworkDeviceInfoMapAnnot   = "kubevirt.io/network-device-info-map"
+	MountPath                   = "/etc/podinfo"
+	NetworkDeviceInfoVolumeName = "network-device-info-map-annotation"
+	NetworkDeviceInfoVolumePath = "network-device-info-map"
 )
 
 func CreateNetworkDeviceInfoAnnotationValue(networks []v1.Network, interfaces []v1.Interface, networkStatusAnnotationValue string) string {
