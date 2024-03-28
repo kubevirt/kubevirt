@@ -483,12 +483,17 @@ type MemoryBackingAccess struct {
 type NoSharePages struct {
 }
 
+type MemoryAddress struct {
+	Base string `xml:"base,attr"`
+}
+
 type MemoryTarget struct {
-	Size      Memory `xml:"size"`
-	Requested Memory `xml:"requested"`
-	Current   Memory `xml:"current"`
-	Node      string `xml:"node"`
-	Block     Memory `xml:"block"`
+	Size      Memory         `xml:"size"`
+	Requested Memory         `xml:"requested"`
+	Current   Memory         `xml:"current"`
+	Node      string         `xml:"node"`
+	Block     Memory         `xml:"block"`
+	Address   *MemoryAddress `xml:"address,omitempty"`
 }
 
 type MemoryDevice struct {
