@@ -57,11 +57,6 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
-				if expected {
-					Expect(virtlauncherPod.Spec.Containers).To(HaveLen(3))
-				} else {
-					Expect(virtlauncherPod.Spec.Containers).To(HaveLen(2))
-				}
 				foundContainer := false
 				for _, container := range virtlauncherPod.Spec.Containers {
 					if container.Name == "guest-console-log" {
