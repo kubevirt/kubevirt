@@ -38,7 +38,6 @@ import (
 var programName string
 
 func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
-
 	programName := GetProgramName(filepath.Base(os.Args[0]))
 
 	// used in cobra templates to display either `kubectl virt` or `virtctl`

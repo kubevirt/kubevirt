@@ -8,11 +8,11 @@ import (
 	"net"
 	"os"
 
-	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
+	"kubevirt.io/client-go/log"
 
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -112,7 +112,7 @@ func (o *NativeSSHConnection) trySSHAgent(methods []ssh.AuthMethod) []ssh.AuthMe
 	}
 	conn, err := net.Dial("unix", socket)
 	if err != nil {
-		glog.Error("no connection to ssh agent, skipping agent authentication:", err)
+		log.Log.Errorf("no connection to ssh agent, skipping agent authentication: %v", err)
 		return methods
 	}
 	agentClient := agent.NewClient(conn)
@@ -125,7 +125,7 @@ func (o *NativeSSHConnection) tryPrivateKey(methods []ssh.AuthMethod) []ssh.Auth
 	// not explicitly provided, don't add the authentication mechanism.
 	if !o.Options.IdentityFilePathProvided {
 		if _, err := os.Stat(o.Options.IdentityFilePath); errors.Is(err, os.ErrNotExist) {
-			glog.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", o.Options.IdentityFilePath)
+			log.Log.V(3).Infof("No ssh key at the default location %q found, skipping RSA authentication.", o.Options.IdentityFilePath)
 			return methods
 		}
 	}

@@ -26,9 +26,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -53,7 +53,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: examples(),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if n := len(args); n < 2 {
-				glog.Errorf("fatal: Number of input parameters is incorrect, portforward requires at least 2 arg(s), received %d", n)
+				log.Log.Errorf("fatal: Number of input parameters is incorrect, portforward requires at least 2 arg(s), received %d", n)
 				// always write to stderr on failures to ensure they get printed in stdio mode
 				cmd.SetOut(os.Stderr)
 				cmd.Help()
@@ -158,7 +158,7 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 		return err
 	}
 
-	glog.V(3).Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
+	log.Log.V(3).Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
 	if err := streamer.Stream(kubecli.StreamOptions{
 		In:  os.Stdin,
 		Out: os.Stdout,
