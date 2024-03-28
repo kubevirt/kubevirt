@@ -2777,6 +2777,11 @@ type InterfaceBindingPlugin struct {
 	// Migration means the VM using the plugin can be safely migrated
 	// version: 1alphav1
 	Migration *InterfaceBindingMigration `json:"migration,omitempty"`
+	// DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar.
+	// Supported values: "device-info"
+	// version: v1alphav1
+	// +optional
+	DownwardAPI NetworkBindingDownwardAPIType `json:"downwardAPI,omitempty"`
 }
 
 type DomainAttachmentType string
@@ -2785,6 +2790,15 @@ const (
 	// Tap domain attachment type is a generic way to bind ethernet connection into guests using tap device
 	// https://libvirt.org/formatdomain.html#generic-ethernet-connection.
 	Tap DomainAttachmentType = "tap"
+)
+
+type NetworkBindingDownwardAPIType string
+
+const (
+	// DeviceInfo network binding API type specifies the device info from the Multus annotation
+	// should be exposed to the binding plugin sidecar
+	// version: v1alphav1
+	DeviceInfo NetworkBindingDownwardAPIType = "device-info"
 )
 
 type InterfaceBindingMigration struct {
