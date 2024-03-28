@@ -17,12 +17,12 @@
 *
  */
 
-package sriov_test
+package deviceinfo_test
 
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -195,9 +195,9 @@ var _ = Describe("SRIOV", func() {
   "dns": {}
 }
 ]`
-	DescribeTable("should fail to prepare network pci map on the pod network-pci-map anotation",
+	DescribeTable("should fail to prepare network pci map on the pod network-pci-map annotation",
 		func(networkList []virtv1.Network, interfaceList []virtv1.Interface, networkStatusAnnotationValue string) {
-			networkPCIAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)
+			networkPCIAnnotationValue := deviceinfo.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)
 			Expect(networkPCIAnnotationValue).To(Equal("{}"))
 		},
 		Entry("when networkStatusAnnotation is valid but with no pci data on one of the SRIOV interfaces",
@@ -226,7 +226,7 @@ var _ = Describe("SRIOV", func() {
 
 	DescribeTable("should succeed to prepare network pci map on pod's network-pci-map",
 		func(networkList []virtv1.Network, interfaceList []virtv1.Interface, networkStatusAnnotationValue, expectedPciMapString string) {
-			Expect(sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)).To(Equal(expectedPciMapString))
+			Expect(deviceinfo.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)).To(Equal(expectedPciMapString))
 		},
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV}; Networks{1X masquarade(primary),1X Multus} 1xNAD",
 			[]virtv1.Network{newMasqueradeDefaultNetwork(), newMultusNetwork("foo", "default/nad1")},
@@ -317,39 +317,5 @@ func newSRIOVInterface(name string) virtv1.Interface {
 	return virtv1.Interface{
 		Name:                   name,
 		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{SRIOV: &virtv1.InterfaceSRIOV{}},
-	}
-}
-
-func newBridgeInterface(name string) virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Bridge: &virtv1.InterfaceBridge{}},
-	}
-}
-
-func newMasqueradePrimaryInterface() virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   "testmasquerade",
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Masquerade: &virtv1.InterfaceMasquerade{}},
-	}
-}
-
-func newMasqueradeDefaultNetwork() virtv1.Network {
-	return virtv1.Network{
-		Name: "testmasquerade",
-		NetworkSource: virtv1.NetworkSource{
-			Pod: &virtv1.PodNetwork{},
-		},
-	}
-}
-
-func newMultusNetwork(name, networkName string) virtv1.Network {
-	return virtv1.Network{
-		Name: name,
-		NetworkSource: virtv1.NetworkSource{
-			Multus: &virtv1.MultusNetwork{
-				NetworkName: networkName,
-			},
-		},
 	}
 }

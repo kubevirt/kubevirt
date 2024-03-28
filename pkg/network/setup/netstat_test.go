@@ -27,8 +27,8 @@ import (
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
-	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -856,7 +856,7 @@ func (t *testSetup) addSRIOVNetworkInterface(vmiIface v1.Interface, vmiNetwork v
 	t.Vmi.Spec.Networks = append(t.Vmi.Spec.Networks, vmiNetwork)
 
 	t.Domain.Spec.Devices.HostDevices = append(t.Domain.Spec.Devices.HostDevices, api.HostDevice{
-		Alias: api.NewUserDefinedAlias(netsriov.AliasPrefix + vmiNetwork.Name),
+		Alias: api.NewUserDefinedAlias(netsriov.SRIOVAliasPrefix + vmiNetwork.Name),
 	})
 }
 

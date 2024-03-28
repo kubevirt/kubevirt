@@ -16,7 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	"kubevirt.io/kubevirt/pkg/network/sriov"
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -492,10 +492,20 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 
 func withSRIOVPciMapAnnotation() VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(sriov.VolumeName, sriov.MountPath))
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(deviceinfo.NetwrokPCIMapVolumeName, deviceinfo.MountPath))
 		renderer.podVolumes = append(renderer.podVolumes,
 			downwardAPIDirVolume(
-				sriov.VolumeName, sriov.VolumePath, fmt.Sprintf("metadata.annotations['%s']", sriov.NetworkPCIMapAnnot)),
+				deviceinfo.NetwrokPCIMapVolumeName, deviceinfo.NetworkPCIMapVolumePath, fmt.Sprintf("metadata.annotations['%s']", deviceinfo.NetworkPCIMapAnnot)),
+		)
+		return nil
+	}
+}
+
+func withDeviceInfoMapAnnotation() VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumes = append(renderer.podVolumes,
+			downwardAPIDirVolume(
+				deviceinfo.NetworkDeviceInfoVolumeName, deviceinfo.NetworkDeviceInfoVolumePath, fmt.Sprintf("metadata.annotations['%s']", deviceinfo.NetworkDeviceInfoMapAnnot)),
 		)
 		return nil
 	}

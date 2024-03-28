@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -679,6 +681,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 
 	var mounts []k8sv1.VolumeMount
 	mounts = append(mounts, sidecarVolumeMount())
+	mounts = append(mounts, mountPath(deviceinfo.NetworkDeviceInfoVolumeName, deviceinfo.MountPath))
 	if requestedHookSidecar.ConfigMap != nil {
 		mounts = append(mounts, configMapVolumeMount(*requestedHookSidecar.ConfigMap))
 	}
@@ -770,6 +773,9 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 
 	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
 		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
+	}
+	if len(requestedHookSidecarList) != 0 {
+		volumeOpts = append(volumeOpts, withDeviceInfoMapAnnotation())
 	}
 
 	if util.IsVMIVirtiofsEnabled(vmi) {
