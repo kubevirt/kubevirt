@@ -77,7 +77,6 @@ func (b *SteadyStateLoadGenerator) Delete(virtClient kubecli.KubevirtClient, wor
 	ss.DeleteWorkloads(ss.Workload.Count)
 	ss.DeleteNamespaces()
 	ss.stopAllWatchers()
-	return
 }
 
 func (b *SteadyStateLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *config.Workload) {

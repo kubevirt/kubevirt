@@ -63,7 +63,6 @@ func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, er
 	defer cancel()
 
 	return grpc.DialContext(ctx, socketPath, options...)
-
 }
 
 func CreateSocket(socketPath string) (net.Listener, error) {

@@ -52,7 +52,6 @@ func (s *SshCommandFlags) AddToCommand(cmd *cobra.Command) {
 
 	cmd.Flags().StringVar(&s.SshPubKeyLiteral, keyValueFlag, "", "Literal value of the SSH public key.")
 	cmd.MarkFlagsMutuallyExclusive(keyFileFlag, keyValueFlag)
-
 }
 
 func GetSshKey(flags *SshCommandFlags) (string, error) {
