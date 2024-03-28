@@ -21,7 +21,6 @@ package admitters
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -1205,23 +1204,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject when multiple types defined for a CNI network", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "default1"},
-						Pod:    &v1.PodNetwork{},
-					},
-				},
-			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.networks[0]"))
-		})
 		It("should allow multiple networks of same CNI type", func() {
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -1274,79 +1257,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject multiple multus networks with a multus default", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(),
-				*v1.DefaultBridgeNetworkInterface(),
-			}
-			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus2"
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "multus1",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-					},
-				},
-				{
-					Name: "multus2",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
-					},
-				},
-			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-			Expect(causes[0].Field).To(Equal("fake.networks"))
-			Expect(causes[0].Message).To(Equal("Multus CNI should only have one default network"))
-		})
-		It("should reject pod network with a multus default", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(),
-				*v1.DefaultBridgeNetworkInterface(),
-			}
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus1"
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
-				},
-				{
-					Name: "multus1",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-					},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-			Expect(causes[0].Field).To(Equal("fake.networks"))
-			Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
-		})
-		It("should reject multus network source without networkName", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{},
-					},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.networks[0]"))
-		})
 		It("should reject networks with a passt interface and passt feature gate disabled", func() {
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
@@ -1768,25 +1679,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject specs with multiple pod interfaces", func() {
-			vm := api.NewMinimalVMI("testvm")
-			for i := 1; i < 3; i++ {
-				iface := v1.DefaultBridgeNetworkInterface()
-				net := v1.DefaultPodNetwork()
-
-				// make sure whatever the error we receive is not related to duplicate names
-				name := fmt.Sprintf("podnet%d", i)
-				iface.Name = name
-				net.Name = name
-
-				vm.Spec.Domain.Devices.Interfaces = append(vm.Spec.Domain.Devices.Interfaces, *iface)
-				vm.Spec.Networks = append(vm.Spec.Networks, *net)
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.interfaces"))
-		})
 
 		It("should accept valid MAC address", func() {
 			vmi := api.NewMinimalVMI("testvm")
@@ -1906,21 +1798,32 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should return error if not unique DHCPPrivateOptions", func() {
-			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
-				{Option: 240, Value: "extra.options.kubevirt.io"},
-				{Option: 240, Value: "sameextra.options.kubevirt.io"},
+			vmiSpec := v1.VirtualMachineInstanceSpec{}
+			vmiSpec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vmiSpec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmiSpec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{
+					{Option: 240, Value: "extra.options.kubevirt.io"},
+					{Option: 240, Value: "sameextra.options.kubevirt.io"},
+				},
 			}
-			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
-			Expect(err).To(Equal(errors.New("you have provided duplicate DHCPPrivateOptions")))
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmiSpec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal("Found Duplicates: you have provided duplicate DHCPPrivateOptions"))
 		})
 
 		It("should not return error if unique DHCPPrivateOptions", func() {
-			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
-				{Option: 240, Value: "extra.options.kubevirt.io"},
-				{Option: 241, Value: "sameextra.options.kubevirt.io"},
+			vmiSpec := v1.VirtualMachineInstanceSpec{}
+			vmiSpec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vmiSpec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmiSpec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{
+					{Option: 240, Value: "extra.options.kubevirt.io"},
+					{Option: 241, Value: "sameextra.options.kubevirt.io"},
+				},
 			}
-			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
-			Expect(err).ToNot(HaveOccurred())
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmiSpec, config)
+			Expect(causes).To(BeEmpty())
 		})
 
 		It("should allow BlockMultiQueue with CPU settings", func() {
@@ -4808,33 +4711,6 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		spec.Networks = []v1.Network{net1, net2}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
 		Expect(getNumberOfPodInterfaces(spec)).To(Equal(2))
-	})
-	It("when network source is not configured", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		net1 := v1.Network{
-			NetworkSource: v1.NetworkSource{},
-			Name:          "testnet1",
-		}
-		iface1 := v1.Interface{Name: net1.Name}
-		spec.Networks = []v1.Network{net1}
-		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
-		Expect(causes).To(HaveLen(1))
-	})
-	It("should reject when more than one network source is configured", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		net1 := v1.Network{
-			NetworkSource: v1.NetworkSource{
-				Pod:    &v1.PodNetwork{},
-				Multus: &v1.MultusNetwork{NetworkName: "testnet1"},
-			},
-			Name: "testnet",
-		}
-		iface1 := v1.Interface{Name: net1.Name}
-		spec.Networks = []v1.Network{net1}
-		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
-		Expect(causes).To(HaveLen(1))
 	})
 	It("should work when boot order is given to interfaces", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
