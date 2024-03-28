@@ -67,6 +67,18 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 	}
 }
 
+// ExactMoreArgs validate minimum, maximum number of input parameters
+func ExactMoreArgs(nameOfCommand string, min, max int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) > max || len(args) < min {
+			fmt.Fprintf(os.Stderr, "fatal: Number of input parameters is incorrect, %s accepts mininum %d maximum %d arg(s), received %d\n\n", nameOfCommand, min, max, len(args))
+			cmd.Help()
+			return errors.New("argument validation failed")
+		}
+		return nil
+	}
+}
+
 // PrintWarningForPausedVMI prints warning message if VMI is paused
 func PrintWarningForPausedVMI(virtCli kubecli.KubevirtClient, vmiName string, namespace string) {
 	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmiName, k8smetav1.GetOptions{})

@@ -118,6 +118,18 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
+	nodeName := migration.Spec.NodeName
+	if nodeName != "" {
+		_, err = admitter.VirtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+
+		if nodeName == vmi.Status.NodeName {
+			return webhookutils.ToAdmissionResponseError(fmt.Errorf("the same source and destination node, so there is no need to migrate"))
+		}
+	}
+
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
