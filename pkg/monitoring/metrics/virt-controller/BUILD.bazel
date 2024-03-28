@@ -8,6 +8,7 @@ go_library(
         "migration_metrics.go",
         "migrationstats_collector.go",
         "perfscale_metrics.go",
+        "vmi_metrics.go",
         "vmistats_collector.go",
         "vmstats_collector.go",
     ],

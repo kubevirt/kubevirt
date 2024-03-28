@@ -35,6 +35,7 @@ var (
 		componentMetrics,
 		migrationMetrics,
 		perfscaleMetrics,
+		vmiMetrics,
 	}
 
 	vmInformer                  cache.SharedIndexInformer

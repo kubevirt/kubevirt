@@ -21,10 +21,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	io_prometheus_client "github.com/prometheus/client_model/go"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -88,7 +87,10 @@ var _ = Describe("Workload Updater", func() {
 
 		expectedImage = "cur-image"
 
-		outdatedVirtualMachineInstanceWorkloads.Set(0.0)
+		err := metrics.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		metrics.SetOutdatedVirtualMachineInstanceWorkloads(0)
+
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -161,11 +163,9 @@ var _ = Describe("Workload Updater", func() {
 		It("should update out of date value on kv and report prometheus metric", func() {
 
 			By("Checking prometheus metric before sync")
-			dto := &io_prometheus_client.Metric{}
-			Expect(outdatedVirtualMachineInstanceWorkloads.Write(dto)).To(Succeed())
-
-			zero := 0.0
-			Expect(dto.GetGauge().Value).To(Equal(&zero), "outdated vmi workload reported should be equal to zero")
+			value, err := metrics.GetOutdatedVirtualMachineInstanceWorkloads()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(BeZero(), "outdated vmi workload reported should be equal to zero")
 
 			totalVMs := 0
 			reasons := []string{}
@@ -209,12 +209,10 @@ var _ = Describe("Workload Updater", func() {
 			testutils.ExpectEvents(recorder, reasons...)
 
 			By("Checking prometheus metric")
-			dto = &io_prometheus_client.Metric{}
-			Expect(outdatedVirtualMachineInstanceWorkloads.Write(dto)).To(Succeed())
+			value, err = metrics.GetOutdatedVirtualMachineInstanceWorkloads()
+			Expect(err).ToNot(HaveOccurred())
 
-			val := 100.0
-
-			Expect(dto.GetGauge().Value).To(Equal(&val))
+			Expect(value).To(Equal(100))
 			Expect(evictionCount).To(Equal(defaultBatchDeletionCount))
 
 		})
