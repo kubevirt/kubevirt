@@ -25,7 +25,7 @@ metadata:
     instancetype.kubevirt.io/memory: 16Gi
     instancetype.kubevirt.io/numa: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: cx1.2xlarge
 spec:
   cpu:
@@ -66,7 +66,7 @@ metadata:
     instancetype.kubevirt.io/memory: 32Gi
     instancetype.kubevirt.io/numa: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: cx1.4xlarge
 spec:
   cpu:
@@ -107,7 +107,7 @@ metadata:
     instancetype.kubevirt.io/memory: 64Gi
     instancetype.kubevirt.io/numa: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: cx1.8xlarge
 spec:
   cpu:
@@ -148,7 +148,7 @@ metadata:
     instancetype.kubevirt.io/memory: 4Gi
     instancetype.kubevirt.io/numa: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: cx1.large
 spec:
   cpu:
@@ -189,7 +189,7 @@ metadata:
     instancetype.kubevirt.io/memory: 2Gi
     instancetype.kubevirt.io/numa: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: cx1.medium
 spec:
   cpu:
@@ -230,7 +230,7 @@ metadata:
     instancetype.kubevirt.io/memory: 8Gi
     instancetype.kubevirt.io/numa: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: cx1.xlarge
 spec:
   cpu:
@@ -266,7 +266,7 @@ metadata:
     instancetype.kubevirt.io/gpus: "true"
     instancetype.kubevirt.io/memory: 32Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: gn1.2xlarge
 spec:
   cpu:
@@ -298,7 +298,7 @@ metadata:
     instancetype.kubevirt.io/gpus: "true"
     instancetype.kubevirt.io/memory: 64Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: gn1.4xlarge
 spec:
   cpu:
@@ -330,7 +330,7 @@ metadata:
     instancetype.kubevirt.io/gpus: "true"
     instancetype.kubevirt.io/memory: 128Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: gn1.8xlarge
 spec:
   cpu:
@@ -362,7 +362,7 @@ metadata:
     instancetype.kubevirt.io/gpus: "true"
     instancetype.kubevirt.io/memory: 16Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: gn1.xlarge
 spec:
   cpu:
@@ -380,7 +380,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: large
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: highperformance.large
 spec:
   cpu:
@@ -398,7 +398,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: medium
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: highperformance.medium
 spec:
   cpu:
@@ -416,7 +416,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: small
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: highperformance.small
 spec:
   cpu:
@@ -443,7 +443,7 @@ metadata:
     instancetype.kubevirt.io/hugepages: "true"
     instancetype.kubevirt.io/memory: 64Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: m1.2xlarge
 spec:
   cpu:
@@ -469,7 +469,7 @@ metadata:
     instancetype.kubevirt.io/hugepages: "true"
     instancetype.kubevirt.io/memory: 128Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: m1.4xlarge
 spec:
   cpu:
@@ -495,7 +495,7 @@ metadata:
     instancetype.kubevirt.io/hugepages: "true"
     instancetype.kubevirt.io/memory: 256Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: m1.8xlarge
 spec:
   cpu:
@@ -521,7 +521,7 @@ metadata:
     instancetype.kubevirt.io/hugepages: "true"
     instancetype.kubevirt.io/memory: 16Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: m1.large
 spec:
   cpu:
@@ -547,7 +547,7 @@ metadata:
     instancetype.kubevirt.io/hugepages: "true"
     instancetype.kubevirt.io/memory: 32Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: m1.xlarge
 spec:
   cpu:
@@ -572,7 +572,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "8"
     instancetype.kubevirt.io/memory: 32Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: o1.2xlarge
 spec:
   cpu:
@@ -596,7 +596,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "16"
     instancetype.kubevirt.io/memory: 64Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: o1.4xlarge
 spec:
   cpu:
@@ -620,7 +620,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "32"
     instancetype.kubevirt.io/memory: 128Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: o1.8xlarge
 spec:
   cpu:
@@ -644,7 +644,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "2"
     instancetype.kubevirt.io/memory: 8Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: o1.large
 spec:
   cpu:
@@ -668,7 +668,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: o1.medium
 spec:
   cpu:
@@ -692,7 +692,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "4"
     instancetype.kubevirt.io/memory: 16Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: o1.xlarge
 spec:
   cpu:
@@ -708,7 +708,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: large
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: server.large
 spec:
   cpu:
@@ -723,7 +723,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: medium
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: server.medium
 spec:
   cpu:
@@ -738,7 +738,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: micro
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: server.micro
 spec:
   cpu:
@@ -753,7 +753,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: small
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: server.small
 spec:
   cpu:
@@ -768,7 +768,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/vendor: kubevirt.io
     kubevirt.io/size: tiny
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: server.tiny
 spec:
   cpu:
@@ -795,7 +795,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "8"
     instancetype.kubevirt.io/memory: 32Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.2xlarge
 spec:
   cpu:
@@ -822,7 +822,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "16"
     instancetype.kubevirt.io/memory: 64Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.4xlarge
 spec:
   cpu:
@@ -849,7 +849,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "32"
     instancetype.kubevirt.io/memory: 128Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.8xlarge
 spec:
   cpu:
@@ -876,7 +876,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "2"
     instancetype.kubevirt.io/memory: 8Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.large
 spec:
   cpu:
@@ -903,7 +903,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.medium
 spec:
   cpu:
@@ -930,7 +930,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/memory: 1Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.micro
 spec:
   cpu:
@@ -957,7 +957,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.nano
 spec:
   cpu:
@@ -984,7 +984,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "1"
     instancetype.kubevirt.io/memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.small
 spec:
   cpu:
@@ -1011,7 +1011,7 @@ metadata:
     instancetype.kubevirt.io/cpu: "4"
     instancetype.kubevirt.io/memory: 16Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.3.4
+    instancetype.kubevirt.io/common-instancetypes-version: v0.3.5
   name: u1.xlarge
 spec:
   cpu:
