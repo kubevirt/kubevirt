@@ -68,8 +68,9 @@ ENV PATH=$PATH:/opt/gradle/gradle-${GRADLE_VERSION}/bin \
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
-    https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
-    HOME=/gimme bash >> /etc/profile.d/gimme.sh
+    https://raw.githubusercontent.com/travis-ci/gimme/master/gimme \
+    -o /gimme/gimme && \
+    bash /gimme/gimme >> /etc/profile.d/gimme.sh
 
 ENV GOPATH="/go" GOBIN="/usr/bin" GO111MODULE="on"
 
