@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/util/status"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -899,7 +900,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			}, nil, true, http.StatusBadRequest, false),
 		)
 
-		DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
+		DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest,
+			expectedVolumes []v1.Volume, expectedDisks []v1.Disk) {
 
 			vmi := api.NewMinimalVMI(request.PathParameter("name"))
 			vmi.Namespace = k8smetav1.NamespaceDefault
@@ -916,14 +918,17 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 			})
 
-			patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
-			if expectError {
-				Expect(err).To(HaveOccurred())
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-			}
+			resPatch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
+			Expect(err).ToNot(HaveOccurred())
+			patches := patch.New()
+			patches.Test("/spec/volumes", vmi.Spec.Volumes)
+			patches.Test("/spec/domain/devices/disks", vmi.Spec.Domain.Devices.Disks)
+			patches.Replace("/spec/volumes", expectedVolumes)
+			patches.Replace("/spec/domain/devices/disks", expectedDisks)
+			expectedPatch, err := patches.GeneratePayload()
 
-			Expect(patch).To(Equal(expectedPatch))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(resPatch)).To(Equal(string(expectedPatch)))
 		},
 			Entry("add volume request",
 				&v1.VirtualMachineVolumeRequest{
@@ -932,126 +937,180 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 						Disk:         &v1.Disk{},
 						VolumeSource: &v1.HotplugVolumeSource{},
 					},
-				},
-				"[{ \"op\": \"test\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"}]}, { \"op\": \"replace\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}},{\"name\":\"vol1\"}]}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"},{\"name\":\"vol1\"}]}]",
-				false),
+				}, []v1.Volume{{
+					Name: "existingvol",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testpvcdiskclaim",
+							},
+						},
+					}},
+					{Name: "vol1"}}, []v1.Disk{
+					{Name: "existingvol"}, {Name: "vol1"}}),
 			Entry("remove volume request",
 				&v1.VirtualMachineVolumeRequest{
 					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 						Name: "existingvol",
 					},
-				},
-				"[{ \"op\": \"test\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"}]}, { \"op\": \"replace\", \"path\": \"/spec/volumes\", \"value\": []}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/disks\", \"value\": []}]",
-				false),
+				}, []v1.Volume{}, []v1.Disk{}),
 		)
-		DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
-
-			vm := newMinimalVM(request.PathParameter("name"))
-			vm.Namespace = k8smetav1.NamespaceDefault
-
-			if len(existingVolumeRequests) > 0 {
-				vm.Status.VolumeRequests = existingVolumeRequests
+		Context("generateVMVolumeRequestPatch", func() {
+			volReqAdd := v1.VirtualMachineVolumeRequest{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name:         "vol1",
+					Disk:         &v1.Disk{},
+					VolumeSource: &v1.HotplugVolumeSource{},
+				},
 			}
+			volReqAdd2 := v1.VirtualMachineVolumeRequest{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name:         "vol2",
+					Disk:         &v1.Disk{},
+					VolumeSource: &v1.HotplugVolumeSource{},
+				},
+			}
+			volReqRemove := v1.VirtualMachineVolumeRequest{
+				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+					Name: "vol1",
+				},
+			}
+			volReqRemove2 := v1.VirtualMachineVolumeRequest{
+				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+					Name: "vol2",
+				},
+			}
+			var patches patch.PatchSet
 
-			patch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
-			if expectError {
-				Expect(err).To(HaveOccurred())
-			} else {
+			BeforeEach(func() {
+				patches = patch.New()
+
+			})
+
+			DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, setPatchSet func(), expectError bool) {
+				vm := newMinimalVM(request.PathParameter("name"))
+				vm.Namespace = k8smetav1.NamespaceDefault
+
+				if len(existingVolumeRequests) > 0 {
+					vm.Status.VolumeRequests = existingVolumeRequests
+				}
+
+				patch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
+				if expectError {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+				}
+				setPatchSet()
+				expectedPatch, err := patches.GeneratePayload()
 				Expect(err).ToNot(HaveOccurred())
-			}
-
-			Expect(patch).To(Equal(expectedPatch))
-		},
-			Entry("add volume request with no existing volumes",
-				&v1.VirtualMachineVolumeRequest{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
-					},
-				},
-				nil,
-				`[{"op":"test","path":"/status/volumeRequests","value":null},{"op":"add","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol1","disk":{"name":""},"volumeSource":{}}}]}]`,
-				false),
-			Entry("add volume request that already exists should fail",
-				&v1.VirtualMachineVolumeRequest{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
-					},
-				},
-				[]v1.VirtualMachineVolumeRequest{
-					{
+				Expect(string(patch)).To(Equal(string(expectedPatch)))
+			},
+				Entry("add volume request with no existing volumes",
+					&v1.VirtualMachineVolumeRequest{
 						AddVolumeOptions: &v1.AddVolumeOptions{
 							Name:         "vol1",
 							Disk:         &v1.Disk{},
 							VolumeSource: &v1.HotplugVolumeSource{},
 						},
 					},
-				},
-				"",
-				true),
-			Entry("add volume request when volume requests alread exist",
-				&v1.VirtualMachineVolumeRequest{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
+					nil,
+					func() {
+						patches.TestAndAdd("/status/volumeRequests", nil,
+							[]v1.VirtualMachineVolumeRequest{volReqAdd})
 					},
-				},
-				[]v1.VirtualMachineVolumeRequest{
-					{
+					false),
+				Entry("add volume request that already exists should fail",
+					&v1.VirtualMachineVolumeRequest{
 						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol2",
+							Name:         "vol1",
 							Disk:         &v1.Disk{},
 							VolumeSource: &v1.HotplugVolumeSource{},
 						},
 					},
-				},
-				`[{"op":"test","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol2","disk":{"name":""},"volumeSource":{}}}]},{"op":"replace","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol2","disk":{"name":""},"volumeSource":{}}},{"addVolumeOptions":{"name":"vol1","disk":{"name":""},"volumeSource":{}}}]}]`,
-				false),
-			Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
-				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-					Name: "vol1",
-				},
-			},
-				nil,
-				`[{"op":"test","path":"/status/volumeRequests","value":null},{"op":"add","path":"/status/volumeRequests","value":[{"removeVolumeOptions":{"name":"vol1"}}]}]`,
-				false),
-			Entry("remove volume request should replace add volume request",
-				&v1.VirtualMachineVolumeRequest{
-					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-						Name: "vol2",
+					[]v1.VirtualMachineVolumeRequest{
+						{
+							AddVolumeOptions: &v1.AddVolumeOptions{
+								Name:         "vol1",
+								Disk:         &v1.Disk{},
+								VolumeSource: &v1.HotplugVolumeSource{},
+							},
+						},
 					},
-				},
-				[]v1.VirtualMachineVolumeRequest{
-					{
+					func() {},
+					true),
+				Entry("add volume request when volume requests alread exist",
+					&v1.VirtualMachineVolumeRequest{
 						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol2",
+							Name:         "vol1",
 							Disk:         &v1.Disk{},
 							VolumeSource: &v1.HotplugVolumeSource{},
 						},
 					},
-				},
-				`[{"op":"test","path":"/status/volumeRequests","value":[{"addVolumeOptions":{"name":"vol2","disk":{"name":""},"volumeSource":{}}}]},{"op":"replace","path":"/status/volumeRequests","value":[{"removeVolumeOptions":{"name":"vol2"}}]}]`,
-				false),
-			Entry("remove volume request that already exists should fail",
-				&v1.VirtualMachineVolumeRequest{
+					[]v1.VirtualMachineVolumeRequest{
+						{
+							AddVolumeOptions: &v1.AddVolumeOptions{
+								Name:         "vol2",
+								Disk:         &v1.Disk{},
+								VolumeSource: &v1.HotplugVolumeSource{},
+							},
+						},
+					},
+					func() {
+						patches.TestAndReplace("/status/volumeRequests",
+							[]v1.VirtualMachineVolumeRequest{volReqAdd2},
+							[]v1.VirtualMachineVolumeRequest{volReqAdd2, volReqAdd})
+					},
+					false),
+				Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
 					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-						Name: "vol2",
+						Name: "vol1",
 					},
 				},
-				[]v1.VirtualMachineVolumeRequest{
-					{
+					nil,
+					func() {
+						patches.TestAndAdd("/status/volumeRequests", nil,
+							[]v1.VirtualMachineVolumeRequest{volReqRemove})
+					},
+					false),
+				Entry("remove volume request should replace add volume request",
+					&v1.VirtualMachineVolumeRequest{
 						RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 							Name: "vol2",
 						},
 					},
-				},
-				"",
-				true),
-		)
+					[]v1.VirtualMachineVolumeRequest{
+						{
+							AddVolumeOptions: &v1.AddVolumeOptions{
+								Name:         "vol2",
+								Disk:         &v1.Disk{},
+								VolumeSource: &v1.HotplugVolumeSource{},
+							},
+						},
+					},
+					func() {
+						patches.TestAndReplace("/status/volumeRequests",
+							[]v1.VirtualMachineVolumeRequest{volReqAdd2},
+							[]v1.VirtualMachineVolumeRequest{volReqRemove2})
+					},
+					false),
+				Entry("remove volume request that already exists should fail",
+					&v1.VirtualMachineVolumeRequest{
+						RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+							Name: "vol2",
+						},
+					},
+					[]v1.VirtualMachineVolumeRequest{
+						{
+							RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+								Name: "vol2",
+							},
+						},
+					},
+					func() {},
+					true),
+			)
+		})
 
 		DescribeTable("Should verify volume option", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumes []v1.Volume, expectedError string) {
 			err := verifyVolumeOption(existingVolumes, volumeRequest)
@@ -1356,7 +1415,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				}, http.StatusConflict),
 		)
 
-		DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest, expectedPatch string, expectError bool, removeReq bool) {
+		DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest,
+			expectedMemoryDumpReqTest, expectedMemoryDumpReq *v1.VirtualMachineMemoryDumpRequest, expectError bool, removeReq bool) {
 
 			vm := newMinimalVM(request.PathParameter("name"))
 			vm.Namespace = k8smetav1.NamespaceDefault
@@ -1365,21 +1425,34 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vm.Status.MemoryDumpRequest = existingMemDumpReq
 			}
 
-			patch, err := generateVMMemoryDumpRequestPatch(vm, memDumpReq, removeReq)
+			resPatch, err := generateVMMemoryDumpRequestPatch(vm, memDumpReq, removeReq)
 			if expectError {
 				Expect(err).To(HaveOccurred())
 			} else {
 				Expect(err).ToNot(HaveOccurred())
 			}
-			Expect(patch).To(Equal(expectedPatch))
+
+			patches := patch.New()
+			switch {
+			// Add request
+			case expectedMemoryDumpReqTest == nil && expectedMemoryDumpReq != nil:
+				patches.TestAndAdd("/status/memoryDumpRequest", expectedMemoryDumpReqTest,
+					expectedMemoryDumpReq)
+			// Replace request
+			case expectedMemoryDumpReqTest != nil && expectedMemoryDumpReq != nil:
+				patches.TestAndReplace("/status/memoryDumpRequest", expectedMemoryDumpReqTest,
+					expectedMemoryDumpReq)
+			}
+			expectedPatch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(resPatch)).To(Equal(string(expectedPatch)))
 		},
 			Entry("add memory dump request with no existing request",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpAssociating,
 				},
-				nil,
-				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
+				nil, nil, &v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpAssociating},
 				false, false),
 			Entry("add memory dump request to the same vol after completed",
 				&v1.VirtualMachineMemoryDumpRequest{
@@ -1390,7 +1463,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpCompleted,
 				},
-				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Completed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpCompleted},
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpAssociating},
 				false, false),
 			Entry("add memory dump request to the same vol after previous failed",
 				&v1.VirtualMachineMemoryDumpRequest{
@@ -1401,7 +1475,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpFailed,
 				},
-				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Failed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Associating\"}}]",
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpFailed},
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpAssociating},
 				false, false),
 			Entry("add memory dump request to the same vol while memory dump in progress should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
@@ -1411,9 +1486,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpInProgress,
-				},
-				"",
-				true, false),
+				}, nil, nil, true, false),
 			Entry("add memory dump request to the same vol while it is being dissociated should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
@@ -1422,17 +1495,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				&v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpDissociating,
-				},
-				"",
-				true, false),
+				}, nil, nil, true, false),
 			Entry("remove memory dump request to already removed memory dump should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
 					Phase:  v1.MemoryDumpDissociating,
 					Remove: true,
 				},
-				nil,
-				"",
-				true, true),
+				nil, nil, nil, true, true),
 			Entry("remove memory dump request to memory dump in progress should succeed",
 				&v1.VirtualMachineMemoryDumpRequest{
 					Phase:  v1.MemoryDumpDissociating,
@@ -1442,7 +1511,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpInProgress,
 				},
-				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"InProgress\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Dissociating\",\"remove\":true}}]",
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpInProgress},
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpDissociating, Remove: true},
 				false, true),
 			Entry("remove memory dump request with Remove request should fail",
 				&v1.VirtualMachineMemoryDumpRequest{
@@ -1453,9 +1523,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpDissociating,
 					Remove:    true,
-				},
-				"",
-				true, true),
+				}, nil, nil, true, true),
 			Entry("remove memory dump request to completed memory dump should succeed",
 				&v1.VirtualMachineMemoryDumpRequest{
 					Phase:  v1.MemoryDumpDissociating,
@@ -1465,7 +1533,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					ClaimName: "vol1",
 					Phase:     v1.MemoryDumpCompleted,
 				},
-				"[{ \"op\": \"test\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Completed\"}}, { \"op\": \"replace\", \"path\": \"/status/memoryDumpRequest\", \"value\": {\"claimName\":\"vol1\",\"phase\":\"Dissociating\",\"remove\":true}}]",
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpCompleted},
+				&v1.VirtualMachineMemoryDumpRequest{ClaimName: "vol1", Phase: v1.MemoryDumpDissociating, Remove: true},
 				false, true),
 		)
 	})
@@ -1844,8 +1913,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, stopRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": null}, { "op": "add", "path": "/status/stateChangeRequests", "value": [{"action":"Stop","uid":"%s"}]}]`, uid)
-			Expect(res).To(Equal(ref))
+			patches := patch.New()
+			patches.TestAndAdd("/status/stateChangeRequests", nil,
+				[]v1.VirtualMachineStateChangeRequest{stopRequest})
+			ref, err := patches.GeneratePayload()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(res)).To(Equal(string(ref)))
 		})
 
 		It("should create a stop request if status doesn't exist", func() {
@@ -1859,8 +1933,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, stopRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Stop","uid":"%s"}]}}]`, uid)
-			Expect(res).To(Equal(ref))
+			patches := patch.New()
+			patches.Add("/status", v1.VirtualMachineStatus{
+				StateChangeRequests: []v1.VirtualMachineStateChangeRequest{stopRequest}})
+			ref, err := patches.GeneratePayload()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(res)).To(Equal(string(ref)))
 		})
 
 		It("should create a restart request if status exists", func() {
@@ -1878,8 +1957,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, stopRequest, startRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": null}, { "op": "add", "path": "/status/stateChangeRequests", "value": [{"action":"Stop","uid":"%s"},{"action":"Start"}]}]`, uid)
-			Expect(res).To(Equal(ref))
+			patches := patch.New()
+			patches.TestAndAdd("/status/stateChangeRequests", nil,
+				[]v1.VirtualMachineStateChangeRequest{stopRequest, startRequest})
+			ref, err := patches.GeneratePayload()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(res)).To(Equal(string(ref)))
 		})
 
 		It("should create a restart request if status doesn't exist", func() {
@@ -1896,8 +1980,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, stopRequest, startRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Stop","uid":"%s"},{"action":"Start"}]}}]`, uid)
-			Expect(res).To(Equal(ref))
+			patches := patch.New()
+			patches.Add("/status", v1.VirtualMachineStatus{
+				StateChangeRequests: []v1.VirtualMachineStateChangeRequest{stopRequest, startRequest}})
+			ref, err := patches.GeneratePayload()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(res)).To(Equal(string(ref)))
 		})
 
 		It("should create a start request if status exists", func() {
@@ -1911,8 +2000,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, startRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": null}, { "op": "add", "path": "/status/stateChangeRequests", "value": [{"action":"Start"}]}]`)
-			Expect(res).To(Equal(ref))
+			patches := patch.New()
+			patches.TestAndAdd("/status/stateChangeRequests", nil,
+				[]v1.VirtualMachineStateChangeRequest{startRequest})
+			ref, err := patches.GeneratePayload()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(res)).To(Equal(string(ref)))
 		})
 
 		It("should create a start request if status doesn't exist", func() {
@@ -1925,8 +2019,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, startRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Start"}]}}]`)
-			Expect(res).To(Equal(ref))
+			patches := patch.New()
+			patches.Add("/status", v1.VirtualMachineStatus{
+				StateChangeRequests: []v1.VirtualMachineStateChangeRequest{startRequest}})
+			ref, err := patches.GeneratePayload()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(res)).To(Equal(string(ref)))
 		})
 
 		It("should force a stop request to override", func() {
@@ -1944,8 +2043,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, stopRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": [{"action":"Start"}]}, { "op": "replace", "path": "/status/stateChangeRequests", "value": [{"action":"Stop","uid":"%s"}]}]`, uid)
-			Expect(res).To(Equal(ref))
+			patches := patch.New()
+			patches.TestAndReplace("/status/stateChangeRequests", []v1.VirtualMachineStateChangeRequest{startRequest},
+				[]v1.VirtualMachineStateChangeRequest{stopRequest})
+			ref, err := patches.GeneratePayload()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(res)).To(Equal(string(ref)))
 		})
 
 		It("should error on start request if other requests exist", func() {

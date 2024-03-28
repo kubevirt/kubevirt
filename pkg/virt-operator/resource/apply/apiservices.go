@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -13,6 +12,8 @@ import (
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
@@ -72,17 +73,15 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		return nil
 	}
 
-	spec, err := json.Marshal(apiService.Spec)
+	patches := patch.New()
+	addLabelsAndAnnotationsPatch(&apiService.ObjectMeta, patches)
+	patches.Replace("/spec", apiService.Spec)
+	ops, err := patches.GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &apiService.ObjectMeta, spec)
-	if err != nil {
-		return err
-	}
-
-	_, err = r.aggregatorclient.Patch(context.Background(), apiService.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	_, err = r.aggregatorclient.Patch(context.Background(), apiService.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)
 	}

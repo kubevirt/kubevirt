@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -18,6 +17,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -98,19 +98,16 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		return deployment, nil
 	}
 
-	newSpec, err := json.Marshal(deployment.Spec)
+	patches := patch.New()
+	patches.Test("/metadata/generation", cachedDeployment.ObjectMeta.Generation)
+	addLabelsAndAnnotationsPatch(&deployment.ObjectMeta, patches)
+	patches.Replace("/spec", deployment.Spec)
+	ops, err := patches.GeneratePayload()
 	if err != nil {
 		return nil, err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{
-		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDeployment.ObjectMeta.Generation),
-	}, &deployment.ObjectMeta, newSpec)
-	if err != nil {
-		return nil, err
-	}
-
-	deployment, err = apps.Deployments(kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	deployment, err = apps.Deployments(kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
 	}
@@ -128,18 +125,11 @@ func setMaxUnavailable(daemonSet *appsv1.DaemonSet, maxUnavailable intstr.IntOrS
 }
 
 func generateDaemonSetPatch(oldDs, newDs *appsv1.DaemonSet) ([]byte, error) {
-	newSpec, err := json.Marshal(newDs.Spec)
-	if err != nil {
-		return nil, err
-	}
-
-	ops, err := getPatchWithObjectMetaAndSpec([]string{
-		fmt.Sprintf(testGenerationJSONPatchTemplate, oldDs.ObjectMeta.Generation),
-	}, &newDs.ObjectMeta, newSpec)
-	if err != nil {
-		return nil, err
-	}
-	return generatePatchBytes(ops), nil
+	patches := patch.New()
+	patches.Test("/metadata/generation", oldDs.ObjectMeta.Generation)
+	addLabelsAndAnnotationsPatch(&newDs.ObjectMeta, patches)
+	patches.Replace("/spec", newDs.Spec)
+	return patches.GeneratePayload()
 }
 
 func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
@@ -378,18 +368,15 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		return nil
 	}
 
-	// Add Spec Patch
-	newSpec, err := json.Marshal(podDisruptionBudget.Spec)
+	patches := patch.New()
+	addLabelsAndAnnotationsPatch(&podDisruptionBudget.ObjectMeta, patches)
+	patches.Replace("/spec", podDisruptionBudget.Spec)
+	ops, err := patches.GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &podDisruptionBudget.ObjectMeta, newSpec)
-	if err != nil {
-		return err
-	}
-
-	podDisruptionBudget, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	podDisruptionBudget, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch/delete poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 	}

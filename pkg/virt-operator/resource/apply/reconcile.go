@@ -21,7 +21,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -46,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -56,13 +56,6 @@ import (
 
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
-
-const (
-	replaceSpecPatchTemplate     = `{ "op": "replace", "path": "/spec", "value": %s }`
-	replaceWebhooksValueTemplate = `{ "op": "replace", "path": "/webhooks", "value": %s }`
-
-	testGenerationJSONPatchTemplate = `{ "op": "test", "path": "/metadata/generation", "value": %d }`
-)
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
@@ -226,44 +219,10 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 	}
 }
 
-func generatePatchBytes(ops []string) []byte {
-	return controller.GeneratePatchBytes(ops)
-}
-
-func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) ([]string, error) {
-	var ops []string
-	labelBytes, err := json.Marshal(objectMeta.Labels)
-	if err != nil {
-		return ops, err
-	}
-	annotationBytes, err := json.Marshal(objectMeta.Annotations)
-	if err != nil {
-		return ops, err
-	}
-	ownerRefBytes, err := json.Marshal(objectMeta.OwnerReferences)
-	if err != nil {
-		return ops, err
-	}
-	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(labelBytes)))
-	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value": %s }`, string(annotationBytes)))
-	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/ownerReferences", "value": %s }`, ownerRefBytes))
-
-	return ops, nil
-}
-
-func getPatchWithObjectMetaAndSpec(ops []string, meta *metav1.ObjectMeta, spec []byte) ([]string, error) {
-	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(meta)
-	if err != nil {
-		return ops, err
-	}
-
-	ops = append(ops, labelAnnotationPatch...)
-
-	// and spec replacement to patch
-	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(spec)))
-
-	return ops, nil
+func addLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta, patches patch.PatchSet) {
+	patches.Add("/metadata/labels", objectMeta.Labels)
+	patches.Add("/metadata/annotations", objectMeta.Annotations)
+	patches.Add("/metadata/ownerReferences", objectMeta.OwnerReferences)
 }
 
 func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {

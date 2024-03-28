@@ -2,7 +2,6 @@ package hotplug
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/testsuite"
 
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -46,18 +46,30 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 	})
 
 	Context("Updating VMs node affinity", func() {
-		patchVMNodeSelector := func(newNodeSelectorMap map[string]string, op string, vmName string, vmNamespace string) {
-
-			newNodeSelectorJson, err := json.Marshal(newNodeSelectorMap)
+		patchValue := func(op, path string, obj interface{}) []byte {
+			patches := patch.New()
+			switch op {
+			case patch.PatchReplaceOp:
+				patches.Replace(path, obj)
+			case patch.PatchAddOp:
+				patches.Add(path, obj)
+			case patch.PatchTestOp:
+				patches.Test(path, obj)
+			case patch.PatchRemoveOp:
+				patches.Remove(path)
+			default:
+				ginkgo.Fail(fmt.Sprintf("Unrecognized patch operation: %s", op))
+			}
+			patch, err := patches.GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
-			value := ""
-			if op != patch.PatchRemoveOp {
-				value = fmt.Sprintf(`, "value":%s`, newNodeSelectorJson)
-			}
-			patchData1Str := fmt.Sprintf(`[ {"op":"%s","path":"/spec/template/spec/nodeSelector"%s} ]`, op, value)
-			patchData1 := []byte(patchData1Str)
-			_, err = virtClient.VirtualMachine(vmNamespace).Patch(context.Background(), vmName, types.JSONPatchType, patchData1, &k8smetav1.PatchOptions{})
+			By(fmt.Sprintf("Patch value: %s", string(patch)))
+
+			return patch
+		}
+		patchVMNodeSelector := func(newNodeSelectorMap map[string]string, op string, vmName string, vmNamespace string) {
+			patch := patchValue(op, "/spec/template/spec/nodeSelector", newNodeSelectorMap)
+			_, err := virtClient.VirtualMachine(vmNamespace).Patch(context.Background(), vmName, types.JSONPatchType, patch, &k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -87,16 +99,8 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 		}
 
 		patchVMAffinity := func(vmAffinity *k8sv1.Affinity, op string, vmName string, vmNamespace string) {
-			newAffinityJson, err := json.Marshal(vmAffinity)
-			Expect(err).ToNot(HaveOccurred())
-
-			value := ""
-			if op != patch.PatchRemoveOp {
-				value = fmt.Sprintf(`, "value":%s`, newAffinityJson)
-			}
-			patchData1Str := fmt.Sprintf(`[ {"op":"%s","path":"/spec/template/spec/affinity"%s} ]`, op, value)
-			patchData1 := []byte(patchData1Str)
-			_, err = virtClient.VirtualMachine(vmNamespace).Patch(context.Background(), vmName, types.JSONPatchType, patchData1, &k8smetav1.PatchOptions{})
+			patch := patchValue(op, "/spec/template/spec/affinity", vmAffinity)
+			_, err := virtClient.VirtualMachine(vmNamespace).Patch(context.Background(), vmName, types.JSONPatchType, patch, &k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 

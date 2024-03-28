@@ -247,8 +247,9 @@ var _ = Describe("Migration watcher", func() {
 		})
 	}
 
-	shouldExpectVirtualMachineInstancePatch := func(vmi *virtv1.VirtualMachineInstance, patch string) {
-		vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+	shouldExpectVirtualMachineInstancePatch := func(vmi *virtv1.VirtualMachineInstance, patch []byte) {
+		By(fmt.Sprintf("Apply patch on the VMI: %s", string(patch)))
+		vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{}).Return(vmi, nil)
 	}
 
 	shouldExpectMigrationCondition := func(migration *virtv1.VirtualMachineInstanceMigration, conditionType virtv1.VirtualMachineInstanceMigrationConditionType) {
@@ -312,6 +313,11 @@ var _ = Describe("Migration watcher", func() {
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
+	}
+
+	addLabelNodePatches := func(patches patch.PatchSet) {
+		patches.TestAndReplace("/metadata/labels", map[string]string{},
+			map[string]string{"kubevirt.io/migrationTargetNodeName": "node01"})
 	}
 
 	BeforeEach(func() {
@@ -406,7 +412,7 @@ var _ = Describe("Migration watcher", func() {
 		}
 	}
 
-	getMigrationConfigPatch := func(customConfigs ...*virtv1.MigrationConfiguration) string {
+	getMigrationConfig := func(customConfigs ...*virtv1.MigrationConfiguration) *virtv1.MigrationConfiguration {
 		Expect(customConfigs).To(Or(BeEmpty(), HaveLen(1)))
 
 		var migrationConfiguration *virtv1.MigrationConfiguration
@@ -415,13 +421,10 @@ var _ = Describe("Migration watcher", func() {
 			migrationConfiguration = customConfigs[0]
 		} else {
 			migrationConfiguration = controller.clusterConfig.GetMigrationConfiguration()
-			Expect(migrationConfiguration).ToNot(BeNil())
 		}
+		Expect(migrationConfiguration).ToNot(BeNil())
 
-		marshalledConfigs, err := json.Marshal(migrationConfiguration)
-		Expect(err).ToNot(HaveOccurred())
-
-		return fmt.Sprintf(`"migrationConfiguration":%s`, string(marshalledConfigs))
+		return migrationConfiguration
 	}
 
 	Context("Migration with hotplug volumes", func() {
@@ -475,7 +478,18 @@ var _ = Describe("Migration watcher", func() {
 			podFeeder.Add(targetPod)
 			podFeeder.Add(attachmentPod)
 
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","targetAttachmentPodUID":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, targetPod.Name, attachmentPod.UID, getMigrationConfigPatch())
+			patches := patch.New()
+			patches.Add("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode:             "node01",
+				TargetPod:              targetPod.Name,
+				TargetAttachmentPodUID: attachmentPod.UID,
+				SourceNode:             "node02",
+				MigrationUID:           types.UID("testmigration"),
+				MigrationConfiguration: getMigrationConfig(),
+			})
+			addLabelNodePatches(patches)
+			patch, err := patches.GeneratePayload()
+			Expect(err).ShouldNot(HaveOccurred())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
@@ -550,12 +564,21 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				podFeeder.Add(targetPod)
 
-				patchCPULimitsLabelValue := fmt.Sprintf(`"%s":"4"`, v1.VirtualMachinePodCPULimitsLabel)
-				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
-					`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
-					`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
-					`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
-					targetPod.Name, getMigrationConfigPatch(), patchCPULimitsLabelValue)
+				patches := patch.New()
+				patches.Add("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+					TargetNode:             "node01",
+					TargetPod:              targetPod.Name,
+					SourceNode:             "node02",
+					MigrationUID:           types.UID("testmigration"),
+					MigrationConfiguration: getMigrationConfig(),
+				})
+				patches.TestAndReplace("/metadata/labels", map[string]string{},
+					map[string]string{
+						"kubevirt.io/migrationTargetNodeName": "node01",
+						v1.VirtualMachinePodCPULimitsLabel:    "4",
+					})
+				patch, err := patches.GeneratePayload()
+				Expect(err).ShouldNot(HaveOccurred())
 
 				shouldExpectVirtualMachineInstancePatch(vmi, patch)
 				controller.Execute()
@@ -594,14 +617,24 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				podFeeder.Add(targetPod)
 
-				patchMemoryRequestLabelValue := fmt.Sprintf(`"%s":"150Mi"`, v1.VirtualMachinePodMemoryRequestsLabel)
-				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
-					`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
-					`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
-					`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
-					targetPod.Name, getMigrationConfigPatch(), patchMemoryRequestLabelValue)
+				patches := patch.New()
+				patches.Add("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+					TargetNode:             "node01",
+					TargetPod:              targetPod.Name,
+					SourceNode:             "node02",
+					MigrationUID:           types.UID("testmigration"),
+					MigrationConfiguration: getMigrationConfig(),
+				})
+				patches.TestAndReplace("/metadata/labels", map[string]string{},
+					map[string]string{
+						"kubevirt.io/migrationTargetNodeName":   "node01",
+						v1.VirtualMachinePodMemoryRequestsLabel: "150Mi",
+					})
+				patch, err := patches.GeneratePayload()
+				Expect(err).ShouldNot(HaveOccurred())
 
 				shouldExpectVirtualMachineInstancePatch(vmi, patch)
+
 				controller.Execute()
 				testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 			})
@@ -1140,7 +1173,17 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
+			patches := patch.New()
+			patches.Add("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode:             "node01",
+				TargetPod:              pod.Name,
+				SourceNode:             "node02",
+				MigrationUID:           types.UID("testmigration"),
+				MigrationConfiguration: getMigrationConfig(),
+			})
+			addLabelNodePatches(patches)
+			patch, err := patches.GeneratePayload()
+			Expect(err).ShouldNot(HaveOccurred())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
@@ -1196,7 +1239,18 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
+			patches := patch.New()
+			patches.Add("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode:             "node01",
+				TargetPod:              pod.Name,
+				SourceNode:             "node02",
+				MigrationUID:           types.UID("testmigration"),
+				MigrationConfiguration: getMigrationConfig(),
+			})
+			addLabelNodePatches(patches)
+			patch, err := patches.GeneratePayload()
+			Expect(err).ShouldNot(HaveOccurred())
+
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
@@ -1204,10 +1258,11 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		It("should hand pod over to target virt-handler overriding previous state", func() {
+			uid := "1111-2222-3333-4444"
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID: "1111-2222-3333-4444",
+				MigrationUID: types.UID(uid),
 			}
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
@@ -1220,7 +1275,21 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/migrationState", "value": {"migrationUid":"1111-2222-3333-4444"} }, { "op": "replace", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
+			patches := patch.New()
+			patches.TestAndReplace("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: types.UID(uid),
+			},
+				&virtv1.VirtualMachineInstanceMigrationState{
+					TargetNode:             "node01",
+					TargetPod:              pod.Name,
+					SourceNode:             "node02",
+					MigrationUID:           types.UID("testmigration"),
+					MigrationConfiguration: getMigrationConfig(),
+				})
+
+			addLabelNodePatches(patches)
+			patch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
@@ -1262,7 +1331,21 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/migrationState", "value": {"migrationUid":"%s"} }, { "op": "replace", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, oldMigrationUID, pod.Name, getMigrationConfigPatch())
+			patches := patch.New()
+			patches.TestAndReplace("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: types.UID(oldMigrationUID),
+			},
+				&virtv1.VirtualMachineInstanceMigrationState{
+					TargetNode:             "node01",
+					TargetPod:              pod.Name,
+					SourceNode:             "node02",
+					MigrationUID:           types.UID("testmigration"),
+					MigrationConfiguration: getMigrationConfig(),
+				})
+
+			addLabelNodePatches(patches)
+			patch, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
@@ -1498,7 +1581,6 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			if initializeMigrationState {
-				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
 
 				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).DoAndReturn(func(ctx context.Context, name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}, _ ...string) (*virtv1.VirtualMachineInstance, error) {
 
@@ -1515,8 +1597,26 @@ var _ = Describe("Migration watcher", func() {
 					Expect(newMS.StartTimestamp).ToNot(BeNil())
 					Expect(newMS.EndTimestamp).ToNot(BeNil())
 
-					expected := fmt.Sprintf(patch, newMS.StartTimestamp.UTC().Format(time.RFC3339), newMS.EndTimestamp.UTC().Format(time.RFC3339))
-					Expect(expected).To(Equal(string(vmiStatusPatch)))
+					patches := patch.New()
+					patches.TestAndReplace("/status/migrationState", &virtv1.VirtualMachineInstanceMigrationState{
+						TargetNode:   "node01",
+						SourceNode:   "node02",
+						MigrationUID: types.UID("testmigration"),
+					},
+						&virtv1.VirtualMachineInstanceMigrationState{
+							TargetNode:     "node01",
+							SourceNode:     "node02",
+							MigrationUID:   types.UID("testmigration"),
+							StartTimestamp: newMS.StartTimestamp,
+							EndTimestamp:   newMS.EndTimestamp,
+							Completed:      true,
+							Failed:         true,
+						})
+
+					patch, err := patches.GeneratePayload()
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(string(patch)).To(Equal(string(vmiStatusPatch)))
 
 					return vmi, nil
 				})
@@ -1665,24 +1765,27 @@ var _ = Describe("Migration watcher", func() {
 		var stubResourceQuantity resource.Quantity
 		var pod *k8sv1.Pod
 
-		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) string {
-			var migrationPolicyNamePatch string
-
-			if expectConfigUpdate {
-				migrationPolicyNamePatch = fmt.Sprintf(`,"migrationPolicyName":"%s"`, migrationPolicy.Name)
-			}
-
+		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) []byte {
 			policyKey := fmt.Sprintf("%s-key-0", migrationPolicy.Name)
 			policyVal := fmt.Sprintf("%s-value-0", migrationPolicy.Name)
-			patchKeyValue := fmt.Sprintf(`"%s":"%s"`, policyKey, policyVal)
-
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
-				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"tefwegwrerg","migrationUid":"testmigration"%s,%s} }, `+
-				`{ "op": "test", "path": "/metadata/labels", "value": {%s} }, `+
-				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
-				pod.Name, migrationPolicyNamePatch, getMigrationConfigPatch(expectedConfigs), patchKeyValue, patchKeyValue)
-
-			return patch
+			migState := virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode:             "node01",
+				TargetPod:              pod.Name,
+				SourceNode:             "tefwegwrerg",
+				MigrationUID:           types.UID("testmigration"),
+				MigrationConfiguration: getMigrationConfig(expectedConfigs),
+			}
+			if expectConfigUpdate {
+				migState.MigrationPolicyName = pointer.StringPtr(migrationPolicy.Name)
+			}
+			patches := patch.New()
+			patches.Add("/status/migrationState", migState)
+			patches.TestAndReplace("/metadata/labels", map[string]string{policyKey: policyVal},
+				map[string]string{
+					"kubevirt.io/migrationTargetNodeName": "node01", policyKey: policyVal})
+			p, err := patches.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			return p
 		}
 
 		BeforeEach(func() {

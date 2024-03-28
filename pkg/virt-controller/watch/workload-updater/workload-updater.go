@@ -16,12 +16,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
@@ -436,28 +436,20 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		l := len(data.allOutdatedVMIs)
 		kvCopy := kv.DeepCopy()
 		kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads = &l
-
-		oldJson, err := json.Marshal(kv.Status.OutdatedVirtualMachineInstanceWorkloads)
-		if err != nil {
-			return err
-		}
-
-		newJson, err := json.Marshal(kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads)
-		if err != nil {
-			return err
-		}
-
-		patch := ""
+		patches := patch.New()
 		if kv.Status.OutdatedVirtualMachineInstanceWorkloads == nil {
-			update := fmt.Sprintf(`{ "op": "add", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(newJson))
-			patch = fmt.Sprintf("[%s]", update)
+			patches.Add("/status/outdatedVirtualMachineInstanceWorkloads", kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads)
 		} else {
-			test := fmt.Sprintf(`{ "op": "test", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(oldJson))
-			update := fmt.Sprintf(`{ "op": "replace", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(newJson))
-			patch = fmt.Sprintf("[%s, %s]", test, update)
+			patches.TestAndReplace("/status/outdatedVirtualMachineInstanceWorkloads",
+				kv.Status.OutdatedVirtualMachineInstanceWorkloads,
+				kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads)
+		}
+		patch, err := patches.GeneratePayload()
+		if err != nil {
+			return err
 		}
 
-		err = c.statusUpdater.PatchStatus(kv, types.JSONPatchType, []byte(patch))
+		err = c.statusUpdater.PatchStatus(kv, types.JSONPatchType, patch)
 		if err != nil {
 			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVirtualMachineInstanceWorkloads valued: %v", err)
 		}

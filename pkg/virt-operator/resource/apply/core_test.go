@@ -397,22 +397,13 @@ var _ = Describe("Apply", func() {
 				ops, err := generateServicePatch(cachedService, targetService)
 				Expect(err).ToNot(HaveOccurred())
 
-				hasSubstring := func(ops []string, substring string) bool {
-					for _, op := range ops {
-						if strings.Contains(op, substring) {
-							return true
-						}
-					}
-					return false
-				}
-
 				if expectLabelsAnnotationsPatch {
-					Expect(hasSubstring(ops, "/metadata/labels")).To(BeTrue())
-					Expect(hasSubstring(ops, "/metadata/annotations")).To(BeTrue())
+					Expect(strings.Contains(string(ops), "/metadata/labels")).To(BeTrue())
+					Expect(strings.Contains(string(ops), "/metadata/annotations")).To(BeTrue())
 				}
 
 				if expectSpecPatch {
-					Expect(hasSubstring(ops, "/spec")).To(BeTrue())
+					Expect(strings.Contains(string(ops), "/spec")).To(BeTrue())
 				}
 
 				if !expectSpecPatch && !expectLabelsAnnotationsPatch {

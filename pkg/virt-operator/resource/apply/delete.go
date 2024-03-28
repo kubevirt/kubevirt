@@ -21,7 +21,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -42,6 +41,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -538,8 +538,7 @@ func crdHandleDeletion(kvkey string,
 
 	ext := clientset.ExtensionsClient()
 	objects := stores.CrdCache.List()
-
-	finalizerPath := "/metadata/finalizers"
+	patches := patch.New()
 
 	crds := []*extv1.CustomResourceDefinition{}
 	for _, obj := range objects {
@@ -558,12 +557,11 @@ func crdHandleDeletion(kvkey string,
 	for _, crd := range needFinalizerAdded {
 		crdCopy := crd.DeepCopy()
 		controller.AddFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
-
-		patchBytes, err := json.Marshal(crdCopy.Finalizers)
+		patches.Add(finalizerPath, crdCopy.Finalizers)
+		ops, err := patches.GeneratePayload()
 		if err != nil {
 			return err
 		}
-		ops := fmt.Sprintf(`[{ "op": "add", "path": "%s", "value": %s }]`, finalizerPath, string(patchBytes))
 		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
 		if err != nil {
 			return err
@@ -586,31 +584,22 @@ func crdHandleDeletion(kvkey string,
 	}
 
 	for _, crd := range needFinalizerRemoved {
-		var ops string
+		var ops []byte
+		var err error
 		if len(crd.Finalizers) > 1 {
 			crdCopy := crd.DeepCopy()
 			controller.RemoveFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
-
-			newPatchBytes, err := json.Marshal(crdCopy.Finalizers)
-			if err != nil {
-				return err
-			}
-
-			oldPatchBytes, err := json.Marshal(crd.Finalizers)
-			if err != nil {
-				return err
-			}
-
-			ops = fmt.Sprintf(`[{ "op": "test", "path": "%s", "value": %s }, { "op": "replace", "path": "%s", "value": %s }]`,
-				finalizerPath,
-				string(oldPatchBytes),
-				finalizerPath,
-				string(newPatchBytes))
+			ops, err = patch.TestAndReplaceFinalizers(crd.Finalizers, crdCopy.Finalizers)
 		} else {
-			ops = fmt.Sprintf(`[{ "op": "remove", "path": "%s" }]`, finalizerPath)
+			patches = patch.New()
+			patches.Remove(finalizerPath)
+			ops, err = patches.GeneratePayload()
+		}
+		if err != nil {
+			return err
 		}
 
-		_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
+		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, ops, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}

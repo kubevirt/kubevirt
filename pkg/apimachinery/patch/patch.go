@@ -21,7 +21,6 @@ package patch
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 )
 
@@ -38,9 +37,79 @@ const (
 	PatchRemoveOp  = "remove"
 )
 
+type PatchSet interface {
+	Test(path string, value interface{})
+	Add(path string, value interface{})
+	Remove(path string)
+	Replace(path string, value interface{})
+	TestAndReplace(path string, oldVal, newVal interface{})
+	AddOrReplace(path string, value interface{}, condition bool)
+	TestAndAdd(path string, oldVal, newVal interface{})
+	IsEmpty() bool
+	GeneratePayload() ([]byte, error)
+}
+
+type patchSet struct {
+	patches []PatchOperation
+}
+
+func New() PatchSet {
+	return &patchSet{}
+}
+
+func (p *patchSet) IsEmpty() bool {
+	return len(p.patches) < 1
+}
+
+func (p *patchSet) addOp(op, path string, value interface{}) {
+	p.patches = append(p.patches, PatchOperation{
+		Op:    op,
+		Path:  path,
+		Value: value,
+	})
+}
+
+func (p *patchSet) Test(path string, value interface{}) {
+	p.addOp(PatchTestOp, path, value)
+}
+
+func (p *patchSet) Add(path string, value interface{}) {
+	p.addOp(PatchAddOp, path, value)
+}
+
+func (p *patchSet) Remove(path string) {
+	p.addOp(PatchRemoveOp, path, nil)
+}
+
+func (p *patchSet) Replace(path string, value interface{}) {
+	p.addOp(PatchReplaceOp, path, value)
+}
+
+func (p *patchSet) TestAndReplace(path string, oldVal, newVal interface{}) {
+	p.Test(path, oldVal)
+	p.Replace(path, newVal)
+}
+
+func (p *patchSet) AddOrReplace(path string, value interface{}, condition bool) {
+	if condition {
+		p.Add(path, value)
+	} else {
+		p.Replace(path, value)
+	}
+}
+
+func (p *patchSet) TestAndAdd(path string, oldVal, newVal interface{}) {
+	p.Test(path, oldVal)
+	p.Add(path, newVal)
+}
+
+func (p *patchSet) GeneratePayload() ([]byte, error) {
+	return GeneratePatchPayload(p.patches...)
+}
+
 func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
 	if len(patches) == 0 {
-		return nil, fmt.Errorf("list of patches is empty")
+		return nil, nil
 	}
 
 	payloadBytes, err := json.Marshal(patches)
@@ -76,4 +145,32 @@ func UnmarshalPatch(patch []byte) ([]PatchOperation, error) {
 func EscapeJSONPointer(ptr string) string {
 	s := strings.ReplaceAll(ptr, "~", "~0")
 	return strings.ReplaceAll(s, "/", "~1")
+}
+
+func TestAndReplaceAnnotations(initialAnnotations, desiredAnnotations map[string]string) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/metadata/annotations", initialAnnotations, desiredAnnotations)
+
+	return patches.GeneratePayload()
+}
+
+func TestAndReplaceLabels(initialLabels, desiredLabels map[string]string) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/metadata/labels", initialLabels, desiredLabels)
+
+	return patches.GeneratePayload()
+}
+
+func TestAndReplaceFinalizers(oldFinalizers, newFinalizers []string) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/metadata/finalizers", oldFinalizers, newFinalizers)
+
+	return patches.GeneratePayload()
+}
+
+func TestAndReplaceConditions(oldConditions, newConditions interface{}) ([]byte, error) {
+	patches := New()
+	patches.TestAndReplace("/status/conditions", oldConditions, newConditions)
+
+	return patches.GeneratePayload()
 }
