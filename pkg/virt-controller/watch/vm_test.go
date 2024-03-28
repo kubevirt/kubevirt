@@ -5100,67 +5100,6 @@ var _ = Describe("VirtualMachine", func() {
 					vmi := controller.setupVMIFromVM(vm)
 					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromSpec))
 				})
-
-				It("should use maximum sockets configured in cluster config when its not set in VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{
-									MaxCpuSockets: kvpointer.P(maxSocketsFromConfig),
-								},
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(maxSocketsFromConfig))
-				})
-
-				It("should calculate max sockets to be 4x times the configured sockets when no max sockets defined", func() {
-					const cpuSockets uint32 = 4
-					vm, _ := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
-						Sockets: cpuSockets,
-					}
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(cpuSockets * 4))
-				})
-
-				It("should calculate max sockets to be 4x times the default sockets when default CPU topology used", func() {
-					const defaultSockets uint32 = 1
-					vm, _ := DefaultVirtualMachine(true)
-
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(defaultSockets * 4))
-				})
 			})
 
 			Context("Memory", func() {
@@ -5199,47 +5138,6 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmi := controller.setupVMIFromVM(vm)
 					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromSpec))
-				})
-
-				It("should use maxGuest configured in cluster config when its not set in VM spec", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("64Mi")
-					vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{Guest: &guestMemory}
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								LiveUpdateConfiguration: &virtv1.LiveUpdateConfiguration{
-									MaxGuest: &maxGuestFromConfig,
-								},
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(*vmi.Spec.Domain.Memory.MaxGuest).To(Equal(maxGuestFromConfig))
-				})
-
-				It("should calculate maxGuest to be `MaxHotplugRatio` times the configured guest memory when no maxGuest is defined", func() {
-					vm, _ := DefaultVirtualMachine(true)
-					guestMemory := resource.MustParse("64Mi")
-					vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{Guest: &guestMemory}
-					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-								},
-							},
-						},
-					})
-
-					vmi := controller.setupVMIFromVM(vm)
-					Expect(vmi.Spec.Domain.Memory.MaxGuest.Value()).To(Equal(guestMemory.Value() * int64(config.GetMaxHotplugRatio())))
 				})
 
 				DescribeTable("should patch VMI when memory hotplug is requested", func(resources virtv1.ResourceRequirements) {
@@ -5467,61 +5365,123 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 			})
-		})
 
-		Context("CPU topology", func() {
-			When("isn't set in VMI template", func() {
-				It("Set default CPU topology in VMI status", func() {
-					vm, vmi := DefaultVirtualMachine(true)
-					addVirtualMachine(vm)
+			Context("Instance Types and Preferences", func() {
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
-						Expect(arg.(*virtv1.VirtualMachineInstance).Status.CurrentCPUTopology).To(Not(BeNil()))
-					}).Return(vmi, nil)
+				const resourceUID types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
+				const resourceGeneration int64 = 1
 
-					// expect update status is called
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-						Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
-						Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
-					}).Return(nil, nil)
+				var (
+					originalVM *virtv1.VirtualMachine
+					updatedVM  *virtv1.VirtualMachine
 
-					sanityExecute(vm)
+					controllerrevisionInformerStore cache.Store
 
-					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-				})
-			})
-			When("set in VMI template", func() {
-				It("copy CPU topology to VMI status", func() {
-					const (
-						numOfSockets uint32 = 8
-						numOfCores   uint32 = 8
-						numOfThreads uint32 = 8
-					)
-					vm, vmi := DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-						Sockets: numOfSockets,
-						Cores:   numOfCores,
-						Threads: numOfThreads,
+					originalInstancetype *instancetypev1beta1.VirtualMachineInstancetype
+				)
+
+				BeforeEach(func() {
+					originalVM, _ = DefaultVirtualMachine(true)
+					originalVM.Spec.Template.Spec.Domain = v1.DomainSpec{}
+
+					controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+					controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
+
+					originalInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachineInstancetype",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       "instancetype",
+							Namespace:  originalVM.Namespace,
+							UID:        resourceUID,
+							Generation: resourceGeneration,
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(2),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128M"),
+							},
+						},
 					}
-					addVirtualMachine(vm)
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
-						currentCPUTopology := arg.(*virtv1.VirtualMachineInstance).Status.CurrentCPUTopology
-						Expect(currentCPUTopology).To(Not(BeNil()))
-						Expect(currentCPUTopology.Sockets).To(Equal(numOfSockets))
-						Expect(currentCPUTopology.Cores).To(Equal(numOfCores))
-						Expect(currentCPUTopology.Threads).To(Equal(numOfThreads))
-					}).Return(vmi, nil)
+					revision, err := instancetype.CreateControllerRevision(originalVM, originalInstancetype)
+					Expect(err).ToNot(HaveOccurred())
 
-					// expect update status is called
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-						Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
-						Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
-					}).Return(nil, nil)
+					err = controllerrevisionInformerStore.Add(revision)
+					Expect(err).NotTo(HaveOccurred())
 
-					sanityExecute(vm)
+					originalVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+						Name:         originalInstancetype.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: revision.Name,
+					}
 
-					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
+						ControllerRevisionStore: controllerrevisionInformerStore,
+						Clientset:               virtClient,
+					}
+
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								},
+							},
+						},
+					})
+				})
+				It("should not add addRestartRequiredIfNeeded to VM if live-updatable", func() {
+					updatedInstancetype := originalInstancetype.DeepCopy()
+					updatedInstancetype.Generation = originalInstancetype.Generation + 1
+					updatedInstancetype.Spec.CPU.Guest = uint32(2)
+					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
+
+					updatedRevision, err := instancetype.CreateControllerRevision(originalVM, originalInstancetype)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(controllerrevisionInformerStore.Add(updatedRevision)).To(Succeed())
+
+					updatedVM = originalVM.DeepCopy()
+					updatedVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+						Name:         updatedInstancetype.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: updatedRevision.Name,
+					}
+
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeFalse())
+					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
+					Expect(vmConditionController.HasCondition(updatedVM, virtv1.VirtualMachineRestartRequired)).To(BeFalse())
+				})
+				It("should add addRestartRequiredIfNeeded to VM if not live-updatable", func() {
+					updatedInstancetype := originalInstancetype.DeepCopy()
+					updatedInstancetype.Generation = originalInstancetype.Generation + 1
+					updatedInstancetype.Spec.CPU.Guest = uint32(2)
+					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
+
+					// Enabling DedicatedCPUPlacement is not a supported live updatable attribute and should require a reboot
+					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.Bool(true)
+
+					updatedRevision, err := instancetype.CreateControllerRevision(originalVM, updatedInstancetype)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(controllerrevisionInformerStore.Add(updatedRevision)).To(Succeed())
+
+					updatedVM = originalVM.DeepCopy()
+					updatedVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+						Name:         updatedInstancetype.Name,
+						Kind:         instancetypeapi.SingularResourceName,
+						RevisionName: updatedRevision.Name,
+					}
+
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeTrue())
+					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
+					Expect(vmConditionController.HasCondition(updatedVM, virtv1.VirtualMachineRestartRequired)).To(BeTrue())
 				})
 			})
 		})
@@ -5561,10 +5521,6 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) (interface{}, error) {
 					return arg, nil
 				}).AnyTimes()
-			}
-
-			expectVMIPatch := func() {
-				vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(vmi, nil).AnyTimes()
 			}
 
 			expectControllerRevisionList := func() {
@@ -5607,17 +5563,6 @@ var _ = Describe("VirtualMachine", func() {
 
 					return true, created.GetObject(), nil
 				})
-			}
-
-			crFor := func(uid string) string {
-				crListLock.Lock()
-				defer crListLock.Unlock()
-				for _, cr := range crList.Items {
-					if strings.Contains(cr.Name, uid) {
-						return cr.Name
-					}
-				}
-				return ""
 			}
 
 			BeforeEach(func() {
@@ -5683,131 +5628,6 @@ var _ = Describe("VirtualMachine", func() {
 				syncCaches()
 				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
 			})
-
-			It("should appear when VM doesn't specify maxSockets and sockets go above cluster-wide maxSockets", func() {
-				var maxSockets uint32 = 8
-
-				By("Setting a cluster-wide CPU maxSockets value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = kvpointer.P(maxSockets)
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-
-				By("Creating a VM with CPU sockets set to the cluster maxiumum")
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = 8
-				addVirtualMachine(vm)
-
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
-				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
-				sanityExecute(vm)
-				syncCaches()
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-
-				By("Bumping the VM sockets above the cluster maximum")
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
-
-				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
-				sanityExecute(vm)
-				syncCaches()
-				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
-			})
-
-			It("should appear when VM doesn't specify maxGuest and guest memory goes above cluster-wide maxGuest", func() {
-				var maxGuest = resource.MustParse("256Mi")
-
-				By("Setting a cluster-wide CPU maxGuest value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxGuest = &maxGuest
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-
-				By("Creating a VM with guest memory set to the cluster maximum")
-				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
-				addVirtualMachine(vm)
-
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
-				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
-				sanityExecute(vm)
-				syncCaches()
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
-				markAsReady(vmi)
-				vmi.Status.Memory = &virtv1.MemoryStatus{
-					GuestAtBoot:  &maxGuest,
-					GuestCurrent: &maxGuest,
-				}
-				vmiFeeder.Add(vmi)
-
-				By("Bumping the VM guest memory above the cluster maximum")
-				bigGuest := resource.MustParse("257Mi")
-				vm.Spec.Template.Spec.Domain.Memory.Guest = &bigGuest
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
-
-				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
-				sanityExecute(vm)
-				syncCaches()
-				Eventually(restartRequired, 10*time.Second).Should(BeTrue(), "restart required")
-			})
-
-			DescribeTable("when changing a live-updatable field", func(fgs []string, strat *virtv1.VMRolloutStrategy, expectCond bool) {
-				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
-				kv.Spec.Configuration.VMRolloutStrategy = strat
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
-
-				By("Creating a VM with CPU sockets set to the cluster maximum")
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
-				addVirtualMachine(vm)
-
-				By("Executing the controller expecting a VMI to get created and no RestartRequired condition")
-				vmi = controller.setupVMIFromVM(vm)
-				expectVMICreation()
-				expectVMStatusUpdate()
-				expectControllerRevisionList()
-				expectControllerRevisionCreation()
-				sanityExecute(vm)
-				syncCaches()
-				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
-				Consistently(restartRequired, 1*time.Second).Should(BeFalse(), "restart required")
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-
-				By("Bumping the VM sockets to a reasonable value")
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = 4
-				vm.Generation = 2
-				modifyVirtualMachine(vm)
-
-				By("Executing the controller again expecting the RestartRequired condition to appear")
-				expectVMUpdate()
-				expectControllerRevisionDelete()
-				if !expectCond {
-					expectVMIPatch()
-				}
-				sanityExecute(vm)
-				syncCaches()
-				Expect(crFor(string(vm.ObjectMeta.UID))).To(ContainSubstring(fmt.Sprintf("%s-%d", vm.ObjectMeta.UID, 1)))
-				Eventually(restartRequired, 10*time.Second).Should(Equal(expectCond), "restart required")
-			},
-				Entry("should appear if the feature gate is not set",
-					[]string{}, &liveUpdate, true),
-				Entry("should appear if the VM rollout strategy is not set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, nil, true),
-				Entry("should appear if the VM rollout strategy is set to Stage",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &stage, true),
-				Entry("should not appear if both the VM rollout strategy and feature gate are set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &liveUpdate, false),
-			)
 		})
 	})
 	Context("syncConditions", func() {
