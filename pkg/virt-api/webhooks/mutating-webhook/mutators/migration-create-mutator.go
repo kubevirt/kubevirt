@@ -60,11 +60,6 @@ func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *
 	patchBytes, err := patch.GeneratePatchPayload(
 		patch.PatchOperation{
 			Op:    patch.PatchReplaceOp,
-			Path:  "/spec",
-			Value: migration.Spec,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
 			Path:  "/metadata",
 			Value: migration.ObjectMeta,
 		},
