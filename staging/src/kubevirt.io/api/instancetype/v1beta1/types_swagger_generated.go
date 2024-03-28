@@ -151,6 +151,7 @@ func (DevicePreferences) SwaggerDoc() map[string]string {
 		"preferredNetworkInterfaceMultiQueue": "PreferredNetworkInterfaceMultiQueue optionally enables the vhost multiqueue feature for virtio interfaces.\n\n+optional",
 		"preferredTPM":                        "PreferredTPM optionally defines the preferred TPM device to be used.\n\n+optional",
 		"preferredInterfaceMasquerade":        "PreferredInterfaceMasquerade optionally defines the preferred masquerade configuration to use with each network interface.\n\n+optional",
+		"preferredInterfaceSRIOV":             "PreferredInterfaceSRIOV optionally defines the preferred SRIOV configuration to use with each network interface.\n\n+optional",
 	}
 }
 

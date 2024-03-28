@@ -213,6 +213,11 @@ func (in *DevicePreferences) DeepCopyInto(out *DevicePreferences) {
 		*out = new(v1.InterfaceMasquerade)
 		**out = **in
 	}
+	if in.PreferredInterfaceSRIOV != nil {
+		in, out := &in.PreferredInterfaceSRIOV, &out.PreferredInterfaceSRIOV
+		*out = new(v1.InterfaceSRIOV)
+		**out = **in
+	}
 	return
 }
 
