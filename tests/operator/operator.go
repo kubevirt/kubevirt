@@ -716,7 +716,12 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					"password": "community",
 				}
 
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
+				_, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), &k8sv1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: configMapName},
+					Data:       config_data,
+				}, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

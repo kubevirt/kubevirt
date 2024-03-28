@@ -317,7 +317,12 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
-		tests.CreateConfigMap("sysprepautounattend", windowsVMI.Namespace, map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
+		_, err := kubevirt.Client().CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), &k8sv1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "sysprepautounattend"},
+			Data:       map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey},
+		}, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
 		addExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
