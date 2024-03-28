@@ -4,48 +4,44 @@
 package ephemeraldiskutils
 
 import (
-	gomock "github.com/golang/mock/gomock"
-
-	safepath "kubevirt.io/kubevirt/pkg/safepath"
+    "testing"
 )
 
-// Mock of OwnershipManagerInterface interface
-type MockOwnershipManagerInterface struct {
-	ctrl     *gomock.Controller
-	recorder *_MockOwnershipManagerInterfaceRecorder
+// CGroupManager manages cgroup rules.
+type CGroupManager interface {
+    SetRule(rule string) error
 }
 
-// Recorder for MockOwnershipManagerInterface (not exported)
-type _MockOwnershipManagerInterfaceRecorder struct {
-	mock *MockOwnershipManagerInterface
+// MockCGroupManager is a mock of CGroupManager interface for testing purposes.
+type MockCGroupManager struct {
+    // Record whether SetRule was called
+    RuleSet bool
+    // Store the rule that was set for further inspection
+    LastRuleSet string
 }
 
-func NewMockOwnershipManagerInterface(ctrl *gomock.Controller) *MockOwnershipManagerInterface {
-	mock := &MockOwnershipManagerInterface{ctrl: ctrl}
-	mock.recorder = &_MockOwnershipManagerInterfaceRecorder{mock}
-	return mock
+// NewMockCGroupManager creates a new instance of MockCGroupManager.
+func NewMockCGroupManager() *MockCGroupManager {
+    return &MockCGroupManager{}
 }
 
-func (_m *MockOwnershipManagerInterface) EXPECT() *_MockOwnershipManagerInterfaceRecorder {
-	return _m.recorder
+// SetRule simulates setting a cgroup rule and records the action.
+func (m *MockCGroupManager) SetRule(rule string) error {
+    m.RuleSet = true
+    m.LastRuleSet = rule
+    return nil
 }
 
-func (_m *MockOwnershipManagerInterface) UnsafeSetFileOwnership(file string) error {
-	ret := _m.ctrl.Call(_m, "UnsafeSetFileOwnership", file)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
+// TestSomeFunction is an example test function that uses MockCGroupManager.
+func TestSomeFunction(t *testing.T) {
+    mockManager := NewMockCGroupManager()
 
-func (_mr *_MockOwnershipManagerInterfaceRecorder) UnsafeSetFileOwnership(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnsafeSetFileOwnership", arg0)
-}
+    if !mockManager.RuleSet {
+        t.Errorf("Expected SetRule to be called, but it wasn't")
+    }
 
-func (_m *MockOwnershipManagerInterface) SetFileOwnership(file *safepath.Path) error {
-	ret := _m.ctrl.Call(_m, "SetFileOwnership", file)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockOwnershipManagerInterfaceRecorder) SetFileOwnership(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetFileOwnership", arg0)
+    expectedRule := "your_expected_rule"
+    if mockManager.LastRuleSet != expectedRule {
+        t.Errorf("Expected rule %q, got %q", expectedRule, mockManager.LastRuleSet)
+    }
 }
