@@ -1,4 +1,4 @@
-package prometheus
+package collector
 
 import (
 	"testing"
