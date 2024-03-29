@@ -20,11 +20,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	io_prometheus_client "github.com/prometheus/client_model/go"
+
+	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	io_prometheus_client "github.com/prometheus/client_model/go"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -112,8 +113,8 @@ var _ = Describe("Workload Updater", func() {
 		kubeVirtInformer, kubeVirtSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
 		controller, _ = NewWorkloadUpdateController(expectedImage, vmiInformer, podInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
-		mockQueue = testutils.NewMockWorkQueue(controller.queue)
-		controller.queue = mockQueue
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue())
+		controller.SetQueue(mockQueue)
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 
 		// Set up mock client
@@ -448,7 +449,7 @@ var _ = Describe("Workload Updater", func() {
 				Type:   v1.VirtualMachineInstanceMemoryChange,
 				Status: k8sv1.ConditionTrue,
 			}
-			virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &condition)
+			kvcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &condition)
 
 			Expect(controller.doesRequireMigration(vmi)).To(BeTrue())
 		})
@@ -464,7 +465,7 @@ var _ = Describe("Workload Updater", func() {
 
 func waitForNumberOfInstancesOnVMIInformerCache(wu *WorkloadUpdateController, vmisNo int) {
 	EventuallyWithOffset(1, func() []interface{} {
-		return wu.vmiInformer.GetStore().List()
+		return wu.Informer(virtcontroller.KeyVMI).GetStore().List()
 	}, 3*time.Second, 200*time.Millisecond).Should(HaveLen(vmisNo))
 }
 

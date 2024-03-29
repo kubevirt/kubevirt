@@ -174,7 +174,7 @@ type VirtControllerApp struct {
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
 
-	workloadUpdateController *workloadupdater.WorkloadUpdateController
+	workloadUpdateController virtcontroller.ControllerInterface
 
 	caExportConfigMapInformer    cache.SharedIndexInformer
 	exportRouteConfigMapInformer cache.SharedInformer
@@ -567,7 +567,15 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the export controller: %v", err)
 			}
 		}()
-		go vca.workloadUpdateController.Run(stop)
+		go func() {
+			// This is hardcoded because there's no reason to make thread count
+			// configurable. The queue keys off the KubeVirt install object, and
+			// there can only be a single one of these in a cluster at a time.
+			threadiness := 1
+			if err := vca.workloadUpdateController.Run(threadiness, stop); err != nil {
+				log.Log.Warningf("error running the workloadUpdate controller: %v", err)
+			}
+		}()
 		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
 		go func() {
 			if err := vca.vmCloneController.Run(vca.cloneControllerThreads, stop); err != nil {

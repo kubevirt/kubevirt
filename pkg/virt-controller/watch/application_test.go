@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 )
 
 func newValidGetRequest() *http.Request {
@@ -122,6 +123,7 @@ var _ = Describe("Application", func() {
 
 		app.vmiInformer = vmiInformer
 		app.nodeTopologyUpdater = topologyUpdater
+		app.workloadUpdateController, _ = workloadupdater.NewWorkloadUpdateController("a", vmiInformer, podInformer, migrationInformer, kvInformer, recorder, virtClient, config)
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
