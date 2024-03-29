@@ -37,6 +37,7 @@ import (
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -160,7 +161,7 @@ type VirtControllerApp struct {
 	poolController *PoolController
 	poolInformer   cache.SharedIndexInformer
 
-	vmController *VMController
+	vmController virtcontroller.ControllerInterface
 	vmInformer   cache.SharedIndexInformer
 
 	controllerRevisionInformer cache.SharedIndexInformer
@@ -545,7 +546,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
-		go vca.vmController.Run(vca.vmControllerThreads, stop)
+		go func() {
+			if err := vca.vmController.Run(vca.vmControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the vm controller: %v", err)
+			}
+		}()
 		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 		go func() {
 			if err := vca.snapshotController.Run(vca.snapshotControllerThreads, stop); err != nil {

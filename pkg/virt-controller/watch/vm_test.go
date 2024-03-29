@@ -166,8 +166,8 @@ var _ = Describe("VirtualMachine", func() {
 				config)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-			controller.Queue = mockQueue
+			mockQueue = testutils.NewMockWorkQueue(controller.Queue())
+			controller.SetQueue(mockQueue)
 
 			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 			dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)

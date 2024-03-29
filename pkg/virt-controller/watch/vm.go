@@ -70,6 +70,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 )
 
 const (
@@ -131,20 +132,24 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig) (*VMController, error) {
+	ctrl := virtcontroller.NewController(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
+		clientset,
+	)
+	ctrl.SetIndexer(virtcontroller.KeyVMI, vmiInformer.GetIndexer())
+	ctrl.SetIndexer(virtcontroller.KeyVM, vmInformer.GetIndexer())
+	ctrl.SetIndexer(virtcontroller.KeyCR, crInformer.GetIndexer())
+	ctrl.SetIndexer(virtcontroller.KeyPod, podInformer.GetIndexer())
+
+	ctrl.SetStore(virtcontroller.KeyDV, dataVolumeInformer.GetStore())
+	ctrl.SetStore(virtcontroller.KeyDS, dataSourceInformer.GetStore())
+	ctrl.SetStore(virtcontroller.KeyNS, namespaceStore)
+	ctrl.SetStore(virtcontroller.KeyPVC, pvcInformer.GetStore())
 
 	c := &VMController{
-		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
-		vmiIndexer:             vmiInformer.GetIndexer(),
-		vmIndexer:              vmInformer.GetIndexer(),
-		dataVolumeStore:        dataVolumeInformer.GetStore(),
-		dataSourceStore:        dataSourceInformer.GetStore(),
-		namespaceStore:         namespaceStore,
-		pvcStore:               pvcInformer.GetStore(),
-		crIndexer:              crInformer.GetIndexer(),
-		podIndexer:             podInformer.GetIndexer(),
+		Controller:             *ctrl,
 		instancetypeMethods:    instancetypeMethods,
 		recorder:               recorder,
-		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
@@ -227,16 +232,7 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 }
 
 type VMController struct {
-	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.RateLimitingInterface
-	vmiIndexer             cache.Indexer
-	vmIndexer              cache.Indexer
-	dataVolumeStore        cache.Store
-	dataSourceStore        cache.Store
-	namespaceStore         cache.Store
-	pvcStore               cache.Store
-	crIndexer              cache.Indexer
-	podIndexer             cache.Indexer
+	virtcontroller.Controller
 	instancetypeMethods    instancetype.Methods
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
@@ -247,13 +243,15 @@ type VMController struct {
 	hasSynced              func() bool
 }
 
-func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
+func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer controller.HandlePanic()
-	defer c.Queue.ShutDown()
+	defer c.Queue().ShutDown()
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.hasSynced)
+	if !c.WaitForCacheSync(stopCh) {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -262,6 +260,7 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 
 	<-stopCh
 	log.Log.Info("Stopping VirtualMachine controller.")
+	return nil
 }
 
 func (c *VMController) runWorker() {
@@ -276,7 +275,7 @@ func (c *VMController) needsSync(key string) bool {
 var virtControllerVMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
 func (c *VMController) Execute() bool {
-	key, quit := c.Queue.Get()
+	key, quit := c.Queue().Get()
 	if quit {
 		return false
 	}
@@ -284,19 +283,19 @@ func (c *VMController) Execute() bool {
 	virtControllerVMWorkQueueTracer.StartTrace(key.(string), "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
 	defer virtControllerVMWorkQueueTracer.StopTrace(key.(string))
 
-	defer c.Queue.Done(key)
+	defer c.Queue().Done(key)
 	if err := c.execute(key.(string)); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachine %v", key)
-		c.Queue.AddRateLimited(key)
+		c.Queue().AddRateLimited(key)
 	} else {
 		log.Log.V(4).Infof("processed VirtualMachine %v", key)
-		c.Queue.Forget(key)
+		c.Queue().Forget(key)
 	}
 	return true
 }
 
 func (c *VMController) execute(key string) error {
-	obj, exists, err := c.vmIndexer.GetByKey(key)
+	obj, exists, err := c.Indexer(virtcontroller.KeyVM).GetByKey(key)
 	if err != nil {
 		return nil
 	}
@@ -316,7 +315,7 @@ func (c *VMController) execute(key string) error {
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
 		controller.SetLatestApiVersionAnnotation(vm)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
+		_, err = c.Clientset().VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
@@ -333,7 +332,7 @@ func (c *VMController) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, &v1.GetOptions{})
+		fresh, err := c.Clientset().VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, &v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -344,11 +343,11 @@ func (c *VMController) execute(key string) error {
 	})
 	cm := controller.NewVirtualMachineControllerRefManager(
 		controller.RealVirtualMachineControl{
-			Clientset: c.clientset,
+			Clientset: c.Clientset(),
 		}, vm, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vmi *virtv1.VirtualMachineInstance
-	vmiObj, exist, err := c.vmiIndexer.GetByKey(vmKey)
+	vmiObj, exist, err := c.Indexer(virtcontroller.KeyVMI).GetByKey(vmKey)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch vmi for namespace from cache.")
 		return err
@@ -365,7 +364,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	dataVolumes, err := storagetypes.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.dataVolumeStore)
+	dataVolumes, err := storagetypes.ListDataVolumesFromTemplates(vm.Namespace, vm.Spec.DataVolumeTemplates, c.Store(virtcontroller.KeyDV))
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
@@ -412,7 +411,7 @@ func (c *VMController) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv
 	// For this reason, we check if the source PVC exists and, if not, we trigger an event to let users know of this behavior.
 	if dv.Spec.Source.PVC != nil {
 		// TODO: a lot of CDI knowledge, maybe an API to check if source exists?
-		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcStore)
+		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.Store(virtcontroller.KeyPVC))
 		if err != nil {
 			return err
 		}
@@ -437,7 +436,7 @@ func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume
 		}
 	}
 
-	proxy := &authProxy{client: c.clientset, dataSourceStore: c.dataSourceStore, namespaceStore: c.namespaceStore}
+	proxy := &authProxy{client: c.Clientset(), dataSourceStore: c.Store(virtcontroller.KeyDS), namespaceStore: c.Store(virtcontroller.KeyNS)}
 	allowed, reason, err := c.cloneAuthFunc(dataVolume, vm.Namespace, dataVolume.Name, proxy, vm.Namespace, serviceAccountName)
 	if err != nil && err != cdiv1.ErrNoTokenOkay {
 		return err
@@ -467,7 +466,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		}
 		if !exists {
 			// Don't create DV if PVC already exists
-			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.pvcStore)
+			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, template.Name, c.Store(virtcontroller.KeyPVC))
 			if err != nil {
 				return false, err
 			}
@@ -481,7 +480,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
-			newDataVolume, err := watchutil.CreateDataVolumeManifest(c.clientset, template, vm)
+			newDataVolume, err := watchutil.CreateDataVolumeManifest(c.Clientset(), template, vm)
 			if err != nil {
 				return ready, fmt.Errorf("unable to create DataVolume manifest: %v", err)
 			}
@@ -492,7 +491,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			}
 
 			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
-			curDataVolume, err = c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume, v1.CreateOptions{})
+			curDataVolume, err = c.Clientset().CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume, v1.CreateOptions{})
 			if err != nil {
 				c.dataVolumeExpectations.CreationObserved(vmKey)
 				if pvc != nil && strings.Contains(err.Error(), "already exists") {
@@ -597,7 +596,7 @@ func (c *VMController) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachi
 	update := fmt.Sprintf(`{ "op": "%s", "path": "/spec/volumes", "value": %s}`, patchVerb, string(newJson))
 	patch := fmt.Sprintf("[%s, %s]", test, update)
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err = c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
 	return err
 }
 
@@ -611,7 +610,7 @@ func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, reque
 
 func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
 	request := vm.Status.MemoryDumpRequest
-	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcStore)
+	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.Store(virtcontroller.KeyPVC))
 	if err != nil {
 		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
 		return err
@@ -630,7 +629,7 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) 
 		} else if request.Phase == virtv1.MemoryDumpFailed {
 			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = failedMemoryDump
 		}
-		if _, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, v1.UpdateOptions{}); err != nil {
+		if _, err = c.Clientset().CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, v1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -643,7 +642,7 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	update := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vm.Spec.Template.Spec.Domain.CPU.Sockets), 10))
 	patch := fmt.Sprintf("[%s, %s]", test, update)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err := c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
 
 	return err
 }
@@ -722,7 +721,7 @@ func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv
 	}
 	generatedPatch := controller.GeneratePatchBytes(ops)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, v1.PatchOptions{})
+	_, err := c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, v1.PatchOptions{})
 	return err
 }
 
@@ -749,7 +748,7 @@ func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/affinity" }`))
 	}
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err := c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 	return err
 }
 
@@ -862,7 +861,7 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 				continue
 			}
 
-			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(context.Background(), vmi.Name, request.AddVolumeOptions); err != nil {
+			if err := c.Clientset().VirtualMachineInstance(vmi.Namespace).AddVolume(context.Background(), vmi.Name, request.AddVolumeOptions); err != nil {
 				return err
 			}
 		} else if request.RemoveVolumeOptions != nil {
@@ -870,7 +869,7 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 				continue
 			}
 
-			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveVolume(context.Background(), vmi.Name, request.RemoveVolumeOptions); err != nil {
+			if err := c.Clientset().VirtualMachineInstance(vmi.Namespace).RemoveVolume(context.Background(), vmi.Name, request.RemoveVolumeOptions); err != nil {
 				return err
 			}
 		}
@@ -938,7 +937,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		timeLeft := startFailureBackoffTimeLeft(vm)
 		if timeLeft > 0 {
 			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
-			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
+			c.Queue().AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
 			return vm, nil
 		}
 
@@ -987,7 +986,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		timeLeft := startFailureBackoffTimeLeft(vm)
 		if timeLeft > 0 {
 			log.Log.Object(vm).Infof("Delaying start of VM %s with 'runStrategy: %s' due to start failure backoff. Waiting %d more seconds before starting.", startingVmMsg, runStrategy, timeLeft)
-			c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
+			c.Queue().AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
 			return vm, nil
 		}
 
@@ -1039,7 +1038,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				} else {
 					vmCopy.Spec.Running = &running
 				}
-				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+				_, err := c.Clientset().VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 				return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 			}
 			return vm, nil
@@ -1198,7 +1197,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 	}
 
 	c.expectations.ExpectCreations(vmKey, 1)
-	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+	vmi, err = c.Clientset().VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s", controller.NamespacedKey(vmi.Namespace, vmi.Name))
 		c.expectations.CreationObserved(vmKey)
@@ -1237,7 +1236,7 @@ func (c *VMController) patchVmGenerationAnnotationOnVmi(generation int64, vmi *v
 	}
 	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-	_, err = c.clientset.VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err = c.Clientset().VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -1492,7 +1491,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		}
 	}
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
-	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
+	err = c.Clientset().VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
 
 	// Don't log an error if it is already deleted
 	if err != nil {
@@ -1540,7 +1539,7 @@ func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
 }
 
 func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, error) {
-	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
+	keys, err := c.Indexer(virtcontroller.KeyCR).IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return false, err
 	}
@@ -1551,7 +1550,7 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 			continue
 		}
 
-		storeObj, exists, err := c.crIndexer.GetByKey(key)
+		storeObj, exists, err := c.Indexer(virtcontroller.KeyCR).GetByKey(key)
 		if !exists || err != nil {
 			return false, err
 		}
@@ -1565,7 +1564,7 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 			createNotNeeded = true
 			continue
 		}
-		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
+		err = c.Clientset().AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -1575,7 +1574,7 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 }
 
 func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
-	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
+	keys, err := c.Indexer(virtcontroller.KeyCR).IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return err
 	}
@@ -1585,7 +1584,7 @@ func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
 			continue
 		}
 
-		storeObj, exists, err := c.crIndexer.GetByKey(key)
+		storeObj, exists, err := c.Indexer(virtcontroller.KeyCR).GetByKey(key)
 		if !exists || err != nil {
 			return err
 		}
@@ -1594,7 +1593,7 @@ func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
 			return fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
+		err = c.Clientset().AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -1606,7 +1605,7 @@ func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
 // getControllerRevision attempts to get the controller revision by name and
 // namespace. It will return (nil, nil) if the controller revision is not found.
 func (c *VMController) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
-	cr, err := c.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, v1.GetOptions{})
+	cr, err := c.Clientset().AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, v1.GetOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
 			return nil, nil
@@ -1618,7 +1617,7 @@ func (c *VMController) getControllerRevision(namespace string, name string) (*ap
 }
 
 func (c *VMController) getVMSpecForKey(key string) (*virtv1.VirtualMachineSpec, error) {
-	obj, exists, err := c.crIndexer.GetByKey(key)
+	obj, exists, err := c.Indexer(virtcontroller.KeyCR).GetByKey(key)
 	if err != nil {
 		return nil, err
 	}
@@ -1647,7 +1646,7 @@ func genFromKey(key string) (int64, error) {
 }
 
 func (c *VMController) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineSpec, error) {
-	keys, err := c.crIndexer.IndexKeys("vm", string(vm.UID))
+	keys, err := c.Indexer(virtcontroller.KeyCR).IndexKeys("vm", string(vm.UID))
 	if err != nil {
 		return nil, err
 	}
@@ -1701,7 +1700,7 @@ func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, erro
 		Data:     runtime.RawExtension{Raw: patch},
 		Revision: vm.ObjectMeta.Generation,
 	}
-	_, err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
+	_, err = c.Clientset().AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -1895,7 +1894,7 @@ func (c *VMController) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []
 // listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
 // TODO +pkotas unify this code with replicaset
 func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiIndexer.ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.Indexer(virtcontroller.KeyVMI).ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1909,7 +1908,7 @@ func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.Virtua
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
 // from the VirtualMachine cache which run in this namespace
 func (c *VMController) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
-	objs, err := c.vmIndexer.ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.Indexer(virtcontroller.KeyVM).ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -2194,7 +2193,7 @@ func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 		return
 	}
 	for _, indexName := range []string{"dv", "pvc"} {
-		objs, err := c.vmIndexer.ByIndex(indexName, k)
+		objs, err := c.Indexer(virtcontroller.KeyVM).ByIndex(indexName, k)
 		if err != nil {
 			log.Log.Object(dataVolume).Errorf("Cannot get index %s of DataVolume: %s", indexName, dataVolume.Name)
 			return
@@ -2229,7 +2228,7 @@ func (c *VMController) enqueueVm(obj interface{}) {
 		logger.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
 		return
 	}
-	c.Queue.Add(key)
+	c.Queue().Add(key)
 }
 
 func (c *VMController) getPatchFinalizerOps(oldFinalizers, newFinalizers []string) ([]string, error) {
@@ -2269,7 +2268,7 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err = c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 	return err
 }
 
@@ -2293,7 +2292,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Vir
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	vm, err = c.Clientset().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 	return vm, err
 }
 
@@ -2313,7 +2312,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Virtua
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	return c.Clientset().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 }
 
 // parseGeneration will parse for the last value after a '-'. It is assumed the
@@ -2513,7 +2512,7 @@ func (c *VMController) isVirtualMachineStatusStopped(vm *virtv1.VirtualMachine, 
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Provisioning".
 func (c *VMController) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	return storagetypes.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeStore)
+	return storagetypes.HasDataVolumeProvisioning(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.Store(virtcontroller.KeyDV))
 }
 
 // isVirtualMachineStatusWaitingForVolumeBinding
@@ -2522,7 +2521,7 @@ func (c *VMController) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.
 		return false
 	}
 
-	return storagetypes.HasUnboundPVC(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.pvcStore)
+	return storagetypes.HasUnboundPVC(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.Store(virtcontroller.KeyPVC))
 }
 
 // isVirtualMachineStatusStarting determines whether the VM status field should be set to "Starting".
@@ -2604,7 +2603,7 @@ func (c *VMController) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachi
 
 // isVirtualMachineStatusDataVolumeError determines whether the VM status field should be set to "DataVolumeError"
 func (c *VMController) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	err := storagetypes.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.dataVolumeStore)
+	err := storagetypes.HasDataVolumeErrors(vm.Namespace, vm.Spec.Template.Spec.Volumes, c.Store(virtcontroller.KeyDV))
 	if err != nil {
 		log.Log.Object(vm).Errorf("%v", err)
 		return true
@@ -2738,7 +2737,7 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 		if vmi == nil {
 			// because either the VM or VMI informers can trigger processing here
 			// double check the state of the cluster before taking action
-			_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), v1.GetOptions{})
+			_, err := c.Clientset().VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), v1.GetOptions{})
 			if err != nil && apiErrors.IsNotFound(err) {
 				// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
 				log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
@@ -3087,7 +3086,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 		if syncErr == nil {
 			if !equality.Semantic.DeepEqual(vm, vmCopy) {
-				updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+				updatedVm, err := c.Clientset().VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 				if err != nil {
 					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}
 				} else {
@@ -3111,7 +3110,7 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	vm, exists, err := c.vmIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vm, exists, err := c.Indexer(virtcontroller.KeyVM).GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -3157,7 +3156,7 @@ func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *vi
 }
 
 func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineInstance) (bool, error) {
-	pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
+	pod, err := controller.CurrentVMIPod(vmi, c.Indexer(virtcontroller.KeyPod))
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
 		return false, err
@@ -3254,7 +3253,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	memoryPatch := controller.GeneratePatchBytes(patches)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, memoryPatch, v1.PatchOptions{})
+	_, err := c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, memoryPatch, v1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -3298,7 +3297,7 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 
 	patch := fmt.Sprintf("[%s, %s, %s, %s]", testNetworks, testInterfaces, updateNetworks, updateInterfaces)
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err = c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
 
 	return err
 }
@@ -3319,6 +3318,6 @@ func (c *VMController) patchVMITerminationGracePeriod(gracePeriod *int64, vmi *v
 		return nil
 	}
 	patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, *gracePeriod)
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), v1.PatchOptions{})
+	_, err := c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), v1.PatchOptions{})
 	return err
 }
