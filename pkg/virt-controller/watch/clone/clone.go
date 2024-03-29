@@ -23,22 +23,20 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/client-go/tools/cache"
-
-	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/utils/pointer"
-
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	k6tv1 "kubevirt.io/api/core/v1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
+
+	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 )
 
 type cloneSourceType string
@@ -83,7 +81,7 @@ type vmCloneInfo struct {
 func (ctrl *VMCloneController) execute(key string) error {
 	logger := log.Log
 
-	obj, cloneExists, err := ctrl.vmCloneInformer.GetStore().GetByKey(key)
+	obj, cloneExists, err := ctrl.Informer(virtcontroller.KeyVMClone).GetStore().GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -97,7 +95,7 @@ func (ctrl *VMCloneController) execute(key string) error {
 	}
 
 	if vmClone.Status.Phase == clonev1alpha1.Succeeded {
-		_, vmExists, err := ctrl.vmInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmClone.Namespace, *vmClone.Status.TargetName))
+		_, vmExists, err := ctrl.Informer(virtcontroller.KeyVM).GetStore().GetByKey(fmt.Sprintf("%s/%s", vmClone.Namespace, *vmClone.Status.TargetName))
 		if err != nil {
 			return err
 		}
@@ -105,7 +103,7 @@ func (ctrl *VMCloneController) execute(key string) error {
 		if !vmExists {
 			if vmClone.DeletionTimestamp == nil {
 				logger.V(3).Infof("Deleting vm clone for deleted vm %s/%s", vmClone.Namespace, *vmClone.Status.TargetName)
-				return ctrl.client.VirtualMachineClone(vmClone.Namespace).Delete(context.Background(), vmClone.Name, v1.DeleteOptions{})
+				return ctrl.Clientset().VirtualMachineClone(vmClone.Namespace).Delete(context.Background(), vmClone.Name, v1.DeleteOptions{})
 			}
 			// nothing to process for a vm clone that's being deleted
 			return nil
@@ -151,7 +149,7 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clonev1alpha1.VirtualM
 
 	switch cloneSourceType(sourceInfo.Kind) {
 	case sourceTypeVM:
-		sourceVMObj, err := ctrl.getSource(vmClone, sourceInfo.Name, vmClone.Namespace, string(sourceTypeVM), ctrl.vmInformer.GetStore())
+		sourceVMObj, err := ctrl.getSource(vmClone, sourceInfo.Name, vmClone.Namespace, string(sourceTypeVM), ctrl.Informer(virtcontroller.KeyVM).GetStore())
 		if err != nil {
 			return nil, err
 		}
@@ -160,7 +158,7 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clonev1alpha1.VirtualM
 		cloneInfo.sourceVm = sourceVM
 
 	case sourceTypeSnapshot:
-		sourceSnapshotObj, err := ctrl.getSource(vmClone, sourceInfo.Name, vmClone.Namespace, string(sourceTypeSnapshot), ctrl.snapshotInformer.GetStore())
+		sourceSnapshotObj, err := ctrl.getSource(vmClone, sourceInfo.Name, vmClone.Namespace, string(sourceTypeSnapshot), ctrl.Informer(virtcontroller.KeyVMSnapshot).GetStore())
 		if err != nil {
 			return nil, err
 		}
@@ -348,7 +346,7 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clonev1alpha1.Virtu
 	snapshot := generateSnapshot(vmClone, vm)
 	log.Log.Object(vmClone).Infof("creating snapshot %s for clone %s", snapshot.Name, vmClone.Name)
 
-	createdSnapshot, err := ctrl.client.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
+	createdSnapshot, err := ctrl.Clientset().VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			syncInfo.setError(fmt.Errorf("failed creating snapshot %s for clone %s: %v", snapshot.Name, vmClone.Name, err))
@@ -367,7 +365,7 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clonev1alpha1.Virtu
 }
 
 func (ctrl *VMCloneController) verifySnapshotReady(vmClone *clonev1alpha1.VirtualMachineClone, name, namespace string, syncInfo syncInfoType) (*snapshotv1alpha1.VirtualMachineSnapshot, syncInfoType) {
-	obj, exists, err := ctrl.snapshotInformer.GetStore().GetByKey(getKey(name, namespace))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMSnapshot).GetStore().GetByKey(getKey(name, namespace))
 	if err != nil {
 		syncInfo.setError(fmt.Errorf("error getting snapshot %s from cache for clone %s: %v", name, vmClone.Name, err))
 		return nil, syncInfo
@@ -391,7 +389,7 @@ func (ctrl *VMCloneController) verifySnapshotReady(vmClone *clonev1alpha1.Virtua
 
 // This method assumes the snapshot exists. If it doesn't - syncInfo is updated accordingly.
 func (ctrl *VMCloneController) getSnapshot(snapshotName string, sourceNamespace string, syncInfo syncInfoType) (*snapshotv1alpha1.VirtualMachineSnapshot, syncInfoType) {
-	obj, exists, err := ctrl.snapshotInformer.GetStore().GetByKey(getKey(snapshotName, sourceNamespace))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMSnapshot).GetStore().GetByKey(getKey(snapshotName, sourceNamespace))
 	if !exists {
 		// At this point the snapshot is already created. If it doesn't exist it means that it's deleted for some
 		// reason and the clone should fail
@@ -413,7 +411,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.Virtua
 	patches := generatePatches(vm, &vmClone.Spec)
 	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches)
 	log.Log.Object(vmClone).Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
-	createdRestore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
+	createdRestore, err := ctrl.Clientset().VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			retErr := fmt.Errorf("failed creating restore %s for clone %s: %v", restore.Name, vmClone.Name, err)
@@ -433,7 +431,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clonev1alpha1.Virtua
 }
 
 func (ctrl *VMCloneController) verifyRestoreReady(vmClone *clonev1alpha1.VirtualMachineClone, sourceNamespace string, syncInfo syncInfoType) syncInfoType {
-	obj, exists, err := ctrl.restoreInformer.GetStore().GetByKey(getKey(*vmClone.Status.RestoreName, sourceNamespace))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMRestore).GetStore().GetByKey(getKey(*vmClone.Status.RestoreName, sourceNamespace))
 	if !exists {
 		syncInfo.setError(fmt.Errorf("restore %s is not created yet for clone %s", *vmClone.Status.RestoreName, vmClone.Name))
 		return syncInfo
@@ -460,7 +458,7 @@ func (ctrl *VMCloneController) verifyRestoreReady(vmClone *clonev1alpha1.Virtual
 func (ctrl *VMCloneController) verifyVmReady(vmClone *clonev1alpha1.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
 	targetVMInfo := vmClone.Spec.Target
 
-	_, exists, err := ctrl.vmInformer.GetStore().GetByKey(getKey(targetVMInfo.Name, vmClone.Namespace))
+	_, exists, err := ctrl.Informer(virtcontroller.KeyVM).GetStore().GetByKey(getKey(targetVMInfo.Name, vmClone.Namespace))
 	if !exists {
 		syncInfo.setError(fmt.Errorf("target VM %s is not created yet for clone %s", targetVMInfo.Name, vmClone.Name))
 		return syncInfo
@@ -476,7 +474,7 @@ func (ctrl *VMCloneController) verifyVmReady(vmClone *clonev1alpha1.VirtualMachi
 }
 
 func (ctrl *VMCloneController) verifyPVCBound(vmClone *clonev1alpha1.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
-	obj, exists, err := ctrl.restoreInformer.GetStore().GetByKey(getKey(*vmClone.Status.RestoreName, vmClone.Namespace))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMRestore).GetStore().GetByKey(getKey(*vmClone.Status.RestoreName, vmClone.Namespace))
 	if !exists {
 		syncInfo.setError(fmt.Errorf("restore %s is not created yet for clone %s", *vmClone.Status.RestoreName, vmClone.Name))
 		return syncInfo
@@ -487,7 +485,7 @@ func (ctrl *VMCloneController) verifyPVCBound(vmClone *clonev1alpha1.VirtualMach
 
 	restore := obj.(*snapshotv1alpha1.VirtualMachineRestore)
 	for _, volumeRestore := range restore.Status.Restores {
-		obj, exists, err = ctrl.pvcInformer.GetStore().GetByKey(getKey(volumeRestore.PersistentVolumeClaimName, vmClone.Namespace))
+		obj, exists, err = ctrl.Informer(virtcontroller.KeyPVC).GetStore().GetByKey(getKey(volumeRestore.PersistentVolumeClaimName, vmClone.Namespace))
 		if !exists {
 			syncInfo.setError(fmt.Errorf("PVC %s is not created yet for clone %s", volumeRestore.PersistentVolumeClaimName, vmClone.Name))
 			return syncInfo
@@ -511,7 +509,7 @@ func (ctrl *VMCloneController) verifyPVCBound(vmClone *clonev1alpha1.VirtualMach
 }
 
 func (ctrl *VMCloneController) cleanupSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
-	err := ctrl.client.VirtualMachineSnapshot(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.SnapshotName, v1.DeleteOptions{})
+	err := ctrl.Clientset().VirtualMachineSnapshot(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.SnapshotName, v1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		syncInfo.setError(fmt.Errorf("cannot clean up snapshot %s for clone %s", *vmClone.Status.SnapshotName, vmClone.Name))
 		return syncInfo
@@ -521,7 +519,7 @@ func (ctrl *VMCloneController) cleanupSnapshot(vmClone *clonev1alpha1.VirtualMac
 }
 
 func (ctrl *VMCloneController) cleanupRestore(vmClone *clonev1alpha1.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
-	err := ctrl.client.VirtualMachineRestore(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.RestoreName, v1.DeleteOptions{})
+	err := ctrl.Clientset().VirtualMachineRestore(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.RestoreName, v1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		syncInfo.setError(fmt.Errorf("cannot clean up restore %s for clone %s", *vmClone.Status.RestoreName, vmClone.Name))
 		return syncInfo
@@ -570,7 +568,7 @@ func (ctrl *VMCloneController) getVmFromSnapshot(snapshot *snapshotv1alpha1.Virt
 	contentName := virtsnapshot.GetVMSnapshotContentName(snapshot)
 	contentKey := getKey(contentName, snapshot.Namespace)
 
-	contentObj, exists, err := ctrl.snapshotContentInformer.GetStore().GetByKey(contentKey)
+	contentObj, exists, err := ctrl.Informer(virtcontroller.KeyVMSnapshotContent).GetStore().GetByKey(contentKey)
 	if !exists {
 		return nil, fmt.Errorf("snapshot content %s in namespace %s does not exist", contentName, snapshot.Namespace)
 	} else if err != nil {

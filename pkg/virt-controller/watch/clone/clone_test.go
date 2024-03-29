@@ -258,8 +258,8 @@ var _ = Describe("Clone", func() {
 			snapshotContentInformer,
 			pvcInformer,
 			recorder)
-		mockQueue = testutils.NewMockWorkQueue(controller.vmCloneQueue)
-		controller.vmCloneQueue = mockQueue
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue())
+		controller.SetQueue(mockQueue)
 
 		setupResources()
 

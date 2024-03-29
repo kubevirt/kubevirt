@@ -198,7 +198,7 @@ type VirtControllerApp struct {
 	migrationPolicyInformer cache.SharedIndexInformer
 
 	vmCloneInformer   cache.SharedIndexInformer
-	vmCloneController *clone.VMCloneController
+	vmCloneController virtcontroller.ControllerInterface
 
 	instancetypeInformer        cache.SharedIndexInformer
 	clusterInstancetypeInformer cache.SharedIndexInformer
