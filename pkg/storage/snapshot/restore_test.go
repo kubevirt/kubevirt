@@ -32,10 +32,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	kvvirtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 var _ = Describe("Restore controller", func() {
@@ -282,7 +281,7 @@ var _ = Describe("Restore controller", func() {
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 
-			vmRestoreInformer, vmRestoreSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, virtcontroller.GetVirtualMachineRestoreInformerIndexers())
+			vmRestoreInformer, vmRestoreSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineRestore{}, kvvirtcontroller.GetVirtualMachineRestoreInformerIndexers())
 			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&kubevirtv1.VirtualMachineInstance{})
@@ -290,7 +289,7 @@ var _ = Describe("Restore controller", func() {
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
+			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, kvvirtcontroller.GetControllerRevisionInformerIndexers())
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -298,27 +297,24 @@ var _ = Describe("Restore controller", func() {
 			fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 				volumeSnapshots: []*vsv1.VolumeSnapshot{},
 			}
-
-			controller = &VMRestoreController{
-				Client:                    virtClient,
-				VMRestoreInformer:         vmRestoreInformer,
-				VMSnapshotInformer:        vmSnapshotInformer,
-				VMSnapshotContentInformer: vmSnapshotContentInformer,
-				VMInformer:                vmInformer,
-				VMIInformer:               vmiInformer,
-				PVCInformer:               pvcInformer,
-				StorageClassInformer:      storageClassInformer,
-				DataVolumeInformer:        dataVolumeInformer,
-				Recorder:                  recorder,
-				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
-				VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
-				CRInformer:                crInformer,
-			}
-			controller.Init()
+			controller, _ = NewVMRestoreController(
+				virtClient,
+				fakeVolumeSnapshotProvider,
+				recorder,
+				vmRestoreInformer,
+				vmSnapshotInformer,
+				vmSnapshotContentInformer,
+				vmInformer,
+				vmiInformer,
+				dataVolumeInformer,
+				pvcInformer,
+				storageClassInformer,
+				crInformer,
+			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockVMRestoreQueue = testutils.NewMockWorkQueue(controller.vmRestoreQueue)
-			controller.vmRestoreQueue = mockVMRestoreQueue
+			mockVMRestoreQueue = testutils.NewMockWorkQueue(controller.Queue())
+			controller.SetQueue(mockVMRestoreQueue)
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachine(testNamespace).Return(vmInterface).AnyTimes()
@@ -420,7 +416,7 @@ var _ = Describe("Restore controller", func() {
 				expectUpdateVMRestoreInProgress(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
 			})
 
@@ -443,7 +439,7 @@ var _ = Describe("Restore controller", func() {
 				expectUpdateVMRestoreInProgress(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should update restore status with condition and VolumeRestores", func() {
@@ -463,7 +459,7 @@ var _ = Describe("Restore controller", func() {
 				addVolumeRestores(rc)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should create restore PVCs", func() {
@@ -484,7 +480,7 @@ var _ = Describe("Restore controller", func() {
 				expectUpdateVMRestoreInProgress(vm)
 				expectPVCCreates(k8sClient, r, pvcSize)
 				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should create restore PVC with volume snapshot size if bigger then PVC size", func() {
@@ -505,7 +501,7 @@ var _ = Describe("Restore controller", func() {
 				expectUpdateVMRestoreInProgress(vm)
 				expectPVCCreates(k8sClient, r, q)
 				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should create restore PVC with pvc size if restore size is smaller", func() {
@@ -527,7 +523,7 @@ var _ = Describe("Restore controller", func() {
 				pvcSize := resource.MustParse("2Gi")
 				expectPVCCreates(k8sClient, r, pvcSize)
 				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should wait for bound", func() {
@@ -551,7 +547,7 @@ var _ = Describe("Restore controller", func() {
 					addPVC(&pvc)
 				}
 				expectUpdateVMRestoreInProgress(vm)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should update restore status with datavolume", func() {
@@ -582,7 +578,7 @@ var _ = Describe("Restore controller", func() {
 					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should update PVCs and restores to have datavolumename", func() {
@@ -616,7 +612,7 @@ var _ = Describe("Restore controller", func() {
 					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should update VM spec", func() {
@@ -649,7 +645,7 @@ var _ = Describe("Restore controller", func() {
 					pvcSource.Add(&pvc)
 				}
 				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 
 			It("should cleanup and unlock vm", func() {
@@ -712,7 +708,7 @@ var _ = Describe("Restore controller", func() {
 
 				vmRestoreSource.Add(r)
 				addVM(vm)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 
 				l, err := cdiClient.CdiV1beta1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -763,7 +759,7 @@ var _ = Describe("Restore controller", func() {
 
 				vmRestoreSource.Add(r)
 				addVM(vm)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
 			})
 
@@ -856,7 +852,7 @@ var _ = Describe("Restore controller", func() {
 					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
 
 					By("Running the controller")
-					controller.processVMRestoreWorkItem()
+					controller.Execute()
 				})
 
 				It("should define owner reference properly", func() {
@@ -893,7 +889,7 @@ var _ = Describe("Restore controller", func() {
 					expectVMRestoreUpdate(kubevirtClient, updatedVMRestore)
 
 					By("Running the controller")
-					controller.processVMRestoreWorkItem()
+					controller.Execute()
 				})
 
 				Context("new VM does not exist, should create new VM", func() {
@@ -1001,7 +997,7 @@ var _ = Describe("Restore controller", func() {
 			expectUpdateVMRestoreInProgress(vm)
 			expectPVCCreateWithDataSourceRef(k8sClient, r, pvcSize)
 			addVirtualMachineRestore(r)
-			controller.processVMRestoreWorkItem()
+			controller.Execute()
 		})
 
 		Describe("restore vm with instancetypes and preferences", func() {
@@ -1130,7 +1126,7 @@ var _ = Describe("Restore controller", func() {
 					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 					addVirtualMachineRestore(restore)
-					controller.processVMRestoreWorkItem()
+					controller.Execute()
 				},
 				Entry("and referenced instancetype",
 					func() *kubevirtv1.InstancetypeMatcher {
@@ -1206,7 +1202,7 @@ var _ = Describe("Restore controller", func() {
 					expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 					addVirtualMachineRestore(restore)
-					controller.processVMRestoreWorkItem()
+					controller.Execute()
 				},
 				Entry("and referenced instancetype",
 					func() *kubevirtv1.InstancetypeMatcher {
@@ -1282,7 +1278,7 @@ var _ = Describe("Restore controller", func() {
 					expectUpdateVMRestoreFailure(restore, "1", vmCreationFailureMessage)
 
 					addVirtualMachineRestore(restore)
-					controller.processVMRestoreWorkItem()
+					controller.Execute()
 
 					// We have already created the ControllerRevision but that shouldn't stop the reconcile from progressing
 					expectCreateControllerRevisionAlreadyExists(k8sClient, expectedCreatedCR)
@@ -1290,7 +1286,7 @@ var _ = Describe("Restore controller", func() {
 					expectUpdateVMRestoreUpdatingTargetSpec(restore, "2")
 
 					addVirtualMachineRestore(restore)
-					controller.processVMRestoreWorkItem()
+					controller.Execute()
 				},
 				Entry("and referenced instancetype",
 					func() *kubevirtv1.InstancetypeMatcher {
@@ -1362,7 +1358,7 @@ var _ = Describe("Restore controller", func() {
 				expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
 				addVirtualMachineRestore(restore)
-				controller.processVMRestoreWorkItem()
+				controller.Execute()
 			})
 		})
 	})

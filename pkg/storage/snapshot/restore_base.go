@@ -38,37 +38,59 @@ import (
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/util/status"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
-// VMRestoreController is resonsible for restoring VMs
+// VMRestoreController is responsible for restoring VMs
 type VMRestoreController struct {
-	Client kubecli.KubevirtClient
-
-	VMRestoreInformer         cache.SharedIndexInformer
-	VMSnapshotInformer        cache.SharedIndexInformer
-	VMSnapshotContentInformer cache.SharedIndexInformer
-	VMInformer                cache.SharedIndexInformer
-	VMIInformer               cache.SharedIndexInformer
-	DataVolumeInformer        cache.SharedIndexInformer
-	PVCInformer               cache.SharedIndexInformer
-	StorageClassInformer      cache.SharedIndexInformer
-	CRInformer                cache.SharedIndexInformer
-
+	virtcontroller.Controller
 	VolumeSnapshotProvider VolumeSnapshotProvider
-
-	Recorder record.EventRecorder
-
-	vmRestoreQueue workqueue.RateLimitingInterface
-
-	vmStatusUpdater *status.VMStatusUpdater
+	Recorder               record.EventRecorder
+	vmStatusUpdater        *status.VMStatusUpdater
 }
 
-// Init initializes the restore controller
-func (ctrl *VMRestoreController) Init() error {
-	ctrl.vmRestoreQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-restore-vmrestore")
+func NewVMRestoreController(client kubecli.KubevirtClient,
+	vsProvider VolumeSnapshotProvider,
+	recorder record.EventRecorder,
+	vmRestoreInformer,
+	vmSnapshotInformer,
+	vmSnapshotContentInformer,
+	vmInformer,
+	vmiInformer,
+	dvInformer,
+	pvcInformer,
+	scInformer,
+	controllerRevisionInformer cache.SharedIndexInformer,
+) (*VMRestoreController, error) {
+	ctrl := virtcontroller.NewController(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-restore-vmrestore"),
+		client,
+	)
+	ctrl.SetInformer(virtcontroller.KeyVMRestore, vmRestoreInformer)
+	ctrl.SetInformer(virtcontroller.KeyVMSnapshot, vmSnapshotInformer)
+	ctrl.SetInformer(virtcontroller.KeyVMSnapshotContent, vmSnapshotContentInformer)
+	ctrl.SetInformer(virtcontroller.KeyVM, vmInformer)
+	ctrl.SetInformer(virtcontroller.KeyVMI, vmiInformer)
+	ctrl.SetInformer(virtcontroller.KeyDV, dvInformer)
+	ctrl.SetInformer(virtcontroller.KeyPVC, pvcInformer)
+	ctrl.SetInformer(virtcontroller.KeySC, scInformer)
+	ctrl.SetInformer(virtcontroller.KeyControllerRevision, controllerRevisionInformer)
 
-	_, err := ctrl.VMRestoreInformer.AddEventHandler(
+	c := VMRestoreController{
+		Controller:             *ctrl,
+		Recorder:               recorder,
+		VolumeSnapshotProvider: vsProvider,
+		vmStatusUpdater:        status.NewVMStatusUpdater(client),
+	}
+
+	err := c.init()
+	return &c, err
+}
+
+// init initializes the restore controller
+func (ctrl *VMRestoreController) init() error {
+	_, err := ctrl.Informer(virtcontroller.KeyVMRestore).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMRestore,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMRestore(newObj) },
@@ -79,7 +101,7 @@ func (ctrl *VMRestoreController) Init() error {
 		return err
 	}
 
-	_, err = ctrl.DataVolumeInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyDV).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleDataVolume,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDataVolume(newObj) },
@@ -89,7 +111,7 @@ func (ctrl *VMRestoreController) Init() error {
 		return err
 	}
 
-	_, err = ctrl.PVCInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyPVC).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
@@ -99,7 +121,7 @@ func (ctrl *VMRestoreController) Init() error {
 		return err
 	}
 
-	_, err = ctrl.VMInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyVM).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
@@ -108,29 +130,18 @@ func (ctrl *VMRestoreController) Init() error {
 	if err != nil {
 		return err
 	}
-
-	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
 	return nil
 }
 
 // Run the controller
 func (ctrl *VMRestoreController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer ctrl.vmRestoreQueue.ShutDown()
+	defer ctrl.Queue().ShutDown()
 
 	log.Log.Info("Starting restore controller.")
 	defer log.Log.Info("Shutting down restore controller.")
 
-	if !cache.WaitForCacheSync(
-		stopCh,
-		ctrl.VMRestoreInformer.HasSynced,
-		ctrl.VMSnapshotInformer.HasSynced,
-		ctrl.VMSnapshotContentInformer.HasSynced,
-		ctrl.VMInformer.HasSynced,
-		ctrl.VMIInformer.HasSynced,
-		ctrl.DataVolumeInformer.HasSynced,
-		ctrl.PVCInformer.HasSynced,
-	) {
+	if !ctrl.WaitForCacheSync(stopCh) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -144,15 +155,15 @@ func (ctrl *VMRestoreController) Run(threadiness int, stopCh <-chan struct{}) er
 }
 
 func (ctrl *VMRestoreController) vmRestoreWorker() {
-	for ctrl.processVMRestoreWorkItem() {
+	for ctrl.Execute() {
 	}
 }
 
-func (ctrl *VMRestoreController) processVMRestoreWorkItem() bool {
-	return watchutil.ProcessWorkItem(ctrl.vmRestoreQueue, func(key string) (time.Duration, error) {
+func (ctrl *VMRestoreController) Execute() bool {
+	return watchutil.ProcessWorkItem(ctrl.Queue(), func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("vmRestore worker processing key [%s]", key)
 
-		storeObj, exists, err := ctrl.VMRestoreInformer.GetStore().GetByKey(key)
+		storeObj, exists, err := ctrl.Informer(virtcontroller.KeyVMRestore).GetStore().GetByKey(key)
 		if !exists || err != nil {
 			return 0, err
 		}
@@ -179,7 +190,7 @@ func (ctrl *VMRestoreController) handleVMRestore(obj interface{}) {
 		}
 
 		log.Log.V(3).Infof("enqueued %q for sync", objName)
-		ctrl.vmRestoreQueue.Add(objName)
+		ctrl.Queue().Add(objName)
 	}
 }
 
@@ -197,7 +208,7 @@ func (ctrl *VMRestoreController) handleDataVolume(obj interface{}) {
 		objName := cacheKeyFunc(dv.Namespace, restoreName)
 
 		log.Log.V(3).Infof("Handling DV %s/%s, Restore %s", dv.Namespace, dv.Name, objName)
-		ctrl.vmRestoreQueue.Add(objName)
+		ctrl.Queue().Add(objName)
 	}
 }
 
@@ -215,7 +226,7 @@ func (ctrl *VMRestoreController) handlePVC(obj interface{}) {
 		objName := cacheKeyFunc(pvc.Namespace, restoreName)
 
 		log.Log.V(3).Infof("Handling PVC %s/%s, Restore %s", pvc.Namespace, pvc.Name, objName)
-		ctrl.vmRestoreQueue.Add(objName)
+		ctrl.Queue().Add(objName)
 	}
 }
 
@@ -226,14 +237,14 @@ func (ctrl *VMRestoreController) handleVM(obj interface{}) {
 
 	if vm, ok := obj.(*kubevirtv1.VirtualMachine); ok {
 		k, _ := cache.MetaNamespaceKeyFunc(vm)
-		keys, err := ctrl.VMRestoreInformer.GetIndexer().IndexKeys("vm", k)
+		keys, err := ctrl.Informer(virtcontroller.KeyVMRestore).GetIndexer().IndexKeys("vm", k)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 
 		for _, k := range keys {
-			ctrl.vmRestoreQueue.Add(k)
+			ctrl.Queue().Add(k)
 		}
 	}
 }

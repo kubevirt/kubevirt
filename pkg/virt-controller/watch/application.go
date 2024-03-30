@@ -181,7 +181,7 @@ type VirtControllerApp struct {
 	exportServiceInformer        cache.SharedIndexInformer
 	exportController             virtcontroller.ControllerInterface
 	snapshotController           *snapshot.VMSnapshotController
-	restoreController            *snapshot.VMRestoreController
+	restoreController            virtcontroller.ControllerInterface
 	vmExportInformer             cache.SharedIndexInformer
 	routeCache                   cache.Store
 	ingressCache                 cache.Store
@@ -808,22 +808,22 @@ func (vca *VirtControllerApp) initSnapshotController() {
 }
 
 func (vca *VirtControllerApp) initRestoreController() {
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "restore-controller")
-	vca.restoreController = &snapshot.VMRestoreController{
-		Client:                    vca.clientSet,
-		VMRestoreInformer:         vca.vmRestoreInformer,
-		VMSnapshotInformer:        vca.vmSnapshotInformer,
-		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
-		VMInformer:                vca.vmInformer,
-		VMIInformer:               vca.vmiInformer,
-		DataVolumeInformer:        vca.dataVolumeInformer,
-		PVCInformer:               vca.persistentVolumeClaimInformer,
-		StorageClassInformer:      vca.storageClassInformer,
-		VolumeSnapshotProvider:    vca.snapshotController,
-		Recorder:                  recorder,
-		CRInformer:                vca.controllerRevisionInformer,
-	}
-	if err := vca.restoreController.Init(); err != nil {
+	var err error
+	vca.restoreController, err = snapshot.NewVMRestoreController(
+		vca.clientSet,
+		vca.snapshotController,
+		vca.newRecorder(k8sv1.NamespaceAll, "restore-controller"),
+		vca.vmRestoreInformer,
+		vca.vmSnapshotInformer,
+		vca.vmSnapshotContentInformer,
+		vca.vmInformer,
+		vca.vmiInformer,
+		vca.dataVolumeInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.storageClassInformer,
+		vca.controllerRevisionInformer,
+	)
+	if err != nil {
 		panic(err)
 	}
 }

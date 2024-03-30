@@ -182,19 +182,20 @@ var _ = Describe("Application", func() {
 			ResyncPeriod:              60 * time.Second,
 		}
 		_ = app.snapshotController.Init()
-		app.restoreController = &snapshot.VMRestoreController{
-			Client:                    virtClient,
-			VMRestoreInformer:         vmRestoreInformer,
-			VMSnapshotInformer:        vmSnapshotInformer,
-			VMSnapshotContentInformer: vmSnapshotContentInformer,
-			VMInformer:                vmInformer,
-			VMIInformer:               vmiInformer,
-			PVCInformer:               pvcInformer,
-			StorageClassInformer:      storageClassInformer,
-			DataVolumeInformer:        dataVolumeInformer,
-			Recorder:                  recorder,
-		}
-		_ = app.restoreController.Init()
+		app.restoreController, _ = snapshot.NewVMRestoreController(
+			virtClient,
+			nil,
+			recorder,
+			vmRestoreInformer,
+			vmSnapshotInformer,
+			vmSnapshotContentInformer,
+			vmInformer,
+			vmiInformer,
+			dataVolumeInformer,
+			pvcInformer,
+			storageClassInformer,
+			controllerRevisionInformer,
+		)
 		exportController, _ := export.NewVMExportController(
 			virtClient,
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
