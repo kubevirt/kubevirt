@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 const (
@@ -344,27 +343,25 @@ var _ = Describe("Snapshot controlleer", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			controller = &VMSnapshotController{
-				Client:                    virtClient,
-				VMSnapshotInformer:        vmSnapshotInformer,
-				VMSnapshotContentInformer: vmSnapshotContentInformer,
-				VMInformer:                vmInformer,
-				VMIInformer:               vmiInformer,
-				PodInformer:               podInformer,
-				StorageClassInformer:      storageClassInformer,
-				PVCInformer:               pvcInformer,
-				CRDInformer:               crdInformer,
-				DVInformer:                dvInformer,
-				CRInformer:                crInformer,
-				Recorder:                  recorder,
-				ResyncPeriod:              60 * time.Second,
-				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
-			}
-			controller.Init()
+			controller, _ = NewVMSnapshotController(
+				virtClient,
+				recorder,
+				60*time.Second,
+				vmSnapshotInformer,
+				vmSnapshotContentInformer,
+				vmInformer,
+				vmiInformer,
+				storageClassInformer,
+				pvcInformer,
+				crdInformer,
+				podInformer,
+				dvInformer,
+				crInformer,
+			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockVMSnapshotQueue = testutils.NewMockWorkQueue(controller.vmSnapshotQueue)
-			controller.vmSnapshotQueue = mockVMSnapshotQueue
+			mockVMSnapshotQueue = testutils.NewMockWorkQueue(controller.Queue())
+			controller.SetQueue(mockVMSnapshotQueue)
 
 			mockVMSnapshotContentQueue = testutils.NewMockWorkQueue(controller.vmSnapshotContentQueue)
 			controller.vmSnapshotContentQueue = mockVMSnapshotContentQueue
@@ -490,7 +487,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should initialize VirtualMachineSnapshot status (no VM)", func() {
@@ -508,7 +505,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should initialize VirtualMachineSnapshot status (Progressing)", func() {
@@ -530,7 +527,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should unlock source VirtualMachine", func() {
@@ -545,7 +542,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				statusUpdate.Status.SnapshotInProgress = nil
 				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate).Return(statusUpdate, nil).Times(1)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("shouldn't unlock if snapshot deleting before completed and content not deleted", func() {
@@ -566,7 +563,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				addVirtualMachineSnapshot(vmSnapshot)
 				expectVMSnapshotContentDelete(vmSnapshotClient, content.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should finish unlock source VirtualMachine", func() {
@@ -579,7 +576,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate).Return(statusUpdate, nil).Times(1)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("cleanup when VirtualMachineSnapshot is deleted", func() {
@@ -602,7 +599,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should not delete content when VirtualMachineSnapshot is deleted, content ready and retain policy", func() {
@@ -625,7 +622,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should delete content when VirtualMachineSnapshot is deleted, content not ready even if retain policy", func() {
@@ -649,7 +646,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotContentDelete(vmSnapshotClient, updatedContent.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (partial) lock source", func() {
@@ -672,7 +669,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (partial) lock source manual runstrategy", func() {
@@ -698,7 +695,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (finish) lock source", func() {
@@ -722,7 +719,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (partial) lock source when VM updated", func() {
@@ -744,7 +741,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotSource.Add(vmSnapshot)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
 				addVM(vm)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (partial) lock source if running", func() {
@@ -771,7 +768,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (finish) lock source if running", func() {
@@ -799,7 +796,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (partial) lock source if VMI exists", func() {
@@ -829,7 +826,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (finish) lock source if VMI exists", func() {
@@ -861,7 +858,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should not lock source if pods using PVCs", func() {
@@ -883,7 +880,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should (partial) lock source if pods using PVCs if VM is running", func() {
@@ -912,7 +909,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should not lock source if another snapshot in progress", func() {
@@ -933,7 +930,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should create VirtualMachineSnapshotContent", func() {
@@ -967,7 +964,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
 			})
 
@@ -1029,7 +1026,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
 			})
 
@@ -1067,7 +1064,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 				testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
 			})
 
@@ -1097,7 +1094,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should update included and excluded volume in VirtualMachineSnapshotStatus", func() {
@@ -1137,7 +1134,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should update VirtualMachineSnapshot error when VirtualMachineSnapshotContent error", func() {
@@ -1162,7 +1159,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should update VirtualMachineSnapshot deadline exceeded after error phase", func() {
@@ -1184,7 +1181,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotContentDelete(vmSnapshotClient, vmSnapshotContent.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should remove error if vmsnapshotcontent not in error anymore", func() {
@@ -1206,7 +1203,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("shouldn't timeout if VirtualMachineSnapshot succeeded", func() {
@@ -1218,7 +1215,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				addVirtualMachineSnapshot(vmSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should timeout if VirtualMachineSnapshot passed failure deadline", func() {
@@ -1242,7 +1239,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotContentDelete(vmSnapshotClient, vmSnapshotContent.Name)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
-				controller.processVMSnapshotWorkItem()
+				controller.Execute()
 			})
 
 			It("should create VolumeSnapshot", func() {
@@ -2226,7 +2223,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						vmSnapshotSource.Add(vmSnapshot)
 
 						addVirtualMachineSnapshot(vmSnapshot)
-						controller.processVMSnapshotWorkItem()
+						controller.Execute()
 						testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
 					},
 					Entry("for a referenced instancetype",

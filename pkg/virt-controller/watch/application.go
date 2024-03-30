@@ -180,7 +180,7 @@ type VirtControllerApp struct {
 	exportRouteConfigMapInformer cache.SharedIndexInformer
 	exportServiceInformer        cache.SharedIndexInformer
 	exportController             virtcontroller.ControllerInterface
-	snapshotController           *snapshot.VMSnapshotController
+	snapshotController           virtcontroller.ControllerInterface
 	restoreController            virtcontroller.ControllerInterface
 	vmExportInformer             cache.SharedIndexInformer
 	routeCache                   cache.Store
@@ -791,22 +791,23 @@ func (vca *VirtControllerApp) initEvacuationController() {
 
 func (vca *VirtControllerApp) initSnapshotController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
-	vca.snapshotController = &snapshot.VMSnapshotController{
-		Client:                    vca.clientSet,
-		VMSnapshotInformer:        vca.vmSnapshotInformer,
-		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
-		VMInformer:                vca.vmInformer,
-		VMIInformer:               vca.vmiInformer,
-		StorageClassInformer:      vca.storageClassInformer,
-		PVCInformer:               vca.persistentVolumeClaimInformer,
-		CRDInformer:               vca.crdInformer,
-		PodInformer:               vca.allPodInformer,
-		DVInformer:                vca.dataVolumeInformer,
-		CRInformer:                vca.controllerRevisionInformer,
-		Recorder:                  recorder,
-		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
-	}
-	if err := vca.snapshotController.Init(); err != nil {
+	var err error
+	vca.snapshotController, err = snapshot.NewVMSnapshotController(
+		vca.clientSet,
+		recorder,
+		vca.snapshotControllerResyncPeriod,
+		vca.vmSnapshotInformer,
+		vca.vmSnapshotContentInformer,
+		vca.vmInformer,
+		vca.vmiInformer,
+		vca.storageClassInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.crdInformer,
+		vca.allPodInformer,
+		vca.dataVolumeInformer,
+		vca.controllerRevisionInformer,
+	)
+	if err != nil {
 		panic(err)
 	}
 }
@@ -815,7 +816,7 @@ func (vca *VirtControllerApp) initRestoreController() {
 	var err error
 	vca.restoreController, err = snapshot.NewVMRestoreController(
 		vca.clientSet,
-		vca.snapshotController,
+		vca.snapshotController.(snapshot.VolumeSnapshotProvider),
 		vca.newRecorder(k8sv1.NamespaceAll, "restore-controller"),
 		vca.vmRestoreInformer,
 		vca.vmSnapshotInformer,
@@ -836,7 +837,7 @@ func (vca *VirtControllerApp) initExportController() {
 	exportController, err := export.NewVMExportController(
 		vca.clientSet,
 		vca.templateService,
-		vca.snapshotController,
+		vca.snapshotController.(snapshot.VolumeSnapshotProvider),
 		vca.newRecorder(k8sv1.NamespaceAll, "export-controller"),
 		vca.kubevirtNamespace,
 		vca.vmExportInformer,

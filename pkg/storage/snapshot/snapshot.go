@@ -38,6 +38,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 )
 
 const (
@@ -207,7 +208,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		if shouldDeleteContent(vmSnapshot, content) {
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
-			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
+			err = ctrl.Clientset().VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				return 0, err
 			}
@@ -249,7 +250,7 @@ func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.Vir
 		cpy := content.DeepCopy()
 		controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
 
-		_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
+		_, err := ctrl.Clientset().VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -310,7 +311,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 			// check if content was created and snapshot was deleted
 			if contentCreated {
 				log.Log.Warningf("VolumeSnapshot %s no longer exists", vsName)
-				ctrl.Recorder.Eventf(
+				ctrl.recorder.Eventf(
 					content,
 					corev1.EventTypeWarning,
 					volumeSnapshotMissingEvent,
@@ -435,7 +436,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
 	if !equality.Semantic.DeepEqual(content, contentCpy) {
-		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
+		if _, err := ctrl.Clientset().VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
 			return 0, err
 		}
 	}
@@ -488,14 +489,14 @@ func (ctrl *VMSnapshotController) createVolumeSnapshot(
 		},
 	}
 
-	volumeSnapshot, err := ctrl.Client.KubernetesSnapshotClient().SnapshotV1().
+	volumeSnapshot, err := ctrl.Clientset().KubernetesSnapshotClient().SnapshotV1().
 		VolumeSnapshots(content.Namespace).
 		Create(context.Background(), snapshot, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	ctrl.Recorder.Eventf(
+	ctrl.recorder.Eventf(
 		content,
 		corev1.EventTypeNormal,
 		volumeSnapshotCreateEvent,
@@ -580,12 +581,12 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		},
 	}
 
-	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
+	_, err = ctrl.Clientset().VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 
-	ctrl.Recorder.Eventf(
+	ctrl.recorder.Eventf(
 		vmSnapshot,
 		corev1.EventTypeNormal,
 		vmSnapshotContentCreateEvent,
@@ -597,7 +598,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 }
 
 func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (*corev1.PersistentVolumeClaim, error) {
-	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(cacheKeyFunc(namespace, volumeName))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyPVC).GetStore().GetByKey(cacheKeyFunc(namespace, volumeName))
 	if err != nil {
 		return nil, err
 	}
@@ -631,7 +632,7 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 }
 
 func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string) (string, error) {
-	obj, exists, err := ctrl.StorageClassInformer.GetStore().GetByKey(storageClassName)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeySC).GetStore().GetByKey(storageClassName)
 	if !exists || err != nil {
 		return "", err
 	}
@@ -746,7 +747,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if !equality.Semantic.DeepEqual(vmSnapshot, vmSnapshotCpy) {
-		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
+		if _, err := ctrl.Clientset().VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -873,7 +874,7 @@ func (ctrl *VMSnapshotController) isVolumeSnapshottable(volume *kubevirtv1.Volum
 }
 
 func (ctrl *VMSnapshotController) getStorageClassNameForPVC(pvcKey string) (string, error) {
-	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(pvcKey)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyPVC).GetStore().GetByKey(pvcKey)
 	if err != nil {
 		return "", err
 	}
@@ -924,7 +925,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 	// First, look up DV's StorageClass
 	key := cacheKeyFunc(namespace, dvName)
 
-	obj, exists, err := ctrl.DVInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyDV).GetStore().GetByKey(key)
 	if err != nil {
 		return "", err
 	}
@@ -944,7 +945,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 		if or.Kind == "VirtualMachine" {
 
 			vmKey := cacheKeyFunc(namespace, or.Name)
-			storeObj, exists, err := ctrl.VMInformer.GetStore().GetByKey(vmKey)
+			storeObj, exists, err := ctrl.Informer(virtcontroller.KeyVM).GetStore().GetByKey(vmKey)
 			if err != nil || !exists {
 				continue
 			}
@@ -971,7 +972,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
 	vmName := vmSnapshot.Spec.Source.Name
 
-	obj, exists, err := ctrl.VMInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, vmName))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVM).GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, vmName))
 	if err != nil {
 		return nil, err
 	}
@@ -985,7 +986,7 @@ func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSna
 
 func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshotContent, error) {
 	contentName := GetVMSnapshotContentName(vmSnapshot)
-	obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, contentName))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMSnapshotContent).GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, contentName))
 	if err != nil {
 		return nil, err
 	}
@@ -1003,7 +1004,7 @@ func (ctrl *VMSnapshotController) getVMSnapshot(vmSnapshotContent *snapshotv1.Vi
 		return nil, fmt.Errorf("VirtualMachineSnapshotName is not initialized in vm snapshot content")
 	}
 
-	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshotContent.Namespace, *vmSnapshotName))
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMSnapshot).GetStore().GetByKey(cacheKeyFunc(vmSnapshotContent.Namespace, *vmSnapshotName))
 	if err != nil || !exists {
 		return nil, err
 	}
@@ -1017,7 +1018,7 @@ func (ctrl *VMSnapshotController) getVMI(vm *kubevirtv1.VirtualMachine) (*kubevi
 		return nil, false, err
 	}
 
-	obj, exists, err := ctrl.VMIInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMI).GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return nil, exists, err
 	}

@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	utils "kubevirt.io/kubevirt/pkg/util"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -90,7 +91,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	if !vmOnline {
 		pvcNames := s.pvcNames()
-		pods, err := watchutil.PodsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
+		pods, err := watchutil.PodsUsingPVCs(s.controller.Informer(virtcontroller.KeyPod), s.vm.Namespace, pvcNames)
 		if err != nil {
 			return false, err
 		}
@@ -119,7 +120,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
 		controller.AddFinalizer(vmCopy, sourceFinalizer)
-		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+		_, err = s.controller.Clientset().VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 		if err != nil {
 			return false, err
 		}
@@ -138,7 +139,7 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 
 	if controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
-		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+		vmCopy, err = s.controller.Clientset().VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 		if err != nil {
 			return false, err
 		}
@@ -163,7 +164,7 @@ func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
 	}
 
 	crName := vmi.Status.VirtualMachineRevisionName
-	storeObj, exists, err := s.controller.CRInformer.GetStore().GetByKey(cacheKeyFunc(vmi.Namespace, crName))
+	storeObj, exists, err := s.controller.Informer(virtcontroller.KeyControllerRevision).GetStore().GetByKey(cacheKeyFunc(vmi.Namespace, crName))
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +187,7 @@ func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
 
 func (s *vmSnapshotSource) getControllerRevision(namespace, name string) (*appsv1.ControllerRevision, error) {
 	crKey := cacheKeyFunc(namespace, name)
-	obj, exists, err := s.controller.CRInformer.GetStore().GetByKey(crKey)
+	obj, exists, err := s.controller.Informer(virtcontroller.KeyControllerRevision).GetStore().GetByKey(crKey)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +225,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	}
 	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshot, snapshot.GroupVersionKind())}
 
-	snapshotCR, err = s.controller.Client.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
+	snapshotCR, err = s.controller.Clientset().AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return "", err
 	}
@@ -331,7 +332,7 @@ func (s *vmSnapshotSource) Freeze() error {
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
 
 	startTime := time.Now()
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
+	err = s.controller.Clientset().VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
 		return err
@@ -353,7 +354,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", s.vm.Name)
 
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
+	err = s.controller.Clientset().VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
 	if err != nil {
 		return err
 	}

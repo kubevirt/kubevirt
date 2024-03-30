@@ -167,21 +167,21 @@ var _ = Describe("Application", func() {
 			virtClient,
 			config,
 		)
-		app.snapshotController = &snapshot.VMSnapshotController{
-			Client:                    virtClient,
-			VMSnapshotInformer:        vmSnapshotInformer,
-			VMSnapshotContentInformer: vmSnapshotContentInformer,
-			VMInformer:                vmInformer,
-			VMIInformer:               vmiInformer,
-			PodInformer:               podInformer,
-			StorageClassInformer:      storageClassInformer,
-			PVCInformer:               pvcInformer,
-			CRDInformer:               crdInformer,
-			DVInformer:                dvInformer,
-			Recorder:                  recorder,
-			ResyncPeriod:              60 * time.Second,
-		}
-		_ = app.snapshotController.Init()
+		app.snapshotController, _ = snapshot.NewVMSnapshotController(
+			virtClient,
+			recorder,
+			60*time.Second,
+			vmSnapshotInformer,
+			vmSnapshotContentInformer,
+			vmInformer,
+			vmiInformer,
+			storageClassInformer,
+			pvcInformer,
+			crInformer,
+			podInformer,
+			dvInformer,
+			crInformer,
+		)
 		app.restoreController, _ = snapshot.NewVMRestoreController(
 			virtClient,
 			nil,
