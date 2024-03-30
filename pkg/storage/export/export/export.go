@@ -36,7 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	validation "k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
@@ -172,46 +173,16 @@ func (sv *sourceVolumes) isSourceAvailable() bool {
 	return !sv.inUse && sv.isPopulated
 }
 
-// VMExportController is resonsible for exporting VMs
+// VMExportController is responsible for exporting VMs
 type VMExportController struct {
-	Client kubecli.KubevirtClient
-
-	TemplateService services.TemplateService
-
-	VMExportInformer            cache.SharedIndexInformer
-	PVCInformer                 cache.SharedIndexInformer
-	VMSnapshotInformer          cache.SharedIndexInformer
-	VMSnapshotContentInformer   cache.SharedIndexInformer
-	PodInformer                 cache.SharedIndexInformer
-	DataVolumeInformer          cache.SharedIndexInformer
-	ConfigMapInformer           cache.SharedIndexInformer
-	ServiceInformer             cache.SharedIndexInformer
-	VMInformer                  cache.SharedIndexInformer
-	VMIInformer                 cache.SharedIndexInformer
-	RouteConfigMapInformer      cache.SharedInformer
-	RouteCache                  cache.Store
-	IngressCache                cache.Store
-	SecretInformer              cache.SharedIndexInformer
-	CRDInformer                 cache.SharedIndexInformer
-	KubeVirtInformer            cache.SharedIndexInformer
-	VolumeSnapshotProvider      snapshot.VolumeSnapshotProvider
-	InstancetypeInformer        cache.SharedIndexInformer
-	ClusterInstancetypeInformer cache.SharedIndexInformer
-	PreferenceInformer          cache.SharedIndexInformer
-	ClusterPreferenceInformer   cache.SharedIndexInformer
-	ControllerRevisionInformer  cache.SharedIndexInformer
-
-	Recorder record.EventRecorder
-
-	KubevirtNamespace string
-
-	vmExportQueue workqueue.RateLimitingInterface
-
-	caCertManager *bootstrap.FileCertificateManager
-
-	clusterConfig *virtconfig.ClusterConfig
-
-	instancetypeMethods instancetype.Methods
+	virtcontroller.Controller
+	TemplateService        services.TemplateService
+	VolumeSnapshotProvider snapshot.VolumeSnapshotProvider
+	Recorder               record.EventRecorder
+	KubevirtNamespace      string
+	caCertManager          *bootstrap.FileCertificateManager
+	clusterConfig          *virtconfig.ClusterConfig
+	instancetypeMethods    instancetype.Methods
 }
 
 type CertParams struct {
@@ -242,21 +213,85 @@ func deserializeCertParams(value string) (*CertParams, error) {
 	return cp, nil
 }
 
-var initCert = func(ctrl *VMExportController) {
+var InitCert = func(ctrl *VMExportController) {
 	ctrl.caCertManager = bootstrap.NewFileCertificateManager(caCertFile, caKeyFile)
 	go ctrl.caCertManager.Start()
 }
 
-// Init initializes the export controller
-func (ctrl *VMExportController) Init() error {
-	var err error
-	ctrl.clusterConfig, err = virtconfig.NewClusterConfig(ctrl.CRDInformer, ctrl.KubeVirtInformer, ctrl.KubevirtNamespace)
+func NewVMExportController(client kubecli.KubevirtClient,
+	templateService services.TemplateService,
+	vsProvider snapshot.VolumeSnapshotProvider,
+	recorder record.EventRecorder,
+	kvNamespace string,
+	vmExportInformer,
+	pvcInformer,
+	vmSnapshotInformer,
+	vmSnapshotContentInformer,
+	podInformer,
+	dvInformer,
+	configMapInformer,
+	serviceInformer,
+	vmInformer,
+	vmiInformer,
+	routeConfigMapInformer,
+	secretInformer,
+	crdInformer,
+	kubeVirtInformer,
+	instancetypeInformer,
+	clusterInstancetypeInformer,
+	preferenceInformer,
+	clusterPreferenceInformer,
+	controllerRevisionInformer cache.SharedIndexInformer,
+	routeCache,
+	ingressCache cache.Store,
+) (*VMExportController, error) {
+	clusterConfig, err := virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, kvNamespace)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	ctrl.vmExportQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-export-vmexport")
+	ctrl := virtcontroller.NewController(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-export-vmexport"),
+		client,
+	)
+	ctrl.SetInformer(virtcontroller.KeyVMExport, vmExportInformer)
+	ctrl.SetInformer(virtcontroller.KeyPVC, pvcInformer)
+	ctrl.SetInformer(virtcontroller.KeyPod, podInformer)
+	ctrl.SetInformer(virtcontroller.KeyDV, dvInformer)
+	ctrl.SetInformer(virtcontroller.KeyExportService, serviceInformer)
+	ctrl.SetInformer(virtcontroller.KeyConfigMap, configMapInformer)
+	ctrl.SetInformer(virtcontroller.KeyRouteConfigMap, routeConfigMapInformer)
+	ctrl.SetInformer(virtcontroller.KeySecret, secretInformer)
+	ctrl.SetInformer(virtcontroller.KeyVMSnapshot, vmSnapshotInformer)
+	ctrl.SetInformer(virtcontroller.KeyVMSnapshotContent, vmSnapshotContentInformer)
+	ctrl.SetInformer(virtcontroller.KeyVM, vmInformer)
+	ctrl.SetInformer(virtcontroller.KeyVMI, vmiInformer)
+	ctrl.SetInformer(virtcontroller.KeyCRD, crdInformer)
+	ctrl.SetInformer(virtcontroller.KeyKubeVirt, kubeVirtInformer)
+	ctrl.SetInformer(virtcontroller.KeyIT, instancetypeInformer)
+	ctrl.SetInformer(virtcontroller.KeyClusterIT, clusterInstancetypeInformer)
+	ctrl.SetInformer(virtcontroller.KeyPref, preferenceInformer)
+	ctrl.SetInformer(virtcontroller.KeyClusterPref, clusterPreferenceInformer)
+	ctrl.SetInformer(virtcontroller.KeyControllerRevision, controllerRevisionInformer)
 
-	_, err = ctrl.VMExportInformer.AddEventHandler(
+	ctrl.SetStore(virtcontroller.KeyIngress, ingressCache)
+	ctrl.SetStore(virtcontroller.KeyRoute, routeCache)
+
+	c := VMExportController{
+		Controller:             *ctrl,
+		TemplateService:        templateService,
+		Recorder:               recorder,
+		KubevirtNamespace:      kvNamespace,
+		VolumeSnapshotProvider: vsProvider,
+		clusterConfig:          clusterConfig,
+	}
+	err = c.init()
+	return &c, err
+}
+
+// init initializes the export controller
+func (ctrl *VMExportController) init() error {
+	var err error
+	_, err = ctrl.Informer(virtcontroller.KeyVMExport).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMExport,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMExport(newObj) },
@@ -266,7 +301,7 @@ func (ctrl *VMExportController) Init() error {
 		return err
 	}
 
-	_, err = ctrl.PodInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyPod).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePod,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePod(newObj) },
@@ -276,7 +311,7 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.ServiceInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyExportService).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleService,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleService(newObj) },
@@ -286,7 +321,7 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.PVCInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyPVC).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
@@ -296,7 +331,7 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.VMSnapshotInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyVMSnapshot).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshot(newObj) },
@@ -306,7 +341,7 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.VMIInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyVMI).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMI,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMI(newObj) },
@@ -316,7 +351,7 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.VMInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyVM).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
@@ -326,7 +361,7 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.KubeVirtInformer.AddEventHandler(
+	_, err = ctrl.Informer(virtcontroller.KeyKubeVirt).AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: ctrl.handleKubeVirt,
 		},
@@ -335,48 +370,26 @@ func (ctrl *VMExportController) Init() error {
 		return err
 	}
 	ctrl.instancetypeMethods = &instancetype.InstancetypeMethods{
-		InstancetypeStore:        ctrl.InstancetypeInformer.GetStore(),
-		ClusterInstancetypeStore: ctrl.ClusterInstancetypeInformer.GetStore(),
-		PreferenceStore:          ctrl.PreferenceInformer.GetStore(),
-		ClusterPreferenceStore:   ctrl.ClusterPreferenceInformer.GetStore(),
-		ControllerRevisionStore:  ctrl.ControllerRevisionInformer.GetStore(),
-		Clientset:                ctrl.Client,
+		InstancetypeStore:        ctrl.Informer(virtcontroller.KeyIT).GetStore(),
+		ClusterInstancetypeStore: ctrl.Informer(virtcontroller.KeyClusterIT).GetStore(),
+		PreferenceStore:          ctrl.Informer(virtcontroller.KeyPref).GetStore(),
+		ClusterPreferenceStore:   ctrl.Informer(virtcontroller.KeyClusterPref).GetStore(),
+		ControllerRevisionStore:  ctrl.Informer(virtcontroller.KeyControllerRevision).GetStore(),
+		Clientset:                ctrl.Clientset(),
 	}
 
-	initCert(ctrl)
 	return nil
 }
 
 // Run the controller
 func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
-	defer ctrl.vmExportQueue.ShutDown()
+	defer ctrl.Queue().ShutDown()
 
 	log.Log.Info("Starting export controller.")
 	defer log.Log.Info("Shutting down export controller.")
 
-	if !cache.WaitForCacheSync(
-		stopCh,
-		ctrl.VMExportInformer.HasSynced,
-		ctrl.PVCInformer.HasSynced,
-		ctrl.PodInformer.HasSynced,
-		ctrl.DataVolumeInformer.HasSynced,
-		ctrl.ConfigMapInformer.HasSynced,
-		ctrl.ServiceInformer.HasSynced,
-		ctrl.RouteConfigMapInformer.HasSynced,
-		ctrl.SecretInformer.HasSynced,
-		ctrl.VMSnapshotInformer.HasSynced,
-		ctrl.VMSnapshotContentInformer.HasSynced,
-		ctrl.VMInformer.HasSynced,
-		ctrl.VMIInformer.HasSynced,
-		ctrl.CRDInformer.HasSynced,
-		ctrl.KubeVirtInformer.HasSynced,
-		ctrl.InstancetypeInformer.HasSynced,
-		ctrl.ClusterInstancetypeInformer.HasSynced,
-		ctrl.PreferenceInformer.HasSynced,
-		ctrl.ClusterPreferenceInformer.HasSynced,
-		ctrl.ControllerRevisionInformer.HasSynced,
-	) {
+	if !ctrl.WaitForCacheSync(stopCh) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -390,15 +403,15 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 }
 
 func (ctrl *VMExportController) vmExportWorker() {
-	for ctrl.processVMExportWorkItem() {
+	for ctrl.Execute() {
 	}
 }
 
-func (ctrl *VMExportController) processVMExportWorkItem() bool {
-	return watchutil.ProcessWorkItem(ctrl.vmExportQueue, func(key string) (time.Duration, error) {
+func (ctrl *VMExportController) Execute() bool {
+	return watchutil.ProcessWorkItem(ctrl.Queue(), func(key string) (time.Duration, error) {
 		log.Log.V(3).Infof("vmExport worker processing key [%s]", key)
 
-		storeObj, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(key)
+		storeObj, exists, err := ctrl.Informer(virtcontroller.KeyVMExport).GetStore().GetByKey(key)
 		if !exists || err != nil {
 			return 0, err
 		}
@@ -419,14 +432,14 @@ func (ctrl *VMExportController) handlePod(obj interface{}) {
 
 	if pod, ok := obj.(*corev1.Pod); ok {
 		key := ctrl.getOwnerVMexportKey(pod)
-		_, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(key)
+		_, exists, err := ctrl.Informer(virtcontroller.KeyVMExport).GetStore().GetByKey(key)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		if exists {
 			log.Log.V(3).Infof("Adding VMExport due to pod %s", key)
-			ctrl.vmExportQueue.Add(key)
+			ctrl.Queue().Add(key)
 		}
 	}
 }
@@ -438,14 +451,14 @@ func (ctrl *VMExportController) handleService(obj interface{}) {
 
 	if service, ok := obj.(*corev1.Service); ok {
 		serviceKey := ctrl.getOwnerVMexportKey(service)
-		_, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(serviceKey)
+		_, exists, err := ctrl.Informer(virtcontroller.KeyVMExport).GetStore().GetByKey(serviceKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		if exists {
 			log.Log.V(3).Infof("Adding VMExport due to service %s", serviceKey)
-			ctrl.vmExportQueue.Add(serviceKey)
+			ctrl.Queue().Add(serviceKey)
 		}
 	}
 }
@@ -466,9 +479,9 @@ func (ctrl *VMExportController) handleKubeVirt(oldObj, newObj interface{}) {
 	}
 
 	// queue everything
-	keys := ctrl.VMExportInformer.GetStore().ListKeys()
+	keys := ctrl.Informer(virtcontroller.KeyVMExport).GetStore().ListKeys()
 	for _, key := range keys {
-		ctrl.vmExportQueue.Add(key)
+		ctrl.Queue().Add(key)
 	}
 }
 
@@ -573,7 +586,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 
 func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, deleteReason, message string) error {
 	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeWarning, deleteReason, message)
-	if err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); !errors.IsNotFound(err) {
+	if err := ctrl.Clientset().CoreV1().Pods(vmExport.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); !errors.IsNotFound(err) {
 		return err
 	}
 	return nil
@@ -585,7 +598,7 @@ func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport
 	}
 
 	if ttlExpiration := getExpirationTime(vmExport); !time.Now().Before(ttlExpiration) {
-		if err := ctrl.Client.VirtualMachineExport(vmExport.Namespace).Delete(context.Background(), vmExport.Name, metav1.DeleteOptions{}); err != nil {
+		if err := ctrl.Clientset().VirtualMachineExport(vmExport.Namespace).Delete(context.Background(), vmExport.Name, metav1.DeleteOptions{}); err != nil {
 			return err
 		}
 		return nil
@@ -614,7 +627,7 @@ func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport
 
 func (ctrl *VMExportController) isPVCPopulated(pvc *corev1.PersistentVolumeClaim) (bool, error) {
 	return cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
-		obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(controller.NamespacedKey(namespace, name))
+		obj, exists, err := ctrl.Informer(virtcontroller.KeyDV).GetStore().GetByKey(controller.NamespacedKey(namespace, name))
 		if err != nil {
 			return nil, err
 		}
@@ -633,7 +646,7 @@ func (ctrl *VMExportController) createCertSecret(vmExport *exportv1.VirtualMachi
 	if err != nil {
 		return err
 	}
-	_, err = ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err = ctrl.Clientset().CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	} else {
@@ -728,7 +741,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 		},
 	}
 
-	secret, err = ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	secret, err = ctrl.Clientset().CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			return nil
@@ -764,12 +777,12 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 
 func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport) (*corev1.Service, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportServiceName(vmExport))
-	if service, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key); err != nil {
+	if service, exists, err := ctrl.Informer(virtcontroller.KeyExportService).GetStore().GetByKey(key); err != nil {
 		return nil, err
 	} else if !exists {
 		service := ctrl.createServiceManifest(vmExport)
 		log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
-		service, err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
+		service, err := ctrl.Clientset().CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
 		if err == nil {
 			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
 		}
@@ -816,7 +829,7 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 
 func (ctrl *VMExportController) getExporterPod(vmExport *exportv1.VirtualMachineExport) (*corev1.Pod, bool, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
-	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
+	if obj, exists, err := ctrl.Informer(virtcontroller.KeyPod).GetStore().GetByKey(key); err != nil {
 		log.Log.Errorf("error %v", err)
 		return nil, false, err
 	} else if !exists {
@@ -830,7 +843,7 @@ func (ctrl *VMExportController) getExporterPod(vmExport *exportv1.VirtualMachine
 func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
 	log.Log.V(3).Infof("Checking if pod exists: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
-	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
+	if obj, exists, err := ctrl.Informer(virtcontroller.KeyPod).GetStore().GetByKey(key); err != nil {
 		log.Log.Errorf("error %v", err)
 		return nil, err
 	} else if !exists {
@@ -840,7 +853,7 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 		}
 
 		log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
-		pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
+		pod, err := ctrl.Clientset().CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -967,7 +980,7 @@ func (ctrl *VMExportController) createDataManifestAndAddToPod(vmExport *exportv1
 	if err != nil {
 		return err
 	}
-	cm, err := ctrl.Client.CoreV1().ConfigMaps(vmExport.Namespace).Create(context.Background(), vmManifestConfigMap, metav1.CreateOptions{})
+	cm, err := ctrl.Clientset().CoreV1().ConfigMaps(vmExport.Namespace).Create(context.Background(), vmManifestConfigMap, metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
@@ -1134,7 +1147,7 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 		return false
 	}
 	if ownerRef.Kind == datavolumeGVK.Kind && ownerRef.APIVersion == datavolumeGVK.GroupVersion().String() {
-		obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(controller.NamespacedKey(pvc.GetNamespace(), ownerRef.Name))
+		obj, exists, err := ctrl.Informer(virtcontroller.KeyDV).GetStore().GetByKey(controller.NamespacedKey(pvc.GetNamespace(), ownerRef.Name))
 		if err != nil {
 			log.Log.V(3).Infof("Error getting DataVolume %v", err)
 		}
@@ -1183,7 +1196,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 
 func (ctrl *VMExportController) updateVMExportStatus(vmExport, vmExportCopy *exportv1.VirtualMachineExport) error {
 	if !equality.Semantic.DeepEqual(vmExport.Status, vmExportCopy.Status) {
-		if _, err := ctrl.Client.VirtualMachineExport(vmExportCopy.Namespace).Update(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := ctrl.Clientset().VirtualMachineExport(vmExportCopy.Namespace).Update(context.Background(), vmExportCopy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}

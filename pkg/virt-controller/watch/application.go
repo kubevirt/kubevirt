@@ -177,9 +177,9 @@ type VirtControllerApp struct {
 	workloadUpdateController virtcontroller.ControllerInterface
 
 	caExportConfigMapInformer    cache.SharedIndexInformer
-	exportRouteConfigMapInformer cache.SharedInformer
+	exportRouteConfigMapInformer cache.SharedIndexInformer
 	exportServiceInformer        cache.SharedIndexInformer
-	exportController             *export.VMExportController
+	exportController             virtcontroller.ControllerInterface
 	snapshotController           *snapshot.VMSnapshotController
 	restoreController            *snapshot.VMRestoreController
 	vmExportInformer             cache.SharedIndexInformer
@@ -829,38 +829,37 @@ func (vca *VirtControllerApp) initRestoreController() {
 }
 
 func (vca *VirtControllerApp) initExportController() {
-	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
-	vca.exportController = &export.VMExportController{
-		TemplateService:             vca.templateService,
-		Client:                      vca.clientSet,
-		VMExportInformer:            vca.vmExportInformer,
-		PVCInformer:                 vca.persistentVolumeClaimInformer,
-		PodInformer:                 vca.allPodInformer,
-		DataVolumeInformer:          vca.dataVolumeInformer,
-		ServiceInformer:             vca.exportServiceInformer,
-		Recorder:                    recorder,
-		ConfigMapInformer:           vca.caExportConfigMapInformer,
-		IngressCache:                vca.ingressCache,
-		RouteCache:                  vca.routeCache,
-		KubevirtNamespace:           vca.kubevirtNamespace,
-		RouteConfigMapInformer:      vca.exportRouteConfigMapInformer,
-		SecretInformer:              vca.unmanagedSecretInformer,
-		VolumeSnapshotProvider:      vca.snapshotController,
-		VMSnapshotInformer:          vca.vmSnapshotInformer,
-		VMSnapshotContentInformer:   vca.vmSnapshotContentInformer,
-		VMInformer:                  vca.vmInformer,
-		VMIInformer:                 vca.vmiInformer,
-		CRDInformer:                 vca.crdInformer,
-		KubeVirtInformer:            vca.kubeVirtInformer,
-		InstancetypeInformer:        vca.instancetypeInformer,
-		ClusterInstancetypeInformer: vca.clusterInstancetypeInformer,
-		PreferenceInformer:          vca.preferenceInformer,
-		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
-		ControllerRevisionInformer:  vca.controllerRevisionInformer,
-	}
-	if err := vca.exportController.Init(); err != nil {
+	exportController, err := export.NewVMExportController(
+		vca.clientSet,
+		vca.templateService,
+		vca.snapshotController,
+		vca.newRecorder(k8sv1.NamespaceAll, "export-controller"),
+		vca.kubevirtNamespace,
+		vca.vmExportInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.vmSnapshotInformer,
+		vca.vmSnapshotContentInformer,
+		vca.allPodInformer, vca.dataVolumeInformer,
+		vca.caExportConfigMapInformer,
+		vca.exportServiceInformer,
+		vca.vmInformer, vca.vmiInformer,
+		vca.exportRouteConfigMapInformer,
+		vca.unmanagedSecretInformer,
+		vca.crdInformer,
+		vca.kubeVirtInformer,
+		vca.instancetypeInformer,
+		vca.clusterInstancetypeInformer,
+		vca.preferenceInformer,
+		vca.clusterPreferenceInformer,
+		vca.controllerRevisionInformer,
+		vca.routeCache, vca.ingressCache,
+	)
+	if err != nil {
 		panic(err)
 	}
+
+	export.InitCert(exportController)
+	vca.exportController = exportController
 }
 
 func (vca *VirtControllerApp) initCloneController() {

@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 )
 
 const (
@@ -54,7 +55,7 @@ func (ctrl *VMExportController) handleVMExport(obj interface{}) {
 			return
 		}
 		log.Log.V(3).Infof(enqueuedForSyncFmt, objName)
-		ctrl.vmExportQueue.Add(objName)
+		ctrl.Queue().Add(objName)
 	}
 }
 
@@ -65,14 +66,14 @@ func (ctrl *VMExportController) handleVM(obj interface{}) {
 
 	if vm, ok := obj.(*virtv1.VirtualMachine); ok {
 		vmKey, _ := cache.MetaNamespaceKeyFunc(vm)
-		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vm", vmKey)
+		keys, err := ctrl.Informer(virtcontroller.KeyVMExport).GetIndexer().IndexKeys("vm", vmKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		for _, key := range keys {
 			log.Log.V(3).Infof("Adding VMExport due to vm %s", vmKey)
-			ctrl.vmExportQueue.Add(key)
+			ctrl.Queue().Add(key)
 		}
 	}
 }
@@ -86,14 +87,14 @@ func (ctrl *VMExportController) handleVMI(obj interface{}) {
 		vm := ctrl.getVMFromVMI(vmi)
 		if vm != nil {
 			vmKey, _ := cache.MetaNamespaceKeyFunc(vm)
-			keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vm", vmKey)
+			keys, err := ctrl.Informer(virtcontroller.KeyVMExport).GetIndexer().IndexKeys("vm", vmKey)
 			if err != nil {
 				utilruntime.HandleError(err)
 				return
 			}
 			for _, key := range keys {
 				log.Log.V(3).Infof("Adding VMExport due to VM %s", vmKey)
-				ctrl.vmExportQueue.Add(key)
+				ctrl.Queue().Add(key)
 			}
 			return
 		}
@@ -243,7 +244,7 @@ func (ctrl *VMExportController) isSourceVM(source *exportv1.VirtualMachineExport
 
 func (ctrl *VMExportController) getVm(namespace, name string) (*virtv1.VirtualMachine, bool, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := ctrl.VMInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVM).GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return nil, exists, err
 	}
@@ -252,7 +253,7 @@ func (ctrl *VMExportController) getVm(namespace, name string) (*virtv1.VirtualMa
 
 func (ctrl *VMExportController) getVmi(namespace, name string) (*virtv1.VirtualMachineInstance, bool, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := ctrl.VMIInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMI).GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return nil, exists, err
 	}

@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -128,7 +129,7 @@ func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, e
 
 func (ctrl *VMExportController) internalExportCa() (string, error) {
 	key := controller.NamespacedKey(ctrl.KubevirtNamespace, components.KubeVirtExportCASecretName)
-	obj, exists, err := ctrl.ConfigMapInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyConfigMap).GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return "", err
 	}
@@ -138,7 +139,7 @@ func (ctrl *VMExportController) internalExportCa() (string, error) {
 }
 
 func (ctrl *VMExportController) getExternalLinkHostAndCert() (string, string) {
-	for _, obj := range ctrl.IngressCache.List() {
+	for _, obj := range ctrl.Store(virtcontroller.KeyIngress).List() {
 		if ingress, ok := obj.(*networkingv1.Ingress); ok {
 			if host := getHostFromIngress(ingress); host != "" {
 				cert, _ := ctrl.getIngressCert(host, ingress)
@@ -146,7 +147,7 @@ func (ctrl *VMExportController) getExternalLinkHostAndCert() (string, string) {
 			}
 		}
 	}
-	for _, obj := range ctrl.RouteCache.List() {
+	for _, obj := range ctrl.Store(virtcontroller.KeyRoute).List() {
 		if route, ok := obj.(*routev1.Route); ok {
 			if host := getHostFromRoute(route); host != "" {
 				cert, _ := ctrl.getRouteCert(host)
@@ -166,7 +167,7 @@ func (ctrl *VMExportController) getIngressCert(hostName string, ing *networkingv
 		}
 	}
 	key := controller.NamespacedKey(ctrl.KubevirtNamespace, secretName)
-	obj, exists, err := ctrl.SecretInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeySecret).GetStore().GetByKey(key)
 	if err != nil {
 		return "", err
 	}
@@ -190,7 +191,7 @@ func (ctrl *VMExportController) getIngressCertFromSecret(secret *corev1.Secret, 
 
 func (ctrl *VMExportController) getRouteCert(hostName string) (string, error) {
 	key := controller.NamespacedKey(ctrl.KubevirtNamespace, routeCAConfigMapName)
-	obj, exists, err := ctrl.RouteConfigMapInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyRouteConfigMap).GetStore().GetByKey(key)
 	if err != nil {
 		return "", err
 	}

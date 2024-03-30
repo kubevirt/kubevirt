@@ -63,8 +63,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -191,7 +192,7 @@ var _ = Describe("Export controller", func() {
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
-		vmExportInformer, vmExportSource = testutils.NewFakeInformerWithIndexersFor(&exportv1.VirtualMachineExport{}, virtcontroller.GetVirtualMachineExportInformerIndexers())
+		vmExportInformer, vmExportSource = testutils.NewFakeInformerWithIndexersFor(&exportv1.VirtualMachineExport{}, kvcontroller.GetVirtualMachineExportInformerIndexers())
 		dvInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		vmSnapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		vmSnapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
@@ -224,36 +225,36 @@ var _ = Describe("Export controller", func() {
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
 			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
 
-		controller = &VMExportController{
-			Client:                      virtClient,
-			Recorder:                    recorder,
-			PVCInformer:                 pvcInformer,
-			PodInformer:                 podInformer,
-			ConfigMapInformer:           cmInformer,
-			VMExportInformer:            vmExportInformer,
-			ServiceInformer:             serviceInformer,
-			DataVolumeInformer:          dvInformer,
-			KubevirtNamespace:           "kubevirt",
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
-			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
-			RouteCache:                  routeCache,
-			IngressCache:                ingressCache,
-			RouteConfigMapInformer:      cmInformer,
-			SecretInformer:              secretInformer,
-			VMSnapshotInformer:          vmSnapshotInformer,
-			VMSnapshotContentInformer:   vmSnapshotContentInformer,
-			VolumeSnapshotProvider:      fakeVolumeSnapshotProvider,
-			VMInformer:                  vmInformer,
-			VMIInformer:                 vmiInformer,
-			CRDInformer:                 crdInformer,
-			KubeVirtInformer:            kvInformer,
-			InstancetypeInformer:        instancetypeInformer,
-			ClusterInstancetypeInformer: clusterInstancetypeInformer,
-			PreferenceInformer:          preferenceInformer,
-			ClusterPreferenceInformer:   clusterPreferenceInformer,
-			ControllerRevisionInformer:  controllerRevisionInformer,
-		}
-		initCert = func(ctrl *VMExportController) {
+		controller, _ = NewVMExportController(
+			virtClient,
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
+			fakeVolumeSnapshotProvider,
+			recorder,
+			"kubevirt",
+			vmExportInformer,
+			pvcInformer,
+			vmSnapshotInformer,
+			vmSnapshotContentInformer,
+			podInformer,
+			dvInformer,
+			cmInformer,
+			serviceInformer,
+			vmInformer,
+			vmiInformer,
+			cmInformer,
+			secretInformer,
+			crdInformer,
+			kvInformer,
+			instancetypeInformer,
+			clusterInstancetypeInformer,
+			preferenceInformer,
+			clusterPreferenceInformer,
+			controllerRevisionInformer,
+			routeCache,
+			ingressCache,
+		)
+		controller.caCertManager = bootstrap.NewFileCertificateManager(certFilePath, keyFilePath)
+		InitCert = func(ctrl *VMExportController) {
 			go controller.caCertManager.Start()
 			// Give the thread time to read the certs.
 			Eventually(func() *tls.Certificate {
@@ -261,9 +262,9 @@ var _ = Describe("Export controller", func() {
 			}, time.Second, time.Millisecond).ShouldNot(BeNil())
 		}
 
-		controller.Init()
-		mockVMExportQueue = testutils.NewMockWorkQueue(controller.vmExportQueue)
-		controller.vmExportQueue = mockVMExportQueue
+		InitCert(controller)
+		mockVMExportQueue = testutils.NewMockWorkQueue(controller.Queue())
+		controller.SetQueue(mockVMExportQueue)
 
 		Expect(
 			cmInformer.GetStore().Add(&k8sv1.ConfigMap{
@@ -680,7 +681,7 @@ var _ = Describe("Export controller", func() {
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(2)
 		vmExportSource.Add(vmExport)
-		controller.processVMExportWorkItem()
+		controller.Execute()
 		pvcInformer.GetStore().Add(pvc)
 		vmiInformer.GetStore().Add(vmi)
 		controller.handleVMI(vmi)
@@ -723,7 +724,7 @@ var _ = Describe("Export controller", func() {
 		syncCaches(stop)
 		mockVMExportQueue.ExpectAdds(1)
 		vmExportSource.Add(vmExport)
-		controller.processVMExportWorkItem()
+		controller.Execute()
 		vmiInformer.GetStore().Add(vmi)
 		controller.handleVMI(vmi)
 		mockVMExportQueue.Wait()
@@ -1062,7 +1063,7 @@ var _ = Describe("Export controller", func() {
 				Phase: k8sv1.ClaimBound,
 			},
 		}
-		Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
+		Expect(controller.Informer(virtcontroller.KeyPVC).GetStore().Add(pvc)).To(Succeed())
 
 		vmExportClient.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			delete, ok := action.(testing.DeleteAction)
@@ -1094,7 +1095,7 @@ var _ = Describe("Export controller", func() {
 	)
 
 	DescribeTable("should find host when Ingress is defined", func(ingress *networkingv1.Ingress, hostname string) {
-		Expect(controller.IngressCache.Add(ingress)).To(Succeed())
+		Expect(controller.Store(virtcontroller.KeyIngress).Add(ingress)).To(Succeed())
 		host, _ := controller.getExternalLinkHostAndCert()
 		Expect(hostname).To(Equal(host))
 	},
@@ -1107,8 +1108,8 @@ var _ = Describe("Export controller", func() {
 	)
 
 	DescribeTable("should find host when route is defined", func(createCMFunc func() *k8sv1.ConfigMap, route *routev1.Route, hostname, expectedCert string) {
-		controller.RouteCache.Add(route)
-		controller.RouteConfigMapInformer.GetStore().Add(createCMFunc())
+		controller.Store(virtcontroller.KeyRoute).Add(route)
+		controller.Informer(virtcontroller.KeyRouteConfigMap).GetStore().Add(createCMFunc())
 		host, cert := controller.getExternalLinkHostAndCert()
 		Expect(host).To(Equal(hostname))
 		Expect(cert).To(Equal(expectedCert))
@@ -1123,9 +1124,9 @@ var _ = Describe("Export controller", func() {
 
 	It("should pick ingress over route if both exist", func() {
 		Expect(
-			controller.IngressCache.Add(validIngressDefaultBackend(components.VirtExportProxyServiceName)),
+			controller.Store(virtcontroller.KeyIngress).Add(validIngressDefaultBackend(components.VirtExportProxyServiceName)),
 		).To(Succeed())
-		Expect(controller.RouteCache.Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
+		Expect(controller.Store(virtcontroller.KeyRoute).Add(routeToHostAndService(components.VirtExportProxyServiceName))).To(Succeed())
 		host, _ := controller.getExternalLinkHostAndCert()
 		Expect("backend-host").To(Equal(host))
 	})

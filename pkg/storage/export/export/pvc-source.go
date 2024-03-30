@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -43,7 +44,7 @@ func (ctrl *VMExportController) handlePVC(obj interface{}) {
 
 	if pvc, ok := obj.(*corev1.PersistentVolumeClaim); ok {
 		pvcKey, _ := cache.MetaNamespaceKeyFunc(pvc)
-		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("pvc", pvcKey)
+		keys, err := ctrl.Informer(virtcontroller.KeyVMExport).GetIndexer().IndexKeys("pvc", pvcKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
@@ -51,7 +52,7 @@ func (ctrl *VMExportController) handlePVC(obj interface{}) {
 
 		for _, key := range keys {
 			log.Log.V(3).Infof("Adding VMExport due to pvc %s", pvcKey)
-			ctrl.vmExportQueue.Add(key)
+			ctrl.Queue().Add(key)
 		}
 	}
 }
@@ -62,7 +63,7 @@ func (ctrl *VMExportController) isSourcePvc(source *exportv1.VirtualMachineExpor
 
 func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.PersistentVolumeClaim, bool, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyPVC).GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return nil, exists, err
 	}
@@ -119,7 +120,7 @@ func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExpo
 		return false, nil
 	}
 	pvcSet := sets.NewString(pvc.Name)
-	if usedPods, err := watchutil.PodsUsingPVCs(ctrl.PodInformer, pvc.Namespace, pvcSet); err != nil {
+	if usedPods, err := watchutil.PodsUsingPVCs(ctrl.Informer(virtcontroller.KeyPod), pvc.Namespace, pvcSet); err != nil {
 		return false, err
 	} else {
 		for _, pod := range usedPods {

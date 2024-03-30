@@ -51,8 +51,9 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	kvvirtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -110,7 +111,7 @@ var _ = Describe("PVC source", func() {
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
-		vmExportInformer, _ = testutils.NewFakeInformerWithIndexersFor(&exportv1.VirtualMachineExport{}, virtcontroller.GetVirtualMachineExportInformerIndexers())
+		vmExportInformer, _ = testutils.NewFakeInformerWithIndexersFor(&exportv1.VirtualMachineExport{}, kvvirtcontroller.GetVirtualMachineExportInformerIndexers())
 		dvInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		vmSnapshotInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		vmSnapshotContentInformer, _ = testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
@@ -143,36 +144,36 @@ var _ = Describe("PVC source", func() {
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
 			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
 
-		controller = &VMExportController{
-			Client:                      virtClient,
-			Recorder:                    recorder,
-			PVCInformer:                 pvcInformer,
-			PodInformer:                 podInformer,
-			ConfigMapInformer:           cmInformer,
-			VMExportInformer:            vmExportInformer,
-			ServiceInformer:             serviceInformer,
-			DataVolumeInformer:          dvInformer,
-			KubevirtNamespace:           "kubevirt",
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
-			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
-			RouteCache:                  routeCache,
-			IngressCache:                ingressCache,
-			RouteConfigMapInformer:      cmInformer,
-			SecretInformer:              secretInformer,
-			VMSnapshotInformer:          vmSnapshotInformer,
-			VMSnapshotContentInformer:   vmSnapshotContentInformer,
-			VolumeSnapshotProvider:      fakeVolumeSnapshotProvider,
-			VMInformer:                  vmInformer,
-			VMIInformer:                 vmiInformer,
-			CRDInformer:                 crdInformer,
-			KubeVirtInformer:            kvInformer,
-			InstancetypeInformer:        instancetypeInformer,
-			ClusterInstancetypeInformer: clusterInstancetypeInformer,
-			PreferenceInformer:          preferenceInformer,
-			ClusterPreferenceInformer:   clusterPreferenceInformer,
-			ControllerRevisionInformer:  controllerRevisionInformer,
-		}
-		initCert = func(ctrl *VMExportController) {
+		controller, _ = NewVMExportController(
+			virtClient,
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
+			fakeVolumeSnapshotProvider,
+			recorder,
+			"kubevirt",
+			vmExportInformer,
+			pvcInformer,
+			vmSnapshotInformer,
+			vmSnapshotContentInformer,
+			podInformer,
+			dvInformer,
+			cmInformer,
+			serviceInformer,
+			vmInformer,
+			vmiInformer,
+			cmInformer,
+			secretInformer,
+			crdInformer,
+			kvInformer,
+			instancetypeInformer,
+			clusterInstancetypeInformer,
+			preferenceInformer,
+			clusterPreferenceInformer,
+			controllerRevisionInformer,
+			routeCache,
+			ingressCache,
+		)
+		controller.caCertManager = bootstrap.NewFileCertificateManager(certFilePath, keyFilePath)
+		InitCert = func(ctrl *VMExportController) {
 			go controller.caCertManager.Start()
 			// Give the thread time to read the certs.
 			Eventually(func() *tls.Certificate {
@@ -180,9 +181,9 @@ var _ = Describe("PVC source", func() {
 			}, time.Second, time.Millisecond).ShouldNot(BeNil())
 		}
 
-		controller.Init()
-		mockVMExportQueue = testutils.NewMockWorkQueue(controller.vmExportQueue)
-		controller.vmExportQueue = mockVMExportQueue
+		InitCert(controller)
+		mockVMExportQueue = testutils.NewMockWorkQueue(controller.Queue())
+		controller.SetQueue(mockVMExportQueue)
 
 		Expect(
 			cmInformer.GetStore().Add(&k8sv1.ConfigMap{
@@ -381,9 +382,9 @@ var _ = Describe("PVC source", func() {
 
 	DescribeTable("Should create VM export, when VM is stopped", func(createVMFunc func() *virtv1.VirtualMachine, contentType1, contentType2 string, verifyFunc func(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string)) {
 		testVMExport := createVMVMExport()
-		controller.VMInformer.GetStore().Add(createVMFunc())
-		controller.PVCInformer.GetStore().Add(createPVC("volume1", contentType1))
-		controller.PVCInformer.GetStore().Add(createPVC("volume2", contentType2))
+		controller.Informer(virtcontroller.KeyVM).GetStore().Add(createVMFunc())
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume1", contentType1))
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume2", contentType2))
 		expectExporterCreate(k8sClient, k8sv1.PodRunning)
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
@@ -411,11 +412,11 @@ var _ = Describe("PVC source", func() {
 
 	It("Should NOT create VM export, when VM is started", func() {
 		testVMExport := createVMVMExport()
-		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
+		controller.Informer(virtcontroller.KeyVM).GetStore().Add(createVMWithDataVolumes())
 		vmi := createVMIWithDataVolumes()
-		controller.VMIInformer.GetStore().Add(vmi)
-		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
-		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		controller.Informer(virtcontroller.KeyVMI).GetStore().Add(vmi)
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume2", "kubevirt"))
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
@@ -454,14 +455,14 @@ var _ = Describe("PVC source", func() {
 	It("Should NOT create VM export, when DV is not complete", func() {
 		testVMExport := createVMVMExport()
 		vm := createVMWithDataVolumes()
-		controller.VMInformer.GetStore().Add(vm)
+		controller.Informer(virtcontroller.KeyVM).GetStore().Add(vm)
 		dv := createPopulatingDataVolume("volume1")
 		pvc1 := createPVC("volume1", "kubevirt")
 		ownerRef := metav1.NewControllerRef(dv, datavolumeGVK)
 		pvc1.GetObjectMeta().SetOwnerReferences([]metav1.OwnerReference{*ownerRef})
-		controller.PVCInformer.GetStore().Add(pvc1)
-		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
-		controller.DataVolumeInformer.GetStore().Add(dv)
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(pvc1)
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume2", "kubevirt"))
+		controller.Informer(virtcontroller.KeyDV).GetStore().Add(dv)
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
@@ -487,12 +488,12 @@ var _ = Describe("PVC source", func() {
 	It("Should stop running VM export, when VM is started", func() {
 		testVMExport := createVMVMExport()
 		podName := controller.getExportPodName(testVMExport)
-		controller.PodInformer.GetStore().Add(createExporterPod(podName, k8sv1.PodRunning))
-		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
+		controller.Informer(virtcontroller.KeyPod).GetStore().Add(createExporterPod(podName, k8sv1.PodRunning))
+		controller.Informer(virtcontroller.KeyVM).GetStore().Add(createVMWithDataVolumes())
 		vmi := createVMIWithDataVolumes()
-		controller.VMIInformer.GetStore().Add(vmi)
-		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
-		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		controller.Informer(virtcontroller.KeyVMI).GetStore().Add(vmi)
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume2", "kubevirt"))
 		expectExporterDelete(k8sClient, podName)
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
@@ -518,7 +519,7 @@ var _ = Describe("PVC source", func() {
 
 	It("Should be in skipped phase when VM has no volumes", func() {
 		testVMExport := createVMVMExport()
-		controller.VMInformer.GetStore().Add(createVMWithoutVolumes())
+		controller.Informer(virtcontroller.KeyVM).GetStore().Add(createVMWithoutVolumes())
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
@@ -541,10 +542,10 @@ var _ = Describe("PVC source", func() {
 	It("Should handle failed exporter pod", func() {
 		testVMExport := createVMVMExport()
 		podName := controller.getExportPodName(testVMExport)
-		controller.PodInformer.GetStore().Add(createExporterPod(podName, k8sv1.PodFailed))
-		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
-		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
-		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+		controller.Informer(virtcontroller.KeyPod).GetStore().Add(createExporterPod(podName, k8sv1.PodFailed))
+		controller.Informer(virtcontroller.KeyVM).GetStore().Add(createVMWithDataVolumes())
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.Informer(virtcontroller.KeyPVC).GetStore().Add(createPVC("volume2", "kubevirt"))
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())

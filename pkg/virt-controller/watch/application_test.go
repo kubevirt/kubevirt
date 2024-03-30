@@ -195,31 +195,36 @@ var _ = Describe("Application", func() {
 			Recorder:                  recorder,
 		}
 		_ = app.restoreController.Init()
-		app.exportController = &export.VMExportController{
-			Client:                      virtClient,
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
-			VMExportInformer:            vmExportInformer,
-			PVCInformer:                 pvcInformer,
-			PodInformer:                 podInformer,
-			DataVolumeInformer:          dataVolumeInformer,
-			ServiceInformer:             exportServiceInformer,
-			ConfigMapInformer:           configMapInformer,
-			RouteConfigMapInformer:      routeConfigMapInformer,
-			Recorder:                    recorder,
-			SecretInformer:              secretInformer,
-			VMSnapshotInformer:          vmSnapshotInformer,
-			VMSnapshotContentInformer:   vmSnapshotContentInformer,
-			VMInformer:                  vmInformer,
-			VMIInformer:                 vmiInformer,
-			CRDInformer:                 crdInformer,
-			KubeVirtInformer:            kvInformer,
-			InstancetypeInformer:        instancetypeInformer,
-			ClusterInstancetypeInformer: clusterInstancetypeInformer,
-			PreferenceInformer:          preferenceInformer,
-			ClusterPreferenceInformer:   clusterPreferenceInformer,
-			ControllerRevisionInformer:  controllerRevisionInformer,
-		}
-		_ = app.exportController.Init()
+		exportController, _ := export.NewVMExportController(
+			virtClient,
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			nil,
+			recorder,
+			"",
+			vmExportInformer,
+			pvcInformer,
+			vmSnapshotInformer,
+			vmSnapshotContentInformer,
+			podInformer,
+			dataVolumeInformer,
+			configMapInformer,
+			exportServiceInformer,
+			vmSnapshotInformer,
+			vmiInformer,
+			routeConfigMapInformer,
+			secretInformer,
+			crdInformer,
+			kvInformer,
+			instancetypeInformer,
+			clusterInstancetypeInformer,
+			preferenceInformer,
+			clusterPreferenceInformer,
+			controllerRevisionInformer,
+			nil,
+			nil,
+		)
+		app.exportController = exportController
+		export.InitCert(exportController)
 		app.persistentVolumeClaimInformer = pvcInformer
 		app.nodeInformer = nodeInformer
 		app.resourceQuotaInformer = resourceQuotaInformer

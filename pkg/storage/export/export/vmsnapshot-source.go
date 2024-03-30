@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -56,14 +58,14 @@ func (ctrl *VMExportController) handleVMSnapshot(obj interface{}) {
 
 	if snapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot); ok {
 		snapshotKey, _ := cache.MetaNamespaceKeyFunc(snapshot)
-		keys, err := ctrl.VMExportInformer.GetIndexer().IndexKeys("vmsnapshot", snapshotKey)
+		keys, err := ctrl.Informer(virtcontroller.KeyVMExport).GetIndexer().IndexKeys("vmsnapshot", snapshotKey)
 		if err != nil {
 			utilruntime.HandleError(err)
 			return
 		}
 		for _, key := range keys {
 			log.Log.V(3).Infof("Adding VMExport due to VMSnapshot %s", snapshotKey)
-			ctrl.vmExportQueue.Add(key)
+			ctrl.Queue().Add(key)
 		}
 	}
 }
@@ -176,7 +178,7 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 		},
 	})
 
-	pvc, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmExport.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	pvc, err = ctrl.Clientset().CoreV1().PersistentVolumeClaims(vmExport.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +261,7 @@ func (ctrl *VMExportController) isSourceVMSnapshot(source *exportv1.VirtualMachi
 
 func (ctrl *VMExportController) getVmSnapshot(namespace, name string) (*snapshotv1.VirtualMachineSnapshot, bool, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMSnapshot).GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return nil, exists, err
 	}
@@ -268,7 +270,7 @@ func (ctrl *VMExportController) getVmSnapshot(namespace, name string) (*snapshot
 
 func (ctrl *VMExportController) getVmSnapshotContent(namespace, name string) (*snapshotv1.VirtualMachineSnapshotContent, bool, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(key)
+	obj, exists, err := ctrl.Informer(virtcontroller.KeyVMSnapshotContent).GetStore().GetByKey(key)
 	if err != nil || !exists {
 		return nil, exists, err
 	}
