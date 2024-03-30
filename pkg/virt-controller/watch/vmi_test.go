@@ -300,8 +300,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue())
+		controller.SetQueue(mockQueue)
 		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
 		dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
 
@@ -1003,7 +1003,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}).Return(vmi, nil)
 
 			controller.Execute()
-			Expect(controller.Queue.Len()).To(Equal(0))
+			Expect(controller.Queue().Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 
 			testutils.ExpectEvent(recorder, FailedCreatePodReason)
@@ -1083,7 +1083,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})
 
 				controller.Execute()
-				Expect(controller.Queue.Len()).To(Equal(0))
+				Expect(controller.Queue().Len()).To(Equal(0))
 				// When the PVC appears, we will automatically be retriggered, it is not an error condition
 				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(BeZero())
 				addVirtualMachine(vmi)
@@ -1094,7 +1094,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				}).Return(vmi, nil)
 
 				controller.Execute()
-				Expect(controller.Queue.Len()).To(Equal(0))
+				Expect(controller.Queue().Len()).To(Equal(0))
 				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(BeZero())
 			},
 			Entry("when PVC does not exist", FailedPvcNotFoundReason,

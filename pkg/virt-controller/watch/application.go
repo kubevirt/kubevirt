@@ -139,7 +139,7 @@ type VirtControllerApp struct {
 	nodeController *NodeController
 
 	vmiCache      cache.Store
-	vmiController *VMIController
+	vmiController virtcontroller.ControllerInterface
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
@@ -543,7 +543,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
-		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
+		go func() {
+			if err := vca.vmiController.Run(vca.vmiControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the vmi controller: %v", err)
+			}
+		}()
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
 		go func() {
