@@ -155,7 +155,7 @@ type VirtControllerApp struct {
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
 
-	rsController *VMIReplicaSet
+	rsController virtcontroller.ControllerInterface
 	rsInformer   cache.SharedIndexInformer
 
 	poolController virtcontroller.ControllerInterface
@@ -556,7 +556,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the vmi controller: %v", err)
 			}
 		}()
-		go vca.rsController.Run(vca.rsControllerThreads, stop)
+		go func() {
+			if err := vca.rsController.Run(vca.rsControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the replicaset controller: %v", err)
+			}
+		}()
 		go func() {
 			if err := vca.poolController.Run(vca.poolControllerThreads, stop); err != nil {
 				log.Log.Warningf("error running the pool controller: %v", err)
