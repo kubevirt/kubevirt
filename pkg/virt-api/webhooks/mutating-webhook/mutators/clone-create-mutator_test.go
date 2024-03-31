@@ -84,8 +84,11 @@ func withVirtualMachineTarget(virtualMachineName string) option {
 	}
 }
 
-func createCloneAdmissionReview(vmClone *clonev1alpha1.VirtualMachineClone) *admissionv1.AdmissionReview {
-	cloneBytes, _ := json.Marshal(vmClone)
+func newAdmissionReviewForVMCloneCreation(vmClone *clonev1alpha1.VirtualMachineClone) (*admissionv1.AdmissionReview, error) {
+	cloneBytes, err := json.Marshal(vmClone)
+	if err != nil {
+		return nil, err
+	}
 
 	ar := &admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
@@ -100,14 +103,16 @@ func createCloneAdmissionReview(vmClone *clonev1alpha1.VirtualMachineClone) *adm
 		},
 	}
 
-	return ar
+	return ar, nil
 }
 
 func mutate(vmClone *clonev1alpha1.VirtualMachineClone) *clonev1alpha1.VirtualMachineCloneSpec {
-	ar := createCloneAdmissionReview(vmClone)
+	admissionReview, err := newAdmissionReviewForVMCloneCreation(vmClone)
+	Expect(err).ToNot(HaveOccurred())
+
 	mutator := mutators.CloneCreateMutator{}
 
-	resp := mutator.Mutate(ar)
+	resp := mutator.Mutate(admissionReview)
 	Expect(resp.Allowed).Should(BeTrue())
 
 	cloneSpec := &clonev1alpha1.VirtualMachineCloneSpec{}
@@ -115,7 +120,7 @@ func mutate(vmClone *clonev1alpha1.VirtualMachineClone) *clonev1alpha1.VirtualMa
 		{Value: cloneSpec},
 	}
 
-	err := json.Unmarshal(resp.Patch, &patch)
+	err = json.Unmarshal(resp.Patch, &patch)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(patch).NotTo(BeEmpty())
 
