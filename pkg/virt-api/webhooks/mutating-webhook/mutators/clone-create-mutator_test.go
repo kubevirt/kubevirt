@@ -23,27 +23,23 @@ import (
 var _ = Describe("Clone mutating webhook", func() {
 	const testSourceVirtualMachineName = "test-source-vm"
 
-	It("Target should be auto generated if missing", func() {
-		vmClone := newVirtualMachineClone(
-			withVirtualMachineSource(testSourceVirtualMachineName),
-		)
-
+	DescribeTable("should mutate the spec", func(vmClone *clonev1alpha1.VirtualMachineClone) {
 		cloneSpec := mutate(vmClone)
 		Expect(cloneSpec.Target).ShouldNot(BeNil())
 		Expect(cloneSpec.Target.Name).ShouldNot(BeEmpty())
-	})
-
-	It("Target name should be auto generated if missing", func() {
-		vmClone := newVirtualMachineClone(
-			withVirtualMachineSource(testSourceVirtualMachineName),
-			withVirtualMachineTarget(""),
-		)
-
-		cloneSpec := mutate(vmClone)
-		Expect(cloneSpec.Target).ShouldNot(BeNil())
-		Expect(cloneSpec.Target.Name).ShouldNot(BeEmpty())
-	})
-
+	},
+		Entry("When the source is a VirtualMachine and the target is nil",
+			newVirtualMachineClone(
+				withVirtualMachineSource(testSourceVirtualMachineName),
+			),
+		),
+		Entry("When the source is a VirtualMachine and the target name is empty",
+			newVirtualMachineClone(
+				withVirtualMachineSource(testSourceVirtualMachineName),
+				withVirtualMachineTarget(""),
+			),
+		),
+	)
 })
 
 type option func(vmClone *clonev1alpha1.VirtualMachineClone)
