@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libpod"
 
 	expect "github.com/google/goexpect"
@@ -169,7 +170,28 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
 
 		newVirtualMachineInstanceWithFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), corev1.ReadWriteOnce)
+			sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
+			Expect(foundSC).To(BeTrue(), "Filesystem storage is not present")
+
+			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+					libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				),
+			)
+			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := libvmi.New(
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
+			)
+			return vmi, dataVolume
 		}
 
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
