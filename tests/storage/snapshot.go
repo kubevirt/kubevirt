@@ -1313,6 +1313,49 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				Expect(snapshot.Status.CreationTime).To(BeNil())
 			})
+
+			It("vmsnapshot should update error if vmsnapshotcontent is unready to use and error", func() {
+				vm = tests.StartVMAndExpectRunning(virtClient, vm)
+				// Delete DV and wait pvc get deletionTimestamp
+				// when pvc is deleting snapshot is not possible
+				volumeName := vm.Spec.DataVolumeTemplates[0].Name
+				By("Deleting Data volume")
+				err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Delete(context.Background(), volumeName, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() *metav1.Time {
+					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), volumeName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return pvc.DeletionTimestamp
+				}, 30*time.Second, time.Second).ShouldNot(BeNil())
+
+				By("Creating VMSnapshot")
+				snapshot = newSnapshot()
+
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() *snapshotv1.VirtualMachineSnapshotStatus {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return snapshot.Status
+				}, time.Minute, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Conditions": ContainElements(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionReady),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("Not ready")}),
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionProgressing),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("In error state")}),
+					),
+					"Phase": Equal(snapshotv1.InProgress),
+					"Error": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Message": gstruct.PointTo(ContainSubstring("Failed to create snapshot content with error")),
+					})),
+					"CreationTime": BeNil(),
+				})))
+			})
 		})
 
 		Context("[Serial]With more complicated VM with/out GC of succeeded DV", Serial, func() {
