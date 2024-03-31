@@ -1,23 +1,28 @@
-package mutators
+package mutators_test
 
 import (
 	"encoding/json"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-
-	"kubevirt.io/kubevirt/tests/util"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/tests/util"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 )
 
 var _ = Describe("Clone mutating webhook", func() {
@@ -73,7 +78,7 @@ func createCloneAdmissionReview(vmClone *clonev1alpha1.VirtualMachineClone) *adm
 
 func mutate(vmClone *clonev1alpha1.VirtualMachineClone) *clonev1alpha1.VirtualMachineCloneSpec {
 	ar := createCloneAdmissionReview(vmClone)
-	mutator := CloneCreateMutator{}
+	mutator := mutators.CloneCreateMutator{}
 
 	resp := mutator.Mutate(ar)
 	Expect(resp.Allowed).Should(BeTrue())
