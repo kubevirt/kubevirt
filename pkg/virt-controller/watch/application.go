@@ -171,7 +171,7 @@ type VirtControllerApp struct {
 	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
 
-	migrationController *MigrationController
+	migrationController virtcontroller.ControllerInterface
 	migrationInformer   cache.SharedIndexInformer
 
 	workloadUpdateController virtcontroller.ControllerInterface
@@ -575,7 +575,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the vm controller: %v", err)
 			}
 		}()
-		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
+		go func() {
+			if err := vca.migrationController.Run(vca.migrationControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the migration controller: %v", err)
+			}
+		}()
 		go func() {
 			if err := vca.snapshotController.Run(vca.snapshotControllerThreads, stop); err != nil {
 				log.Log.Warningf("error running the snapshot controller: %v", err)
