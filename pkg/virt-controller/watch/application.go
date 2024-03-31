@@ -220,7 +220,7 @@ type VirtControllerApp struct {
 	kubevirtNamespace          string
 	host                       string
 	evacuationController       virtcontroller.ControllerInterface
-	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
+	disruptionBudgetController virtcontroller.ControllerInterface
 
 	ctx context.Context
 
@@ -545,7 +545,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the evacuation controller: %v", err)
 			}
 		}()
-		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
+		go func() {
+			if err := vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the disruptionbudget controller: %v", err)
+			}
+		}()
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
 		go func() {
 			if err := vca.vmiController.Run(vca.vmiControllerThreads, stop); err != nil {

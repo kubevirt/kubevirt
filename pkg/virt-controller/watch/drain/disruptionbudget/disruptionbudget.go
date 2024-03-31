@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 )
 
 const deleteNotifFail = "Failed to process delete notification"
@@ -45,13 +46,8 @@ const (
 )
 
 type DisruptionBudgetController struct {
-	clientset                       kubecli.KubevirtClient
+	virtcontroller.Controller
 	clusterConfig                   *virtconfig.ClusterConfig
-	Queue                           workqueue.RateLimitingInterface
-	vmiInformer                     cache.SharedIndexInformer
-	pdbInformer                     cache.SharedIndexInformer
-	podInformer                     cache.SharedIndexInformer
-	migrationInformer               cache.SharedIndexInformer
 	recorder                        record.EventRecorder
 	podDisruptionBudgetExpectations *controller.UIDTrackingControllerExpectations
 }
@@ -66,19 +62,23 @@ func NewDisruptionBudgetController(
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*DisruptionBudgetController, error) {
 
+	ctrl := virtcontroller.NewController(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-disruption-budget"),
+		clientset,
+	)
+	ctrl.SetInformer(virtcontroller.KeyVMI, vmiInformer)
+	ctrl.SetInformer(virtcontroller.KeyPDB, pdbInformer)
+	ctrl.SetInformer(virtcontroller.KeyPod, podInformer)
+	ctrl.SetInformer(virtcontroller.KeyMigration, migrationInformer)
+
 	c := &DisruptionBudgetController{
-		Queue:                           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-disruption-budget"),
-		vmiInformer:                     vmiInformer,
-		pdbInformer:                     pdbInformer,
-		podInformer:                     podInformer,
-		migrationInformer:               migrationInformer,
+		Controller:                      *ctrl,
 		recorder:                        recorder,
-		clientset:                       clientset,
 		clusterConfig:                   clusterConfig,
 		podDisruptionBudgetExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
-	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.Informer(virtcontroller.KeyVMI).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
@@ -87,7 +87,7 @@ func NewDisruptionBudgetController(
 		return nil, err
 	}
 
-	_, err = c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.Informer(virtcontroller.KeyPDB).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPodDisruptionBudget,
 		DeleteFunc: c.deletePodDisruptionBudget,
 		UpdateFunc: c.updatePodDisruptionBudget,
@@ -96,14 +96,14 @@ func NewDisruptionBudgetController(
 		return nil, err
 	}
 
-	_, err = c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.Informer(virtcontroller.KeyPod).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePod,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.Informer(virtcontroller.KeyMigration).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateMigration,
 	})
 	if err != nil {
@@ -182,7 +182,7 @@ func (c *DisruptionBudgetController) enqueueVMI(obj interface{}) {
 	if err != nil {
 		logger.Object(vmi).Reason(err).Error("Failed to extract key from vmi.")
 	}
-	c.Queue.Add(key)
+	c.Queue().Add(key)
 }
 
 // When a pdb is created, enqueue the vmi that manages it and update its pdbExpectations.
@@ -299,7 +299,7 @@ func (c *DisruptionBudgetController) enqueueVirtualMachine(obj interface{}) {
 		logger.Object(vmi).Reason(err).Error("Failed to extract key from virtualmachineinstance.")
 		return
 	}
-	c.Queue.Add(key)
+	c.Queue().Add(key)
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
@@ -321,14 +321,16 @@ func (c *DisruptionBudgetController) resolveControllerRef(namespace string, cont
 	}
 }
 
-// Run runs the passed in NodeController.
-func (c *DisruptionBudgetController) Run(threadiness int, stopCh <-chan struct{}) {
+// Run runs the DisruptionBudgetController.
+func (c *DisruptionBudgetController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer controller.HandlePanic()
-	defer c.Queue.ShutDown()
+	defer c.Queue().ShutDown()
 	log.Log.Info("Starting disruption budget controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.pdbInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced)
+	if !c.WaitForCacheSync(stopCh) {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -337,6 +339,7 @@ func (c *DisruptionBudgetController) Run(threadiness int, stopCh <-chan struct{}
 
 	<-stopCh
 	log.Log.Info("Stopping disruption budget controller.")
+	return nil
 }
 
 func (c *DisruptionBudgetController) runWorker() {
@@ -345,19 +348,19 @@ func (c *DisruptionBudgetController) runWorker() {
 }
 
 func (c *DisruptionBudgetController) Execute() bool {
-	key, quit := c.Queue.Get()
+	key, quit := c.Queue().Get()
 	if quit {
 		return false
 	}
-	defer c.Queue.Done(key)
+	defer c.Queue().Done(key)
 	err := c.execute(key.(string))
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
-		c.Queue.AddRateLimited(key)
+		c.Queue().AddRateLimited(key)
 	} else {
 		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
-		c.Queue.Forget(key)
+		c.Queue().Forget(key)
 	}
 	return true
 }
@@ -369,7 +372,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Fetch the latest Vm state from cache
-	obj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(key)
+	obj, vmiExists, err := c.Informer(virtcontroller.KeyVMI).GetStore().GetByKey(key)
 
 	if err != nil {
 		return err
@@ -389,7 +392,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Only consider pdbs which belong to this vmi
-	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
+	pdbs, err := pdbs.PDBsForVMI(vmi, c.Informer(virtcontroller.KeyPDB))
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to fetch pod disruption budgets for namespace from cache.")
 		// If the situation does not change there is no benefit in retrying
@@ -409,7 +412,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 }
 
 func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMachineInstance, migrationName string) (bool, error) {
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := c.Informer(virtcontroller.KeyMigration).GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return false, err
 	}
@@ -430,7 +433,7 @@ func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMach
 		return false, nil
 	}
 
-	runningPods := controller.VMIActivePodsCount(vmi, c.podInformer)
+	runningPods := controller.VMIActivePodsCount(vmi, c.Informer(virtcontroller.KeyPod))
 	return runningPods == 1, nil
 }
 
@@ -450,7 +453,7 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisr
 			return err
 		}
 		c.podDisruptionBudgetExpectations.ExpectDeletions(key, []string{pdbKey})
-		err = c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, v1.DeleteOptions{})
+		err = c.Clientset().PolicyV1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, v1.DeleteOptions{})
 		if err != nil {
 			c.podDisruptionBudgetExpectations.DeletionObserved(key, pdbKey)
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
@@ -471,7 +474,7 @@ func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstanc
 		if err != nil {
 			return err
 		}
-		_, err = c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patchOps, v1.PatchOptions{})
+		_, err = c.Clientset().PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patchOps, v1.PatchOptions{})
 		if err != nil {
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedUpdatePodDisruptionBudgetReason, "Error updating the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
@@ -485,7 +488,7 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
 	minAvailable := intstr.FromInt(1)
 
 	c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
-	createdPDB, err := c.clientset.PolicyV1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
+	createdPDB, err := c.Clientset().PolicyV1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
 		ObjectMeta: v1.ObjectMeta{
 			OwnerReferences: []v1.OwnerReference{
 				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),

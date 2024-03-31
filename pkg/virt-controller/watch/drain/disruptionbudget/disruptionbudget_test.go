@@ -124,8 +124,8 @@ var _ = Describe("Disruptionbudget", func() {
 		config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 
 		controller, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient, config)
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue())
+		controller.SetQueue(mockQueue)
 		pdbFeeder = testutils.NewPodDisruptionBudgetFeeder(mockQueue, pdbSource)
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 	}
