@@ -31,23 +31,21 @@ var _ = Describe("Clone mutating webhook", func() {
 		const expectedTargetSuffix = "12345"
 		mutator := mutators.NewCloneMutatorWithTargetSuffix(expectedTargetSuffix)
 
-		resp := mutator.Mutate(admissionReview)
-		Expect(resp.Allowed).Should(BeTrue())
-
-		cloneSpec := &clonev1alpha1.VirtualMachineCloneSpec{}
-		patch := []patch.PatchOperation{
-			{Value: cloneSpec},
+		expectedVirtualMachineCloneSpec := vmClone.Spec.DeepCopy()
+		expectedVirtualMachineCloneSpec.Target = &k8sv1.TypedLocalObjectReference{
+			APIGroup: pointer.P(virtualMachineAPIGroup),
+			Kind:     virtualMachineKind,
+			Name:     fmt.Sprintf("clone-%s-%s", expectedVirtualMachineCloneSpec.Source.Name, expectedTargetSuffix),
 		}
 
-		err = json.Unmarshal(resp.Patch, &patch)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(patch).NotTo(BeEmpty())
+		expectedJSONPatch, err := expectedJSONPatchForVMCloneCreation(expectedVirtualMachineCloneSpec)
+		Expect(err).NotTo(HaveOccurred())
 
-		Expect(cloneSpec.Target).To(Equal(
-			&k8sv1.TypedLocalObjectReference{
-				APIGroup: pointer.P(virtualMachineAPIGroup),
-				Kind:     virtualMachineKind,
-				Name:     fmt.Sprintf("clone-%s-%s", vmClone.Spec.Source.Name, expectedTargetSuffix),
+		Expect(mutator.Mutate(admissionReview)).To(Equal(
+			&admissionv1.AdmissionResponse{
+				Allowed:   true,
+				PatchType: pointer.P(admissionv1.PatchTypeJSONPatch),
+				Patch:     expectedJSONPatch,
 			},
 		))
 	},
@@ -127,4 +125,14 @@ func newAdmissionReviewForVMCloneCreation(vmClone *clonev1alpha1.VirtualMachineC
 	}
 
 	return ar, nil
+}
+
+func expectedJSONPatchForVMCloneCreation(vmCloneSpec *clonev1alpha1.VirtualMachineCloneSpec) ([]byte, error) {
+	return patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
+			Path:  "/spec",
+			Value: vmCloneSpec,
+		},
+	)
 }
