@@ -12,27 +12,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"k8s.io/utils/pointer"
-
 	"kubevirt.io/api/clone"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
-	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/util"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 )
 
 var _ = Describe("Clone mutating webhook", func() {
+	const testSourceVirtualMachineName = "test-source-vm"
+
 	It("Target should be auto generated if missing", func() {
-		vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
-		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(clone.GroupName),
-			Kind:     "VirtualMachine",
-			Name:     "test-source-vm",
-		}
+		vmClone := newVirtualMachineClone(
+			withVirtualMachineSource(testSourceVirtualMachineName),
+		)
 
 		cloneSpec := mutate(vmClone)
 		Expect(cloneSpec.Target).ShouldNot(BeNil())
@@ -40,24 +34,59 @@ var _ = Describe("Clone mutating webhook", func() {
 	})
 
 	It("Target name should be auto generated if missing", func() {
-		vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
-		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(clone.GroupName),
-			Kind:     "VirtualMachine",
-			Name:     "test-source-vm",
-		}
+		vmClone := newVirtualMachineClone(
+			withVirtualMachineSource(testSourceVirtualMachineName),
+			withVirtualMachineTarget(""),
+		)
 
-		vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.String(clone.GroupName),
-			Kind:     "VirtualMachine",
-			Name:     "",
-		}
 		cloneSpec := mutate(vmClone)
 		Expect(cloneSpec.Target).ShouldNot(BeNil())
 		Expect(cloneSpec.Target.Name).ShouldNot(BeEmpty())
 	})
 
 })
+
+type option func(vmClone *clonev1alpha1.VirtualMachineClone)
+
+func newVirtualMachineClone(options ...option) *clonev1alpha1.VirtualMachineClone {
+	newVMClone := &clonev1alpha1.VirtualMachineClone{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "kubevirt-test-default",
+			Name:      "testclone",
+		},
+	}
+
+	for _, optionFunc := range options {
+		optionFunc(newVMClone)
+	}
+
+	return newVMClone
+}
+
+const (
+	virtualMachineAPIGroup = "kubevirt.io"
+	virtualMachineKind     = "VirtualMachine"
+)
+
+func withVirtualMachineSource(virtualMachineName string) option {
+	return func(vmClone *clonev1alpha1.VirtualMachineClone) {
+		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
+			APIGroup: pointer.P(virtualMachineAPIGroup),
+			Kind:     virtualMachineKind,
+			Name:     virtualMachineName,
+		}
+	}
+}
+
+func withVirtualMachineTarget(virtualMachineName string) option {
+	return func(vmClone *clonev1alpha1.VirtualMachineClone) {
+		vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
+			APIGroup: pointer.P(virtualMachineAPIGroup),
+			Kind:     virtualMachineKind,
+			Name:     virtualMachineName,
+		}
+	}
+}
 
 func createCloneAdmissionReview(vmClone *clonev1alpha1.VirtualMachineClone) *admissionv1.AdmissionReview {
 	cloneBytes, _ := json.Marshal(vmClone)
