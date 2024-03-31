@@ -173,8 +173,8 @@ var _ = Describe("Pool", func() {
 				recorder,
 				uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockQueue = testutils.NewMockWorkQueue(controller.queue)
-			controller.queue = mockQueue
+			mockQueue = testutils.NewMockWorkQueue(controller.Queue())
+			controller.SetQueue(mockQueue)
 
 			client = kubevirtfake.NewSimpleClientset()
 

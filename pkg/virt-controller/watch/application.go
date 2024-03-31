@@ -158,7 +158,7 @@ type VirtControllerApp struct {
 	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
-	poolController *PoolController
+	poolController virtcontroller.ControllerInterface
 	poolInformer   cache.SharedIndexInformer
 
 	vmController virtcontroller.ControllerInterface
@@ -557,7 +557,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			}
 		}()
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
-		go vca.poolController.Run(vca.poolControllerThreads, stop)
+		go func() {
+			if err := vca.poolController.Run(vca.poolControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the pool controller: %v", err)
+			}
+		}()
 		go func() {
 			if err := vca.vmController.Run(vca.vmControllerThreads, stop); err != nil {
 				log.Log.Warningf("error running the vm controller: %v", err)

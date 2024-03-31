@@ -44,6 +44,7 @@ import (
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -85,6 +86,7 @@ var _ = Describe("Application", func() {
 		vmSnapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
 		vmSnapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
 		migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		vmPoolInformer, _ := testutils.NewFakeInformerFor(&poolv1.VirtualMachinePool{})
 		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
@@ -154,6 +156,13 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config)
+		app.poolController, _ = NewPoolController(virtClient,
+			vmiInformer,
+			vmInformer,
+			vmPoolInformer,
+			rsInformer,
+			recorder,
+			controller.BurstReplicas)
 		app.migrationController, _ = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
@@ -258,6 +267,10 @@ var _ = Describe("Application", func() {
 		go nodeInformer.Run(ctx.Done())
 		go resourceQuotaInformer.Run(ctx.Done())
 		go namespaceInformer.Run(ctx.Done())
+		go vmPoolInformer.Run(ctx.Done())
+		go rsInformer.Run(ctx.Done())
+		go vmiInformer.Run(ctx.Done())
+		go vmInformer.Run(ctx.Done())
 		time.Sleep(time.Second)
 
 		By("Checking prometheus metric")

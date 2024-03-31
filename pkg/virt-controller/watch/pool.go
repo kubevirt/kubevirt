@@ -37,20 +37,16 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 )
 
 // PoolController is the main PoolController struct.
 type PoolController struct {
-	clientset        kubecli.KubevirtClient
-	queue            workqueue.RateLimitingInterface
-	vmInformer       cache.SharedIndexInformer
-	vmiInformer      cache.SharedIndexInformer
-	poolInformer     cache.SharedIndexInformer
-	revisionInformer cache.SharedIndexInformer
-	recorder         record.EventRecorder
-	expectations     *controller.UIDTrackingControllerExpectations
-	burstReplicas    uint
-	statusUpdater    *status.VMPStatusUpdater
+	virtcontroller.Controller
+	recorder      record.EventRecorder
+	expectations  *controller.UIDTrackingControllerExpectations
+	burstReplicas uint
+	statusUpdater *status.VMPStatusUpdater
 }
 
 const (
@@ -80,20 +76,23 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 	revisionInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	burstReplicas uint) (*PoolController, error) {
+	ctrl := virtcontroller.NewController(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
+		clientset,
+	)
+	ctrl.SetInformer(virtcontroller.KeyVMI, vmiInformer)
+	ctrl.SetInformer(virtcontroller.KeyVM, vmInformer)
+	ctrl.SetInformer(virtcontroller.KeyVMPool, poolInformer)
+	ctrl.SetInformer(virtcontroller.KeyControllerRevision, revisionInformer)
 	c := &PoolController{
-		clientset:        clientset,
-		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
-		poolInformer:     poolInformer,
-		vmiInformer:      vmiInformer,
-		vmInformer:       vmInformer,
-		revisionInformer: revisionInformer,
-		recorder:         recorder,
-		expectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		burstReplicas:    burstReplicas,
-		statusUpdater:    status.NewVMPStatusUpdater(clientset),
+		Controller:    *ctrl,
+		recorder:      recorder,
+		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		burstReplicas: burstReplicas,
+		statusUpdater: status.NewVMPStatusUpdater(clientset),
 	}
 
-	_, err := c.poolInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.Informer(virtcontroller.KeyVMPool).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPool,
 		DeleteFunc: c.deletePool,
 		UpdateFunc: c.updatePool,
@@ -102,7 +101,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		return nil, err
 	}
 
-	_, err = c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.Informer(virtcontroller.KeyVM).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMHandler,
 		DeleteFunc: c.deleteVMHandler,
 		UpdateFunc: c.updateVMHandler,
@@ -111,7 +110,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		return nil, err
 	}
 
-	_, err = c.revisionInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.Informer(virtcontroller.KeyControllerRevision).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addRevisionHandler,
 		UpdateFunc: c.updateRevisionHandler,
 	})
@@ -119,7 +118,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		return nil, err
 	}
 
-	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.Informer(virtcontroller.KeyVMI).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMIHandler,
 		UpdateFunc: c.updateVMIHandler,
 	})
@@ -136,7 +135,7 @@ func (c *PoolController) resolveVMIControllerRef(namespace string, controllerRef
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	vm, exists, err := c.vmInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	vm, exists, err := c.Informer(virtcontroller.KeyVM).GetStore().GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -362,7 +361,7 @@ func (c *PoolController) enqueuePool(obj interface{}) {
 	}
 
 	// Delay prevents pool from being reconciled too often
-	c.queue.AddAfter(key, defaultAddDelay)
+	c.Queue().AddAfter(key, defaultAddDelay)
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
@@ -374,7 +373,7 @@ func (c *PoolController) resolveControllerRef(namespace string, controllerRef *m
 	if controllerRef.Kind != poolv1.VirtualMachinePoolKind {
 		return nil
 	}
-	pool, exists, err := c.poolInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	pool, exists, err := c.Informer(virtcontroller.KeyVMPool).GetStore().GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -392,7 +391,7 @@ func (c *PoolController) resolveControllerRef(namespace string, controllerRef *m
 
 // listControllerFromNamespace takes a namespace and returns all Pools from the Pool cache which run in this namespace
 func (c *PoolController) listControllerFromNamespace(namespace string) ([]*poolv1.VirtualMachinePool, error) {
-	objs, err := c.poolInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.Informer(virtcontroller.KeyVMPool).GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -429,13 +428,15 @@ func (c *PoolController) getMatchingControllers(vm *virtv1.VirtualMachine) (pool
 }
 
 // Run runs the passed in PoolController.
-func (c *PoolController) Run(threadiness int, stopCh <-chan struct{}) {
+func (c *PoolController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer controller.HandlePanic()
-	defer c.queue.ShutDown()
+	defer c.Queue().ShutDown()
 	log.Log.Info("Starting pool controller.")
 
 	// Wait for cache sync before we start the pool controller
-	cache.WaitForCacheSync(stopCh, c.poolInformer.HasSynced, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.revisionInformer.HasSynced)
+	if !c.WaitForCacheSync(stopCh) {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -444,6 +445,7 @@ func (c *PoolController) Run(threadiness int, stopCh <-chan struct{}) {
 
 	<-stopCh
 	log.Log.Info("Stopping pool controller.")
+	return nil
 }
 
 func (c *PoolController) runWorker() {
@@ -452,7 +454,7 @@ func (c *PoolController) runWorker() {
 }
 
 func (c *PoolController) listVMsFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
-	objs, err := c.vmInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.Informer(virtcontroller.KeyVM).GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +539,7 @@ func (c *PoolController) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.
 			vm := deleteList[idx]
 
 			foreGround := metav1.DeletePropagationForeground
-			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{PropagationPolicy: &foreGround})
+			err := c.Clientset().VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{PropagationPolicy: &foreGround})
 			if err != nil {
 				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
@@ -690,7 +692,7 @@ func (c *PoolController) ensureControllerRevision(pool *poolv1.VirtualMachinePoo
 	}
 
 	c.expectations.RaiseExpectations(poolKey, 1, 0)
-	_, err = c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
+	_, err = c.Clientset().AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
 	if err != nil {
 		c.expectations.CreationObserved(poolKey)
 		return "", err
@@ -703,7 +705,7 @@ func (c *PoolController) getControllerRevision(namespace, name string) (*poolv1.
 
 	key := controller.NamespacedKey(namespace, name)
 
-	storeObj, exists, err := c.revisionInformer.GetStore().GetByKey(key)
+	storeObj, exists, err := c.Informer(virtcontroller.KeyControllerRevision).GetStore().GetByKey(key)
 	if !exists || err != nil {
 		return nil, false, err
 	}
@@ -727,7 +729,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 
 	var wg sync.WaitGroup
 
-	newNames := calculateNewVMNames(count, pool.Name, pool.Namespace, c.vmInformer.GetStore())
+	newNames := calculateNewVMNames(count, pool.Name, pool.Namespace, c.Informer(virtcontroller.KeyVM).GetStore())
 
 	revisionName, err := c.ensureControllerRevision(pool)
 	if err != nil {
@@ -764,7 +766,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 
-			vm, err = c.clientset.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = c.Clientset().VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 
 			if err != nil {
 				c.expectations.CreationObserved(poolKey)
@@ -844,7 +846,7 @@ func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vm
 			vmCopy.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
-			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+			_, err = c.Clientset().VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 			if err != nil {
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error updating virtual machine %s/%s: %v", vm.Name, vm.Namespace, err)
 				log.Log.Object(pool).Reason(err).Errorf("Error encountered during update of vm %s/%s in pool", vmCopy.Namespace, vmCopy.Name)
@@ -877,7 +879,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 			vm := vmUpdatedList[idx]
 
 			vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
-			obj, exists, _ := c.vmiInformer.GetStore().GetByKey(vmiKey)
+			obj, exists, _ := c.Informer(virtcontroller.KeyVMI).GetStore().GetByKey(vmiKey)
 			if !exists {
 				// no VMI to update
 				return
@@ -896,7 +898,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 			}
 			switch updateType {
 			case proactiveUpdateTypeRestart:
-				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
+				err := c.Clientset().VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
 				if err != nil {
 					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting outdated VMI: %v", vm.Namespace, vm.Name, err)
 					errChan <- err
@@ -937,7 +939,7 @@ func (c *PoolController) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpda
 
 				patchBytes := controller.GeneratePatchBytes(patchOps)
 
-				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+				_, err = c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 				if err != nil {
 					errChan <- fmt.Errorf("patching of vmi labels with new pool revision name: %v", err)
 					return
@@ -1079,7 +1081,7 @@ func (c *PoolController) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv
 
 func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) syncError {
 
-	keys, err := c.revisionInformer.GetIndexer().IndexKeys("vmpool", string(pool.UID))
+	keys, err := c.Informer(virtcontroller.KeyControllerRevision).GetIndexer().IndexKeys("vmpool", string(pool.UID))
 	if err != nil {
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason}
@@ -1108,7 +1110,7 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 		// Check to see what revision is used by the VMI, and remove
 		// that from the revision prune list
 		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
-		obj, exists, _ := c.vmiInformer.GetStore().GetByKey(vmiKey)
+		obj, exists, _ := c.Informer(virtcontroller.KeyVMI).GetStore().GetByKey(vmiKey)
 		if exists {
 			vmi := obj.(*virtv1.VirtualMachineInstance)
 			revisionName, exists = vmi.Labels[virtv1.VirtualMachinePoolRevisionName]
@@ -1120,7 +1122,7 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 	}
 
 	for revisionName, _ := range deletionMap {
-		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, v1.DeleteOptions{})
+		err := c.Clientset().AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, v1.DeleteOptions{})
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason}
 		}
@@ -1170,11 +1172,11 @@ func (c *PoolController) update(pool *poolv1.VirtualMachinePool, vms []*virtv1.V
 // an error it requeues the command. Returns false if the queue
 // is empty.
 func (c *PoolController) Execute() bool {
-	key, quit := c.queue.Get()
+	key, quit := c.Queue().Get()
 	if quit {
 		return false
 	}
-	defer c.queue.Done(key)
+	defer c.Queue().Done(key)
 
 	virtControllerPoolWorkQueueTracer.StartTrace(key.(string), "virt-controller VMPool workqueue", trace.Field{Key: "Workqueue Key", Value: key})
 	defer virtControllerPoolWorkQueueTracer.StopTrace(key.(string))
@@ -1183,10 +1185,10 @@ func (c *PoolController) Execute() bool {
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing pool %v", key)
-		c.queue.AddRateLimited(key)
+		c.Queue().AddRateLimited(key)
 	} else {
 		log.Log.V(4).Infof("processed pool %v", key)
-		c.queue.Forget(key)
+		c.Queue().Forget(key)
 	}
 	return true
 }
@@ -1259,7 +1261,7 @@ func (c *PoolController) execute(key string) error {
 
 	var syncErr syncError
 
-	obj, poolExists, err := c.poolInformer.GetStore().GetByKey(key)
+	obj, poolExists, err := c.Informer(virtcontroller.KeyVMPool).GetStore().GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -1275,11 +1277,11 @@ func (c *PoolController) execute(key string) error {
 
 	selector, err := metav1.LabelSelectorAsSelector(pool.Spec.Selector)
 	if err != nil {
-		logger.Reason(err).Error("Invalid selector on pool, will not re-enqueue.")
+		logger.Reason(err).Error("Invalid selector on pool, will not re-enQueue().")
 		return nil
 	}
 	if !selector.Matches(labels.Set(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)) {
-		logger.Reason(err).Error("Selector does not match template labels, will not re-enqueue.")
+		logger.Reason(err).Error("Selector does not match template labels, will not re-enQueue().")
 		return nil
 	}
 
@@ -1292,7 +1294,7 @@ func (c *PoolController) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := c.clientset.VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
+		fresh, err := c.Clientset().VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -1301,7 +1303,7 @@ func (c *PoolController) execute(key string) error {
 		}
 		return fresh, nil
 	})
-	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, pool, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
+	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.Clientset()}, pool, selector, virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind, canAdoptFunc)
 	vms, err = cm.ReleaseDetachedVirtualMachines(vms)
 	if err != nil {
 		return err
