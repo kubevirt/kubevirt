@@ -107,7 +107,7 @@ container-build-functest:
 container-build-artifacts-server:
 	podman build -f build/Dockerfile.artifacts -t $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
-container-push: quay-login container-push-operator container-push-webhook container-push-functest container-push-artifacts-server
+container-push: container-push-operator container-push-webhook container-push-functest container-push-artifacts-server
 
 quay-login:
 	podman login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p "$(QUAY_PASSWORD)"

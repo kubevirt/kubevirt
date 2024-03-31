@@ -51,6 +51,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
+          make quay-login
           IMAGE_TAG=${IMAGE_TAG} make container-push
       - name: Build Digester
         run: |
