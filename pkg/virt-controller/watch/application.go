@@ -219,7 +219,7 @@ type VirtControllerApp struct {
 	readyChan                  chan bool
 	kubevirtNamespace          string
 	host                       string
-	evacuationController       *evacuation.EvacuationController
+	evacuationController       virtcontroller.ControllerInterface
 	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
 
 	ctx context.Context
@@ -540,7 +540,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			golog.Fatalf("failed to add vmi phase transition time handler: %v", err)
 		}
 
-		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
+		go func() {
+			if err := vca.evacuationController.Run(vca.evacuationControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the evacuation controller: %v", err)
+			}
+		}()
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
 		go func() {

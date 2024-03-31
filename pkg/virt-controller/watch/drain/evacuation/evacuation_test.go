@@ -89,8 +89,8 @@ var _ = Describe("Evacuation", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 		controller, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
-		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		controller.Queue = mockQueue
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue())
+		controller.SetQueue(mockQueue)
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
