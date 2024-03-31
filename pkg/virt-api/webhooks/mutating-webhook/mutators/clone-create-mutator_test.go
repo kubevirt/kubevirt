@@ -24,7 +24,23 @@ var _ = Describe("Clone mutating webhook", func() {
 	const testSourceVirtualMachineName = "test-source-vm"
 
 	DescribeTable("should mutate the spec", func(vmClone *clonev1alpha1.VirtualMachineClone) {
-		cloneSpec := mutate(vmClone)
+		admissionReview, err := newAdmissionReviewForVMCloneCreation(vmClone)
+		Expect(err).ToNot(HaveOccurred())
+
+		mutator := mutators.CloneCreateMutator{}
+
+		resp := mutator.Mutate(admissionReview)
+		Expect(resp.Allowed).Should(BeTrue())
+
+		cloneSpec := &clonev1alpha1.VirtualMachineCloneSpec{}
+		patch := []patch.PatchOperation{
+			{Value: cloneSpec},
+		}
+
+		err = json.Unmarshal(resp.Patch, &patch)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(patch).NotTo(BeEmpty())
+
 		Expect(cloneSpec.Target).ShouldNot(BeNil())
 		Expect(cloneSpec.Target.Name).ShouldNot(BeEmpty())
 	},
@@ -104,25 +120,4 @@ func newAdmissionReviewForVMCloneCreation(vmClone *clonev1alpha1.VirtualMachineC
 	}
 
 	return ar, nil
-}
-
-func mutate(vmClone *clonev1alpha1.VirtualMachineClone) *clonev1alpha1.VirtualMachineCloneSpec {
-	admissionReview, err := newAdmissionReviewForVMCloneCreation(vmClone)
-	Expect(err).ToNot(HaveOccurred())
-
-	mutator := mutators.CloneCreateMutator{}
-
-	resp := mutator.Mutate(admissionReview)
-	Expect(resp.Allowed).Should(BeTrue())
-
-	cloneSpec := &clonev1alpha1.VirtualMachineCloneSpec{}
-	patch := []patch.PatchOperation{
-		{Value: cloneSpec},
-	}
-
-	err = json.Unmarshal(resp.Patch, &patch)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(patch).NotTo(BeEmpty())
-
-	return cloneSpec
 }
