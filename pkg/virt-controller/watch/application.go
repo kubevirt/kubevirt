@@ -136,7 +136,7 @@ type VirtControllerApp struct {
 	kvPodInformer   cache.SharedIndexInformer
 
 	nodeInformer   cache.SharedIndexInformer
-	nodeController *NodeController
+	nodeController virtcontroller.ControllerInterface
 
 	vmiCache      cache.Store
 	vmiController virtcontroller.ControllerInterface
@@ -550,7 +550,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the disruptionbudget controller: %v", err)
 			}
 		}()
-		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
+		go func() {
+			if err := vca.nodeController.Run(vca.nodeControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the node controller: %v", err)
+			}
+		}()
 		go func() {
 			if err := vca.vmiController.Run(vca.vmiControllerThreads, stop); err != nil {
 				log.Log.Warningf("error running the vmi controller: %v", err)

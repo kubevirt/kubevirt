@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/lookup"
+	virtcontroller "kubevirt.io/kubevirt/pkg/virt-controller"
 )
 
 const (
@@ -33,10 +34,7 @@ const (
 
 // NodeController is the main NodeController struct.
 type NodeController struct {
-	clientset        kubecli.KubevirtClient
-	Queue            workqueue.RateLimitingInterface
-	nodeInformer     cache.SharedIndexInformer
-	vmiInformer      cache.SharedIndexInformer
+	virtcontroller.Controller
 	recorder         record.EventRecorder
 	heartBeatTimeout time.Duration
 	recheckInterval  time.Duration
@@ -44,17 +42,21 @@ type NodeController struct {
 
 // NewNodeController creates a new instance of the NodeController struct.
 func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*NodeController, error) {
+	ctrl := virtcontroller.NewController(
+		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
+		clientset,
+	)
+	ctrl.SetInformer(virtcontroller.KeyVMI, vmiInformer)
+	ctrl.SetInformer(virtcontroller.KeyNode, nodeInformer)
+
 	c := &NodeController{
-		clientset:        clientset,
-		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
-		nodeInformer:     nodeInformer,
-		vmiInformer:      vmiInformer,
+		Controller:       *ctrl,
 		recorder:         recorder,
 		heartBeatTimeout: 5 * time.Minute,
 		recheckInterval:  1 * time.Minute,
 	}
 
-	_, err := c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.Informer(virtcontroller.KeyNode).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addNode,
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
@@ -63,7 +65,7 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 		return nil, err
 	}
 
-	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.Informer(virtcontroller.KeyVMI).AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: func(_ interface{}) { /* nothing to do */ },
 		UpdateFunc: c.updateVirtualMachine,
@@ -95,31 +97,33 @@ func (c *NodeController) enqueueNode(obj interface{}) {
 		logger.Object(node).Reason(err).Error("Failed to extract key from node.")
 		return
 	}
-	c.Queue.Add(key)
+	c.Queue().Add(key)
 }
 
 func (c *NodeController) addVirtualMachine(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	if vmi.Status.NodeName != "" {
-		c.Queue.Add(vmi.Status.NodeName)
+		c.Queue().Add(vmi.Status.NodeName)
 	}
 }
 
 func (c *NodeController) updateVirtualMachine(_, curr interface{}) {
 	currVMI := curr.(*virtv1.VirtualMachineInstance)
 	if currVMI.Status.NodeName != "" {
-		c.Queue.Add(currVMI.Status.NodeName)
+		c.Queue().Add(currVMI.Status.NodeName)
 	}
 }
 
 // Run runs the passed in NodeController.
-func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) {
+func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer controller.HandlePanic()
-	defer c.Queue.ShutDown()
+	defer c.Queue().ShutDown()
 	log.Log.Info("Starting node controller.")
 
 	// Wait for cache sync before we start the node controller
-	cache.WaitForCacheSync(stopCh, c.nodeInformer.HasSynced, c.vmiInformer.HasSynced)
+	if !c.WaitForCacheSync(stopCh) {
+		return fmt.Errorf("failed to wait for caches to sync")
+	}
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -128,6 +132,7 @@ func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) {
 
 	<-stopCh
 	log.Log.Info("Stopping node controller.")
+	return nil
 }
 
 func (c *NodeController) runWorker() {
@@ -139,19 +144,19 @@ func (c *NodeController) runWorker() {
 // an error it requeues the command. Returns false if the queue
 // is empty.
 func (c *NodeController) Execute() bool {
-	key, quit := c.Queue.Get()
+	key, quit := c.Queue().Get()
 	if quit {
 		return false
 	}
-	defer c.Queue.Done(key)
+	defer c.Queue().Done(key)
 	err := c.execute(key.(string))
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing node %v", key)
-		c.Queue.AddRateLimited(key)
+		c.Queue().AddRateLimited(key)
 	} else {
 		log.Log.V(4).Infof("processed node %v", key)
-		c.Queue.Forget(key)
+		c.Queue().Forget(key)
 	}
 	return true
 }
@@ -159,7 +164,7 @@ func (c *NodeController) Execute() bool {
 func (c *NodeController) execute(key string) error {
 	logger := log.DefaultLogger()
 
-	obj, nodeExists, err := c.nodeInformer.GetStore().GetByKey(key)
+	obj, nodeExists, err := c.Informer(virtcontroller.KeyNode).GetStore().GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -216,7 +221,7 @@ func nodeIsSchedulable(node *v1.Node) bool {
 }
 
 func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, node *v1.Node, logger *log.FilteredLogger) error {
-	vmis, err := lookup.ActiveVirtualMachinesOnNode(c.clientset, nodeName)
+	vmis, err := lookup.ActiveVirtualMachinesOnNode(c.Clientset(), nodeName)
 	if err != nil {
 		logger.Reason(err).Error("Failed fetching vmis for node")
 		return err
@@ -273,7 +278,7 @@ func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv
 	if err != nil {
 		return err
 	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = c.Clientset().VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
 		return err
@@ -307,7 +312,7 @@ func (c *NodeController) requeueIfExists(key string, node *v1.Node) {
 		return
 	}
 
-	c.Queue.AddAfter(key, c.recheckInterval)
+	c.Queue().AddAfter(key, c.recheckInterval)
 }
 
 func (c *NodeController) markNodeAsUnresponsive(node *v1.Node, logger *log.FilteredLogger) error {
@@ -315,7 +320,7 @@ func (c *NodeController) markNodeAsUnresponsive(node *v1.Node, logger *log.Filte
 	logger.V(4).Infof("Marking node %s as unresponsive", node.Name)
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
-	_, err := c.clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	_, err := c.Clientset().CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Error("Failed to mark node as unschedulable")
 		return fmt.Errorf("failed to mark node %s as unschedulable: %v", node.Name, err)
@@ -333,7 +338,7 @@ func (c *NodeController) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []
 	// query for a virt-handler pod on the node
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName())
 	virtHandlerSelector := fields.ParseSelectorOrDie("kubevirt.io=virt-handler")
-	pods, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+	pods, err := c.Clientset().CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
 		LabelSelector: virtHandlerSelector.String(),
 	})
@@ -347,7 +352,7 @@ func (c *NodeController) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []
 		return nil
 	}
 
-	running, err := checkDaemonSetStatus(c.clientset, virtHandlerSelector)
+	running, err := checkDaemonSetStatus(c.Clientset(), virtHandlerSelector)
 	if err != nil {
 		return err
 	}
@@ -388,7 +393,7 @@ func checkDaemonSetStatus(clientset kubecli.KubevirtClient, selector fields.Sele
 
 func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
-	list, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+	list, err := c.Clientset().CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
 	})
 	if err != nil {
