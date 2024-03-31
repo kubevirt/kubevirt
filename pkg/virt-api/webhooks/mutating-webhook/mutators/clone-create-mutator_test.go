@@ -2,6 +2,7 @@ package mutators_test
 
 import (
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +28,8 @@ var _ = Describe("Clone mutating webhook", func() {
 		admissionReview, err := newAdmissionReviewForVMCloneCreation(vmClone)
 		Expect(err).ToNot(HaveOccurred())
 
-		mutator := mutators.CloneCreateMutator{}
+		const expectedTargetSuffix = "12345"
+		mutator := mutators.NewCloneMutatorWithTargetSuffix(expectedTargetSuffix)
 
 		resp := mutator.Mutate(admissionReview)
 		Expect(resp.Allowed).Should(BeTrue())
@@ -41,8 +43,13 @@ var _ = Describe("Clone mutating webhook", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(patch).NotTo(BeEmpty())
 
-		Expect(cloneSpec.Target).ShouldNot(BeNil())
-		Expect(cloneSpec.Target.Name).ShouldNot(BeEmpty())
+		Expect(cloneSpec.Target).To(Equal(
+			&k8sv1.TypedLocalObjectReference{
+				APIGroup: pointer.P(virtualMachineAPIGroup),
+				Kind:     virtualMachineKind,
+				Name:     fmt.Sprintf("clone-%s-%s", vmClone.Spec.Source.Name, expectedTargetSuffix),
+			},
+		))
 	},
 		Entry("When the source is a VirtualMachine and the target is nil",
 			newVirtualMachineClone(

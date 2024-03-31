@@ -89,5 +89,5 @@ func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
 }
 
 func ServeClones(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &mutators.CloneCreateMutator{})
+	serve(resp, req, mutators.NewCloneCreateMutator())
 }
