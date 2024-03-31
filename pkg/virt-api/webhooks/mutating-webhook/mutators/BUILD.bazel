@@ -14,6 +14,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/instancetype:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",

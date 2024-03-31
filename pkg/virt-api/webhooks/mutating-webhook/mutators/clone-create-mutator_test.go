@@ -22,7 +22,10 @@ import (
 )
 
 var _ = Describe("Clone mutating webhook", func() {
-	const testSourceVirtualMachineName = "test-source-vm"
+	const (
+		testSourceVirtualMachineName         = "test-source-vm"
+		testSourceVirtualMachineSnapshotName = "test-snapshot"
+	)
 
 	DescribeTable("should mutate the spec", func(vmClone *clonev1alpha1.VirtualMachineClone) {
 		admissionReview, err := newAdmissionReviewForVMCloneCreation(vmClone)
@@ -60,6 +63,17 @@ var _ = Describe("Clone mutating webhook", func() {
 				withVirtualMachineTarget(""),
 			),
 		),
+		Entry("when source is a VirtualMachineSnapshot and target is nil",
+			newVirtualMachineClone(
+				withVirtualMachineSnapshotSource(testSourceVirtualMachineSnapshotName),
+			),
+		),
+		Entry("when source is a VirtualMachineSnapshot and target name is missing",
+			newVirtualMachineClone(
+				withVirtualMachineSnapshotSource(testSourceVirtualMachineSnapshotName),
+				withVirtualMachineTarget(""),
+			),
+		),
 	)
 })
 
@@ -83,6 +97,9 @@ func newVirtualMachineClone(options ...option) *clonev1alpha1.VirtualMachineClon
 const (
 	virtualMachineAPIGroup = "kubevirt.io"
 	virtualMachineKind     = "VirtualMachine"
+
+	virtualMachineSnapshotAPIGroup = "snapshot.kubevirt.io"
+	virtualMachineSnapshotKind     = "VirtualMachineSnapshot"
 )
 
 func withVirtualMachineSource(virtualMachineName string) option {
@@ -91,6 +108,16 @@ func withVirtualMachineSource(virtualMachineName string) option {
 			APIGroup: pointer.P(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
 			Name:     virtualMachineName,
+		}
+	}
+}
+
+func withVirtualMachineSnapshotSource(virtualMachineSnapshotName string) option {
+	return func(vmClone *clonev1alpha1.VirtualMachineClone) {
+		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
+			APIGroup: pointer.P(virtualMachineSnapshotAPIGroup),
+			Kind:     virtualMachineSnapshotKind,
+			Name:     virtualMachineSnapshotName,
 		}
 	}
 }
