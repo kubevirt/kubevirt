@@ -26,25 +26,27 @@ import (
 )
 
 var _ = Describe("Clone mutating webhook", func() {
-
-	var vmClone *clonev1alpha1.VirtualMachineClone
-
-	BeforeEach(func() {
-		vmClone = kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+	It("Target should be auto generated if missing", func() {
+		vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
 		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.String(clone.GroupName),
 			Kind:     "VirtualMachine",
 			Name:     "test-source-vm",
 		}
-	})
 
-	It("Target should be auto generated if missing", func() {
 		cloneSpec := mutate(vmClone)
 		Expect(cloneSpec.Target).ShouldNot(BeNil())
 		Expect(cloneSpec.Target.Name).ShouldNot(BeEmpty())
 	})
 
 	It("Target name should be auto generated if missing", func() {
+		vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
+			APIGroup: pointer.String(clone.GroupName),
+			Kind:     "VirtualMachine",
+			Name:     "test-source-vm",
+		}
+
 		vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.String(clone.GroupName),
 			Kind:     "VirtualMachine",
