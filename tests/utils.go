@@ -644,34 +644,6 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	return output
 }
 
-// RunCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
-func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) (string, error) {
-	virtClient := kubevirt.Client()
-
-	pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
-	var vmiPod *k8sv1.Pod
-	for _, pod := range pods.Items {
-		if pod.Name == vmi.Status.MigrationState.TargetPod {
-			vmiPod = &pod
-			break
-		}
-	}
-	if vmiPod == nil {
-		return "", fmt.Errorf("failed to find migration target pod")
-	}
-
-	output, err := exec.ExecuteCommandOnPod(
-		vmiPod,
-		"compute",
-		command,
-	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	return output, nil
-}
-
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient := kubevirt.Client()
