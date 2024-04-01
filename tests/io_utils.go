@@ -174,7 +174,7 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 	pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	Eventually(ThisPod(pod), 30).Should(HaveSucceeded())
+	Eventually(ThisPod(pod)).WithTimeout(30 * time.Second).Should(HaveSucceeded())
 }
 
 func CreateFaultyDisk(nodeName, deviceName string) {

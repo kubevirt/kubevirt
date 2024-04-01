@@ -804,7 +804,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					}
 				}
 				return nil
-			}, 320, 1).Should(BeNil(), "All VMIs should delete automatically")
+			}).WithTimeout(320*time.Second).WithPolling(1*time.Second).Should(BeNil(), "All VMIs should delete automatically")
 
 		}
 
@@ -851,7 +851,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					}
 				}
 				return nil
-			}, 500, 1).Should(BeNil(), "All VMIs should update via live migration")
+			}).WithTimeout(500*time.Second).WithPolling(1*time.Second).ShouldNot(HaveOccurred(), "All VMIs should update via live migration")
 
 			// this is put in an eventually loop because it's possible for the VMI to complete
 			// migrating and for the migration object to briefly lag behind in reporting
@@ -872,7 +872,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					}
 				}
 				return nil
-			}, 10, 1).Should(BeNil(), "Expects only a single successful migration per workload update")
+			}).WithTimeout(10*time.Second).WithPolling(1*time.Second).ShouldNot(HaveOccurred(), "Expects only a single successful migration per workload update")
 		}
 
 		getVirtLauncherSha = func() string {
@@ -1908,7 +1908,7 @@ spec:
 				vmi := migratableVMIs[0]
 				migration, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(vmi)).Create(libmigration.New(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
+				Eventually(ThisMigration(migration)).WithTimeout(180 * time.Second).Should(HaveSucceeded())
 			}
 
 			By("Deleting migratable VMIs")

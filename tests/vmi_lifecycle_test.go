@@ -528,7 +528,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI successfully")
 					return vmi.Status.Phase
-				}, 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
+				}).WithTimeout(10*time.Second).WithPolling(1*time.Second).Should(Equal(v1.Failed), "VMI should be failed")
 			})
 		})
 
@@ -645,7 +645,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get logs")
 					return string(data)
-				}, 60, 1).Should(
+				}).WithTimeout(60*time.Second).WithPolling(1*time.Second).Should(
 					ContainSubstring(
 						fmt.Sprintf("device socket file for device %s was removed, kubelet probably restarted.", "kvm"),
 					), "Should log device plugin restart")
@@ -1041,7 +1041,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					currVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 					return currVMI.Status.Phase
-				}, 120, 0.5).Should(Equal(v1.Running), "VMI should be succeeded")
+				}).WithTimeout(120*time.Second).WithPolling(500*time.Millisecond).Should(Equal(v1.Running), "VMI should be succeeded")
 			})
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
@@ -1261,7 +1261,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get logs from virthandler")
 					return string(data)
-				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
+				}).WithTimeout(30*time.Second).WithPolling(500*time.Millisecond).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
 				// Check the VirtualMachineInstance Namespace
 				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(namespace), "VMI should run in the right namespace")
 
@@ -1288,7 +1288,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
 					return string(data)
-				}, 30, 0.5).Should(SatisfyAny(
+				}).WithTimeout(30*time.Second).WithPolling(500*time.Millisecond).Should(SatisfyAny(
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is marked for deletion","name":"%s"`, vmi.GetObjectMeta().GetName()),               // Domain was deleted by virt-handler
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
 				), "Logs should confirm pod deletion")
@@ -1347,7 +1347,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					podList, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), listOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should list the pods")
 					return len(podList.Items)
-				}, 75, 0.5).Should(Equal(1), "There should be only one pod")
+				}).WithTimeout(75*time.Second).WithPolling(500*time.Millisecond).Should(Equal(1), "There should be only one pod")
 
 				Eventually(func() error {
 					podList, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), listOptions)
@@ -1358,7 +1358,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 						}
 					}
 					return fmt.Errorf("Associated pod for VirtualMachineInstance '%s' not found", vmi.Name)
-				}, 75, 0.5).Should(Succeed(), "Should find the VMI pod")
+				}).WithTimeout(75*time.Second).WithPolling(500*time.Millisecond).Should(Succeed(), "Should find the VMI pod")
 
 				getOptions := metav1.GetOptions{}
 				var newVMI *v1.VirtualMachineInstance
@@ -1545,7 +1545,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), podSelector)
 					Expect(err).ToNot(HaveOccurred(), "Should list pods")
 					return len(pods.Items)
-				}, 75, 0.5).Should(Equal(0), "There should be no pods")
+				}).WithTimeout(75*time.Second).WithPolling(500*time.Millisecond).Should(Equal(0), "There should be no pods")
 
 			})
 		})
@@ -1575,7 +1575,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					currVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 					return currVMI.Status.Phase
-				}, gracePeriod+5, 0.5).Should(Equal(v1.Succeeded), "VMI should be succeeded")
+				}).WithTimeout(time.Duration(gracePeriod+5)*time.Second).WithPolling(500*time.Millisecond).Should(Equal(v1.Succeeded), "VMI should be succeeded")
 			},
 				Entry("[test_id:1653]with set grace period seconds", int64(10)),
 				Entry("[test_id:1654]with default grace period seconds", int64(-1)),
@@ -1621,7 +1621,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get the logs")
 					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())), "Should log graceful shutdown")
+				}).WithTimeout(30*time.Second).
+					WithPolling(500*time.Millisecond).
+					Should(ContainSubstring(fmt.Sprintf("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())), "Should log graceful shutdown")
 
 				// Verify VirtualMachineInstance is killed after grace period expires
 				By("Checking that the VirtualMachineInstance does not exist after grace period")
@@ -1629,7 +1631,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get logs")
 					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())), "Should log graceful kill")
+				}).WithTimeout(30*time.Second).
+					WithPolling(500*time.Millisecond).
+					Should(ContainSubstring(fmt.Sprintf("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())), "Should log graceful kill")
 			})
 		})
 	})
@@ -1657,7 +1661,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				failedVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				return failedVMI.Status.Phase
-			}, 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
+			}).WithTimeout(10*time.Second).WithPolling(1*time.Second).Should(Equal(v1.Failed), "VMI should be failed")
 
 		})
 
@@ -1810,7 +1814,7 @@ func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 		return podG.Status.Phase
 	}
 
-	Eventually(getStatus, 30, 0.5).Should(Equal(k8sv1.PodSucceeded), "Pod should end itself")
+	Eventually(getStatus).WithTimeout(30*time.Second).WithPolling(500*time.Millisecond).Should(Equal(k8sv1.PodSucceeded), "Pod should end itself")
 
 	return err
 }

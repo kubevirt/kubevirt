@@ -2023,7 +2023,7 @@ var _ = SIGDescribe("Export", func() {
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 		)
 		dv = createDataVolume(dv)
-		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
+		Eventually(ThisPVCWith(vm.Namespace, dv.Name)).WithTimeout(160 * time.Second).Should(Exist())
 
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())

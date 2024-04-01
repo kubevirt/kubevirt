@@ -820,7 +820,7 @@ func waitForSnapshotToBeReady(virtClient kubecli.KubevirtClient, snapshot *v1alp
 		updatedSnap, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return updatedSnap.Status != nil && updatedSnap.Status.ReadyToUse != nil && *updatedSnap.Status.ReadyToUse
-	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), "Should be ready to use")
+	}).WithTimeout(time.Duration(timeoutSec)*time.Second).WithPolling(2*time.Second).Should(BeTrue(), "Should be ready to use")
 }
 
 func dryRunCreate(client *rest.RESTClient, resource, namespace string, obj interface{}, result runtime.Object) error {

@@ -50,8 +50,8 @@ import (
 )
 
 const (
-	DefaultStabilizationTimeoutInSeconds = 300
-	DefaultPollIntervalInSeconds         = 3
+	defaultStabilizationTimeout = 300 * time.Second
+	defaultPollInterval         = 3 * time.Second
 )
 
 const (
@@ -127,25 +127,19 @@ var _ = Describe("[Serial][ref_id:2717][sig-compute]KubeVirt control plane resil
 			return true, nil
 		}
 
-		eventuallyWithTimeout := func(f func() (bool, error)) {
-			Eventually(f,
-				DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-			).Should(BeTrue())
-		}
-
 		BeforeEach(func() {
 			nodeList = libnode.GetAllSchedulableNodes(virtCli).Items
 			for _, node := range nodeList {
 				libnode.SetNodeUnschedulable(node.Name, virtCli)
 			}
-			eventuallyWithTimeout(waitForDeploymentsToStabilize)
+			Eventually(waitForDeploymentsToStabilize).WithTimeout(defaultStabilizationTimeout).WithPolling(defaultPollInterval).Should(BeTrue())
 		})
 
 		AfterEach(func() {
 			for _, node := range nodeList {
 				libnode.SetNodeSchedulable(node.Name, virtCli)
 			}
-			eventuallyWithTimeout(waitForDeploymentsToStabilize)
+			Eventually(waitForDeploymentsToStabilize).WithTimeout(defaultStabilizationTimeout).WithPolling(defaultPollInterval).Should(BeTrue())
 		})
 
 		DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {

@@ -195,7 +195,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					_, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
-				Eventually(getEndpoint, 60, 1).Should(BeNil())
+				Eventually(getEndpoint).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(BeNil())
 
 				endpoints, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -253,7 +253,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					_, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
-				Eventually(getEndpoint, 60, 1).Should(BeNil())
+				Eventually(getEndpoint).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(BeNil())
 
 				endpoints, err := virtClient.CoreV1().Endpoints(testsuite.GetTestNamespace(nil)).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

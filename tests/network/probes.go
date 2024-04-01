@@ -222,7 +222,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
-			}, 120, 1).Should(Not(BeTrue()))
+			}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Not(BeTrue()))
 		},
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, corev1.IPv4Protocol),
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, corev1.IPv6Protocol),
@@ -262,7 +262,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
-			}, 120, 1).Should(BeTrue())
+			}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(BeTrue())
 		},
 			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe, libvmifact.NewCirros),
 			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe, libvmifact.NewCirros),

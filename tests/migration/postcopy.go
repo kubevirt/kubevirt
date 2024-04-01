@@ -291,13 +291,13 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						runMigrationKillerPod(vmi.Status.NodeName)
 
 						By("Making sure that post-copy migration failed")
-						Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(BeInPhase(v1.MigrationFailed))
+						Eventually(matcher.ThisMigration(migration)).WithTimeout(150 * time.Second).WithPolling(1 * time.Second).Should(BeInPhase(v1.MigrationFailed))
 
 						By("Removing migration killer pods")
 						removeMigrationKillerPod()
 
 						By("Ensuring the VirtualMachineInstance is restarted")
-						Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
+						Eventually(ThisVMI(vmi)).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(matcher.BeRestarted(vmi.UID))
 					})
 				})
 			})

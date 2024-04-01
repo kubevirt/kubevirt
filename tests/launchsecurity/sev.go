@@ -219,7 +219,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			err := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		}()
-		EventuallyWithOffset(1, ThisPod(helperPod), 30).Should(BeInPhase(k8sv1.PodRunning))
+		EventuallyWithOffset(1, ThisPod(helperPod)).WithTimeout(30 * time.Second).Should(BeInPhase(k8sv1.PodRunning))
 
 		execOnHelperPod := func(command string) (string, error) {
 			stdout, err := exec.ExecuteCommandOnPod(
@@ -356,7 +356,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			vmi := newSEVFedora(false, libvmi.WithSEVAttestation())
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
+			Eventually(ThisVMI(vmi)).WithTimeout(60 * time.Second).Should(BeInPhase(v1.Scheduled))
 
 			By("Querying virsh nodesevinfo")
 			nodeSevInfo := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
@@ -376,7 +376,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			sevSessionOptions, tikBase64, tekBase64 := prepareSession(virtClient, vmi.Status.NodeName, sevPlatformInfo.PDH)
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVSetupSession(vmi.Name, sevSessionOptions)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 60).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))
+			Eventually(ThisVMI(vmi)).WithTimeout(60 * time.Second).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))
 
 			By("Querying virsh domlaunchsecinfo 1")
 			domLaunchSecInfo := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "domlaunchsecinfo", "1"})

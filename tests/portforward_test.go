@@ -63,7 +63,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 				return err
 			}
 			return nil
-		}, 12*60*time.Second, 2).ShouldNot(HaveOccurred())
+		}).WithTimeout(12 * 60 * time.Second).WithPolling(2 * time.Second).ShouldNot(HaveOccurred())
 
 		inReader, in := io.Pipe()
 		var out bytes.Buffer

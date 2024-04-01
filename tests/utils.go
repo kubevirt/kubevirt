@@ -453,7 +453,7 @@ func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
 	var err error
 	pod, err = virtClient.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 180).Should(BeInPhase(k8sv1.PodRunning))
+	Eventually(ThisPod(pod)).WithTimeout(180 * time.Second).Should(BeInPhase(k8sv1.PodRunning))
 
 	pod, err = ThisPod(pod)()
 	Expect(err).ToNot(HaveOccurred())
@@ -470,7 +470,7 @@ func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
 	var err error
 	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+	Eventually(ThisPod(pod)).WithTimeout(120 * time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 	pod, err = ThisPod(pod)()
 	Expect(err).ToNot(HaveOccurred())

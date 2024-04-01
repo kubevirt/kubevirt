@@ -195,7 +195,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 				Eventually(func() error {
 					migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
-				}, libmigration.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+				}).WithTimeout(libmigration.MigrationWaitTime*time.Second).WithPolling(1*time.Second).Should(Succeed(), "migration creation should succeed")
 				migration = migrationCreated
 
 				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)

@@ -338,7 +338,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vm.Spec.Running = pointer.BoolPtr(true)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(360 * time.Second).Should(BeInPhase(v1.Running))
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1605,7 +1605,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Starting the VM and expecting it to run")
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(360 * time.Second).Should(BeInPhase(v1.Running))
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					waitDataVolumePopulated(vm.Namespace, dvt.Name)

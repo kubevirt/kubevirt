@@ -791,7 +791,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(func() error {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
-				}, 5, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+				}).WithTimeout(5*time.Second).WithPolling(1*time.Second).Should(Succeed(), "migration creation should succeed")
 
 				By("Should receive warning event that target pod is currently unschedulable")
 				ctx, cancel := context.WithCancel(context.Background())
@@ -853,7 +853,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Eventually(func() error {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
-				}, 5, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+				}).WithTimeout(5*time.Second).WithPolling(1*time.Second).Should(Succeed(), "migration creation should succeed")
 
 				By("Migration should observe a timeout period before canceling pending target pod")
 				Consistently(func() error {
@@ -1839,7 +1839,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					phase := migration.Status.Phase
 					Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 					return phase
-				}, 120, 1*time.Second).Should(Equal(v1.MigrationPreparingTarget))
+				}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Equal(v1.MigrationPreparingTarget))
 
 				By("Killing the target pod and expecting failure")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1919,7 +1919,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					phase := migration.Status.Phase
 					Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 					return phase
-				}, 120, 1*time.Second).Should(Equal(v1.MigrationPreparingTarget))
+				}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Equal(v1.MigrationPreparingTarget))
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2126,18 +2126,18 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 
 				By("Starting a Migration")
-				const timeout = 180
+				const timeout = 180 * time.Second
 				Eventually(func() error {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
-				}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+				}).WithTimeout(timeout).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
 
 				By("Waiting until the Migration has UID")
 				Eventually(func() bool {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return migration.UID != ""
-				}, timeout, 1*time.Second).Should(BeTrue())
+				}).WithTimeout(timeout).WithPolling(1 * time.Second).Should(BeTrue())
 
 				By("Cancelling migration")
 				libmigration.CancelMigration(migration, vmi.Name, with_virtctl)

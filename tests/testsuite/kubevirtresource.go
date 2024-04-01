@@ -150,7 +150,7 @@ func waitForSchedulableNodesWithCPUManager(n int) {
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
 		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 		return len(nodes.Items) == n
-	}, 360, 1*time.Second).Should(BeTrue())
+	}).WithTimeout(360 * time.Second).WithPolling(1 * time.Second).Should(BeTrue())
 }
 
 func RestoreKubeVirtResource() {

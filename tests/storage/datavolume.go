@@ -162,7 +162,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					&expect.BExp{R: "1"},
 				}, 10)
 				return err
-			}, 360).Should(BeNil())
+			}).WithTimeout(360 * time.Second).Should(BeNil())
 
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo /sbin/resize-filesystem /dev/root /run/resize.rootfs /dev/console && echo $?\n"},
@@ -274,7 +274,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 40).Should(WaitForFirstConsumer())
+					Eventually(ThisDV(dataVolume)).WithTimeout(40 * time.Second).Should(WaitForFirstConsumer())
 				}
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
@@ -366,7 +366,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-					Eventually(ThisDV(dataVolume), 40).Should(WaitForFirstConsumer())
+					Eventually(ThisDV(dataVolume)).WithTimeout(40 * time.Second).Should(WaitForFirstConsumer())
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
@@ -511,7 +511,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for DV to start crashing")
-				Eventually(ThisDVWith(vm.Namespace, dataVolume.Name), 60).Should(BeInPhase(cdiv1.ImportInProgress))
+				Eventually(ThisDVWith(vm.Namespace, dataVolume.Name)).WithTimeout(60 * time.Second).Should(BeInPhase(cdiv1.ImportInProgress))
 
 				By("Stop VM")
 				tests.StopVirtualMachineWithTimeout(vm, time.Second*30)
@@ -540,7 +540,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to be created")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(100 * time.Second).Should(BeInPhase(v1.Pending))
 			})
 			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
@@ -591,7 +591,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(Or(BeInPhase(v1.Pending), BeInPhase(v1.Scheduling)))
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(100 * time.Second).Should(Or(BeInPhase(v1.Pending), BeInPhase(v1.Scheduling)))
 
 				By("Creating a service which makes the registry reachable")
 				_, err = virtClient.CoreV1().Services(vm.Namespace).Create(context.Background(), &k8sv1.Service{
@@ -609,7 +609,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				libstorage.EventuallyDV(dataVolume, 160, HaveSucceeded())
 
 				By("Waiting for VMI to be created")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Running))
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(100 * time.Second).Should(BeInPhase(v1.Running))
 			})
 		})
 	})
@@ -650,10 +650,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), BeOwned()))
 
 			By(verifyingPVCCreated)
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
+			Eventually(ThisPVCWith(vm.Namespace, pvcName)).WithTimeout(160 * time.Second).Should(Exist())
 
 			By(verifyingVMICreated)
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(160 * time.Second).Should(And(BeRunning(), BeOwned()))
 		})
 
 		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
@@ -665,26 +665,26 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), BeOwned()))
 
 			By(verifyingPVCCreated)
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
+			Eventually(ThisPVCWith(vm.Namespace, pvcName)).WithTimeout(160 * time.Second).Should(Exist())
 
 			By(verifyingVMICreated)
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(160 * time.Second).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=true")
 			_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=true")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VM to be deleted")
-			Eventually(ThisVM(vm), 100).Should(BeGone())
+			Eventually(ThisVM(vm)).WithTimeout(100 * time.Second).Should(BeGone())
 
 			By("Waiting for the VMI to be deleted")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeGone())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(100 * time.Second).Should(BeGone())
 
 			By("Waiting for the DataVolume to be deleted")
-			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(BeGone())
+			Eventually(ThisDVWith(vm.Namespace, dataVolumeName)).WithTimeout(100 * time.Second).Should(BeGone())
 
 			By("Waiting for the PVC to be deleted")
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 100).Should(BeGone())
+			Eventually(ThisPVCWith(vm.Namespace, pvcName)).WithTimeout(100 * time.Second).Should(BeGone())
 		})
 
 		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
@@ -696,23 +696,23 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), BeOwned()))
 
 			By(verifyingPVCCreated)
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
+			Eventually(ThisPVCWith(vm.Namespace, pvcName)).WithTimeout(160 * time.Second).Should(Exist())
 
 			By(verifyingVMICreated)
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(160 * time.Second).Should(And(BeRunning(), BeOwned()))
 
 			By("Deleting VM with cascade=false")
 			_, _, err = clientcmd.RunCommand("kubectl", "delete", "vm", vm.Name, "--cascade=false")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VM to be deleted")
-			Eventually(ThisVM(vm), 100).Should(BeGone())
+			Eventually(ThisVM(vm)).WithTimeout(100 * time.Second).Should(BeGone())
 
 			By("Verifying DataVolume still exists with owner references removed")
 			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), Not(BeOwned())))
 
 			By("Verifying VMI still exists with owner references removed")
-			Consistently(ThisVMIWith(vm.Namespace, vm.Name), 60, 1).Should(And(BeRunning(), Not(BeOwned())))
+			Consistently(ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(And(BeRunning(), Not(BeOwned())))
 		})
 
 	})
@@ -777,7 +777,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Check for owner reference
-				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
+				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name)).WithTimeout(100 * time.Second).Should(BeOwned())
 
 				// Delete the VM with orphan Propagation
 				orphanPolicy := metav1.DeletePropagationOrphan
@@ -785,7 +785,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Delete(context.Background(), vm.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 
 				// Wait for the owner reference to disappear
-				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(Not(BeOwned()))
+				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name)).WithTimeout(100 * time.Second).Should(Not(BeOwned()))
 			})
 		})
 	})
@@ -1007,7 +1007,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 90*time.Second, 1*time.Second).Should(BeTrue())
 
 				// Check for owner reference
-				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
+				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name)).WithTimeout(100 * time.Second).Should(BeOwned())
 
 				// We check the expected event
 				By("Expecting SourcePVCNotAvailabe event")

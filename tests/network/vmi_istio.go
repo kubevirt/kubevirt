@@ -192,10 +192,10 @@ var istioTests = func(vmType VmType) {
 				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			})
 			It("All containers should complete in source virt-launcher pod after migration", func() {
-				const containerCompletionWaitTime = 60
+				const containerCompletionWaitTime = 60 * time.Second
 				Eventually(func() error {
 					return allContainersCompleted(sourcePodName)
-				}, containerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod"))
+				}).WithTimeout(containerCompletionWaitTime).WithPolling(time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod"))
 			})
 		})
 		Describe("SSH traffic", func() {

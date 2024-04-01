@@ -314,7 +314,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			By("Waiting until the DataVolume is ready")
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-				Eventually(ThisDV(dataVolume), 30).Should(WaitForFirstConsumer())
+				Eventually(ThisDV(dataVolume)).WithTimeout(30 * time.Second).Should(WaitForFirstConsumer())
 			}
 
 			virtiofsMountPath := fmt.Sprintf("/mnt/virtiofs_%s", dataVolume.Name)
