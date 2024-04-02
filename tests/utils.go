@@ -1236,12 +1236,3 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 
 	return updatedVM
 }
-func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
-	for key, _ := range node.Labels {
-		if strings.HasPrefix(key, v1.HostModelCPULabel) {
-			hostModel = strings.TrimPrefix(key, v1.HostModelCPULabel)
-			break
-		}
-	}
-	return hostModel
-}
