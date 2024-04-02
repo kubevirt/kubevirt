@@ -319,7 +319,7 @@ var _ = DescribeInfra("Node-labeller", func() {
 
 		BeforeEach(func() {
 			node = &(libnode.GetAllSchedulableNodes(virtClient).Items[0])
-			obsoleteModel = tests.GetNodeHostModel(node)
+			obsoleteModel = libnode.GetNodeHostModel(node)
 
 			By("Updating Kubevirt CR , this should wake node-labeller ")
 			kvConfig = util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()

@@ -298,7 +298,7 @@ func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.Kubevi
 				continue
 			}
 
-			sourceHostCpuModel = tests.GetNodeHostModel(&potentialSourceNode)
+			sourceHostCpuModel = libnode.GetNodeHostModel(&potentialSourceNode)
 			if sourceHostCpuModel == "" {
 				continue
 			}

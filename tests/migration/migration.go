@@ -2837,7 +2837,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			targetNode, err = virtClient.CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
-			targetHostModel := tests.GetNodeHostModel(targetNode)
+			targetHostModel := libnode.GetNodeHostModel(targetNode)
 			targetNode = libnode.RemoveLabelFromNode(targetNode.Name, v1.HostModelCPULabel+targetHostModel)
 			targetNode = libnode.AddLabelToNode(targetNode.Name, fakeHostModel, "true")
 
