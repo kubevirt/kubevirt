@@ -23,6 +23,7 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/libinfra"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -65,7 +66,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return libinfra.GetTimeFromMetrics(metrics)
 		}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
-		Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
+		Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(util.HashString(vmi.Status.NodeName)))
 
 	},
 		Entry("[test_id:6535]using a disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),

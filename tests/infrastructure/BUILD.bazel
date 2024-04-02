@@ -22,6 +22,7 @@ go_library(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/util:go_default_library",
         "//pkg/util/cluster:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//pkg/virt-config:go_default_library",

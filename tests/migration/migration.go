@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -501,7 +502,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("checking that the new nodename is reflected in the downward metrics")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
+				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(kvutil.HashString(vmi.Status.NodeName)))
 
 			},
 				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
