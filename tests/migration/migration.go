@@ -1939,7 +1939,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 									}
 									// Wait for the iso to be created
 									Eventually(func() error {
-										output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "[[ -f " + volPath + " ]] && echo found || true"})
+										output, err := runCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "[[ -f " + volPath + " ]] && echo found || true"})
 										if err != nil {
 											return err
 										}
@@ -1948,10 +1948,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 										}
 										return nil
 									}, 30*time.Second, time.Second).Should(Not(HaveOccurred()))
-									output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "/usr/bin/stat --printf=%s " + volPath})
+									output, err := runCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "/usr/bin/stat --printf=%s " + volPath})
 									Expect(err).ToNot(HaveOccurred())
 									Expect(strconv.Atoi(output)).To(Equal(int(volStatus.Size)), "ISO file for volume %s is not the right size", volume.Name)
-									output, err = tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", fmt.Sprintf(`/usr/bin/cmp -n %d %s /dev/zero || true`, volStatus.Size, volPath)})
+									output, err = runCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", fmt.Sprintf(`/usr/bin/cmp -n %d %s /dev/zero || true`, volStatus.Size, volPath)})
 									Expect(err).ToNot(HaveOccurred())
 									Expect(output).ToNot(ContainSubstring("differ"), "ISO file for volume %s is not empty", volume.Name)
 								}
@@ -3469,4 +3469,32 @@ func getIdOfLauncher(vmi *v1.VirtualMachineInstance) string {
 	Expect(err).NotTo(HaveOccurred())
 
 	return strings.TrimSpace(podOutput)
+}
+
+// runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
+func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) (string, error) {
+	virtClient := kubevirt.Client()
+
+	pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
+	var vmiPod *k8sv1.Pod
+	for _, pod := range pods.Items {
+		if pod.Name == vmi.Status.MigrationState.TargetPod {
+			vmiPod = &pod
+			break
+		}
+	}
+	if vmiPod == nil {
+		return "", fmt.Errorf("failed to find migration target pod")
+	}
+
+	output, err := exec.ExecuteCommandOnPod(
+		vmiPod,
+		"compute",
+		command,
+	)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	return output, nil
 }
