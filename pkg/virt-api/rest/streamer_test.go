@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"time"
 
 	restful "github.com/emicklei/go-restful/v3"
@@ -148,13 +149,17 @@ var _ = Describe("Streamer", func() {
 		Expect(dialCalled).To(BeFalse())
 	})
 	It("upgrades the client connection", func() {
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, wsResp, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
 			streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 		}))
 		Expect(err).NotTo(HaveOccurred())
 		defer srv.Close()
 		Expect(wsResp.StatusCode).To(Equal(101))
 		defer ws.Close()
+		wg.Wait()
 	})
 	It("does not attempt the client connection upgrade on a failed dial", func() {
 		directDialer.dial = mockDialer{
@@ -162,17 +167,26 @@ var _ = Describe("Streamer", func() {
 				return nil, errors.NewInternalError(goerrors.New("test error"))
 			},
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, _, wsResp, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).To(HaveOccurred())
 		}))
 		Expect(err).To(HaveOccurred())
 		defer srv.Close()
 		Expect(wsResp.StatusCode).To(Equal(http.StatusInternalServerError))
+		wg.Wait()
 	})
 	Context("clientConnectionUpgrade", func() {
 		It("does not fail the upgrade on a correct request", func() {
+			var wg sync.WaitGroup
+			wg.Add(1)
 			srv, ws, wsResp, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+				defer wg.Done()
+				defer GinkgoRecover()
 				_, upgradeErr := clientConnectionUpgrade(restful.NewRequest(r), restful.NewResponse(rw))
 				Expect(upgradeErr).NotTo(HaveOccurred())
 			}))
@@ -180,6 +194,7 @@ var _ = Describe("Streamer", func() {
 			defer srv.Close()
 			Expect(wsResp.StatusCode).To(Equal(101))
 			defer ws.Close()
+			wg.Wait()
 		})
 	})
 	It("calls keepAliveClient if set", func() {
@@ -190,7 +205,11 @@ var _ = Describe("Streamer", func() {
 			Expect(ctx).NotTo(BeNil())
 			Expect(conn).NotTo(BeNil())
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -198,6 +217,7 @@ var _ = Describe("Streamer", func() {
 		defer srv.Close()
 		defer ws.Close()
 		Eventually(call, defaultTestTimeout).Should(Receive())
+		wg.Wait()
 	})
 	It("does not call keepAliveClient if the client connection upgrade failed", func() {
 		call := make(chan struct{})
@@ -209,12 +229,17 @@ var _ = Describe("Streamer", func() {
 	})
 	It("does start streamToClient with connections", func() {
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+			defer GinkgoRecover()
 			Expect(clientSocket).NotTo(BeNil())
 			Expect(serverConn).NotTo(BeNil())
 			result <- nil
 			streamToClientCalled <- struct{}{}
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -222,15 +247,21 @@ var _ = Describe("Streamer", func() {
 		defer srv.Close()
 		defer ws.Close()
 		Eventually(streamToClientCalled, defaultTestTimeout).Should(Receive())
+		wg.Wait()
 	})
 	It("does start streamToServer with connections", func() {
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
+			defer GinkgoRecover()
 			Expect(clientSocket).NotTo(BeNil())
 			Expect(serverConn).NotTo(BeNil())
 			result <- nil
 			streamToServerCalled <- struct{}{}
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -238,9 +269,14 @@ var _ = Describe("Streamer", func() {
 		defer srv.Close()
 		defer ws.Close()
 		Eventually(streamToServerCalled, defaultTestTimeout).Should(Receive())
+		wg.Wait()
 	})
 	It("closes clientSocket when streamToClient returns", func() {
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -250,9 +286,14 @@ var _ = Describe("Streamer", func() {
 		ws.SetReadDeadline(time.Now().Add(defaultTestTimeout))
 		_, _, err = ws.ReadMessage()
 		Expect(err).To(BeAssignableToTypeOf(&websocket.CloseError{}))
+		wg.Wait()
 	})
 	It("closes serverSocket when streamToServer returns", func() {
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -262,18 +303,27 @@ var _ = Describe("Streamer", func() {
 		serverPipe.SetReadDeadline(time.Now().Add(defaultTestTimeout))
 		_, err = serverPipe.Read([]byte{})
 		Expect(err).To(Equal(io.EOF))
+		wg.Wait()
 	})
 	It("closes clientSocket when keepAliveClient cancels context", func() {
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToClientCalled <- struct{}{}
+			time.Sleep(defaultTestTimeout * 2)
+			result <- nil
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToServerCalled <- struct{}{}
+			time.Sleep(defaultTestTimeout * 2)
+			result <- nil
 		}
 		streamer.keepAliveClient = func(ctx context.Context, conn *websocket.Conn, cancel func()) {
 			cancel()
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -283,13 +333,14 @@ var _ = Describe("Streamer", func() {
 		ws.SetReadDeadline(time.Now().Add(defaultTestTimeout))
 		_, _, err = ws.ReadMessage()
 		Expect(err).To(BeAssignableToTypeOf(&websocket.CloseError{}))
+		wg.Wait()
 	})
-	It("cleans up the streamToClient goroutine on termination", func() {
-		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
-			result <- nil
-			streamToClientCalled <- struct{}{}
-		}
+	It("calls the streamToClient goroutine", func() {
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -297,13 +348,14 @@ var _ = Describe("Streamer", func() {
 		defer srv.Close()
 		defer ws.Close()
 		Eventually(streamToClientCalled, defaultTestTimeout).Should(Receive())
+		wg.Wait()
 	})
-	It("cleans up the streamToServer goroutine on termination", func() {
-		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
-			result <- nil
-			streamToServerCalled <- struct{}{}
-		}
+	It("calls the streamToServer goroutine", func() {
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -311,12 +363,9 @@ var _ = Describe("Streamer", func() {
 		defer srv.Close()
 		defer ws.Close()
 		Eventually(streamToServerCalled, defaultTestTimeout).Should(Receive())
+		wg.Wait()
 	})
 	It("starts to cleanup after the first stream returns", func() {
-		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
-			result <- nil
-			streamToClientCalled <- struct{}{}
-		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			defer GinkgoRecover()
 			serverConn.SetReadDeadline(time.Now().Add(defaultTestTimeout))
@@ -326,6 +375,7 @@ var _ = Describe("Streamer", func() {
 			streamToServerCalled <- struct{}{}
 		}
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).NotTo(HaveOccurred())
 		}))
@@ -343,8 +393,13 @@ var _ = Describe("Streamer", func() {
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToServerCalled <- struct{}{}
+			time.Sleep(defaultTestTimeout * 2)
+			result <- nil
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
 			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).To(Equal(testErrStreamEnded))
@@ -353,17 +408,23 @@ var _ = Describe("Streamer", func() {
 		defer srv.Close()
 		defer ws.Close()
 		Eventually(streamToClientCalled, defaultTestTimeout).Should(Receive())
+		wg.Wait()
 	})
 	It("returns the first stream result/error if streamToServer terminates", func() {
 		testErrStreamEnded := goerrors.New("stream ended")
 		streamer.streamToClient = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			streamToClientCalled <- struct{}{}
+			time.Sleep(defaultTestTimeout * 2)
+			result <- nil
 		}
 		streamer.streamToServer = func(clientSocket *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult) {
 			result <- testErrStreamEnded
 			streamToServerCalled <- struct{}{}
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		srv, ws, _, err := testWebsocketDial(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			defer wg.Done()
 			defer GinkgoRecover()
 			handleErr := streamer.Handle(restful.NewRequest(r), restful.NewResponse(rw))
 			Expect(handleErr).To(Equal(testErrStreamEnded))
@@ -372,6 +433,7 @@ var _ = Describe("Streamer", func() {
 		defer srv.Close()
 		defer ws.Close()
 		Eventually(streamToServerCalled, defaultTestTimeout).Should(Receive())
+		wg.Wait()
 	})
 	It("closes the result channel after both streams have returned", func() {
 		// This test is mutually exclusive with the `-race` flag, as there is no other way to check
