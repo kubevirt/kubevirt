@@ -114,7 +114,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, kubevirt),
 		))
-		createdKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Create(kubevirt)
+		createdKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Create(context.Background(), kubevirt, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

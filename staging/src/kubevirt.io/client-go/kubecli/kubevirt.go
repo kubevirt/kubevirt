@@ -316,7 +316,7 @@ type VirtualMachineInstanceMigrationInterface interface {
 type KubeVirtInterface interface {
 	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.KubeVirt, error)
 	List(ctx context.Context, opts metav1.ListOptions) (*v1.KubeVirtList, error)
-	Create(instance *v1.KubeVirt) (*v1.KubeVirt, error)
+	Create(ctx context.Context, instance *v1.KubeVirt, opts metav1.CreateOptions) (*v1.KubeVirt, error)
 	Update(*v1.KubeVirt) (*v1.KubeVirt, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error)

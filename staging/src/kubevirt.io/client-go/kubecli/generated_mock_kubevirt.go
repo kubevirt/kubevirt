@@ -2000,15 +2000,15 @@ func (_mr *_MockKubeVirtInterfaceRecorder) List(arg0, arg1 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
 }
 
-func (_m *MockKubeVirtInterface) Create(instance *v120.KubeVirt) (*v120.KubeVirt, error) {
-	ret := _m.ctrl.Call(_m, "Create", instance)
+func (_m *MockKubeVirtInterface) Create(ctx context.Context, instance *v120.KubeVirt, opts v12.CreateOptions) (*v120.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "Create", ctx, instance, opts)
 	ret0, _ := ret[0].(*v120.KubeVirt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockKubeVirtInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+func (_mr *_MockKubeVirtInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
 }
 
 func (_m *MockKubeVirtInterface) Update(_param0 *v120.KubeVirt) (*v120.KubeVirt, error) {
