@@ -354,8 +354,18 @@ func TestLogVerbosity(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
-	log.V(2).Log("msg", "test")
 
+	// Filtered Logger
+	assert(t, log.Verbosity(2), "Verbosity should match")
+	assert(t, log.Verbosity(1), "Actual verbosity is higher")
+	assert(t, !log.Verbosity(3), "Verbosity is lower")
+
+	// Filtered Verbosity Logger
+	assert(t, log.V(2).Verbosity(2), "Verbosity should match")
+	assert(t, log.V(2).Verbosity(1), "Actual verbosity is higher")
+	assert(t, !log.V(2).Verbosity(3), "Verbosity is lower")
+
+	log.V(2).Log("msg", "test")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
 	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
