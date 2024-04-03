@@ -75,6 +75,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	Context("feature gate defaults", func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
+			DownwardMetrics:             ptr.To(false),
 			DeployKubeSecondaryDNS:      ptr.To(false),
 			DeployTektonTaskResources:   ptr.To(false),
 			DeployVMConsoleProxy:        ptr.To(false),
@@ -100,6 +101,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 				g.Expect(reflect.DeepEqual(hc.Spec.FeatureGates, defaultFeatureGates)).To(BeTrue(), "featureGates should be equal to default")
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		},
+			Entry("when removing /spec/featureGates/downwardMetrics", "/spec/featureGates/downwardMetrics"),
 			Entry("when removing /spec/featureGates/deployKubeSecondaryDNS", "/spec/featureGates/deployKubeSecondaryDNS"),
 			Entry("when removing /spec/featureGates/deployTektonTaskResources", "/spec/featureGates/deployTektonTaskResources"),
 			Entry("when removing /spec/featureGates/deployVmConsoleProxy", "/spec/featureGates/deployVmConsoleProxy"),

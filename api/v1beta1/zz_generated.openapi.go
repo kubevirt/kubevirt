@@ -234,6 +234,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					"downwardMetrics": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allow to expose a limited set of host metrics to guests.",
+							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

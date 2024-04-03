@@ -756,7 +756,7 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, infrastructur
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) []string {
 	fgs := make([]string, 0, 2)
 
-	if featureGates.DownwardMetrics == nil || *featureGates.DownwardMetrics {
+	if featureGates.DownwardMetrics != nil && *featureGates.DownwardMetrics {
 		fgs = append(fgs, kvDownwardMetrics)
 	}
 
@@ -889,11 +889,8 @@ func getMandatoryKvFeatureGates(isKVMEmulation bool) []string {
 // get list of feature gates or KV FG list
 func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	checks := getFeatureGateChecks(fgs)
-
 	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates)+1)
-
 	res = append(res, mandatoryKvFeatureGates...)
-
 	res = append(res, checks...)
 
 	return res

@@ -62,6 +62,7 @@ spec:
                 deployTektonTaskResources: false
                 deployVmConsoleProxy: false
                 disableMDevConfiguration: false
+                downwardMetrics: false
                 enableApplicationAwareQuota: false
                 enableCommonBootImageImport: true
                 enableManagedTenantQuota: false
@@ -1065,6 +1066,7 @@ spec:
                   deployTektonTaskResources: false
                   deployVmConsoleProxy: false
                   disableMDevConfiguration: false
+                  downwardMetrics: false
                   enableApplicationAwareQuota: false
                   enableCommonBootImageImport: true
                   enableManagedTenantQuota: false
@@ -1110,6 +1112,7 @@ spec:
                     description: Disable mediated devices handling on KubeVirt
                     type: boolean
                   downwardMetrics:
+                    default: false
                     description: Allow to expose a limited set of host metrics to
                       guests.
                     type: boolean

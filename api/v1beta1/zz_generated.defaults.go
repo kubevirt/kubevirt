@@ -40,6 +40,10 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 }
 
 func SetObjectDefaults_HyperConverged(in *HyperConverged) {
+	if in.Spec.FeatureGates.DownwardMetrics == nil {
+		var ptrVar1 bool = false
+		in.Spec.FeatureGates.DownwardMetrics = &ptrVar1
+	}
 	if in.Spec.FeatureGates.WithHostPassthroughCPU == nil {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.WithHostPassthroughCPU = &ptrVar1
