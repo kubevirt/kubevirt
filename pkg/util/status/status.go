@@ -128,7 +128,7 @@ func (u *updater) patchUnstructured(obj runtime.Object, patchType types.PatchTyp
 		return oldObj.ResourceVersion, newObj.ResourceVersion, nil
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
-		newObj, err := u.cli.KubeVirt(a.GetNamespace()).Patch(a.GetName(), patchType, data, patchOptions)
+		newObj, err := u.cli.KubeVirt(a.GetNamespace()).Patch(context.Background(), a.GetName(), patchType, data, *patchOptions)
 		if err != nil {
 			return "", "", err
 		}
@@ -155,7 +155,7 @@ func (u *updater) patchStatusUnstructured(obj runtime.Object, patchType types.Pa
 		_, err = u.cli.VirtualMachine(a.GetNamespace()).PatchStatus(context.Background(), a.GetName(), patchType, data, *patchOptions)
 		return err
 	case *v1.KubeVirt:
-		_, err = u.cli.KubeVirt(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data, patchOptions)
+		_, err = u.cli.KubeVirt(a.GetNamespace()).PatchStatus(context.Background(), a.GetName(), patchType, data, *patchOptions)
 		return err
 	default:
 		panic(unknownObj)

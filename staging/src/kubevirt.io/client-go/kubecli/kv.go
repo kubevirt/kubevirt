@@ -81,16 +81,12 @@ func (o *kv) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.KubeV
 	return newKvList, err
 }
 
-func (o *kv) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error) {
-	opts := k8smetav1.PatchOptions{}
-	if patchOptions != nil {
-		opts = *patchOptions
-	}
-	return o.KubeVirtInterface.Patch(context.Background(), name, pt, data, opts, subresources...)
+func (o *kv) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error) {
+	return o.KubeVirtInterface.Patch(ctx, name, pt, data, patchOptions, subresources...)
 }
 
-func (o *kv) PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v1.KubeVirt, err error) {
-	return o.Patch(name, pt, data, patchOptions, "status")
+func (o *kv) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions) (result *v1.KubeVirt, err error) {
+	return o.Patch(ctx, name, pt, data, patchOptions, "status")
 }
 
 func (o *kv) UpdateStatus(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.UpdateOptions) (result *v1.KubeVirt, err error) {

@@ -273,7 +273,7 @@ func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 	data := []byte(fmt.Sprintf(`[%s, %s]`, data1, data2))
 
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kvName, types.JSONPatchType, data, &k8smetav1.PatchOptions{})
+		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, k8smetav1.PatchOptions{})
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
