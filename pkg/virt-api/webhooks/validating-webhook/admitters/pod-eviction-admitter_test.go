@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package admitters_test
 
 import (
 	"context"
@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -50,7 +51,7 @@ var _ = Describe("Pod eviction admitter", func() {
 	var kubeClient *fake.Clientset
 	var virtClient *kubecli.MockKubevirtClient
 	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
-	var podEvictionAdmitter PodEvictionAdmitter
+	var podEvictionAdmitter admitters.PodEvictionAdmitter
 	var clusterConfig *virtconfig.ClusterConfig
 
 	newClusterConfig := func() *virtconfig.ClusterConfig {
@@ -72,7 +73,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(testns).Return(vmiClient).AnyTimes()
 		clusterConfig = newClusterConfig()
-		podEvictionAdmitter = PodEvictionAdmitter{
+		podEvictionAdmitter = admitters.PodEvictionAdmitter{
 			ClusterConfig: clusterConfig,
 			VirtClient:    virtClient,
 		}
@@ -284,7 +285,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 			BeforeEach(func() {
 				//clusterConfig := newClusterConfigWithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate)
-				podEvictionAdmitter = PodEvictionAdmitter{
+				podEvictionAdmitter = admitters.PodEvictionAdmitter{
 					ClusterConfig: clusterConfig,
 					VirtClient:    virtClient,
 				}
