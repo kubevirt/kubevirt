@@ -139,8 +139,9 @@ var _ = Describe("DeviceInfo", func() {
 		}
 		expectedMap := map[string]*networkv1.DeviceInfo{
 			"foo": {Type: "pci", Version: "1.0.0", Pci: &networkv1.PciDevice{PciAddress: "0000:65:00.2"}}}
-		Expect(deviceinfo.MapBindingPluginNetworkNameToDeviceInfo(networks, interfaces, networkStatusWithMixedNetworks, bindingPlugins)).
-			To(Equal(expectedMap))
+		Expect(deviceinfo.MapBindingPluginNetworkNameToDeviceInfo(
+			networks, interfaces, networkStatusWithMixedNetworks, bindingPlugins,
+		)).To(Equal(expectedMap))
 	})
 })
 
