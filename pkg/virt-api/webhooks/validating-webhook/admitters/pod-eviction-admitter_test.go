@@ -123,59 +123,6 @@ var _ = Describe("Pod eviction admitter", func() {
 			}
 		})
 
-		It("Should deny review requests when updating the VMI fails", func() {
-
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testpod",
-					Namespace: testns,
-					Annotations: map[string]string{
-						virtv1.DomainAnnotation: vmi.Name,
-					},
-					Labels: map[string]string{
-						virtv1.AppLabel: "virt-launcher",
-					},
-				},
-				Spec: k8sv1.PodSpec{
-					NodeName: nodeName,
-				},
-				Status: k8sv1.PodStatus{},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
-			vmiClient.
-				EXPECT().
-				Patch(context.Background(),
-					vmi.Name,
-					types.JSONPatchType,
-					[]byte(data),
-					metav1.PatchOptions{}).
-				Return(nil, fmt.Errorf("err"))
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Code).To(Equal(int32(http.StatusTooManyRequests)))
-			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
-		})
-
 		DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {
 			By("Composing a dummy admission request on a virt-launcher pod")
 			pod := &k8sv1.Pod{
@@ -487,6 +434,51 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("kubevirt failed getting the vmi: %s", expectedError.Error()),
+		)
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	})
+
+	It("should deny the request when the admitter fails to patch the VMI", func() {
+		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
+
+		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+
+		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
+		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+		vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
+
+		expectedPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, testNodeName)
+		expectedError := errors.New("some error")
+		vmiClient.
+			EXPECT().
+			Patch(context.Background(),
+				migratableVMI.Name,
+				types.JSONPatchType,
+				[]byte(expectedPatchData),
+				metav1.PatchOptions{}).
+			Return(nil, expectedError)
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(nil),
+			VirtClient:    virtClient,
+		}
+
+		expectedAdmissionResponse := newDeniedAdmissionResponse(
+			fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", expectedError.Error()),
 		)
 
 		actualAdmissionResponse := admitter.Admit(
