@@ -56,21 +56,6 @@ func TSCFrequencyFromNode(node *v1.Node) (frequency int64, scalable bool, err er
 	return 0, false, nil
 }
 
-func TSCFrequencyFromPod(pod *v1.Pod) (frequency int64, err error) {
-	for key := range pod.Spec.NodeSelector {
-		if strings.HasPrefix(key, TSCFrequencySchedulingLabel+"-") {
-			freq, err := strconv.ParseInt(strings.TrimPrefix(key, TSCFrequencySchedulingLabel+"-"), 10, 64)
-			if err != nil {
-				return 0, fmt.Errorf("tsc frequency on node %v is not an int: %v", pod.Name, err)
-			} else if freq <= 0 {
-				return 0, fmt.Errorf("tsc frequency on node %v is invalid: expected a frequenchy bigger than 0, but got %v", pod.Name, freq)
-			}
-			return freq, err
-		}
-	}
-	return 0, nil
-}
-
 func TSCFrequenciesOnNode(node *v1.Node) (frequencies []int64) {
 	for key := range node.Labels {
 		if strings.HasPrefix(key, TSCFrequencySchedulingLabel+"-") {
