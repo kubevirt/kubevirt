@@ -25,19 +25,26 @@ import (
 	"net/http"
 
 	"github.com/golang/mock/gomock"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -357,38 +364,6 @@ var _ = Describe("Pod eviction admitter", func() {
 		})
 	})
 
-	Context("Not a virt launcher pod", func() {
-
-		It("Should allow any review requests", func() {
-
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: testns,
-					Name:      "foo",
-				},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
-		})
-	})
-
 	prepareAdmissionReview := func(vmi *virtv1.VirtualMachineInstance, nodeName string, migratable bool) *admissionv1.AdmissionReview {
 		dryRun := false
 		pod := &k8sv1.Pod{
@@ -508,3 +483,112 @@ var _ = Describe("Pod eviction admitter", func() {
 		})
 	})
 })
+
+var _ = Describe("Pod eviction admitter", func() {
+	const (
+		testNamespace = "test-ns"
+		testNodeName  = "node01"
+	)
+
+	const isDryRun = true
+
+	It("should allow the request when it refers to a non virt-launcher pod", func() {
+		const evictedPodName = "my-pod"
+
+		evictedPod := newPod(testNamespace, evictedPodName, testNodeName)
+		kubeClient := fake.NewSimpleClientset(evictedPod)
+
+		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(nil),
+			VirtClient:    virtClient,
+		}
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedPod.Namespace, evictedPod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	})
+})
+
+func newClusterConfig(clusterWideEvictionStrategy *virtv1.EvictionStrategy) *virtconfig.ClusterConfig {
+	const (
+		kubevirtCRName    = "kubevirt"
+		kubevirtNamespace = "kubevirt"
+	)
+
+	kv := kubecli.NewMinimalKubeVirt(kubevirtCRName)
+	kv.Namespace = kubevirtNamespace
+
+	kv.Spec.Configuration.EvictionStrategy = clusterWideEvictionStrategy
+
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	return clusterConfig
+}
+
+func newPod(namespace, name, nodeName string) *k8sv1.Pod {
+	return &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: k8sv1.PodSpec{
+			NodeName: nodeName,
+		},
+	}
+}
+
+func newAdmissionReview(evictedPodNamespace, evictedPodName string, isDryRun bool) *admissionv1.AdmissionReview {
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Namespace: evictedPodNamespace,
+			Name:      evictedPodName,
+			DryRun:    pointer.P(isDryRun),
+			Kind: metav1.GroupVersionKind{
+				Group:   "policy",
+				Version: "v1",
+				Kind:    "Eviction",
+			},
+			Resource: metav1.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			},
+			SubResource: "eviction",
+			RequestKind: &metav1.GroupVersionKind{
+				Group:   "policy",
+				Version: "v1",
+				Kind:    "Eviction",
+			},
+			RequestResource: &metav1.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "pods",
+			},
+			RequestSubResource: "eviction",
+			Operation:          "CREATE",
+			Object: runtime.RawExtension{
+				Object: &policyv1.Eviction{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "policy/v1",
+						Kind:       "Eviction",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: evictedPodNamespace,
+						Name:      evictedPodName,
+					},
+				},
+			},
+		},
+	}
+}
+
+func allowedAdmissionResponse() *admissionv1.AdmissionResponse {
+	return &admissionv1.AdmissionResponse{
+		Allowed: true,
+	}
+}
