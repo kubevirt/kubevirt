@@ -1978,15 +1978,15 @@ func (_m *MockKubeVirtInterface) EXPECT() *_MockKubeVirtInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockKubeVirtInterface) Get(name string, options *v12.GetOptions) (*v120.KubeVirt, error) {
-	ret := _m.ctrl.Call(_m, "Get", name, options)
+func (_m *MockKubeVirtInterface) Get(ctx context.Context, name string, options v12.GetOptions) (*v120.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "Get", ctx, name, options)
 	ret0, _ := ret[0].(*v120.KubeVirt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockKubeVirtInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+func (_mr *_MockKubeVirtInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
 func (_m *MockKubeVirtInterface) List(opts *v12.ListOptions) (*v120.KubeVirtList, error) {

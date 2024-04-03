@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"context"
 	"net/http"
 	"path"
 
@@ -53,7 +54,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, kubevirtPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, kubevirt),
 		))
-		fetchedKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Get("testkubevirt", &k8smetav1.GetOptions{})
+		fetchedKubeVirt, err := client.KubeVirt(k8sv1.NamespaceDefault).Get(context.Background(), "testkubevirt", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -71,7 +72,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, kubevirtPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testkubevirt")),
 		))
-		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Get("testkubevirt", &k8smetav1.GetOptions{})
+		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Get(context.Background(), "testkubevirt", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())

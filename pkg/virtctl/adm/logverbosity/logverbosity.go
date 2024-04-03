@@ -1,6 +1,7 @@
 package logverbosity
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -369,7 +370,7 @@ func (c *Command) RunE(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	kv, err := virtClient.KubeVirt(namespace).Get(name, &k8smetav1.GetOptions{})
+	kv, err := virtClient.KubeVirt(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		return err
 	}

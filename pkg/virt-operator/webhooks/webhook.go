@@ -36,7 +36,7 @@ func (k *KubeVirtDeletionAdmitter) Admit(review *admissionv1.AdmissionReview) *a
 	var kv *v1.KubeVirt
 	var err error
 	if review.Request.Name != "" {
-		kv, err = k.client.KubeVirt(review.Request.Namespace).Get(review.Request.Name, &metav1.GetOptions{})
+		kv, err = k.client.KubeVirt(review.Request.Namespace).Get(context.Background(), review.Request.Name, metav1.GetOptions{})
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}

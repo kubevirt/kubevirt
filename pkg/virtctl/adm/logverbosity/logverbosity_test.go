@@ -1,6 +1,7 @@
 package logverbosity_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -143,8 +144,8 @@ var _ = Describe("Log Verbosity", func() {
 			})
 
 			expectGetError := func() {
-				kvInterface.EXPECT().Get(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(name string, _ any) (*v1.KubeVirt, error) {
+				kvInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, name string, _ any) (*v1.KubeVirt, error) {
 						Expect(name).To(Equal(kvs.Items[0].Name))
 						return nil, errors.New("Get error")
 					}).AnyTimes()
@@ -170,8 +171,8 @@ var _ = Describe("Log Verbosity", func() {
 		})
 
 		expectGetKv := func() {
-			kvInterface.EXPECT().Get(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(name string, _ any) (*v1.KubeVirt, error) {
+			kvInterface.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, name string, _ any) (*v1.KubeVirt, error) {
 					Expect(name).To(Equal(kvs.Items[0].Name))
 					return &kvs.Items[0], nil
 				}).AnyTimes()
@@ -393,7 +394,7 @@ func NewKubeVirtWithoutDeveloperConfiguration(namespace, name string) *v1.KubeVi
 
 func commonSetup(kvInterface *kubecli.MockKubeVirtInterface, kvs *v1.KubeVirtList) {
 	kvInterface.EXPECT().List(gomock.Any()).Return(kvs, nil).AnyTimes()
-	kvInterface.EXPECT().Get(kvs.Items[0].Name, gomock.Any()).Return(&kvs.Items[0], nil).AnyTimes()
+	kvInterface.EXPECT().Get(context.Background(), kvs.Items[0].Name, gomock.Any()).Return(&kvs.Items[0], nil).AnyTimes()
 }
 
 func commonShowTest(output []uint, args ...string) {
