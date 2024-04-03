@@ -21,6 +21,7 @@ package admitters_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -462,6 +463,39 @@ var _ = Describe("Pod eviction admitter", func() {
 			withEvictionStrategy(nil),
 		),
 	)
+
+	It("should deny the request when the admitter fails to fetch the VMI", func() {
+		vmi := newVMI(testNamespace, testVMIName, testNodeName)
+
+		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
+		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+
+		expectedError := errors.New("some error")
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(nil, expectedError)
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(nil),
+			VirtClient:    virtClient,
+		}
+
+		expectedAdmissionResponse := newDeniedAdmissionResponse(
+			fmt.Sprintf("kubevirt failed getting the vmi: %s", expectedError.Error()),
+		)
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	})
 })
 
 func newClusterConfig(clusterWideEvictionStrategy *virtv1.EvictionStrategy) *virtconfig.ClusterConfig {
