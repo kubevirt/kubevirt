@@ -31,6 +31,7 @@ import (
 
 	dhcp "github.com/krolaw/dhcp4"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -60,7 +61,8 @@ func SingleClientDHCPServer(
 	routes *[]netlink.Route,
 	searchDomains []string,
 	mtu uint16,
-	customDHCPOptions *v1.DHCPOptions) error {
+	customDHCPOptions *v1.DHCPOptions,
+	dhcpStartedFile string) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
@@ -86,10 +88,16 @@ func SingleClientDHCPServer(
 	if err != nil {
 		return err
 	}
+
+	go stopOnIfaceDeletion(serverIface, l)
+
+	defer removedhcpStartedFile(dhcpStartedFile)
 	defer closeDHCPServerIgnoringError(l)
 	err = dhcp.Serve(l, handler)
 	if err != nil {
-		return err
+		// dhcp.Serve only stops on error, ignore it to avoid panic
+		log.Log.Errorf("failed to run DHCP: %v", err)
+		return nil
 	}
 	return nil
 }
@@ -97,6 +105,35 @@ func SingleClientDHCPServer(
 func closeDHCPServerIgnoringError(l ServeIfConn) {
 	if err := l.Close(); err != nil {
 		log.Log.Warningf("failed to close DHCP server connection: %v", err)
+	}
+}
+
+func removedhcpStartedFile(dhcpStartedFile string) {
+	err := os.Remove(dhcpStartedFile)
+	if err != nil {
+		log.Log.Warningf("failed to remove dhcpStartedFile %s: %v", dhcpStartedFile, err)
+	}
+}
+
+func stopOnIfaceDeletion(serverIface string, l ServeIfConn) {
+	if _, err := netlink.LinkByName(serverIface); err != nil {
+		log.Log.Warningf("failed to watch DHCP server interface: %v", err)
+		return
+	}
+	ch := make(chan netlink.LinkUpdate)
+	done := make(chan struct{})
+	defer close(done)
+	if err := netlink.LinkSubscribe(ch, done); err != nil {
+		log.Log.Warningf("failed to watch DHCP server interface: %v", err)
+		return
+	}
+
+	for update := range ch {
+		if update.Header.Type == unix.RTM_DELLINK && serverIface == update.Link.Attrs().Name {
+			log.Log.Infof("interface %s has been deleted, stopping DHCP server", serverIface)
+			closeDHCPServerIgnoringError(l)
+			return
+		}
 	}
 }
 
