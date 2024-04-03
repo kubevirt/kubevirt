@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -50,136 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
-
-var _ = Describe("Pod eviction admitter", func() {
-
-	testns := "kubevirt-test-ns"
-	var ctrl *gomock.Controller
-
-	var kubeClient *fake.Clientset
-	var virtClient *kubecli.MockKubevirtClient
-	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
-	var podEvictionAdmitter admitters.PodEvictionAdmitter
-	var clusterConfig *virtconfig.ClusterConfig
-
-	newClusterConfig := func() *virtconfig.ClusterConfig {
-		kv := kubecli.NewMinimalKubeVirt(testns)
-		kv.Namespace = "kubevirt"
-		if kv.Spec.Configuration.DeveloperConfiguration == nil {
-			kv.Spec.Configuration.DeveloperConfiguration = &virtv1.DeveloperConfiguration{}
-		}
-
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-		return clusterConfig
-	}
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(testns).Return(vmiClient).AnyTimes()
-		clusterConfig = newClusterConfig()
-		podEvictionAdmitter = admitters.PodEvictionAdmitter{
-			ClusterConfig: clusterConfig,
-			VirtClient:    virtClient,
-		}
-
-		// Make sure that any unexpected call to the client will fail
-		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			Expect(action).To(BeNil())
-			return true, nil, nil
-		})
-	})
-	AfterEach(func() {
-		ctrl.Finish()
-	})
-
-	Context("Migratable and evictable VMI", func() {
-
-		var vmi *virtv1.VirtualMachineInstance
-		liveMigrateStrategy := virtv1.EvictionStrategyLiveMigrate
-		nodeName := "node01"
-
-		BeforeEach(func() {
-			vmi = &virtv1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: testns,
-					Name:      "testvmi",
-				},
-				Status: virtv1.VirtualMachineInstanceStatus{
-					Conditions: []virtv1.VirtualMachineInstanceCondition{
-						{
-							Type:   virtv1.VirtualMachineInstanceIsMigratable,
-							Status: k8sv1.ConditionTrue,
-						},
-					},
-					NodeName: nodeName,
-				},
-				Spec: virtv1.VirtualMachineInstanceSpec{
-					EvictionStrategy: &liveMigrateStrategy,
-				},
-			}
-		})
-
-		DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testpod",
-					Namespace: testns,
-					Annotations: map[string]string{
-						virtv1.DomainAnnotation: vmi.Name,
-					},
-					Labels: map[string]string{
-						virtv1.AppLabel: "virt-launcher",
-					},
-				},
-				Spec: k8sv1.PodSpec{
-					NodeName: nodeName,
-				},
-				Status: k8sv1.PodStatus{},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-					DryRun:    &dryRun,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
-			if !dryRun {
-				data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
-				vmiClient.
-					EXPECT().
-					Patch(context.Background(),
-						vmi.Name,
-						types.JSONPatchType,
-						[]byte(data),
-						metav1.PatchOptions{}).
-					Return(nil, nil)
-			}
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
-			actions := kubeClient.Fake.Actions()
-			Expect(actions).To(HaveLen(1))
-		},
-			Entry("and should not mark the VMI when in dry-run mode", true),
-		)
-	})
-})
 
 var _ = Describe("Pod eviction admitter", func() {
 	const (
@@ -513,6 +382,36 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	})
+
+	It("should allow the request and not patch the VMI when the request is a dry run", func() {
+		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
+
+		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+
+		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
+		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+		vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(nil),
+			VirtClient:    virtClient,
+		}
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, isDryRun),
 		)
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
