@@ -453,6 +453,105 @@ var _ = Describe("Workload Updater", func() {
 		})
 	})
 
+	Context("Abort changes due to an automated live update", func() {
+		createVM := func(annotation, hasChangeCondition bool) *v1.VirtualMachineInstance {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Namespace = k8sv1.NamespaceDefault
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue})
+			if hasChangeCondition {
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceMemoryChange,
+					Status: k8sv1.ConditionTrue,
+				})
+			}
+			if annotation {
+				vmi.ObjectMeta.Annotations = make(map[string]string)
+				vmi.ObjectMeta.Annotations[v1.WorkloadUpdateMigrationAbortionAnnotation] = ""
+			}
+			vmiSource.Add(vmi)
+			return vmi
+		}
+		createMig := func(vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+			mig := newMigration("test", vmiName, phase)
+			mig.Annotations = map[string]string{v1.WorkloadUpdateMigrationAnnotation: ""}
+			migrationFeeder.Add(mig)
+			return mig
+		}
+
+		BeforeEach(func() {
+			kv := newKubeVirt(0)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+			addKubeVirt(kv)
+		})
+
+		DescribeTable("should delete the migration", func(phase v1.VirtualMachineInstanceMigrationPhase) {
+			vmi := createVM(false, false)
+			mig := createMig(vmi.Name, phase)
+
+			if !mig.IsFinal() {
+				migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(nil)
+			}
+
+			controller.Execute()
+			if mig.IsFinal() {
+				Expect(recorder.Events).To(BeEmpty())
+			} else {
+				testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
+			}
+		},
+			Entry("in running phase", v1.MigrationRunning),
+			Entry("in failed phase", v1.MigrationFailed),
+			Entry("in succeeded phase", v1.MigrationSucceeded),
+		)
+
+		DescribeTable("should handle", func(hasCond, hasMig bool) {
+			vmi := createVM(false, hasCond)
+			if hasCond {
+				kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+			}
+			var mig *v1.VirtualMachineInstanceMigration
+			if hasMig {
+				mig = createMig(vmi.Name, v1.MigrationRunning)
+			}
+			changeAborted := hasMig && !hasCond
+			if changeAborted {
+				migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(nil)
+			}
+			controller.Execute()
+			if changeAborted {
+				testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
+			} else {
+				Expect(recorder.Events).To(BeEmpty())
+			}
+		},
+			Entry("a in progress change update", true, true),
+			Entry("a change abortion", false, true),
+			Entry("no change in progress", false, false),
+		)
+
+		DescribeTable("should always cancel the migration when the testWorkloadUpdateMigrationAbortion annotation is present", func(hasCond bool) {
+			vmi := createVM(true, hasCond)
+			mig := createMig(vmi.Name, v1.MigrationRunning)
+			migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(nil)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
+		},
+			Entry("with the change condition", true),
+			Entry("without the change condition", false),
+		)
+
+		It("should return an error if the migration hasn't been deleted", func() {
+			vmi := createVM(true, false)
+			mig := createMig(vmi.Name, v1.MigrationRunning)
+			migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(fmt.Errorf("some error"))
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, FailedChangeAbortionReason)
+		})
+	})
+
 	AfterEach(func() {
 
 		close(stop)
