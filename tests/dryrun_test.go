@@ -484,7 +484,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &opts)
+			err = virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no KubeVirt CR was actually deleted")

@@ -68,12 +68,8 @@ func (o *kv) Update(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.UpdateO
 }
 
 // Delete the defined KubeVirt in the cluster in defined namespace
-func (o *kv) Delete(name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return o.KubeVirtInterface.Delete(context.Background(), name, opts)
+func (o *kv) Delete(ctx context.Context, name string, options k8smetav1.DeleteOptions) error {
+	return o.KubeVirtInterface.Delete(ctx, name, options)
 }
 
 // List all KubeVirts in given namespace

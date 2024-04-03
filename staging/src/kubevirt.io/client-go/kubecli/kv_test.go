@@ -174,7 +174,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("DELETE", path.Join(proxyPath, kubevirtPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.KubeVirt(k8sv1.NamespaceDefault).Delete("testkubevirt", &k8smetav1.DeleteOptions{})
+		err = client.KubeVirt(k8sv1.NamespaceDefault).Delete(context.Background(), "testkubevirt", k8smetav1.DeleteOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
