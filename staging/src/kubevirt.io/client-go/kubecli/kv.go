@@ -55,14 +55,9 @@ func (o *kv) Create(kv *v1.KubeVirt) (*v1.KubeVirt, error) {
 }
 
 // Get the KubeVirt from the cluster by its name and namespace
-func (o *kv) Get(name string, options *k8smetav1.GetOptions) (*v1.KubeVirt, error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newKv, err := o.KubeVirtInterface.Get(context.Background(), name, opts)
+func (o *kv) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (*v1.KubeVirt, error) {
+	newKv, err := o.KubeVirtInterface.Get(ctx, name, options)
 	newKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
-
 	return newKv, err
 }
 
