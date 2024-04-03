@@ -156,8 +156,8 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, kubevirt),
 		))
 
-		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Patch(kubevirt.Name, types.MergePatchType,
-			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"), &k8smetav1.PatchOptions{})
+		_, err = client.KubeVirt(k8sv1.NamespaceDefault).Patch(context.Background(), kubevirt.Name, types.MergePatchType,
+			[]byte("{\"spec\":{\"imagePullPolicy\":something}}"), k8smetav1.PatchOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

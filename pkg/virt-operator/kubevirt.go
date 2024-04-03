@@ -764,7 +764,7 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 		patch := fmt.Sprintf(`[{"op": "replace", "path": "/metadata/finalizers", "value": %s}]`, string(finalizersJson))
-		_, err = c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(kvCopy.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{})
+		_, err = c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(context.Background(), kvCopy.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not patch the KubeVirt finalizers.")
 			return err

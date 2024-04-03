@@ -410,7 +410,7 @@ func (c *Command) RunE(cmd *cobra.Command) error {
 		if err != nil {
 			return err
 		}
-		_, err = virtClient.KubeVirt(namespace).Patch(name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+		_, err = virtClient.KubeVirt(namespace).Patch(context.Background(), name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 		if err != nil {
 			return err
 		}

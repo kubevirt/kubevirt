@@ -87,8 +87,8 @@ var _ = Describe("Log Verbosity", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().KubeVirt(kvs.Items[0].Namespace).Return(kvInterface).AnyTimes() // Get & Patch
 		kubecli.MockKubevirtClientInstance.EXPECT().KubeVirt(k8smetav1.NamespaceAll).Return(kvInterface).AnyTimes() // List
 
-		kvInterface.EXPECT().Patch(gomock.Any(), types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(name string, _ any, patchData []byte, _ any, _ ...any) (*v1.KubeVirt, error) {
+		kvInterface.EXPECT().Patch(context.Background(), gomock.Any(), types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, name string, _ any, patchData []byte, _ any, _ ...any) (*v1.KubeVirt, error) {
 				Expect(name).To(Equal(kvs.Items[0].Name))
 
 				patch, err := jsonpatch.DecodePatch(patchData)
