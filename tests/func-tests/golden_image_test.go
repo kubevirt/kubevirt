@@ -65,7 +65,7 @@ var (
 	}
 )
 
-var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, Label("OpenShift"), func() {
+var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, Label(openshiftLabel), func() {
 	var (
 		cli kubecli.KubevirtClient
 		ctx context.Context

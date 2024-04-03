@@ -55,7 +55,7 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 	})
 
 	When("set the EnableManagedTenantQuota FG", func() {
-		It("should create the MTQ CR and all the pods", Label("MULTI_NODE_ONLY"), func() {
+		It("should create the MTQ CR and all the pods", Label(highlyAvailableClusterLabel), func() {
 
 			if singleWorkerCluster {
 				Skip("Don't test MTQ on single node")
@@ -90,7 +90,7 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 				Should(Succeed())
 		})
 
-		It("should reject setting of the FG in SNO", Label("SINGLE_NODE_ONLY"), func() {
+		It("should reject setting of the FG in SNO", Label(singleNodeLabel), func() {
 			if !singleWorkerCluster {
 				Skip("this test is not relevant for highly available clusters")
 			}

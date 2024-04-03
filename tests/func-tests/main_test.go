@@ -10,9 +10,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
 	kvtutil "kubevirt.io/kubevirt/tests/util"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
+)
+
+// labels
+const (
+	singleNodeLabel             = "SINGLE_NODE_ONLY"
+	highlyAvailableClusterLabel = "HIGHLY_AVAILABLE_CLUSTER"
+	openshiftLabel              = "OpenShift"
 )
 
 func TestTests(t *testing.T) {

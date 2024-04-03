@@ -29,7 +29,7 @@ const (
 	openshiftConsoleNamespace = "openshift-console"
 )
 
-var _ = Describe("kubevirt console plugin", Label("OpenShift"), func() {
+var _ = Describe("kubevirt console plugin", Label(openshiftLabel), func() {
 	var (
 		cli                               kubecli.KubevirtClient
 		ctx                               context.Context

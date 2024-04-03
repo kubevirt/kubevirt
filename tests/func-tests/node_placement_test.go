@@ -27,7 +27,7 @@ const (
 	workloads = "workloads"
 )
 
-var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, Label("MULTI_NODE_ONLY"), func() {
+var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, Label(highlyAvailableClusterLabel), func() {
 	ctx := context.TODO()
 	tests.FlagParse()
 	hco := &hcov1beta1.HyperConverged{}
