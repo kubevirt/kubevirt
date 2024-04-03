@@ -2000,26 +2000,26 @@ func (_mr *_MockKubeVirtInterfaceRecorder) List(arg0, arg1 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
 }
 
-func (_m *MockKubeVirtInterface) Create(instance *v120.KubeVirt) (*v120.KubeVirt, error) {
-	ret := _m.ctrl.Call(_m, "Create", instance)
+func (_m *MockKubeVirtInterface) Create(ctx context.Context, instance *v120.KubeVirt, opts v12.CreateOptions) (*v120.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "Create", ctx, instance, opts)
 	ret0, _ := ret[0].(*v120.KubeVirt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockKubeVirtInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+func (_mr *_MockKubeVirtInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
 }
 
-func (_m *MockKubeVirtInterface) Update(_param0 *v120.KubeVirt) (*v120.KubeVirt, error) {
-	ret := _m.ctrl.Call(_m, "Update", _param0)
+func (_m *MockKubeVirtInterface) Update(ctx context.Context, kubeVirt *v120.KubeVirt, opts v12.UpdateOptions) (*v120.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "Update", ctx, kubeVirt, opts)
 	ret0, _ := ret[0].(*v120.KubeVirt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockKubeVirtInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+func (_mr *_MockKubeVirtInterfaceRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
 }
 
 func (_m *MockKubeVirtInterface) Delete(name string, options *v12.DeleteOptions) error {
@@ -2048,15 +2048,15 @@ func (_mr *_MockKubeVirtInterfaceRecorder) Patch(arg0, arg1, arg2, arg3 interfac
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockKubeVirtInterface) UpdateStatus(_param0 *v120.KubeVirt) (*v120.KubeVirt, error) {
-	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+func (_m *MockKubeVirtInterface) UpdateStatus(ctx context.Context, kubeVirt *v120.KubeVirt, opts v12.UpdateOptions) (*v120.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, kubeVirt, opts)
 	ret0, _ := ret[0].(*v120.KubeVirt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockKubeVirtInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+func (_mr *_MockKubeVirtInterfaceRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1, arg2)
 }
 
 func (_m *MockKubeVirtInterface) PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *v12.PatchOptions) (*v120.KubeVirt, error) {

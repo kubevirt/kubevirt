@@ -410,7 +410,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
-	update := k.kvInterface.EXPECT().Update(gomock.Any())
+	update := k.kvInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(kv *v1.KubeVirt) {
 		k.kvInformer.GetStore().Update(kv)
 		update.Return(kv, nil)
@@ -418,16 +418,16 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatus(times int) {
-	update := k.kvInterface.EXPECT().UpdateStatus(gomock.Any())
-	update.Do(func(kv *v1.KubeVirt) {
+	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 		k.kvInformer.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, config *util.KubeVirtDeploymentConfig) {
-	update := k.kvInterface.EXPECT().UpdateStatus(gomock.Any())
-	update.Do(func(kv *v1.KubeVirt) {
+	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 
 		Expect(kv.Status.TargetKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
 		Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
@@ -437,8 +437,8 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, co
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reason string) {
-	update := k.kvInterface.EXPECT().UpdateStatus(gomock.Any())
-	update.Do(func(kv *v1.KubeVirt) {
+	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 		Expect(kv.Status.Conditions).To(HaveLen(1))
 		Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))
 		k.kvInformer.GetStore().Update(kv)

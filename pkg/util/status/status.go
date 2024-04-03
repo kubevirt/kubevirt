@@ -191,7 +191,7 @@ func (u *updater) updateUnstructured(obj runtime.Object) (oldStatus interface{},
 		return oldObj.Status, newObj.Status, nil
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
-		newObj, err := u.cli.KubeVirt(a.GetNamespace()).Update(oldObj)
+		newObj, err := u.cli.KubeVirt(a.GetNamespace()).Update(context.Background(), oldObj, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -225,7 +225,7 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 		_, err = u.cli.VirtualMachineInstanceMigration(a.GetNamespace()).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	case *v1.KubeVirt:
 		oldObj := obj.(*v1.KubeVirt)
-		_, err = u.cli.KubeVirt(a.GetNamespace()).UpdateStatus(oldObj)
+		_, err = u.cli.KubeVirt(a.GetNamespace()).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	case *clonev1alpha1.VirtualMachineClone:
 		oldObj := obj.(*clonev1alpha1.VirtualMachineClone)
 		_, err = u.cli.VirtualMachineClone(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})

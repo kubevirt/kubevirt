@@ -137,7 +137,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			}
 
 			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -164,7 +164,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
 
 			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}

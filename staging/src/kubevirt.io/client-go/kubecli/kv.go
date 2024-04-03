@@ -61,10 +61,9 @@ func (o *kv) Get(ctx context.Context, name string, options k8smetav1.GetOptions)
 }
 
 // Update the KubeVirt instance in the cluster in given namespace
-func (o *kv) Update(kv *v1.KubeVirt) (*v1.KubeVirt, error) {
-	updatedKv, err := o.KubeVirtInterface.Update(context.Background(), kv, k8smetav1.UpdateOptions{})
+func (o *kv) Update(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.UpdateOptions) (*v1.KubeVirt, error) {
+	updatedKv, err := o.KubeVirtInterface.Update(ctx, kv, opts)
 	updatedKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
-
 	return updatedKv, err
 }
 
@@ -98,8 +97,8 @@ func (o *kv) PatchStatus(name string, pt types.PatchType, data []byte, patchOpti
 	return o.Patch(name, pt, data, patchOptions, "status")
 }
 
-func (o *kv) UpdateStatus(kv *v1.KubeVirt) (result *v1.KubeVirt, err error) {
-	result, err = o.KubeVirtInterface.UpdateStatus(context.Background(), kv, k8smetav1.UpdateOptions{})
+func (o *kv) UpdateStatus(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.UpdateOptions) (result *v1.KubeVirt, err error) {
+	result, err = o.KubeVirtInterface.UpdateStatus(ctx, kv, opts)
 	result.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
 	return
 }
