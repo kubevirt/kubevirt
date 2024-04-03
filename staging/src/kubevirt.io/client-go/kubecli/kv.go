@@ -79,16 +79,11 @@ func (o *kv) Delete(name string, options *k8smetav1.DeleteOptions) error {
 }
 
 // List all KubeVirts in given namespace
-func (o *kv) List(options *k8smetav1.ListOptions) (*v1.KubeVirtList, error) {
-	opts := k8smetav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newKvList, err := o.KubeVirtInterface.List(context.Background(), opts)
+func (o *kv) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.KubeVirtList, error) {
+	newKvList, err := o.KubeVirtInterface.List(ctx, options)
 	for i := range newKvList.Items {
 		newKvList.Items[i].SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
 	}
-
 	return newKvList, err
 }
 

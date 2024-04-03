@@ -33,7 +33,7 @@ var _ = Describe("Webhook", func() {
 		kubeCli = kubecli.NewMockKubevirtClient(ctrl)
 		kvInterface = kubecli.NewMockKubeVirtInterface(ctrl)
 		kvInterface.EXPECT().Get(context.Background(), "kubevirt", gomock.Any()).Return(kv, nil).AnyTimes()
-		kvInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.KubeVirtList{}, nil).AnyTimes()
+		kvInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.KubeVirtList{}, nil).AnyTimes()
 		admitter = &KubeVirtDeletionAdmitter{kubeCli}
 		kubeCli.EXPECT().KubeVirt("test").Return(kvInterface)
 

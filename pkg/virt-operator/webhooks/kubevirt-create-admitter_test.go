@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/golang/mock/gomock"
@@ -33,7 +34,7 @@ var _ = Describe("Validating KubeVirtCreate Admitter", func() {
 				Name:      "Existing",
 			},
 		}
-		kvInterface.EXPECT().List(gomock.Any()).
+		kvInterface.EXPECT().List(context.Background(), gomock.Any()).
 			Return(&v1.KubeVirtList{Items: []v1.KubeVirt{alreadyExistingKv}}, nil).AnyTimes()
 
 		newKv := v1.KubeVirt{
@@ -59,7 +60,7 @@ var _ = Describe("Validating KubeVirtCreate Admitter", func() {
 	})
 
 	It("should allow creating new Kubevirt resource", func() {
-		kvInterface.EXPECT().List(gomock.Any()).
+		kvInterface.EXPECT().List(context.Background(), gomock.Any()).
 			Return(&v1.KubeVirtList{Items: []v1.KubeVirt{}}, nil).AnyTimes()
 
 		newKv := v1.KubeVirt{

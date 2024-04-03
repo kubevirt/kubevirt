@@ -181,7 +181,7 @@ func getJSONNameByComponentName(componentName string) string {
 }
 
 func detectInstallNamespaceAndName(virtClient kubecli.KubevirtClient) (string, string, error) {
-	kvs, err := virtClient.KubeVirt(k8smetav1.NamespaceAll).List(&k8smetav1.ListOptions{})
+	kvs, err := virtClient.KubeVirt(k8smetav1.NamespaceAll).List(context.Background(), k8smetav1.ListOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("could not list KubeVirt CRs across all namespaces: %v", err)
 	}

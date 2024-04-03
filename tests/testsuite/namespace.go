@@ -338,7 +338,7 @@ func removeAllGroupVersionResourceFromNamespace(groupVersionResource schema.Grou
 
 func detectInstallNamespace() {
 	virtCli := kubevirt.Client()
-	kvs, err := virtCli.KubeVirt("").List(&metav1.ListOptions{})
+	kvs, err := virtCli.KubeVirt("").List(context.Background(), metav1.ListOptions{})
 	util.PanicOnError(err)
 	if len(kvs.Items) == 0 {
 		util.PanicOnError(fmt.Errorf("Could not detect a kubevirt installation"))
