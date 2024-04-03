@@ -175,61 +175,6 @@ var _ = Describe("Pod eviction admitter", func() {
 			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 		})
 
-		It("Should allow review requests when eviction strategy is not configured", func() {
-
-			By("Removing eviction strategy from the VMI")
-			vmi.Spec.EvictionStrategy = nil
-
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testpod",
-					Namespace: testns,
-					Annotations: map[string]string{
-						virtv1.DomainAnnotation: vmi.Name,
-					},
-					Labels: map[string]string{
-						virtv1.AppLabel: "virt-launcher",
-					},
-				},
-				Spec: k8sv1.PodSpec{
-					NodeName: nodeName,
-				},
-				Status: k8sv1.PodStatus{},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
-			vmiClient.
-				EXPECT().
-				Patch(context.Background(),
-					vmi.Name,
-					types.JSONPatchType,
-					[]byte(data),
-					metav1.PatchOptions{}).
-				Return(nil, fmt.Errorf("err")).AnyTimes()
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
-			Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
-		})
-
 		DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {
 			By("Composing a dummy admission request on a virt-launcher pod")
 			pod := &k8sv1.Pod{
@@ -285,171 +230,6 @@ var _ = Describe("Pod eviction admitter", func() {
 		},
 			Entry("and should not mark the VMI when in dry-run mode", true),
 		)
-
-		Context("With EvictionStrategy cluster setting set to 'LiveMigrate'", func() {
-			var vmi *virtv1.VirtualMachineInstance
-
-			BeforeEach(func() {
-				//clusterConfig := newClusterConfigWithEvictionStrategy(virtv1.EvictionStrategyLiveMigrate)
-				podEvictionAdmitter = admitters.PodEvictionAdmitter{
-					ClusterConfig: clusterConfig,
-					VirtClient:    virtClient,
-				}
-
-				vmi = &virtv1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: testns,
-						Name:      "testvmi",
-					},
-					Status: virtv1.VirtualMachineInstanceStatus{
-						Conditions: []virtv1.VirtualMachineInstanceCondition{
-							{
-								Type:   virtv1.VirtualMachineInstanceIsMigratable,
-								Status: k8sv1.ConditionTrue,
-							},
-						},
-					},
-					Spec: virtv1.VirtualMachineInstanceSpec{},
-				}
-			})
-
-			DescribeTable("Should allow review requests", func(markVMI bool, vmiEvictionStrategy virtv1.EvictionStrategy) {
-				vmi.Spec.EvictionStrategy = &vmiEvictionStrategy
-
-				By("Composing a dummy admission request on a virt-launcher pod")
-				pod := &k8sv1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testpod",
-						Namespace: testns,
-						Annotations: map[string]string{
-							virtv1.DomainAnnotation: vmi.Name,
-						},
-						Labels: map[string]string{
-							virtv1.AppLabel: "virt-launcher",
-						},
-					},
-					Spec:   k8sv1.PodSpec{},
-					Status: k8sv1.PodStatus{},
-				}
-
-				ar := &admissionv1.AdmissionReview{
-					Request: &admissionv1.AdmissionRequest{
-						Name:      pod.Name,
-						Namespace: pod.Namespace,
-					},
-				}
-
-				kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					get, ok := action.(testing.GetAction)
-					Expect(ok).To(BeTrue())
-					Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-					Expect(pod.Name).To(Equal(get.GetName()))
-					return true, pod, nil
-				})
-
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-				if markVMI {
-					vmiClient.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Return(nil, nil).AnyTimes()
-				}
-
-				resp := podEvictionAdmitter.Admit(ar)
-				Expect(resp.Allowed).To(BeTrue())
-				Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
-			},
-				Entry("and should not mark the VMI", false, virtv1.EvictionStrategyNone),
-			)
-		})
-	})
-
-	prepareAdmissionReview := func(vmi *virtv1.VirtualMachineInstance, nodeName string, migratable bool) *admissionv1.AdmissionReview {
-		dryRun := false
-		pod := &k8sv1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "testpod",
-				Namespace: testns,
-				Annotations: map[string]string{
-					virtv1.DomainAnnotation: vmi.Name,
-				},
-				Labels: map[string]string{
-					virtv1.AppLabel: "virt-launcher",
-				},
-			},
-			Spec: k8sv1.PodSpec{
-				NodeName: nodeName,
-			},
-			Status: k8sv1.PodStatus{},
-		}
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-				DryRun:    &dryRun,
-			},
-		}
-
-		kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			get, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-			Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-			Expect(pod.Name).To(Equal(get.GetName()))
-			return true, pod, nil
-		})
-
-		if migratable {
-			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
-			vmiClient.
-				EXPECT().
-				Patch(context.Background(),
-					vmi.Name,
-					types.JSONPatchType,
-					[]byte(data),
-					metav1.PatchOptions{}).
-				Return(nil, nil)
-		}
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-		return ar
-	}
-
-	prepareVMI := func(nodeName string, evictionStrategy virtv1.EvictionStrategy, migratable k8sv1.ConditionStatus) *virtv1.VirtualMachineInstance {
-		return &virtv1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testns,
-				Name:      "testvmi",
-			},
-			Status: virtv1.VirtualMachineInstanceStatus{
-				Conditions: []virtv1.VirtualMachineInstanceCondition{
-					{
-						Type:   virtv1.VirtualMachineInstanceIsMigratable,
-						Status: migratable,
-					},
-				},
-				NodeName: nodeName,
-			},
-			Spec: virtv1.VirtualMachineInstanceSpec{
-				EvictionStrategy: &evictionStrategy,
-			},
-		}
-	}
-
-	Context("Eviction strategy LiveMigrateIfPossible", func() {
-
-		evictionStrategy := virtv1.EvictionStrategyLiveMigrateIfPossible
-		nodeName := "node01"
-
-		It("Should allow on non-migratable VMIs any review request and not set status.EvacuationNodeName", func() {
-
-			vmi := prepareVMI(nodeName, evictionStrategy, k8sv1.ConditionFalse)
-
-			ar := prepareAdmissionReview(vmi, nodeName, false)
-
-			resp := podEvictionAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(BeTrue())
-			actions := kubeClient.Fake.Actions()
-			Expect(actions).To(HaveLen(1))
-		})
 	})
 })
 
@@ -577,6 +357,69 @@ var _ = Describe("Pod eviction admitter", func() {
 			pointer.P(virtv1.EvictionStrategyExternal),
 			withEvictionStrategy(nil),
 			withLiveMigratableCondition(),
+		),
+	)
+
+	DescribeTable("should allow the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
+		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+
+		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
+		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
+			VirtClient:    virtClient,
+		}
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	},
+		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is missing and VMI is not migratable",
+			nil,
+			withEvictionStrategy(nil),
+		),
+		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is missing and VMI is migratable",
+			nil,
+			withEvictionStrategy(nil),
+			withLiveMigratableCondition(),
+		),
+		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is None and VMI is not migratable",
+			nil,
+			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyNone)),
+		),
+		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is None and VMI is migratable",
+			nil,
+			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyNone)),
+			withLiveMigratableCondition(),
+		),
+		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrateIfPossible and VMI is not migratable",
+			nil,
+			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible)),
+		),
+		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is not migratable",
+			pointer.P(virtv1.EvictionStrategyNone),
+			withEvictionStrategy(nil),
+		),
+		Entry("When cluster-wide eviction strategy is None, VMI eviction strategy is missing and VMI is migratable",
+			pointer.P(virtv1.EvictionStrategyNone),
+			withEvictionStrategy(nil),
+			withLiveMigratableCondition(),
+		),
+		Entry("When cluster-wide eviction strategy is LiveMigrateIfPossible, VMI eviction strategy is missing and VMI is not migratable",
+			pointer.P(virtv1.EvictionStrategyLiveMigrateIfPossible),
+			withEvictionStrategy(nil),
 		),
 	)
 })
