@@ -201,7 +201,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		createKv = func(newKv *v1.KubeVirt) {
 			Eventually(func() error {
-				_, err = virtClient.KubeVirt(newKv.Namespace).Create(newKv)
+				_, err = virtClient.KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
@@ -2219,7 +2219,7 @@ spec:
 			newKv.Name = "someother-kubevirt"
 
 			By("Creating another KubeVirt object")
-			_, err = virtClient.KubeVirt(newKv.Namespace).Create(newKv)
+			_, err = virtClient.KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
 			Expect(err).To(MatchError(ContainSubstring("Kubevirt is already created")))
 		})
 
@@ -2734,7 +2734,7 @@ spec:
 			}
 			var one uint8 = 1
 			kv.Spec.Infra.Replicas = &one
-			kv, err = virtClient.KubeVirt(kv.Namespace).Create(kv)
+			kv, err = virtClient.KubeVirt(kv.Namespace).Create(context.Background(), kv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for the kv CR to get a finalizer")

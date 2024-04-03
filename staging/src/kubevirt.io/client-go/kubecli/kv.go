@@ -47,10 +47,9 @@ type kv struct {
 }
 
 // Create new KubeVirt in the cluster to specified namespace
-func (o *kv) Create(kv *v1.KubeVirt) (*v1.KubeVirt, error) {
-	newKv, err := o.KubeVirtInterface.Create(context.Background(), kv, k8smetav1.CreateOptions{})
+func (o *kv) Create(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.CreateOptions) (*v1.KubeVirt, error) {
+	newKv, err := o.KubeVirtInterface.Create(ctx, kv, opts)
 	newKv.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
-
 	return newKv, err
 }
 
