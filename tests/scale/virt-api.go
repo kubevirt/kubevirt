@@ -31,7 +31,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 		oldcss = kv.Spec.CustomizeComponents
 		kv.Spec.CustomizeComponents = ccs
 		EventuallyWithOffset(1, func() error {
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, v1.UpdateOptions{})
 			return err
 		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -45,7 +45,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 		kv.Spec.CustomizeComponents = v12.CustomizeComponents{}
 
 		EventuallyWithOffset(1, func() error {
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, v1.UpdateOptions{})
 			return err
 		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}

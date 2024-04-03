@@ -709,7 +709,7 @@ func (c *KubeVirtController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(kv) {
 		kv := kv.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(kv)
-		_, err = c.clientset.KubeVirt(kv.ObjectMeta.Namespace).Update(kv)
+		_, err = c.clientset.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
 		}
