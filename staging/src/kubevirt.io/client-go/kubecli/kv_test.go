@@ -91,7 +91,7 @@ var _ = Describe("Kubevirt Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewKubeVirtList(*kubevirt)),
 		))
-		fetchedKubeVirtList, err := client.KubeVirt(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		fetchedKubeVirtList, err := client.KubeVirt(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
 		apiVersion, kind := v1.KubeVirtGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
