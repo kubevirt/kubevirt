@@ -1318,7 +1318,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				cpuModelLabel := NFD_CPU_MODEL_PREFIX + vmiCpuModel
+				cpuModelLabel := v1.CPUModelLabel + vmiCpuModel
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(cpuModelLabel, "true"))
 
 				cpuFeatureLabels := CPUFeatureLabelsFromCPUFeatures(&vmi)
@@ -1375,7 +1375,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.HypervLabel))))
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.CPUModelVendorLabel))))
 			})
 
@@ -1413,7 +1413,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.HypervLabel))))
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.CPUModelVendorLabel))))
 			})
 
@@ -1457,10 +1457,10 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synic", "true"))
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synictimer", "true"))
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"frequencies", "true"))
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"ipi", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"synic", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"synictimer", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"frequencies", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"ipi", "true"))
 				if EVMCSEnabled {
 					Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUModelVendorLabel+IntelVendorName, "true"))
 				} else {
@@ -1510,7 +1510,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.HypervLabel))))
 			})
 
 			Context("TSC frequency label", func() {

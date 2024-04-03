@@ -1519,7 +1519,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			featureSupportedInAtLeastOneNode := func(nodes *k8sv1.NodeList, feature string) bool {
 				for _, node := range nodes.Items {
 					for label := range node.Labels {
-						if strings.Contains(label, services.NFD_CPU_FEATURE_PREFIX) && strings.Contains(label, feature) {
+						if strings.Contains(label, v1.CPUFeatureLabel) && strings.Contains(label, feature) {
 							return true
 						}
 					}

@@ -1016,11 +1016,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
 
 				for key := range node.Labels {
-					if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+					if strings.Contains(key, v1.HypervLabel) &&
 						!strings.Contains(key, "tlbflush") &&
 						!strings.Contains(key, "ipi") &&
 						!strings.Contains(key, "synictimer") {
-						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
 					}
 
 				}
@@ -1104,8 +1104,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					"svm": {},
 				}
 				appendFeatureFromFeatureLabel := func(supportedFeatures []string, label string) []string {
-					if strings.Contains(label, services.NFD_CPU_FEATURE_PREFIX) {
-						feature := strings.TrimPrefix(label, services.NFD_CPU_FEATURE_PREFIX)
+					if strings.Contains(label, v1.CPUFeatureLabel) {
+						feature := strings.TrimPrefix(label, v1.CPUFeatureLabel)
 						if _, exist := featureDenyList[feature]; !exist {
 							return append(supportedFeatures, feature)
 						}
