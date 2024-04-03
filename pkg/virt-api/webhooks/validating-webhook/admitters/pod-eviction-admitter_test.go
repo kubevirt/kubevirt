@@ -422,6 +422,46 @@ var _ = Describe("Pod eviction admitter", func() {
 			withEvictionStrategy(nil),
 		),
 	)
+
+	DescribeTable("should deny the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
+		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+
+		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
+		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
+
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+
+		admitter := admitters.PodEvictionAdmitter{
+			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
+			VirtClient:    virtClient,
+		}
+
+		expectedAdmissionResponse := newDeniedAdmissionResponse(
+			fmt.Sprintf("VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name),
+		)
+
+		actualAdmissionResponse := admitter.Admit(
+			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
+		)
+
+		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
+		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+	},
+		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is not migratable",
+			nil,
+			withEvictionStrategy(pointer.P(virtv1.EvictionStrategyLiveMigrate)),
+		),
+		Entry("When cluster-wide eviction strategy is LiveMigrate, VMI eviction strategy is missing and VMI is not migratable",
+			pointer.P(virtv1.EvictionStrategyLiveMigrate),
+			withEvictionStrategy(nil),
+		),
+	)
 })
 
 func newClusterConfig(clusterWideEvictionStrategy *virtv1.EvictionStrategy) *virtconfig.ClusterConfig {
@@ -514,6 +554,16 @@ func newAdmissionReview(evictedPodNamespace, evictedPodName string, isDryRun boo
 func allowedAdmissionResponse() *admissionv1.AdmissionResponse {
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,
+	}
+}
+
+func newDeniedAdmissionResponse(message string) *admissionv1.AdmissionResponse {
+	return &admissionv1.AdmissionResponse{
+		Allowed: false,
+		Result: &metav1.Status{
+			Code:    int32(http.StatusTooManyRequests),
+			Message: message,
+		},
 	}
 }
 
