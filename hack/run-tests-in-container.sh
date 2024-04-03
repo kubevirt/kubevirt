@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+export GINKGO_LABELS="${GINKGO_LABELS:-}"
 set -exuo pipefail
 
 INSTALLED_NAMESPACE=${INSTALLED_NAMESPACE:-"kubevirt-hyperconverged"}
@@ -62,12 +63,15 @@ metadata:
 spec:
   containers:
   - name: functest
+    imagePullPolicy: Always
     args:
     - --config-file
     - hack/testFiles/test_config.yaml
     env:
     - name: INSTALLED_NAMESPACE
       value: $INSTALLED_NAMESPACE
+    - name: GINKGO_LABELS
+      value: "${GINKGO_LABELS}"
     image: $FUNC_TEST_IMAGE
     volumeMounts:
       - mountPath: /test/output
@@ -77,6 +81,7 @@ spec:
       capabilities:
         add: ["NET_RAW"]
   - name: copy
+    imagePullPolicy: Always
     image: $FUNC_TEST_IMAGE
     command: ["/bin/sh"]
     args: [ "-c", "trap : TERM INT; sleep infinity & wait"]

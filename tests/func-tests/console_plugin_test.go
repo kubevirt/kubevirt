@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -29,7 +29,7 @@ const (
 	openshiftConsoleNamespace = "openshift-console"
 )
 
-var _ = Describe("kubevirt console plugin", func() {
+var _ = Describe("kubevirt console plugin", Label("OpenShift"), func() {
 	var (
 		cli                               kubecli.KubevirtClient
 		ctx                               context.Context

@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/ssp-operator/api/v1beta2"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -64,7 +65,7 @@ var (
 	}
 )
 
-var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, func() {
+var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, Label("OpenShift"), func() {
 	var (
 		cli kubecli.KubevirtClient
 		ctx context.Context

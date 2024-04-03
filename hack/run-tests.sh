@@ -28,7 +28,9 @@ fi
 source ./hack/check_operator_condition.sh
 printOperatorCondition
 
-${TEST_OUT_PATH}/func-tests.test -ginkgo.v -ginkgo.junit-report="${TEST_OUT_PATH}/output/junit.xml" -installed-namespace="${INSTALLED_NAMESPACE}" -cdi-namespace="${INSTALLED_NAMESPACE}" "$@" "${KUBECONFIG_FLAG}"
+GINKGO_LABELS="${GINKGO_LABELS:-}"
+echo "GINKGO_LABELS=${GINKGO_LABELS}"
+${TEST_OUT_PATH}/func-tests.test -ginkgo.v -ginkgo.junit-report="${TEST_OUT_PATH}/output/junit.xml" -installed-namespace="${INSTALLED_NAMESPACE}" -cdi-namespace="${INSTALLED_NAMESPACE}" --ginkgo.label-filter="${GINKGO_LABELS}" "$@" "${KUBECONFIG_FLAG}"
 
 # wait a minute to allow all VMs to be deleted before attempting to change node placement configuration
 sleep 60

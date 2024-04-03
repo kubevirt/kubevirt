@@ -19,6 +19,7 @@ import (
 	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -54,7 +55,7 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 	})
 
 	When("set the EnableManagedTenantQuota FG", func() {
-		It("should create the MTQ CR and all the pods", func() {
+		It("should create the MTQ CR and all the pods", Label("MULTI_NODE_ONLY"), func() {
 
 			if singleWorkerCluster {
 				Skip("Don't test MTQ on single node")
@@ -89,7 +90,7 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 				Should(Succeed())
 		})
 
-		It("should reject setting of the FG in SNO", func() {
+		It("should reject setting of the FG in SNO", Label("SINGLE_NODE_ONLY"), func() {
 			if !singleWorkerCluster {
 				Skip("this test is not relevant for highly available clusters")
 			}

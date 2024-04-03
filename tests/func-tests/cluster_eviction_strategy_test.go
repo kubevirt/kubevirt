@@ -43,7 +43,7 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 		_ = tests.UpdateHCORetry(ctx, cli, hc)
 	})
 
-	It("Should set spec.evictionStrategy = None by default on single worker clusters", func() {
+	It("Should set spec.evictionStrategy = None by default on single worker clusters", Label("MULTI_NODE_ONLY"), func() {
 		if !singleworkerCluster {
 			Skip("Skipping single worker cluster test having more than one worker node")
 		}
@@ -55,7 +55,7 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 		Expect(hco.Spec.EvictionStrategy).To(Equal(&noneEvictionStrategy))
 	})
 
-	It("Should set spec.evictionStrategy = LiveMigrate by default with multiple worker node", func() {
+	It("Should set spec.evictionStrategy = LiveMigrate by default with multiple worker node", Label("SINGLE_NODE_ONLY"), func() {
 		if singleworkerCluster {
 			Skip("Skipping not single worker cluster test having a single worker node")
 		}
