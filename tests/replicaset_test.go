@@ -73,7 +73,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		By("Checking the number of replicas")
 		Eventually(func() int32 {
-			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(context.Background(), name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
@@ -228,7 +228,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		By("checking the number of ready replicas in the returned yaml")
 		Eventually(func() int {
-			rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
+			rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Get(context.Background(), newRS.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return int(rs.Status.ReadyReplicas)
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
@@ -240,7 +240,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		By("waiting until all VMIs are ready")
 		Eventually(func() int {
-			rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
+			rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Get(context.Background(), newRS.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return int(rs.Status.ReadyReplicas)
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
@@ -307,7 +307,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// Wait until the replica set is deleted
 		By("Waiting until the replica set got deleted")
 		Eventually(func() error {
-			_, err := virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
+			_, err := virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Get(context.Background(), newRS.ObjectMeta.Name, v12.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
@@ -330,7 +330,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() *v1.VirtualMachineInstanceReplicaSet {
-			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(context.Background(), rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs
 		}, 10*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReplicaSetReplicaPaused))
@@ -345,7 +345,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// make sure that we don't scale up
 		By("Checking that the replicaset do not scale while it is paused")
 		Consistently(func() int32 {
-			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(context.Background(), rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			// Make sure that no failure happened, so that ensure that we don't scale because we are paused
 			Expect(rs.Status.Conditions).To(HaveLen(1))
@@ -360,7 +360,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// Paused condition should disappear
 		By("Checking that the pause condition disappeared from the replicaset")
 		Eventually(func() int {
-			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(context.Background(), rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(rs.Status.Conditions)
 		}, 10*time.Second, 1*time.Second).Should(Equal(0))
@@ -368,7 +368,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// Replicas should be created
 		By("Checking that the missing replicas are now created")
 		Eventually(func() int32 {
-			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(rs.ObjectMeta.Name, v12.GetOptions{})
+			rs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(rs)).Get(context.Background(), rs.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return rs.Status.Replicas
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))

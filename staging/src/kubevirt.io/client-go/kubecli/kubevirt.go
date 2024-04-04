@@ -268,7 +268,7 @@ type VirtualMachineInstanceInterface interface {
 }
 
 type ReplicaSetInterface interface {
-	Get(name string, options metav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
+	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
 	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstanceReplicaSetList, error)
 	Create(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts metav1.CreateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Update(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)

@@ -54,7 +54,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
-		fetchedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
+		fetchedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Get(context.Background(), "testrs", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -72,7 +72,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testrs")),
 		))
-		_, err = client.ReplicaSet(k8sv1.NamespaceDefault).Get("testrs", k8smetav1.GetOptions{})
+		_, err = client.ReplicaSet(k8sv1.NamespaceDefault).Get(context.Background(), "testrs", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())

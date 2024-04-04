@@ -1362,15 +1362,15 @@ func (_m *MockReplicaSetInterface) EXPECT() *_MockReplicaSetInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockReplicaSetInterface) Get(name string, options v12.GetOptions) (*v120.VirtualMachineInstanceReplicaSet, error) {
-	ret := _m.ctrl.Call(_m, "Get", name, options)
+func (_m *MockReplicaSetInterface) Get(ctx context.Context, name string, options v12.GetOptions) (*v120.VirtualMachineInstanceReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "Get", ctx, name, options)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceReplicaSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockReplicaSetInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+func (_mr *_MockReplicaSetInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
 func (_m *MockReplicaSetInterface) List(ctx context.Context, opts v12.ListOptions) (*v120.VirtualMachineInstanceReplicaSetList, error) {

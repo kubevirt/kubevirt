@@ -72,8 +72,8 @@ func (v *rc) UpdateScale(replicaSetName string, scale *autov1.Scale) (result *au
 	return
 }
 
-func (v *rc) Get(name string, options k8smetav1.GetOptions) (replicaset *v1.VirtualMachineInstanceReplicaSet, err error) {
-	replicaset, err = v.VirtualMachineInstanceReplicaSetInterface.Get(context.Background(), name, options)
+func (v *rc) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (replicaset *v1.VirtualMachineInstanceReplicaSet, err error) {
+	replicaset, err = v.VirtualMachineInstanceReplicaSetInterface.Get(ctx, name, options)
 	replicaset.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }

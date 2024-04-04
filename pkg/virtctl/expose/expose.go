@@ -187,7 +187,7 @@ func (o *Command) RunE(args []string) error {
 		delete(serviceSelector, virtv1.VirtualMachinePoolRevisionName)
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		// get the VM replica set
-		vmirs, err := virtClient.ReplicaSet(namespace).Get(vmName, options)
+		vmirs, err := virtClient.ReplicaSet(namespace).Get(context.Background(), vmName, options)
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachineInstance ReplicaSet: %v", err)
 		}
