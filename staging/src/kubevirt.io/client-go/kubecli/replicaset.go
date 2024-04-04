@@ -87,8 +87,8 @@ func (v *rc) List(options k8smetav1.ListOptions) (replicasetList *v1.VirtualMach
 	return
 }
 
-func (v *rc) Create(replicaset *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result, err = v.VirtualMachineInstanceReplicaSetInterface.Create(context.Background(), replicaset, k8smetav1.CreateOptions{})
+func (v *rc) Create(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.CreateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result, err = v.VirtualMachineInstanceReplicaSetInterface.Create(ctx, replicaset, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }

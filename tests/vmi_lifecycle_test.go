@@ -1737,7 +1737,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				},
 			}
-			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(rs)
+			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(context.Background(), rs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should create replicaset")
 
 			By("Ensuring that all VMIs are ready")

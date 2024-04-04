@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"context"
 	"net/http"
 	"path"
 
@@ -113,7 +114,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("POST", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusCreated, rs),
 		))
-		createdVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Create(rs)
+		createdVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Create(context.Background(), rs, k8smetav1.CreateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

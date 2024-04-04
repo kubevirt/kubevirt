@@ -121,7 +121,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	newReplicaSetWithTemplate := func(template *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceReplicaSet {
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(0))
-		newRS, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(template)).Create(newRS)
+		newRS, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(template)).Create(context.Background(), newRS, v12.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return newRS
 	}
@@ -162,7 +162,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
-		newRS, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Create(newRS)
+		newRS, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(newRS)).Create(context.Background(), newRS, v12.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(startScale), int32(startScale), int32(startScale))
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(stopScale), int32(stopScale), int32(stopScale))

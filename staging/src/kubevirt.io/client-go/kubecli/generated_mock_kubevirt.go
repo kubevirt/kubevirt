@@ -1384,15 +1384,15 @@ func (_mr *_MockReplicaSetInterfaceRecorder) List(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
 }
 
-func (_m *MockReplicaSetInterface) Create(_param0 *v120.VirtualMachineInstanceReplicaSet) (*v120.VirtualMachineInstanceReplicaSet, error) {
-	ret := _m.ctrl.Call(_m, "Create", _param0)
+func (_m *MockReplicaSetInterface) Create(ctx context.Context, replicaset *v120.VirtualMachineInstanceReplicaSet, opts v12.CreateOptions) (*v120.VirtualMachineInstanceReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "Create", ctx, replicaset, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceReplicaSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockReplicaSetInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+func (_mr *_MockReplicaSetInterfaceRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
 }
 
 func (_m *MockReplicaSetInterface) Update(_param0 *v120.VirtualMachineInstanceReplicaSet) (*v120.VirtualMachineInstanceReplicaSet, error) {
