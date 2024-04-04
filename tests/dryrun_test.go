@@ -351,7 +351,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Delete(preset.Name, &opts)
+			err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Delete(context.Background(), preset.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI preset was actually deleted")
