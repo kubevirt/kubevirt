@@ -81,6 +81,6 @@ func (v *vmiPresets) Delete(name string, options *k8smetav1.DeleteOptions) error
 	return v.VirtualMachineInstancePresetInterface.Delete(context.Background(), name, opts)
 }
 
-func (v *vmiPresets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error) {
-	return v.VirtualMachineInstancePresetInterface.Patch(context.Background(), name, pt, data, k8smetav1.PatchOptions{}, subresources...)
+func (v *vmiPresets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error) {
+	return v.VirtualMachineInstancePresetInterface.Patch(ctx, name, pt, data, opts, subresources...)
 }
