@@ -46,8 +46,8 @@ type vmiPresets struct {
 	resource   string
 }
 
-func (v *vmiPresets) Get(name string, options k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstancePreset, err error) {
-	vmi, err = v.VirtualMachineInstancePresetInterface.Get(context.Background(), name, options)
+func (v *vmiPresets) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstancePreset, err error) {
+	vmi, err = v.VirtualMachineInstancePresetInterface.Get(ctx, name, options)
 	vmi.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
 }
