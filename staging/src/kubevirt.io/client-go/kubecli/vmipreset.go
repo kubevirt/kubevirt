@@ -67,8 +67,8 @@ func (v *vmiPresets) Create(ctx context.Context, virtualMachineInstancePreset *v
 	return
 }
 
-func (v *vmiPresets) Update(vmi *v1.VirtualMachineInstancePreset) (result *v1.VirtualMachineInstancePreset, err error) {
-	result, err = v.VirtualMachineInstancePresetInterface.Update(context.Background(), vmi, k8smetav1.UpdateOptions{})
+func (v *vmiPresets) Update(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstancePreset, err error) {
+	result, err = v.VirtualMachineInstancePresetInterface.Update(ctx, virtualMachineInstancePreset, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
 }

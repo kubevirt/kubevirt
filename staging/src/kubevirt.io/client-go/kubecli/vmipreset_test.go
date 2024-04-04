@@ -132,7 +132,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, preset),
 		))
-		updatedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Update(preset)
+		updatedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Update(context.Background(), preset, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
