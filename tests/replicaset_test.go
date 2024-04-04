@@ -67,7 +67,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	doScale := func(name string, scale int32) {
 
 		By(fmt.Sprintf("Scaling to %d", scale))
-		rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Patch(name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)))
+		rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Patch(context.Background(), name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)), v12.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking the number of replicas")
@@ -325,7 +325,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		rs := newReplicaSet()
 		// pause controller
 		By("Pausing the replicaset")
-		_, err := virtClient.ReplicaSet(rs.Namespace).Patch(rs.Name, types.JSONPatchType, []byte("[{ \"op\": \"add\", \"path\": \"/spec/paused\", \"value\": true }]"))
+		_, err := virtClient.ReplicaSet(rs.Namespace).Patch(context.Background(), rs.Name, types.JSONPatchType, []byte("[{ \"op\": \"add\", \"path\": \"/spec/paused\", \"value\": true }]"), v12.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() *v1.VirtualMachineInstanceReplicaSet {
@@ -338,7 +338,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		By("Updating the number of replicas")
 		patchData, err := patch.GenerateTestReplacePatch("/spec/replicas", rs.Spec.Replicas, pointer.P(2))
 		Expect(err).ToNot(HaveOccurred())
-		rs, err = virtClient.ReplicaSet(rs.Namespace).Patch(rs.Name, types.JSONPatchType, patchData)
+		rs, err = virtClient.ReplicaSet(rs.Namespace).Patch(context.Background(), rs.Name, types.JSONPatchType, patchData, v12.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// make sure that we don't scale up
@@ -353,7 +353,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		// resume controller
 		By("Resuming the replicaset")
-		_, err = virtClient.ReplicaSet(rs.Namespace).Patch(rs.Name, types.JSONPatchType, []byte("[{ \"op\": \"replace\", \"path\": \"/spec/paused\", \"value\": false }]"))
+		_, err = virtClient.ReplicaSet(rs.Namespace).Patch(context.Background(), rs.Name, types.JSONPatchType, []byte("[{ \"op\": \"replace\", \"path\": \"/spec/paused\", \"value\": false }]"), v12.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Paused condition should disappear
