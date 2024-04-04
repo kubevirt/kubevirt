@@ -85,7 +85,7 @@ func ListMetrics() []operatormetrics.Metric {
 	return operatormetrics.ListMetrics()
 }
 
-func phaseTransitionTimeBuckets() []float64 {
+func PhaseTransitionTimeBuckets() []float64 {
 	return []float64{
 		(0.5 * time.Second.Seconds()),
 		(1 * time.Second.Seconds()),
