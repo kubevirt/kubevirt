@@ -53,7 +53,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, preset),
 		))
-		fetchedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get("testpreset", k8smetav1.GetOptions{})
+		fetchedVMIPreset, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get(context.Background(), "testpreset", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -71,7 +71,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, presetPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusNotFound, errors.NewNotFound(schema.GroupResource{}, "testpreset")),
 		))
-		_, err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get("testpreset", k8smetav1.GetOptions{})
+		_, err = client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).Get(context.Background(), "testpreset", k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
