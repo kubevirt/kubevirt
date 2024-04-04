@@ -78,12 +78,11 @@ func (v *rc) Get(name string, options k8smetav1.GetOptions) (replicaset *v1.Virt
 	return
 }
 
-func (v *rc) List(options k8smetav1.ListOptions) (replicasetList *v1.VirtualMachineInstanceReplicaSetList, err error) {
-	replicasetList, err = v.VirtualMachineInstanceReplicaSetInterface.List(context.Background(), options)
+func (v *rc) List(ctx context.Context, options k8smetav1.ListOptions) (replicasetList *v1.VirtualMachineInstanceReplicaSetList, err error) {
+	replicasetList, err = v.VirtualMachineInstanceReplicaSetInterface.List(ctx, options)
 	for i := range replicasetList.Items {
 		replicasetList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	}
-
 	return
 }
 

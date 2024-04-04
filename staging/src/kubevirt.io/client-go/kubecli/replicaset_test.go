@@ -91,7 +91,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstanceReplicaSetList(*rs)),
 		))
-		fetchedVMIReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		fetchedVMIReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
 		apiVersion, kind := virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(err).ToNot(HaveOccurred())
