@@ -1529,15 +1529,15 @@ func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Get(arg0, arg1, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstancePresetInterface) List(opts v12.ListOptions) (*v120.VirtualMachineInstancePresetList, error) {
-	ret := _m.ctrl.Call(_m, "List", opts)
+func (_m *MockVirtualMachineInstancePresetInterface) List(ctx context.Context, opts v12.ListOptions) (*v120.VirtualMachineInstancePresetList, error) {
+	ret := _m.ctrl.Call(_m, "List", ctx, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstancePresetList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
+func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) List(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstancePresetInterface) Create(ctx context.Context, virtualMachineInstancePreset *v120.VirtualMachineInstancePreset, opts v12.CreateOptions) (*v120.VirtualMachineInstancePreset, error) {

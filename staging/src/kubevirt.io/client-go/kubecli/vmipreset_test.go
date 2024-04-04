@@ -90,7 +90,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, basePath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstancePresetList(*preset)),
 		))
-		fetchedVMIPresetList, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		fetchedVMIPresetList, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).List(context.Background(), k8smetav1.ListOptions{})
 		apiVersion, kind := v1.VirtualMachineInstancePresetGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(err).ToNot(HaveOccurred())
