@@ -1518,28 +1518,6 @@ func (_m *MockVirtualMachineInstancePresetInterface) EXPECT() *_MockVirtualMachi
 	return _m.recorder
 }
 
-func (_m *MockVirtualMachineInstancePresetInterface) Get(ctx context.Context, name string, options v12.GetOptions) (*v120.VirtualMachineInstancePreset, error) {
-	ret := _m.ctrl.Call(_m, "Get", ctx, name, options)
-	ret0, _ := ret[0].(*v120.VirtualMachineInstancePreset)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
-}
-
-func (_m *MockVirtualMachineInstancePresetInterface) List(ctx context.Context, opts v12.ListOptions) (*v120.VirtualMachineInstancePresetList, error) {
-	ret := _m.ctrl.Call(_m, "List", ctx, opts)
-	ret0, _ := ret[0].(*v120.VirtualMachineInstancePresetList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) List(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
-}
-
 func (_m *MockVirtualMachineInstancePresetInterface) Create(ctx context.Context, virtualMachineInstancePreset *v120.VirtualMachineInstancePreset, opts v12.CreateOptions) (*v120.VirtualMachineInstancePreset, error) {
 	ret := _m.ctrl.Call(_m, "Create", ctx, virtualMachineInstancePreset, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstancePreset)
@@ -1562,14 +1540,57 @@ func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Update(arg0, arg1
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstancePresetInterface) Delete(ctx context.Context, name string, options v12.DeleteOptions) error {
-	ret := _m.ctrl.Call(_m, "Delete", ctx, name, options)
+func (_m *MockVirtualMachineInstancePresetInterface) Delete(ctx context.Context, name string, opts v12.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", ctx, name, opts)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInstancePresetInterface) DeleteCollection(ctx context.Context, opts v12.DeleteOptions, listOpts v12.ListOptions) error {
+	ret := _m.ctrl.Call(_m, "DeleteCollection", ctx, opts, listOpts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteCollection", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInstancePresetInterface) Get(ctx context.Context, name string, opts v12.GetOptions) (*v120.VirtualMachineInstancePreset, error) {
+	ret := _m.ctrl.Call(_m, "Get", ctx, name, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachineInstancePreset)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
+}
+
+func (_m *MockVirtualMachineInstancePresetInterface) List(ctx context.Context, opts v12.ListOptions) (*v120.VirtualMachineInstancePresetList, error) {
+	ret := _m.ctrl.Call(_m, "List", ctx, opts)
+	ret0, _ := ret[0].(*v120.VirtualMachineInstancePresetList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) List(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInstancePresetInterface) Watch(ctx context.Context, opts v12.ListOptions) (watch.Interface, error) {
+	ret := _m.ctrl.Call(_m, "Watch", ctx, opts)
+	ret0, _ := ret[0].(watch.Interface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstancePresetInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions, subresources ...string) (*v120.VirtualMachineInstancePreset, error) {
