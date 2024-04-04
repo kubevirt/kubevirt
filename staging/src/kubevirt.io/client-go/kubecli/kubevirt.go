@@ -281,12 +281,7 @@ type ReplicaSetInterface interface {
 }
 
 type VirtualMachineInstancePresetInterface interface {
-	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1.VirtualMachineInstancePreset, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstancePresetList, error)
-	Create(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts metav1.CreateOptions) (*v1.VirtualMachineInstancePreset, error)
-	Update(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts metav1.UpdateOptions) (*v1.VirtualMachineInstancePreset, error)
-	Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error)
+	kvcorev1.VirtualMachineInstancePresetInterface
 }
 
 // VirtualMachineInterface provides convenience methods to work with
