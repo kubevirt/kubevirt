@@ -92,11 +92,14 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	return dpi
 }
 
+const deviceIDSeparator = "|"
+
 func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
 	for _, pciDevice := range pciDevices {
-		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
+		deviceID := pciDevice.iommuGroup + deviceIDSeparator + pciDevice.pciAddress
+		iommuToPCIMap[deviceID] = pciDevice.pciAddress
 		dpiDev := &pluginapi.Device{
-			ID:     string(pciDevice.iommuGroup),
+			ID:     deviceID,
 			Health: pluginapi.Healthy,
 		}
 		if pciDevice.numaNode >= 0 {
@@ -208,7 +211,7 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 				continue
 			}
 			allocatedDevices = append(allocatedDevices, devPCIAddress)
-			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID)...)
+			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID, deviceIDSeparator)...)
 		}
 		containerResponse.Devices = deviceSpecs
 		envVar := make(map[string]string)
@@ -248,7 +251,8 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 
 	// probe all devices
 	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
+		iommuGroup := strings.Split(dev.ID, deviceIDSeparator)[0]
+		vfioDevice := filepath.Join(devicePath, iommuGroup)
 		err = watcher.Add(vfioDevice)
 		if err != nil {
 			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)

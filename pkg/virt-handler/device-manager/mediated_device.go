@@ -193,7 +193,7 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 					return resp, fmt.Errorf("Failed to allocate resource %s", dpi.resourceName)
 				}
 
-				formattedVFIO := formatVFIODeviceSpecs(devID)
+				formattedVFIO := formatVFIODeviceSpecs(devID, deviceIDSeparator)
 				log.DefaultLogger().Infof("Allocate: formatted vfio: %v", formattedVFIO)
 				deviceSpecs = append(deviceSpecs, formattedVFIO...)
 			}
