@@ -1395,15 +1395,15 @@ func (_mr *_MockReplicaSetInterfaceRecorder) Create(arg0, arg1, arg2 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0, arg1, arg2)
 }
 
-func (_m *MockReplicaSetInterface) Update(_param0 *v120.VirtualMachineInstanceReplicaSet) (*v120.VirtualMachineInstanceReplicaSet, error) {
-	ret := _m.ctrl.Call(_m, "Update", _param0)
+func (_m *MockReplicaSetInterface) Update(ctx context.Context, virtualMachineInstanceReplicaSet *v120.VirtualMachineInstanceReplicaSet, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "Update", ctx, virtualMachineInstanceReplicaSet, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceReplicaSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockReplicaSetInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+func (_mr *_MockReplicaSetInterfaceRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0, arg1, arg2)
 }
 
 func (_m *MockReplicaSetInterface) Delete(name string, options *v12.DeleteOptions) error {
@@ -1454,15 +1454,15 @@ func (_mr *_MockReplicaSetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{},
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockReplicaSetInterface) UpdateStatus(_param0 *v120.VirtualMachineInstanceReplicaSet) (*v120.VirtualMachineInstanceReplicaSet, error) {
-	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+func (_m *MockReplicaSetInterface) UpdateStatus(ctx context.Context, virtualMachineInstanceReplicaSet *v120.VirtualMachineInstanceReplicaSet, opts v12.UpdateOptions) (*v120.VirtualMachineInstanceReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, virtualMachineInstanceReplicaSet, opts)
 	ret0, _ := ret[0].(*v120.VirtualMachineInstanceReplicaSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockReplicaSetInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+func (_mr *_MockReplicaSetInterfaceRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1, arg2)
 }
 
 func (_m *MockReplicaSetInterface) PatchStatus(name string, pt types.PatchType, data []byte) (*v120.VirtualMachineInstanceReplicaSet, error) {

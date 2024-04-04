@@ -92,8 +92,8 @@ func (v *rc) Create(ctx context.Context, replicaset *v1.VirtualMachineInstanceRe
 	return
 }
 
-func (v *rc) Update(replicaset *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result, err = v.VirtualMachineInstanceReplicaSetInterface.Update(context.Background(), replicaset, k8smetav1.UpdateOptions{})
+func (v *rc) Update(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result, err = v.VirtualMachineInstanceReplicaSetInterface.Update(ctx, replicaset, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }
@@ -114,8 +114,8 @@ func (v *rc) PatchStatus(name string, pt types.PatchType, data []byte) (result *
 	return v.Patch(name, pt, data, "status")
 }
 
-func (v *rc) UpdateStatus(vmi *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result, err = v.VirtualMachineInstanceReplicaSetInterface.UpdateStatus(context.Background(), vmi, k8smetav1.UpdateOptions{})
+func (v *rc) UpdateStatus(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result, err = v.VirtualMachineInstanceReplicaSetInterface.UpdateStatus(ctx, replicaset, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }

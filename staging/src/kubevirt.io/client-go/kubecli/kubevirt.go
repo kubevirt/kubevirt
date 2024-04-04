@@ -271,12 +271,12 @@ type ReplicaSetInterface interface {
 	Get(name string, options metav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
 	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstanceReplicaSetList, error)
 	Create(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts metav1.CreateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
-	Update(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
+	Update(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	GetScale(replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
 	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
-	UpdateStatus(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
+	UpdateStatus(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
 	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
