@@ -133,7 +133,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, rsPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, rs),
 		))
-		updatedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(rs)
+		updatedVMIReplicaSet, err := client.ReplicaSet(k8sv1.NamespaceDefault).Update(context.Background(), rs, k8smetav1.UpdateOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

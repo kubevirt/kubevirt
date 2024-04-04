@@ -259,7 +259,7 @@ var _ = Describe("Status", func() {
 			By("checking the VirtualMachineInstanceReplicaSet resource")
 			vmirsUpdater := NewVMIRSStatusUpdater(virtClient)
 			vmirs := &v1.VirtualMachineInstanceReplicaSet{Status: v1.VirtualMachineInstanceReplicaSetStatus{Replicas: 2}}
-			vmirsInterface.EXPECT().UpdateStatus(vmirs).Return(vmirs, nil).Times(1)
+			vmirsInterface.EXPECT().UpdateStatus(context.Background(), vmirs, metav1.UpdateOptions{}).Return(vmirs, nil).Times(1)
 			Expect(vmirsUpdater.UpdateStatus(vmirs)).To(Succeed())
 
 			By("checking the VirtualMachineInstanceMigration resource")
@@ -290,7 +290,7 @@ var _ = Describe("Status", func() {
 			vmirsUpdater := NewVMIRSStatusUpdater(virtClient)
 			vmirsUpdater.updater.subresource = false
 			vmirs := &v1.VirtualMachineInstanceReplicaSet{Status: v1.VirtualMachineInstanceReplicaSetStatus{Replicas: 2}}
-			vmirsInterface.EXPECT().Update(vmirs).Return(vmirs, nil).Times(1)
+			vmirsInterface.EXPECT().Update(context.Background(), vmirs, metav1.UpdateOptions{}).Return(vmirs, nil).Times(1)
 			Expect(vmirsUpdater.UpdateStatus(vmirs)).To(Succeed())
 
 			By("checking the VirtualMachineInstanceMigration resource")
