@@ -1129,6 +1129,12 @@ spec:
                       templates that can be added to the dataImportCronTemplates field. This feature gates only control the common
                       templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
                     type: boolean
+                  enableHigherDensityWithSwap:
+                    default: false
+                    description: |-
+                      EnableHigherDensityWithSwap if true, configures the VM workloads to use swap
+                      for higher density.
+                    type: boolean
                   enableManagedTenantQuota:
                     default: false
                     description: |-

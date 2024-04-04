@@ -17,6 +17,7 @@ const (
 	AaqVersionEnvV                   = "AAQ_VERSION"
 	KVUIPluginImageEnvV              = "KV_CONSOLE_PLUGIN_IMAGE"
 	KVUIProxyImageEnvV               = "KV_CONSOLE_PROXY_IMAGE"
+	WaspImageEnvV                    = "WASP_AGENT_IMAGE"
 	HcoValidatingWebhook             = "validate-hco.kubevirt.io"
 	HcoMutatingWebhookNS             = "mutate-ns-hco.kubevirt.io"
 	PrometheusRuleCRDName            = "prometheusrules.monitoring.coreos.com"
@@ -87,4 +88,5 @@ const (
 	AppComponentUIProxy     AppComponent = "kubevirt-apiserver-proxy"
 	AppComponentMultiTenant AppComponent = "multi-tenant"
 	AppComponentQuotaMngt   AppComponent = "quota-management"
+	AppComponentWasp        AppComponent = "wasp-agent"
 )

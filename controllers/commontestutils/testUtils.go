@@ -306,6 +306,9 @@ func (ClusterInfoMock) GetBaseDomain() string {
 func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
 	return true
 }
+func (c ClusterInfoMock) IsWaspImageProvided() bool {
+	return true
+}
 func (c ClusterInfoMock) IsMonitoringAvailable() bool {
 	return true
 }
@@ -383,6 +386,9 @@ func (ClusterInfoSNOMock) RefreshAPIServerCR(_ context.Context, _ client.Client)
 func (ClusterInfoSNOMock) IsConsolePluginImageProvided() bool {
 	return true
 }
+func (ClusterInfoSNOMock) IsWaspImageProvided() bool {
+	return true
+}
 func (c ClusterInfoSNOMock) IsMonitoringAvailable() bool {
 	return true
 }
@@ -429,6 +435,9 @@ func (ClusterInfoSRCPHAIMock) GetBaseDomain() string {
 	return BaseDomain
 }
 func (ClusterInfoSRCPHAIMock) IsConsolePluginImageProvided() bool {
+	return true
+}
+func (ClusterInfoSRCPHAIMock) IsWaspImageProvided() bool {
 	return true
 }
 func (ClusterInfoSRCPHAIMock) IsMonitoringAvailable() bool {

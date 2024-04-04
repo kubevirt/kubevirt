@@ -492,6 +492,12 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	EnableApplicationAwareQuota *bool `json:"enableApplicationAwareQuota,omitempty"`
+	//EnableHigherDensityWithSwap if true, configures the VM workloads to use swap
+	// for higher density.
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	EnableHigherDensityWithSwap *bool `json:"enableHigherDensityWithSwap,omitempty"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough

@@ -21,6 +21,7 @@ spec:
     downwardMetrics: false
     enableApplicationAwareQuota: false
     enableCommonBootImageImport: true
+    enableHigherDensityWithSwap: false
     enableManagedTenantQuota: false
     nonRoot: true
     persistentReservation: false

@@ -335,6 +335,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
+					"enableHigherDensityWithSwap": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnableHigherDensityWithSwap if true, configures the VM workloads to use swap for higher density.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

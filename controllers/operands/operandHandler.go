@@ -68,6 +68,10 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 		}...)
 	}
 
+	if ci.IsOpenshift() && ci.IsWaspImageProvided() {
+		operands = append(operands, newWaspHandler(client, scheme))
+	}
+
 	if ci.IsOpenshift() && ci.IsConsolePluginImageProvided() {
 		operands = append(operands, newConsoleHandler(client))
 		operands = append(operands, (*genericOperand)(newServiceHandler(client, scheme, NewKvUIPluginSvc)))

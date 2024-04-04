@@ -130,6 +130,21 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
+    name: wasp-agent
+  name: wasp-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: wasp-agent
+subjects:
+- kind: ServiceAccount
+  name: wasp-agent
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
     name: cluster-network-addons-operator
   name: cluster-network-addons-operator
 roleRef:
