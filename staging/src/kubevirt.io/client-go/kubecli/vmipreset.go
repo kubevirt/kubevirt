@@ -52,12 +52,11 @@ func (v *vmiPresets) Get(ctx context.Context, name string, options k8smetav1.Get
 	return
 }
 
-func (v *vmiPresets) List(options k8smetav1.ListOptions) (vmiPresetList *v1.VirtualMachineInstancePresetList, err error) {
-	vmiPresetList, err = v.VirtualMachineInstancePresetInterface.List(context.Background(), options)
+func (v *vmiPresets) List(ctx context.Context, options k8smetav1.ListOptions) (vmiPresetList *v1.VirtualMachineInstancePresetList, err error) {
+	vmiPresetList, err = v.VirtualMachineInstancePresetInterface.List(ctx, options)
 	for i := range vmiPresetList.Items {
 		vmiPresetList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	}
-
 	return
 }
 
