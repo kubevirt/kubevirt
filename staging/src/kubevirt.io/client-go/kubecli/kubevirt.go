@@ -270,7 +270,7 @@ type VirtualMachineInstanceInterface interface {
 type ReplicaSetInterface interface {
 	Get(name string, options metav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
 	List(opts metav1.ListOptions) (*v1.VirtualMachineInstanceReplicaSetList, error)
-	Create(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
+	Create(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts metav1.CreateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Update(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	GetScale(replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)

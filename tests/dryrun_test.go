@@ -410,7 +410,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7644]delete a VMI replicaset", func() {
 			By("Create a VMI replicaset")
-			_, err := virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			_, err := virtClient.ReplicaSet(vmirs.Namespace).Create(context.Background(), vmirs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a VMI replicaset")
@@ -429,7 +429,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7645]update a VMI replicaset", func() {
 			By("Create a VMI replicaset")
-			_, err = virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Create(context.Background(), vmirs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VMI replicaset")
@@ -454,7 +454,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7646]patch a VMI replicaset", func() {
 			By("Create a VMI replicaset")
-			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Create(vmirs)
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Create(context.Background(), vmirs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a VMI replicaset")
