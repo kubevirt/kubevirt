@@ -404,7 +404,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI replicaset was actually created")
-			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
@@ -423,7 +423,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI replicaset was actually deleted")
-			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			_, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -434,7 +434,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 			By("Make a Dry-Run request to update a VMI replicaset")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+				vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -447,7 +447,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmirs.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -463,7 +463,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(vmirs.Name, metav1.GetOptions{})
+			vmirs, err = virtClient.ReplicaSet(vmirs.Namespace).Get(context.Background(), vmirs.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmirs.Labels["key"]).ToNot(Equal("42"))
 		})
