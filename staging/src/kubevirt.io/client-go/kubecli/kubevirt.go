@@ -275,9 +275,9 @@ type ReplicaSetInterface interface {
 	Delete(name string, options *metav1.DeleteOptions) error
 	GetScale(replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
 	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 	UpdateStatus(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error)
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
 type VirtualMachineInstancePresetInterface interface {

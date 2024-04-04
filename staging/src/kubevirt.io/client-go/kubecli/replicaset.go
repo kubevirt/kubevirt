@@ -106,12 +106,12 @@ func (v *rc) Delete(name string, options *k8smetav1.DeleteOptions) error {
 	return v.VirtualMachineInstanceReplicaSetInterface.Delete(context.Background(), name, opts)
 }
 
-func (v *rc) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	return v.VirtualMachineInstanceReplicaSetInterface.Patch(context.Background(), name, pt, data, k8smetav1.PatchOptions{}, subresources...)
+func (v *rc) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	return v.VirtualMachineInstanceReplicaSetInterface.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-func (v *rc) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	return v.Patch(name, pt, data, "status")
+func (v *rc) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	return v.Patch(ctx, name, pt, data, opts, "status")
 }
 
 func (v *rc) UpdateStatus(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
