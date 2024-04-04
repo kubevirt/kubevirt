@@ -1572,8 +1572,8 @@ func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Delete(arg0, arg1
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstancePresetInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v120.VirtualMachineInstancePreset, error) {
-	_s := []interface{}{name, pt, data}
+func (_m *MockVirtualMachineInstancePresetInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v12.PatchOptions, subresources ...string) (*v120.VirtualMachineInstancePreset, error) {
+	_s := []interface{}{ctx, name, pt, data, opts}
 	for _, _x := range subresources {
 		_s = append(_s, _x)
 	}
@@ -1583,8 +1583,8 @@ func (_m *MockVirtualMachineInstancePresetInterface) Patch(name string, pt types
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
+func (_mr *_MockVirtualMachineInstancePresetInterfaceRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
