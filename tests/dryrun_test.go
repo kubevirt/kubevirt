@@ -419,7 +419,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.ReplicaSet(vmirs.Namespace).Delete(vmirs.Name, &opts)
+			err = virtClient.ReplicaSet(vmirs.Namespace).Delete(context.Background(), vmirs.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI replicaset was actually deleted")

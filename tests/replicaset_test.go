@@ -275,7 +275,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		doScale(newRS.ObjectMeta.Name, 2)
 		// Delete it
 		By("Deleting the VirtualMachineInstance replica set")
-		Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).Delete(context.Background(), newRS.ObjectMeta.Name, v12.DeleteOptions{})).To(Succeed())
 		// Wait until VMIs are gone
 		By("Waiting until all VMIs are gone")
 		Eventually(func() int {
@@ -302,7 +302,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		By("Deleting the VirtualMachineInstance replica set with the 'orphan' deletion strategy")
 		orphanPolicy := v12.DeletePropagationOrphan
 		Expect(virtClient.ReplicaSet(newRS.ObjectMeta.Namespace).
-			Delete(newRS.ObjectMeta.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
+			Delete(context.Background(), newRS.ObjectMeta.Name, v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 		// Wait until the replica set is deleted
 		By("Waiting until the replica set got deleted")
 		Eventually(func() error {
