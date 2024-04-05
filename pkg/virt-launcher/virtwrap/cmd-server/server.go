@@ -456,22 +456,19 @@ func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 		},
 	}
 
-	list, err := l.domainManager.GetDomainStats()
+	stats, err := l.domainManager.GetDomainStats()
 	if err != nil {
 		response.Response.Success = false
 		response.Response.Message = getErrorMessage(err)
 		return response, nil
 	}
 
-	if len(list) > 0 {
-		if domainStats, err := json.Marshal(list[0]); err != nil {
-			log.Log.Reason(err).Errorf("Failed to marshal domain stats")
-			response.Response.Success = false
-			response.Response.Message = getErrorMessage(err)
-			return response, nil
-		} else {
-			response.DomainStats = string(domainStats)
-		}
+	if domainStats, err := json.Marshal(stats); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal domain stats")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+	} else {
+		response.DomainStats = string(domainStats)
 	}
 
 	return response, nil
