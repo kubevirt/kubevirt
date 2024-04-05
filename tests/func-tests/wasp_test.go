@@ -10,16 +10,17 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/flags"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
 const (
 	setWaspFGPatchTemplate = `[{"op": "replace", "path": "/spec/featureGates/enableHigherDensityWithSwap", "value": %t}]`
 )
 
-var _ = Describe("wasp-agent", Label("wasp", "Openshift"), Serial, Ordered, func() {
+var _ = Describe("wasp-agent", Label("wasp", openshiftLabel), Serial, Ordered, func() {
 	tests.FlagParse()
 	var (
 		cli kubecli.KubevirtClient

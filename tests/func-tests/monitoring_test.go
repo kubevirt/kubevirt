@@ -95,14 +95,28 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 	It("KubeVirtCRModified alert should fired when there is a modification on a CR", func() {
 		By("Patching kubevirt object")
-		Eventually(func(g Gomega) map[string]string {
-			patch := []byte(`[{"op": "add", "path": "/metadata/labels/test-label", "value": "test-label-value"}]`)
+		const (
+			fakeFG = "fake-fg-for-testing"
+			query  = `kubevirt_hco_out_of_band_modifications_total{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}`
+		)
+
+		var valueBefore float64
+		Eventually(func(g Gomega) {
+			valueBefore = getMetricValue(promClient, query)
+		}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+
+		Eventually(func(g Gomega) []string {
+			patch := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": %q}]`, fakeFG))
 			kv, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch("kubevirt-kubevirt-hyperconverged", types.JSONPatchType, patch, &metav1.PatchOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
-			return kv.GetLabels()
+			return kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
 		}).WithTimeout(10 * time.Second).
 			WithPolling(100 * time.Millisecond).
-			Should(HaveKeyWithValue("test-label", "test-label-value"))
+			Should(ContainElement(fakeFG))
+
+		Eventually(func(g Gomega) float64 {
+			return getMetricValue(promClient, query)
+		}).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(Equal(valueBefore + 1))
 
 		Eventually(func() *promApiv1.Alert {
 			alerts, err := promClient.Alerts(context.TODO())
@@ -175,6 +189,10 @@ func getMetricValue(promClient promApiv1.API, metricName string) float64 {
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 
 	resultVector := queryResult.(promModel.Vector)
+	if len(resultVector) == 0 {
+		return 0
+	}
+
 	ExpectWithOffset(1, resultVector).To(HaveLen(1))
 
 	metricValue, err := strconv.ParseFloat(resultVector[0].Value.String(), 64)
