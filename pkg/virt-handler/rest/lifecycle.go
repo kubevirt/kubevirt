@@ -227,8 +227,7 @@ func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, respo
 		response.WriteError(code, err)
 		return nil, nil, err
 	}
-
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
+	sockFile, err := cmdclient.NewDefaultSocketFinder().FindSocketOnHost(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
 		response.WriteError(http.StatusInternalServerError, err)

@@ -260,8 +260,20 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	return "", fmt.Errorf("No command socketdir for vmi %s", vmi.UID)
 }
 
-// gets the cmd socket for a VMI
-func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
+// SocketFinder represents an interface for finding sockets on the host.
+type SocketFinder interface {
+	FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error)
+}
+
+// DefaultSocketFinder is an implementation of SocketFinder that performs the actual socket discovery
+type DefaultSocketFinder struct{}
+
+func NewDefaultSocketFinder() SocketFinder {
+	return &DefaultSocketFinder{}
+}
+
+// FindSocketOnHost finds the socket for the given VirtualMachineInstance.
+func (finder *DefaultSocketFinder) FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	if string(vmi.UID) != "" {
 		legacySockFile := string(vmi.UID) + "_sock"
 		legacySock := filepath.Join(LegacySocketsDirectory(), legacySockFile)

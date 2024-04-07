@@ -88,7 +88,7 @@ var _ = Describe("Virt remote commands", func() {
 
 	Context("client", func() {
 		It("socket from UID", func() {
-			sock, err := FindSocketOnHost(vmi)
+			sock, err := NewDefaultSocketFinder().FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sock).To(Equal(podSocketFile))
 
@@ -100,7 +100,7 @@ var _ = Describe("Virt remote commands", func() {
 			f, err := os.Create(filepath.Join(socketsDir, "1234_sock"))
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
-			sock, err = FindSocketOnHost(vmi)
+			sock, err = NewDefaultSocketFinder().FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", "1234_sock")))
 		})
@@ -120,7 +120,7 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("Detect unresponsive socket", func() {
-			sock, err := FindSocketOnHost(vmi)
+			sock, err := NewDefaultSocketFinder().FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			os.RemoveAll(sock)
