@@ -167,9 +167,8 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 		spec.FeatureGates.DeployVmConsoleProxy = *hc.Spec.FeatureGates.DeployVMConsoleProxy
 	}
 
-	// This feature gate is set to true in 4.15.
-	// TODO(4.16): Set it to false, and set a similar feature gate on kubevirt CR.
-	spec.FeatureGates.DeployCommonInstancetypes = ptr.To(true)
+	// Disable common-instancetypes deployment by SSP from 4.16, now handled by virt-operator
+	spec.FeatureGates.DeployCommonInstancetypes = ptr.To(false)
 
 	// Default value is the operator namespace
 	pipelinesNamespace := getNamespace(hc.Namespace, opts)

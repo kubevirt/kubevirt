@@ -110,6 +110,9 @@ const (
 
 	// Enable using a plugin to bind the pod and the VM network
 	kvHNetworkBindingPluginsGate = "NetworkBindingPlugins"
+
+	// Deploy common-instancetypes using virt-operator
+	kvDeployCommonInstancetypes = "CommonInstancetypesDeploymentGate"
 )
 
 const (
@@ -135,6 +138,7 @@ var (
 		kvHotplugNicsGate,
 		kvVMPersistentState,
 		kvHNetworkBindingPluginsGate,
+		kvDeployCommonInstancetypes,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
