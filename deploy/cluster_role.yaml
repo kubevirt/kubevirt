@@ -2931,6 +2931,7 @@ rules:
   - admissionregistration.k8s.io
   resourceNames:
   - cdi-api-datavolume-mutate
+  - cdi-api-pvc-mutate
   resources:
   - mutatingwebhookconfigurations
   verbs:
@@ -2968,6 +2969,24 @@ rules:
   - persistentvolumeclaims
   verbs:
   - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -2980,6 +2999,8 @@ rules:
   - volumesnapshots
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - cdi.kubevirt.io
   resources:
@@ -2996,9 +3017,27 @@ rules:
 - apiGroups:
   - cdi.kubevirt.io
   resources:
+  - volumeclonesources
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - storageprofiles
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
   - cdis
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - cdi.kubevirt.io
   resources:
@@ -3084,6 +3123,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  verbs:
+  - get
 - apiGroups:
   - cdi.kubevirt.io
   resources:

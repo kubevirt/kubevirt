@@ -36,7 +36,7 @@ var _ = Describe("[rfe_id:273][crit:critical][vendor:cnv-qe@redhat.com][level:sy
 		tests.BeforeEach()
 	})
 
-	It("[test_id:5696] should create, verify and delete VMIs", func() {
+	It("[test_id:5696] should create, verify and delete VMIs", Label("test_id:5696"), func() {
 		vmiName := verifyVMICreation(client)
 		verifyVMIRunning(client, vmiName)
 		verifyVMIDeletion(client, vmiName)

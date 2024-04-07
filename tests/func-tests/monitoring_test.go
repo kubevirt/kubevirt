@@ -146,7 +146,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 
-	It("[test_id:10760] KubevirtHyperconvergedClusterOperatorSingleStackIPv6 alert should be fired for single stack ipv6 cluster", func() {
+	It("[test_id:10760] KubevirtHyperconvergedClusterOperatorSingleStackIPv6 alert should be fired for single stack ipv6 cluster", Label("test_id:10760"), func() {
 		tests.SkipIfNotSingleStackIPv6OpenShift(virtCli, "KubevirtHyperconvergedClusterOperatorSingleStackIPv6")
 
 		Eventually(func() *promApiv1.Alert {

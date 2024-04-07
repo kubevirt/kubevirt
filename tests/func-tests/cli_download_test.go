@@ -27,7 +27,7 @@ var _ = Describe("[rfe_id:5100][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		tests.BeforeEach()
 	})
 
-	It("[test_id:6956]should create ConsoleCliDownload objects with expected spec", func() {
+	It("[test_id:6956]should create ConsoleCliDownload objects with expected spec", Label("test_id:6956"), func() {
 		virtCli, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 

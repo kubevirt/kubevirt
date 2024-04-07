@@ -24,7 +24,7 @@ var _ = Describe("[rfe_id:5882][crit:high][vendor:cnv-qe@redhat.com][level:syste
 		tests.BeforeEach()
 	})
 
-	It("[test_id:5883]should create ConsoleQuickStart objects", func() {
+	It("[test_id:5883]should create ConsoleQuickStart objects", Label("test_id:5883"), func() {
 		virtCli, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 

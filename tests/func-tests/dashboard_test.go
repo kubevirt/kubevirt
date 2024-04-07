@@ -22,7 +22,7 @@ var _ = Describe("[rfe_id:5108][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		tests.BeforeEach()
 	})
 
-	It("[test_id:5919]should create configmaps for OCP Dashboard", func() {
+	It("[test_id:5919]should create configmaps for OCP Dashboard", Label("test_id:5919"), func() {
 		virtCli, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 

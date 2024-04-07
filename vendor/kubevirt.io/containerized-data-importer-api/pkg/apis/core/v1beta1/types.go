@@ -106,6 +106,9 @@ type StorageSpec struct {
 	DataSourceRef *corev1.TypedObjectReference `json:"dataSourceRef,omitempty"`
 }
 
+// PersistentVolumeFromStorageProfile means the volume mode will be auto selected by CDI according to a matching StorageProfile
+const PersistentVolumeFromStorageProfile corev1.PersistentVolumeMode = "FromStorageProfile"
+
 // DataVolumeCheckpoint defines a stage in a warm migration.
 type DataVolumeCheckpoint struct {
 	// Previous is the identifier of the snapshot from the previous checkpoint.
@@ -827,10 +830,11 @@ type CDISpec struct {
 	// +kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist
 	// CDIUninstallStrategy defines the state to leave CDI on uninstall
 	UninstallStrategy *CDIUninstallStrategy `json:"uninstallStrategy,omitempty"`
-	// Rules on which nodes CDI infrastructure pods will be scheduled
-	Infra sdkapi.NodePlacement `json:"infra,omitempty"`
+	// Selectors and tolerations that should apply to cdi infrastructure components
+	Infra ComponentConfig `json:"infra,omitempty"`
 	// Restrict on which nodes CDI workload pods will be scheduled
-	Workloads sdkapi.NodePlacement `json:"workload,omitempty"`
+	Workloads           sdkapi.NodePlacement `json:"workload,omitempty"`
+	CustomizeComponents CustomizeComponents  `json:"customizeComponents,omitempty"`
 	// Clone strategy override: should we use a host-assisted copy even if snapshots are available?
 	// +kubebuilder:validation:Enum="copy";"snapshot";"csi-clone"
 	CloneStrategyOverride *CDICloneStrategy `json:"cloneStrategyOverride,omitempty"`
@@ -840,6 +844,18 @@ type CDISpec struct {
 	CertConfig *CDICertConfig `json:"certConfig,omitempty"`
 	// PriorityClass of the CDI control plane
 	PriorityClass *CDIPriorityClass `json:"priorityClass,omitempty"`
+}
+
+// ComponentConfig defines the scheduling and replicas configuration for CDI components
+type ComponentConfig struct {
+	// NodePlacement describes scheduling configuration for specific CDI components
+	sdkapi.NodePlacement `json:",inline"`
+	// DeploymentReplicas set Replicas for cdi-deployment
+	DeploymentReplicas *int32 `json:"deploymentReplicas,omitempty"`
+	// ApiserverReplicas set Replicas for cdi-apiserver
+	APIServerReplicas *int32 `json:"apiServerReplicas,omitempty"`
+	// UploadproxyReplicas set Replicas for cdi-uploadproxy
+	UploadProxyReplicas *int32 `json:"uploadProxyReplicas,omitempty"`
 }
 
 // CDIPriorityClass defines the priority class of the CDI control plane.
@@ -857,6 +873,47 @@ const (
 
 	// CloneStrategyCsiClone specifies csi volume clone based cloning
 	CloneStrategyCsiClone CDICloneStrategy = "csi-clone"
+)
+
+// CustomizeComponents defines patches for components deployed by the CDI operator.
+type CustomizeComponents struct {
+	// +listType=atomic
+	Patches []CustomizeComponentsPatch `json:"patches,omitempty"`
+
+	// Configure the value used for deployment and daemonset resources
+	Flags *Flags `json:"flags,omitempty"`
+}
+
+// Flags will create a patch that will replace all flags for the container's
+// command field. The only flags that will be used are those define. There are no
+// guarantees around forward/backward compatibility.  If set incorrectly this will
+// cause the resource when rolled out to error until flags are updated.
+type Flags struct {
+	API         map[string]string `json:"api,omitempty"`
+	Controller  map[string]string `json:"controller,omitempty"`
+	UploadProxy map[string]string `json:"uploadProxy,omitempty"`
+}
+
+// CustomizeComponentsPatch defines a patch for some resource.
+type CustomizeComponentsPatch struct {
+	// +kubebuilder:validation:MinLength=1
+	ResourceName string `json:"resourceName"`
+	// +kubebuilder:validation:MinLength=1
+	ResourceType string    `json:"resourceType"`
+	Patch        string    `json:"patch"`
+	Type         PatchType `json:"type"`
+}
+
+// PatchType defines the patch type.
+type PatchType string
+
+const (
+	// JSONPatchType is a constant that represents the type of JSON patch.
+	JSONPatchType PatchType = "json"
+	// MergePatchType is a constant that represents the type of JSON Merge patch.
+	MergePatchType PatchType = "merge"
+	// StrategicMergePatchType is a constant that represents the type of Strategic Merge patch.
+	StrategicMergePatchType PatchType = "strategic"
 )
 
 // DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources

@@ -131,11 +131,10 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	})
 
 	Context("validate node placement in workloads nodes", func() {
-		It("[test_id:5677] all expected 'workloads' pod must be on infra node", func() {
+		It("[test_id:5677] all expected 'workloads' pod must be on infra node", Label("test_id:5677"), func() {
 			expectedWorkloadsPods := map[string]bool{
-				"bridge-marker": false,
-				"cni-plugins":   false,
-				// "kube-multus":     false,
+				"bridge-marker":  false,
+				"cni-plugins":    false,
 				"ovs-cni-marker": false,
 				"virt-handler":   false,
 				"secondary-dns":  false,
@@ -164,14 +163,15 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	})
 
 	Context("validate node placement on infra nodes", func() {
-		It("[test_id:5678] all expected 'infra' pod must be on infra node", func() {
+		It("[test_id:5678] all expected 'infra' pod must be on infra node", Label("test_id:5678"), func() {
 			expectedInfraPods := map[string]bool{
-				"cdi-apiserver":   false,
-				"cdi-controller":  false,
-				"cdi-uploadproxy": false,
-				"manager":         false,
-				"virt-api":        false,
-				"virt-controller": false,
+				"cdi-apiserver":    false,
+				"cdi-deployment":   false,
+				"cdi-uploadproxy":  false,
+				"kubemacpool":      false,
+				"virt-api":         false,
+				"virt-controller":  false,
+				"virt-exportproxy": false,
 			}
 
 			Eventually(func(g Gomega) {
@@ -193,23 +193,38 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	})
 })
 
-func updatePodAssignments(pods *v1.PodList, podMap map[string]bool, nodeType string, nodeName string) {
-	for _, pod := range pods.Items {
-		podName := pod.Spec.Containers[0].Name
-		GinkgoWriter.Printf("Found %s pod '%s' in the '%s' node %s\n", podName, pod.Name, nodeType, nodeName)
+func updatePodAssignments(pods []v1.Pod, podMap map[string]bool, nodeType string, nodeName string) {
+	for _, pod := range pods {
+		podName := ""
+		switch pod.Labels["app.kubernetes.io/managed-by"] {
+		case "cdi-operator":
+			podName = pod.Labels["cdi.kubevirt.io"]
+
+		case "cnao-operator":
+			podName = pod.Labels["app"]
+
+		case "virt-operator":
+			podName = pod.Labels["kubevirt.io"]
+
+		default:
+			continue
+		}
+
+		GinkgoWriter.Printf("Found %s pod %q in the %s node %s\n", podName, pod.Name, nodeType, nodeName)
+
 		if found, ok := podMap[podName]; ok && !found {
 			podMap[podName] = true
 		}
 	}
 }
 
-func listPodsInNode(g Gomega, client kubecli.KubevirtClient, nodeName string) *v1.PodList {
+func listPodsInNode(g Gomega, client kubecli.KubevirtClient, nodeName string) []v1.Pod {
 	pods, err := client.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.TODO(), k8smetav1.ListOptions{
-		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s,status.phase=Running", nodeName),
 	})
 	g.ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	return pods
+	return pods.Items
 }
 
 func listInfraNodes(client kubecli.KubevirtClient) *v1.NodeList {
