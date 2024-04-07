@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -519,6 +520,46 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
 			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+		})
+
+		Context("default scheduling to CP nodes", func() {
+			DescribeTable("should require scheduling to control-plane nodes and avoid worker nodes", func(config *v1.ComponentConfig) {
+				const (
+					controlPlaceLabel = "node-role.kubernetes.io/control-plane"
+					workerLabel       = "node-role.kubernetes.io/worker"
+				)
+
+				InjectPlacementMetadata(config, podSpec, RequireControlPlanePreferNonWorker)
+
+				Expect(podSpec.Affinity).ToNot(BeNil())
+				Expect(podSpec.Affinity.NodeAffinity).ToNot(BeNil())
+
+				By("Testing scheduling requirements")
+				Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
+				Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
+
+				requirementSelectorTerm := podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
+				Expect(requirementSelectorTerm.MatchFields).To(BeEmpty())
+				Expect(requirementSelectorTerm.MatchExpressions).To(HaveLen(1))
+
+				requirementMatchExpression := requirementSelectorTerm.MatchExpressions[0]
+				Expect(requirementMatchExpression.Key).To(Equal(controlPlaceLabel))
+				Expect(requirementMatchExpression.Operator).To(Equal(corev1.NodeSelectorOpExists))
+
+				By("Testing scheduling preferences")
+				Expect(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				preferredSchedulingTerm := podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0]
+				Expect(preferredSchedulingTerm.Weight).To(Equal(int32(100)))
+				Expect(preferredSchedulingTerm.Preference.MatchFields).To(BeEmpty())
+				Expect(preferredSchedulingTerm.Preference.MatchExpressions).To(HaveLen(1))
+
+				matchExpression := preferredSchedulingTerm.Preference.MatchExpressions[0]
+				Expect(matchExpression.Key).To(Equal(workerLabel))
+				Expect(matchExpression.Operator).To(Equal(corev1.NodeSelectorOpDoesNotExist))
+			},
+				Entry("nil component config", nil),
+				Entry("nil node placement", &v1.ComponentConfig{}),
+			)
 		})
 	})
 })
