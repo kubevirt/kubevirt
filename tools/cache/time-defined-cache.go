@@ -30,7 +30,7 @@ import (
 type TimeDefinedCache[T any] struct {
 	minRefreshDuration time.Duration
 	lastRefresh        *time.Time
-	savedValue         T
+	value              T
 	reCalcFunc         func() (T, error)
 	valueLock          *sync.Mutex
 }
@@ -65,17 +65,17 @@ func (t *TimeDefinedCache[T]) Get() (T, error) {
 	}
 
 	if t.lastRefresh != nil && t.minRefreshDuration.Nanoseconds() != 0 && time.Since(*t.lastRefresh) <= t.minRefreshDuration {
-		return t.savedValue, nil
+		return t.value, nil
 	}
 
 	value, err := t.reCalcFunc()
 	if err != nil {
-		return t.savedValue, err
+		return t.value, err
 	}
 
 	t.setWithoutLock(value)
 
-	return t.savedValue, nil
+	return t.value, nil
 }
 
 func (t *TimeDefinedCache[T]) Set(value T) {
@@ -88,7 +88,7 @@ func (t *TimeDefinedCache[T]) Set(value T) {
 }
 
 func (t *TimeDefinedCache[T]) setWithoutLock(value T) {
-	t.savedValue = value
+	t.value = value
 
 	if t.lastRefresh == nil || t.minRefreshDuration.Nanoseconds() != 0 {
 		t.lastRefresh = k6tpointer.P(time.Now())
