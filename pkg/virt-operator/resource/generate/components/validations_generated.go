@@ -7950,6 +7950,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: string
           type: array
           x-kubernetes-list-type: atomic
+        hostname:
+          description: Specifies the hostname of the clone vm.
+          type: string
         labelFilters:
           description: |-
             Example use: "!some/key*".

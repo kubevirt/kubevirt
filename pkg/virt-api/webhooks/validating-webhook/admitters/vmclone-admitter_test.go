@@ -404,6 +404,17 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("templateFilter negation in the beginning", "!mykey/something"),
 		)
 	})
+	Context("Set a specify hostName for a CloneVM ", func() {
+		It("should accept valid hostname", func() {
+			vmClone.Spec.Hostname = pointer.String("test")
+			admitter.admitAndExpect(vmClone, true)
+		})
+
+		It("should reject invalid hostname", func() {
+			vmClone.Spec.Hostname = pointer.String("test+bad")
+			admitter.admitAndExpect(vmClone, false)
+		})
+	})
 
 })
 

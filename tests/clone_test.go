@@ -516,6 +516,31 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				})
 			})
 
+			It("clone with defined hostname", func() {
+				const newHostname = "vm-target-hostname"
+				sourceVM = createVM()
+				vmClone = generateCloneFromVM()
+				vmClone.Spec.Hostname = pointer.String(newHostname)
+
+				createCloneAndWaitForFinish(vmClone)
+
+				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By("Making sure target is runnable")
+				targetVM = expectVMRunnable(targetVM)
+
+				By("Making sure new hostname is applied to target VM")
+				Expect(targetVM.Spec.Template.Spec.Hostname).ToNot(BeNil())
+				Expect(targetVM.Spec.Template.Spec.Hostname).To(Equal(newHostname))
+
+				expectEqualLabels(targetVM, sourceVM)
+				expectEqualAnnotations(targetVM, sourceVM)
+				expectEqualTemplateLabels(targetVM, sourceVM)
+				expectEqualTemplateAnnotations(targetVM, sourceVM)
+			})
+
 		})
 
 		Context("[sig-storage]with more complicated VM", decorators.SigStorage, func() {

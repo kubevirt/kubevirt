@@ -65,7 +65,9 @@ type VirtualMachineCloneSpec struct {
 	// inspecting status "TargetName" field below.
 	// +optional
 	Target *corev1.TypedLocalObjectReference `json:"target,omitempty"`
-
+	// Specifies the hostname of the clone vm.
+	// +optional
+	Hostname *string `json:"hostname,omitempty"`
 	// Example use: "!some/key*".
 	// For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
 	// +optional

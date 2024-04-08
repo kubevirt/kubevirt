@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -105,6 +107,10 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 	}
 
 	if newCauses := validateTarget(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := validateCloneHostNameNotConformingToDNSLabelRules(k8sfield.NewPath("spec"), vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -410,4 +416,21 @@ func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *snaps
 	}
 
 	return result
+}
+
+func validateCloneHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if vmClone.Spec.Hostname == nil {
+		return causes
+	}
+	if err := validation.IsDNS1123Label(*vmClone.Spec.Hostname); len(err) != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_LABEL rules : %s",
+				field.Child("hostname").String(), strings.Join(err, ", ")),
+			Field: field.Child("hostname").String(),
+		})
+	}
+
+	return causes
 }

@@ -118,6 +118,11 @@ func (in *VirtualMachineCloneSpec) DeepCopyInto(out *VirtualMachineCloneSpec) {
 		*out = new(v1.TypedLocalObjectReference)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Hostname != nil {
+		in, out := &in.Hostname, &out.Hostname
+		*out = new(string)
+		**out = **in
+	}
 	if in.AnnotationFilters != nil {
 		in, out := &in.AnnotationFilters, &out.AnnotationFilters
 		*out = make([]string, len(*in))

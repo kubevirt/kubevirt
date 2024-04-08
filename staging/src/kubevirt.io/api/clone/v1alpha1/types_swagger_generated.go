@@ -19,6 +19,7 @@ func (VirtualMachineCloneSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"source":            "Source is the object that would be cloned. Currently supported source types are:\nVirtualMachine of kubevirt.io API group,\nVirtualMachineSnapshot of snapshot.kubevirt.io API group",
 		"target":            "Target is the outcome of the cloning process.\nCurrently supported source types are:\n- VirtualMachine of kubevirt.io API group\n- Empty (nil).\nIf the target is not provided, the target type would default to VirtualMachine and a random\nname would be generated for the target. The target's name can be viewed by\ninspecting status \"TargetName\" field below.\n+optional",
+		"hostname":          "Specifies the hostname of the clone vm.\n+optional",
 		"annotationFilters": "Example use: \"!some/key*\".\nFor a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.\n+optional\n+listType=atomic",
 		"labelFilters":      "Example use: \"!some/key*\".\nFor a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.\n+optional\n+listType=atomic",
 		"template":          "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.\n+optional",
