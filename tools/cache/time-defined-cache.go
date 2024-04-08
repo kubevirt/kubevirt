@@ -23,12 +23,13 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 )
 
 type TimeDefinedCache[T any] struct {
 	minRefreshDuration time.Duration
-	lastRefresh        time.Time
-	savedValueSet      bool
+	lastRefresh        *time.Time
 	savedValue         T
 	reCalcFunc         func() (T, error)
 	valueLock          *sync.Mutex
@@ -63,7 +64,7 @@ func (t *TimeDefinedCache[T]) Get() (T, error) {
 		defer t.valueLock.Unlock()
 	}
 
-	if t.savedValueSet && t.minRefreshDuration.Nanoseconds() != 0 && time.Since(t.lastRefresh) <= t.minRefreshDuration {
+	if t.lastRefresh != nil && t.minRefreshDuration.Nanoseconds() != 0 && time.Since(*t.lastRefresh) <= t.minRefreshDuration {
 		return t.savedValue, nil
 	}
 
@@ -88,6 +89,8 @@ func (t *TimeDefinedCache[T]) Set(value T) {
 
 func (t *TimeDefinedCache[T]) setWithoutLock(value T) {
 	t.savedValue = value
-	t.savedValueSet = true
-	t.lastRefresh = time.Now()
+
+	if t.lastRefresh == nil || t.minRefreshDuration.Nanoseconds() != 0 {
+		t.lastRefresh = k6tpointer.P(time.Now())
+	}
 }
