@@ -650,6 +650,8 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	vcpusDelta := hardware.GetNumberOfVCPUs(vm.Spec.Template.Spec.Domain.CPU) - hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
 	resourcesDelta := resource.NewMilliQuantity(vcpusDelta*int64(1000/c.clusterConfig.GetCPUAllocationRatio()), resource.DecimalSI)
 
+	logMsg := fmt.Sprintf("hotplugging cpu to %v sockets", vm.Spec.Template.Spec.Domain.CPU.Sockets)
+
 	if !vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().IsZero() {
 		newCpuReq := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
 		newCpuReq.Add(*resourcesDelta)
@@ -658,6 +660,8 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 			patch.WithTest("/spec/domain/resources/requests/cpu", vmi.Spec.Domain.Resources.Requests.Cpu().String()),
 			patch.WithReplace("/spec/domain/resources/requests/cpu", newCpuReq.String()),
 		)
+
+		logMsg = fmt.Sprintf("%s, setting requests to %s", logMsg, newCpuReq.String())
 	}
 	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().IsZero() {
 		newCpuLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
@@ -667,6 +671,8 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 			patch.WithTest("/spec/domain/resources/limits/cpu", vmi.Spec.Domain.Resources.Limits.Cpu().String()),
 			patch.WithReplace("/spec/domain/resources/limits/cpu", newCpuLimit.String()),
 		)
+
+		logMsg = fmt.Sprintf("%s, setting limits to %s", logMsg, newCpuLimit.String())
 	}
 
 	patchBytes, err := patchSet.GeneratePayload()
@@ -675,6 +681,9 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	}
 
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	if err != nil {
+		log.Log.Object(vmi).Infof(logMsg)
+	}
 
 	return err
 }
@@ -3338,29 +3347,38 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		memoryDelta = resource.NewQuantity(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()-newMemoryReq.Value(), resource.BinarySI)
 	}
 
-	patches := []string{
-		fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/memory/guest", "value": "%s"}`, vmi.Spec.Domain.Memory.Guest.String()),
-		fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/memory/guest", "value": "%s"}`, vm.Spec.Template.Spec.Domain.Memory.Guest.String()),
-		fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Requests.Memory().String()),
-		fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, newMemoryReq.String()),
-	}
+	patchSet := patch.New(
+		patch.WithTest("/spec/domain/memory/guest", vmi.Spec.Domain.Memory.Guest.String()),
+		patch.WithReplace("/spec/domain/memory/guest", vm.Spec.Template.Spec.Domain.Memory.Guest.String()),
+		patch.WithTest("/spec/domain/resources/requests/memory", vmi.Spec.Domain.Resources.Requests.Memory().String()),
+		patch.WithReplace("/spec/domain/resources/requests/memory", newMemoryReq.String()),
+	)
+
+	logMsg := fmt.Sprintf("hotplugging memory to %s, setting requests to %s", vm.Spec.Template.Spec.Domain.Memory.Guest.String(), newMemoryReq.String())
 
 	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Memory().IsZero() {
 		newMemoryLimit := vmi.Spec.Domain.Resources.Limits.Memory().DeepCopy()
 		newMemoryLimit.Add(*memoryDelta)
 
-		patches = append(patches, fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/limits/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Limits.Memory().String()))
-		patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/limits/memory", "value": "%s"}`, newMemoryLimit.String()))
+		patchSet.AddOption(
+			patch.WithTest("/spec/domain/resources/limits/memory", vmi.Spec.Domain.Resources.Limits.Memory().String()),
+			patch.WithReplace("/spec/domain/resources/limits/memory", newMemoryLimit.String()),
+		)
+
+		logMsg = fmt.Sprintf("%s, setting limits to %s", logMsg, newMemoryLimit.String())
 	}
 
-	memoryPatch := controller.GeneratePatchBytes(patches)
-
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, memoryPatch, metav1.PatchOptions{})
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
 	}
 
-	log.Log.Object(vmi).V(4).Infof("hotplugging memory to %s", vm.Spec.Template.Spec.Domain.Memory.Guest.String())
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	log.Log.Object(vmi).Infof(logMsg)
 
 	return nil
 }
