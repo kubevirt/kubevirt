@@ -4,7 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "admit.go",
+        "binding.go",
+        "netsource.go",
         "slirp.go",
+        "validator.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/admitter",
     visibility = ["//visibility:public"],
@@ -21,6 +24,8 @@ go_test(
     srcs = [
         "admit_suite_test.go",
         "admit_test.go",
+        "binding_test.go",
+        "netsource_test.go",
         "slirp_test.go",
     ],
     deps = [

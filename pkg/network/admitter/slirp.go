@@ -32,7 +32,7 @@ type slirpClusterConfigChecker interface {
 	IsSlirpInterfaceEnabled() bool
 }
 
-func ValidateSlirpBinding(
+func validateSlirpBinding(
 	field *k8sfield.Path,
 	spec *v1.VirtualMachineInstanceSpec,
 	configChecker slirpClusterConfigChecker) (causes []metav1.StatusCause) {

@@ -21,7 +21,6 @@ package admitters
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -47,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -143,7 +143,6 @@ func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeNameMap := make(map[string]*v1.Volume)
-	networkNameMap := make(map[string]*v1.Network)
 
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
@@ -167,30 +166,15 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
-	causes = append(causes, netadmitter.ValidateSinglePodNetwork(field, spec)...)
+	netValidator := netadmitter.NewValidator(field, spec, config)
+	causes = append(causes, netValidator.Validate()...)
 
-	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
-	causes = append(causes, newCauses...)
-	podExists, multusDefaultCount, newCauses := validateNetworks(field, spec, networkNameMap)
-	causes = append(causes, newCauses...)
+	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
-	if multusDefaultCount > 1 {
-		causes = appendStatusCaseForMoreThanOneMultusDefaultNetwork(field, causes)
-	}
-	if podExists && multusDefaultCount > 0 {
-		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
-	}
-
-	causes = append(causes, netadmitter.ValidateSlirpBinding(field, spec, config)...)
-	networkInterfaceMap, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
+	networkInterfaceMap, newCauses := validateNetworksMatchInterfaces(field, spec, config)
 	causes = append(causes, newCauses...)
-	if done {
-		return causes
-	}
 
 	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
-	causes = append(causes, netadmitter.ValidateInterfaceStateValue(field, spec)...)
-	causes = append(causes, netadmitter.ValidateInterfaceBinding(field, spec)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
@@ -269,9 +253,8 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause, done bool) {
-
-	done = false
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause) {
+	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
 
 	// Make sure interfaces and networks are 1to1 related
 	networkInterfaceMap = make(map[string]struct{})
@@ -285,29 +268,21 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		networkData, networkExists := networkNameMap[iface.Name]
 
-		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, networkData, config, numOfInterfaces)...)
+		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, &networkData, config, numOfInterfaces)...)
 
 		causes = append(causes, validateInterfaceNameUnique(field, networkInterfaceMap, iface, idx)...)
 		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
 
 		networkInterfaceMap[iface.Name] = struct{}{}
 
-		causes = append(causes, validatePortConfiguration(field, networkExists, networkData, iface, idx, portForwardMap)...)
+		causes = append(causes, validatePortConfiguration(field, networkExists, &networkData, iface, idx, portForwardMap)...)
 		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
 		causes = append(causes, validateMacAddress(field, iface, idx)...)
-		causes = append(causes, validateInterfaceBootOrder(field, iface, idx, bootOrderMap)...)
 		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
-
-		newCauses, newDone := validateDHCPExtraOptions(field, iface)
-		causes = append(causes, newCauses...)
-		done = newDone
-		if done {
-			return nil, causes, done
-		}
-
+		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}
-	return networkInterfaceMap, causes, done
+	return networkInterfaceMap, causes
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
@@ -335,20 +310,23 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
 	return causes
 }
 
-func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) (causes []metav1.StatusCause, done bool) {
-	done = false
+func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) []metav1.StatusCause {
+	var causes []metav1.StatusCause
 	if iface.DHCPOptions != nil {
-		PrivateOptions := iface.DHCPOptions.PrivateOptions
-		err := ValidateDuplicateDHCPPrivateOptions(PrivateOptions)
-		if err != nil {
-			causes = appendStatusCauseForDuplicateDHCPOptionFound(field, causes, err)
-			done = true
+		privateOptions := iface.DHCPOptions.PrivateOptions
+		if countUniqueDHCPPrivateOptions(privateOptions) < len(privateOptions) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Found Duplicates: you have provided duplicate DHCPPrivateOptions",
+				Field:   field.String(),
+			})
 		}
-		for _, DHCPPrivateOption := range PrivateOptions {
+
+		for _, DHCPPrivateOption := range privateOptions {
 			causes = append(causes, validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption)...)
 		}
 	}
-	return causes, done
+	return causes
 }
 
 func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
@@ -377,15 +355,6 @@ func validateDHCPPrivateOptionsWithinRange(field *k8sfield.Path, DHCPPrivateOpti
 	return causes
 }
 
-func appendStatusCauseForDuplicateDHCPOptionFound(field *k8sfield.Path, causes []metav1.StatusCause, err error) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("Found Duplicates: %v", err),
-		Field:   field.String(),
-	})
-	return causes
-}
-
 func validateInterfacePciAddress(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
 	if iface.PciAddress != "" {
 		_, err := hwutil.ParsePciAddress(iface.PciAddress)
@@ -400,26 +369,28 @@ func validateInterfacePciAddress(field *k8sfield.Path, iface v1.Interface, idx i
 	return causes
 }
 
-func validateInterfaceBootOrder(field *k8sfield.Path, iface v1.Interface, idx int, bootOrderMap map[uint]bool) (causes []metav1.StatusCause) {
-	if iface.BootOrder != nil {
-		order := *iface.BootOrder
-		// Verify boot order is greater than 0, if provided
-		if order < 1 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
-				Field:   field.Index(idx).Child("bootOrder").String(),
-			})
-		} else {
-			// verify that there are no duplicate boot orders
-			if bootOrderMap[order] {
+func validateInterfaceBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, bootOrderMap map[uint]bool) (causes []metav1.StatusCause) {
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+		if iface.BootOrder != nil {
+			order := *iface.BootOrder
+			// Verify boot order is greater than 0, if provided
+			if order < 1 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String()),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String(),
+					Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
+					Field:   field.Index(idx).Child("bootOrder").String(),
 				})
+			} else {
+				// verify that there are no duplicate boot orders
+				if bootOrderMap[order] {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String()),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String(),
+					})
+				}
+				bootOrderMap[order] = true
 			}
-			bootOrderMap[order] = true
 		}
 	}
 	return causes
@@ -888,86 +859,10 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
-func appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Pod network cannot be defined when Multus default network is defined",
-		Field:   field.Child("networks").String(),
-	})
-}
-
-func appendStatusCaseForMoreThanOneMultusDefaultNetwork(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Multus CNI should only have one default network",
-		Field:   field.Child("networks").String(),
-	})
-}
-
-func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) (podExists bool, multusDefaultCount int, causes []metav1.StatusCause) {
-
-	podExists = false
-	multusDefaultCount = 0
-
-	for idx, network := range spec.Networks {
-
-		cniTypesCount := 0
-		// network name not needed by default
-		networkNameExistsOrNotNeeded := true
-
-		if network.Pod != nil {
-			cniTypesCount++
-			podExists = true
-		}
-
-		if network.NetworkSource.Multus != nil {
-			cniTypesCount++
-			networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
-			if network.NetworkSource.Multus.Default {
-				multusDefaultCount++
-			}
-		}
-
-		causes = validateNetworkHasOnlyOneType(field, cniTypesCount, causes, idx)
-
-		if !networkNameExistsOrNotNeeded {
-			causes = appendStatusCauseForCNIPluginHasNoNetworkName(field, causes, idx)
-		}
-
-		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
-	}
-	return podExists, multusDefaultCount, causes
-}
-
-func appendStatusCauseForCNIPluginHasNoNetworkName(field *k8sfield.Path, incomingCauses []metav1.StatusCause, idx int) (causes []metav1.StatusCause) {
-	causes = append(incomingCauses, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueRequired,
-		Message: "CNI delegating plugin must have a networkName",
-		Field:   field.Child("networks").Index(idx).String(),
-	})
-	return causes
-}
-
-func validateNetworkHasOnlyOneType(field *k8sfield.Path, cniTypesCount int, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	if cniTypesCount == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "should have a network type",
-			Field:   field.Child("networks").Index(idx).String(),
-		})
-	} else if cniTypesCount > 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "should have only one network type",
-			Field:   field.Child("networks").Index(idx).String(),
-		})
-	}
-	return causes
-}
-
-func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
+func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) []metav1.StatusCause {
+	var causes []metav1.StatusCause
 	// used to validate uniqueness of boot orders among disks and interfaces
-	bootOrderMap = make(map[uint]bool)
+	bootOrderMap := make(map[uint]bool)
 
 	for i, volume := range spec.Volumes {
 		volumeNameMap[volume.Name] = &spec.Volumes[i]
@@ -1027,7 +922,9 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 		}
 	}
 
-	return bootOrderMap, causes
+	causes = append(causes, validateInterfaceBootOrder(field, spec, bootOrderMap)...)
+
+	return causes
 }
 
 func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
@@ -1657,15 +1554,12 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	return causes
 }
 
-func ValidateDuplicateDHCPPrivateOptions(PrivateOptions []v1.DHCPPrivateOptions) error {
-	isUnique := map[int]bool{}
-	for _, DHCPPrivateOption := range PrivateOptions {
-		if isUnique[DHCPPrivateOption.Option] {
-			return errors.New("you have provided duplicate DHCPPrivateOptions")
-		}
-		isUnique[DHCPPrivateOption.Option] = true
+func countUniqueDHCPPrivateOptions(privateOptions []v1.DHCPPrivateOptions) int {
+	optionSet := map[int]struct{}{}
+	for _, DHCPPrivateOption := range privateOptions {
+		optionSet[DHCPPrivateOption.Option] = struct{}{}
 	}
-	return nil
+	return len(optionSet)
 }
 
 // Copied from kubernetes/pkg/apis/core/validation/validation.go
