@@ -52,7 +52,6 @@ func DeleteObject(virtCli kubecli.KubevirtClient, obj unstructured.Unstructured,
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Errorf("Error deleting obj %s %s: %v", resourceKind, obj.GetName(), err)
 	}
-	return
 }
 
 func ListObjects(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *metav1.ListOptions, namespace string) (*unstructured.UnstructuredList, error) {

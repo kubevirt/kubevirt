@@ -249,7 +249,6 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 	}
 	log.Log.V(4).Object(curPodDisruptionBudget).Infof("PodDisruptionBudget updated")
 	c.enqueueVirtualMachine(vmi)
-	return
 }
 
 // When a pdb is deleted, enqueue the vmi that manages the pdb and update its pdbExpectations.

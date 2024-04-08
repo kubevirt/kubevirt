@@ -120,7 +120,7 @@ func parseURLResourceOperation(request *http.Request) (resource string, verb str
 	verb = ""
 
 	if request.URL.Path == "" || method == "" {
-		return
+		return "", ""
 	}
 
 	for _, r := range resourceParsingRegexs {
@@ -134,7 +134,7 @@ func parseURLResourceOperation(request *http.Request) (resource string, verb str
 	}
 
 	if resource == "" {
-		return
+		return "", ""
 	}
 
 	switch method {

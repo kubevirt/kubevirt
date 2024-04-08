@@ -21,7 +21,6 @@ func (t *Tracer) StartTrace(key string, name string, field ...trace.Field) {
 		t.traceMap = make(map[string]*trace.Trace)
 	}
 	t.traceMap[key] = trace.New(name, field...)
-	return
 }
 
 func (t *Tracer) StopTrace(key string) {
@@ -35,7 +34,6 @@ func (t *Tracer) StopTrace(key string) {
 	}
 	t.traceMap[key].LogIfLong(t.Threshold)
 	delete(t.traceMap, key)
-	return
 }
 
 // A trace Step adds a new step with a specific message.
@@ -52,5 +50,4 @@ func (t *Tracer) StepTrace(key string, name string, field ...trace.Field) {
 		return
 	}
 	t.traceMap[key].Step(name, field...)
-	return
 }

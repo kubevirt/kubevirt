@@ -98,7 +98,6 @@ func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, h
 		res["apiserver"] = map[string]interface{}{"connectivity": "ok", "version": version}
 		res["config-resource-version"] = clusterConfig.GetResourceVersion()
 		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
-		return
 	}
 }
 

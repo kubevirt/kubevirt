@@ -137,7 +137,6 @@ func (b *BurstJob) createWatcherIfNotExist(obj *unstructured.Unstructured) {
 
 func (b *BurstJob) Wait() {
 	log.Log.V(1).Infof("Burst Load Generator Wait")
-	return
 }
 
 func (b *BurstJob) stopAllWatchers() {
