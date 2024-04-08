@@ -31,7 +31,7 @@ type TimeDefinedCache[T any] struct {
 	savedValueSet      bool
 	savedValue         T
 	reCalcFunc         func() (T, error)
-	valueLock          *sync.RWMutex
+	valueLock          *sync.Mutex
 }
 
 // NewTimeDefinedCache creates a new cache that will refresh the value every minRefreshDuration. If the value is requested
@@ -51,24 +51,20 @@ func NewTimeDefinedCache[T any](minRefreshDuration time.Duration, useValueLock b
 	}
 
 	if useValueLock {
-		t.valueLock = &sync.RWMutex{}
+		t.valueLock = &sync.Mutex{}
 	}
 
 	return t, nil
 }
 
 func (t *TimeDefinedCache[T]) Get() (T, error) {
-	if t.savedValueSet && t.minRefreshDuration.Nanoseconds() != 0 && time.Since(t.lastRefresh) <= t.minRefreshDuration {
-		if t.valueLock != nil {
-			t.valueLock.RLock()
-			defer t.valueLock.RUnlock()
-		}
-		return t.savedValue, nil
-	}
-
 	if t.valueLock != nil {
 		t.valueLock.Lock()
 		defer t.valueLock.Unlock()
+	}
+
+	if t.savedValueSet && t.minRefreshDuration.Nanoseconds() != 0 && time.Since(t.lastRefresh) <= t.minRefreshDuration {
+		return t.savedValue, nil
 	}
 
 	value, err := t.reCalcFunc()
