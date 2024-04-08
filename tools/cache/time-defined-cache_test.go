@@ -20,6 +20,7 @@
 package cache_test
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -75,6 +76,7 @@ var _ = Describe("time defined cache", func() {
 		stopChannel := make(chan struct{})
 		defer close(stopChannel)
 		firstCallMadeChannel := make(chan struct{})
+		defer close(firstCallMadeChannel)
 
 		recalcFunctionCalls := int64(0)
 
@@ -92,7 +94,7 @@ var _ = Describe("time defined cache", func() {
 				break
 			}
 
-			return 1, nil
+			return int(recalcFunctionCalls), nil
 		}
 
 		cache, err := virtcache.NewTimeDefinedCache(0, true, recalcFunc)
@@ -114,6 +116,43 @@ var _ = Describe("time defined cache", func() {
 		Consistently(func() {
 			Expect(recalcFunctionCalls).To(Equal(int64(1)), "value is being re-calculated, only one caller is expected")
 		}).WithPolling(250 * time.Millisecond).WithTimeout(1 * time.Second)
+	})
+
+	It("should not allow two threads to get value in parallel", func() {
+		firstCallBarrier := make(chan struct{})
+		recalcFunctionCallsCount := int64(0)
+
+		recalcFunc := func() (int, error) {
+			atomic.AddInt64(&recalcFunctionCallsCount, 1)
+			firstCallBarrier <- struct{}{}
+			return int(recalcFunctionCallsCount), nil
+		}
+
+		cache, err := virtcache.NewTimeDefinedCache(time.Hour, true, recalcFunc)
+		Expect(err).ToNot(HaveOccurred())
+
+		const goroutineCount = 20
+		getReturnValues := make(chan int, goroutineCount)
+		getValueFromCache := func() {
+			defer GinkgoRecover()
+			ret, err := cache.Get()
+			Expect(err).ShouldNot(HaveOccurred())
+			getReturnValues <- ret
+		}
+
+		for i := 0; i < goroutineCount; i++ {
+			go getValueFromCache()
+		}
+
+		Consistently(getReturnValues).Should(BeEmpty(), "all go routines should wait for the first one to finish")
+		Eventually(firstCallBarrier).Should(Receive(), "first go routine should start re-calculating")
+		Eventually(getReturnValues).Should(HaveLen(goroutineCount), fmt.Sprintf("expected all go routines to finish calling Get(). %d/%d finished", len(getReturnValues), goroutineCount))
+
+		close(getReturnValues)
+		for getValue := range getReturnValues {
+			Expect(getValue).To(Equal(1), "Get() calls are expected to return the cached value")
+		}
+		Expect(firstCallBarrier).To(BeEmpty(), "ensure no other go routine called the re-calculation funtion")
 	})
 
 })
