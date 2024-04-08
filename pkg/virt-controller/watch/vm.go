@@ -31,10 +31,10 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
@@ -73,6 +73,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
 
 const (
@@ -931,10 +932,20 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 		return nil
 	}
 	vmConditions := controller.NewVirtualMachineConditionManager()
+	// Abort the volume migration if any of the previous migrated volumes
+	// has changed
+	if volMigAbort, err := volumemig.VolumeMigrationCancel(c.clientset, vmi, vm); volMigAbort {
+		if err == nil {
+			log.Log.Object(vm).Infof("Cancel volume migration")
+		}
+		return err
+	}
+
 	switch {
 	case vm.Spec.UpdateVolumesStrategy == nil ||
 		*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyReplacement:
 		if !vmConditions.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+			log.Log.Object(vm).Infof("Set restart required condition because of a volumes update")
 			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 				Type:               virtv1.VirtualMachineRestartRequired,
 				LastTransitionTime: v1.Now(),
@@ -942,6 +953,28 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 				Message:            "the volumes replacement is effective only after restart",
 			})
 		}
+	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
+		// Validate if the update volumes can be migrated
+		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
+			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:               virtv1.VirtualMachineInstanceVolumesChange,
+				LastTransitionTime: v1.Now(),
+				Status:             k8score.ConditionTrue,
+				Message:            err.Error(),
+			})
+			return nil
+		}
+
+		if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, c.pvcStore, vmi, vm); err != nil {
+			log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
+			return err
+		}
+		log.Log.Object(vm).Infof("Updated migrating volumes in the status")
+		if _, err := volumemig.PatchVMIVolumes(c.clientset, vmi, vm); err != nil {
+			log.Log.Object(vm).Errorf("failed to update volumes for vmi:%v", err)
+			return err
+		}
+		log.Log.Object(vm).Infof("Updated volumes for vmi")
 	default:
 		return fmt.Errorf("updateVolumes strategy not recognized: %s", *vm.Spec.UpdateVolumesStrategy)
 	}
@@ -2963,6 +2996,12 @@ func validLiveUpdateVolumes(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Vir
 		// The volume has been freshly added
 		case !okOld:
 			return false
+		// if the update strategy is migration the PVC/DV could have
+		// changed
+		case (v.VolumeSource.PersistentVolumeClaim != nil || v.VolumeSource.DataVolume != nil) &&
+			vm.Spec.UpdateVolumesStrategy != nil &&
+			*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
+			delete(oldVols, v.Name)
 		// The volume has changed
 		case !equality.Semantic.DeepEqual(*oldVol, v):
 			return false

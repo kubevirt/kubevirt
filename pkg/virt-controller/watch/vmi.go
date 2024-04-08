@@ -747,6 +747,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			c.syncMemoryHotplug(vmiCopy)
 		}
 
+		if c.requireVolumesUpdate(vmiCopy) {
+			c.syncVolumesUpdate(vmiCopy)
+		}
+
 	case vmi.IsScheduled():
 		if !vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Failed
@@ -2491,6 +2495,38 @@ func (c *VMIController) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 		}
 		vmi.Labels[virtv1.MemoryHotplugOverheadRatioLabel] = *overheadRatio
 	}
+}
+
+func (c *VMIController) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance) bool {
+	if len(vmi.Status.MigratedVolumes) < 1 {
+		return false
+	}
+	migVolsMap := make(map[string]string)
+	for _, v := range vmi.Status.MigratedVolumes {
+		migVolsMap[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo.ClaimName
+	}
+	for _, v := range vmi.Spec.Volumes {
+		claim := storagetypes.PVCNameFromVirtVolume(&v)
+		if claim == "" {
+			continue
+		}
+		if _, ok := migVolsMap[claim]; !ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *VMIController) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	condition := virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceVolumesChange,
+		LastTransitionTime: v1.Now(),
+		Status:             k8sv1.ConditionTrue,
+		Message:            "migrate volumes",
+	}
+	vmiConditions.UpdateCondition(vmi, &condition)
 }
 
 func (c *VMIController) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
