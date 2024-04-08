@@ -582,19 +582,37 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 
 		BeforeEach(func() {
-			var exists bool
+			Expect(libstorage.HasCDI()).To(BeTrue())
+			sc, foundSC := libstorage.GetRWXBlockStorageClass()
+			Expect(foundSC).To(BeTrue())
 
-			sc, exists = libstorage.GetRWXBlockStorageClass()
-			if !exists {
-				Skip("Skip test when RWXBlock storage class is not present")
-			}
-
-			vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(
-				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
-				testsuite.GetTestNamespace(nil),
-				corev1.ReadWriteMany,
+			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+					libdv.PVCWithAccessMode(corev1.ReadWriteMany),
+					libdv.PVCWithVolumeMode(corev1.PersistentVolumeBlock),
+				),
 			)
-			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+			var err error
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			libstorage.EventuallyDV(dataVolume, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+			userData := "#!/bin/bash\necho 'hello'\n"
+
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", dataVolume.Name),
+				libvmi.WithResourceMemory("1Gi"),
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libvmi.WithCloudInitNoCloudUserData(userData),
+			)
 
 			By("Creating VirtualMachine")
 			vm, err = virtClient.VirtualMachine(vmi.Namespace).Create(context.Background(), libvmi.NewVirtualMachine(vmi))

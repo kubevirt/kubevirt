@@ -968,7 +968,13 @@ var _ = SIGDescribe("Storage", func() {
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				Expect(libstorage.HasCDI()).To(BeTrue())
+				sc, foundSC := libstorage.GetRWXBlockStorageClass()
+				Expect(foundSC).To(BeTrue())
+
+				vmi, err := libvmifact.NewAlpineWithDataVolume(sc, k8sv1.ReadWriteMany)
+				Expect(err).ToNot(HaveOccurred())
+
 				By("Launching a VMI with PVC ")
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 
