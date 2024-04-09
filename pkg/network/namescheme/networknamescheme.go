@@ -92,17 +92,13 @@ func CreateOrdinalNetworkNameScheme(vmiNetworks []v1.Network) map[string]string 
 	return networkNameSchemeMap
 }
 
+// OrdinalPodInterfaceName returns the ordinal interface name for the given network name.
+// Rereuse the `CreateOrdinalNetworkNameScheme` for various networks helps find the target interface name.
 func OrdinalPodInterfaceName(name string, networks []v1.Network) string {
-	for i, network := range networks {
-		if network.Name == name {
-			if vmispec.IsSecondaryMultusNetwork(network) {
-				return generateOrdinalInterfaceName(i)
-			}
-
-			return PrimaryPodInterfaceName
-		}
+	networkNameSchemeMap := CreateOrdinalNetworkNameScheme(networks)
+	if ordinalName, exist := networkNameSchemeMap[name]; exist {
+		return ordinalName
 	}
-
 	return ""
 }
 
