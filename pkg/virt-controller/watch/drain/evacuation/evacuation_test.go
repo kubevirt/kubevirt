@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	k8scorev1 "k8s.io/api/core/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -155,7 +155,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -232,8 +232,8 @@ var _ = Describe("Evacuation", func() {
 
 			migrationInterface.
 				EXPECT().
-				Create(gomock.Any(), &v13.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+				Create(gomock.Any(), &metav1.CreateOptions{}).
+				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -249,7 +249,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.EvacuationNodeName = node.Name
 			vmiFeeder.Add(vmi)
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
 		})
@@ -374,7 +374,7 @@ var _ = Describe("Evacuation", func() {
 
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -417,7 +417,7 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &v13.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -483,8 +483,8 @@ var _ = Describe("Evacuation", func() {
 			By(fmt.Sprintf("Expect only one new migration from node %s although cluster capacity allows more candidates", nodeName))
 			migrationInterface.
 				EXPECT().
-				Create(gomock.Any(), &v13.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).
+				Create(gomock.Any(), &metav1.CreateOptions{}).
+				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).
 				Times(1)
 
 			controller.Execute()
@@ -531,8 +531,8 @@ var _ = Describe("Evacuation", func() {
 			By("migration should be created for the candidate")
 			migrationInterface.
 				EXPECT().
-				Create(gomock.Any(), &v13.CreateOptions{}).
-				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).
+				Create(gomock.Any(), &metav1.CreateOptions{}).
+				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).
 				Times(1)
 
 			controller.Execute()
@@ -551,7 +551,7 @@ var _ = Describe("Evacuation", func() {
 
 func newNode(name string) *k8scorev1.Node {
 	return &k8scorev1.Node{
-		ObjectMeta: v13.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: k8scorev1.NodeSpec{},
@@ -584,7 +584,7 @@ func newVirtualMachine(name string, nodeName string) *v1.VirtualMachineInstance 
 
 func newPod(vmi *v1.VirtualMachineInstance, name string, phase k8scorev1.PodPhase, ownedByVMI bool) *k8scorev1.Pod {
 	pod := &k8scorev1.Pod{
-		ObjectMeta: v13.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: vmi.Namespace,
 		},
