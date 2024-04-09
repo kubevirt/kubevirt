@@ -279,7 +279,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachineInstances(vmis [
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-// ReleaseDetachVirtualMachines removes ownership of detached VMs.
+// ReleaseDetachedVirtualMachines removes ownership of detached VMs.
 //
 // It will reconcile the following:
 //   - Release owned objects if the selector no longer matches.

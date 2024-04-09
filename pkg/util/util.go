@@ -276,7 +276,7 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 	return expectedPvcSize
 }
 
-// GenerateRandomString creates a securely generated random string using crypto/rand
+// GenerateSecureRandomString creates a securely generated random string using crypto/rand
 func GenerateSecureRandomString(n int) (string, error) {
 	ret := make([]byte, n)
 	for i := range ret {
