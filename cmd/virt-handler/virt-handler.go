@@ -71,11 +71,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
-	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"               // import for prometheus metrics
 	promdomain "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
-	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
-	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -202,6 +200,10 @@ func (app *virtHandlerApp) Run() {
 	logger := log.Log
 	logger.V(1).Infof("hostname %s", app.HostOverride)
 	var err error
+
+	if err := metrics.SetupMetrics(); err != nil {
+		panic(fmt.Errorf("failed to set up metrics: %v", err))
+	}
 
 	// Copy container-disk binary
 	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")

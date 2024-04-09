@@ -2,12 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "configuration_metrics.go",
-        "metrics.go",
-        "operator_metrics.go",
-    ],
-    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator",
+    srcs = ["metrics.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/monitoring/metrics/common/client:go_default_library",

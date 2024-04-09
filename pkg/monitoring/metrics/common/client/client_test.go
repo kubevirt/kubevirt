@@ -17,7 +17,7 @@
  *
  */
 
-package prometheus
+package client
 
 import (
 	"net/http"
@@ -28,6 +28,8 @@ import (
 )
 
 var _ = BeforeSuite(func() {
+	err := SetupMetrics()
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = Describe("URL Parsing", func() {

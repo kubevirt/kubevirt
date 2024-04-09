@@ -33,7 +33,10 @@ import (
 // https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
 // should be ignored.
 var excludedMetrics = map[string]struct{}{
-	"kubevirt_vmi_phase_count": struct{}{},
+	"kubevirt_vmi_phase_count":                  {},
+	"rest_client_rate_limiter_duration_seconds": {},
+	"rest_client_request_latency_seconds":       {},
+	"rest_client_requests_total":                {},
 }
 
 // Extract the name, help, and type from the metrics doc file
