@@ -2029,7 +2029,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmifact.NewGuestless()
 
 			By("Adding the right label to VMI namespace")
-			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), util.NamespaceTestDefault, metav1.GetOptions{})
+			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			namespace.Labels["autocpulimit"] = "true"
 			namespace, err = virtClient.CoreV1().Namespaces().Update(context.Background(), namespace, metav1.UpdateOptions{})
