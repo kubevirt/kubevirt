@@ -572,7 +572,13 @@ var _ = Describe("Apply", func() {
 
 					Expect(podSpec.Affinity).To(BeNil())
 				})
+
+				It("should not add requirement scheduling to control-plane nodes if the corresponding parameter is set to false", func() {
+					InjectPlacementMetadata(nil, podSpec, AnyNode)
+					Expect(podSpec.Affinity).To(BeNil())
+				})
 			})
+
 		})
 	})
 })
