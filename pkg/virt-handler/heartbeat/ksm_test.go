@@ -192,7 +192,7 @@ var _ = Describe("KSM", func() {
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, expectedLabelValue))
 		},
 			Entry("should add KSM label if the node labels match ksmConfiguration.nodeLabelSelector", map[string]string{"test_label": "true"}, "true"),
-			Entry("should not add KSM label if the node labels match ksmConfiguration.nodeLabelSelector", map[string]string{"no_macthing_label": "true"}, "false"),
+			Entry("should not add KSM label if the node labels match ksmConfiguration.nodeLabelSelector", map[string]string{"no_matching_label": "true"}, "false"),
 		)
 
 		DescribeTable("with memory pressure, should", func(initialKsmValue string, selectorOverride *metav1.LabelSelector,
