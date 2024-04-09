@@ -72,53 +72,7 @@ var _ = Describe("time defined cache", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should not allow two threads to set value in parallel", func() {
-		stopChannel := make(chan struct{})
-		defer close(stopChannel)
-		firstCallMadeChannel := make(chan struct{})
-		defer close(firstCallMadeChannel)
-
-		recalcFunctionCalls := int64(0)
-
-		recalcFunc := func() (int, error) {
-			firstCallMadeChannel <- struct{}{}
-			atomic.AddInt64(&recalcFunctionCalls, 1)
-
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
-
-			select {
-			case <-ticker.C:
-				time.Sleep(100 * time.Millisecond)
-			case <-stopChannel:
-				break
-			}
-
-			return int(recalcFunctionCalls), nil
-		}
-
-		cache, err := virtcache.NewTimeDefinedCache(0, true, recalcFunc)
-		Expect(err).ToNot(HaveOccurred())
-
-		getValueFromCache := func() {
-			defer GinkgoRecover()
-			_, err = cache.Get()
-			Expect(err).ShouldNot(HaveOccurred())
-		}
-
-		for i := 0; i < 5; i++ {
-			go getValueFromCache()
-		}
-
-		// To ensure the first call is already made
-		<-firstCallMadeChannel
-
-		Consistently(func() {
-			Expect(recalcFunctionCalls).To(Equal(int64(1)), "value is being re-calculated, only one caller is expected")
-		}).WithPolling(250 * time.Millisecond).WithTimeout(1 * time.Second)
-	})
-
-	It("should not allow two threads to get value in parallel", func() {
+	It("when multiple go routines get a value only one is recalculating and others get the same cached value", func() {
 		firstCallBarrier := make(chan struct{})
 		recalcFunctionCallsCount := int64(0)
 
