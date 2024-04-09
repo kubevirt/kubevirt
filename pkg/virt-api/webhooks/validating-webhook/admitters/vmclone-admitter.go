@@ -54,7 +54,7 @@ type VirtualMachineCloneAdmitter struct {
 	Client kubecli.KubevirtClient
 }
 
-// NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
+// NewVMCloneAdmitter creates a VM Clone Admitter
 func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VirtualMachineCloneAdmitter {
 	return &VirtualMachineCloneAdmitter{
 		Config: config,
