@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
@@ -492,26 +493,20 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
-				dataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(InvalidDataVolumeUrl, cdiv1.RegistryPullPod),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+				vm := libvmifact.NewPersistentDiskTinyOS(
+					libdv.NewDataVolume(
+						libdv.WithRegistryURLSourceAndPullMethod(InvalidDataVolumeUrl, cdiv1.RegistryPullPod),
+						libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+					),
+					libvmi.WithRunning(),
 				)
 
-				vm := libvmi.NewVirtualMachine(
-					libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithDataVolume("disk0", dataVolume.Name),
-						libvmi.WithResourceMemory("1Gi"),
-						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					), libvmi.WithRunning(), libvmi.WithDataVolumeTemplate(dataVolume))
-
 				By(creatingVMInvalidDataVolume)
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for DV to start crashing")
-				Eventually(ThisDVWith(vm.Namespace, dataVolume.Name), 60).Should(BeInPhase(cdiv1.ImportInProgress))
+				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 60).Should(BeInPhase(cdiv1.ImportInProgress))
 
 				By("Stop VM")
 				tests.StopVirtualMachineWithTimeout(vm, time.Second*30)
@@ -815,7 +810,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 90, HaveSucceeded())
 
-				vm = newRandomVMWithCloneDataVolume(testsuite.NamespaceTestAlternative, dataVolume.Name, testsuite.GetTestNamespace(nil), storageClass)
+				vm = libvmifact.NewPersistentDiskTinyOS(
+					libdv.NewDataVolume(
+						libdv.WithPVCSource(dataVolume.Namespace, dataVolume.Name),
+						libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize("1Gi")),
+					),
+				)
 
 				const volumeName = "sa"
 				saVol := v1.Volume{
@@ -848,7 +848,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			createVMSuccess := func() {
 				// sometimes it takes a bit for permission to actually be applied so eventually
 				Eventually(func() bool {
-					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 					if err != nil {
 						fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
 						return false
@@ -933,7 +933,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				// convert DV to use datasource
 				dvt := &vm.Spec.DataVolumeTemplates[0]
 				ds := createDataSourceFunc()
-				ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.TODO(), ds, metav1.CreateOptions{})
+				ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(testsuite.GetTestNamespace(vm)).Create(context.TODO(), ds, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				defer func() {
@@ -998,21 +998,18 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				// We check if the VM is succesfully created
 				By("Creating VM")
-				Eventually(func() bool {
-					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-					if err != nil {
-						return false
-					}
-					return true
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				Eventually(func() error {
+					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+					return err
+				}, 90*time.Second, 1*time.Second).Should(Succeed())
 
 				// Check for owner reference
-				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
+				Eventually(ThisDVWith(testsuite.GetTestNamespace(vm), vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
 
 				// We check the expected event
 				By("Expecting SourcePVCNotAvailabe event")
 				Eventually(func() bool {
-					events, err := virtClient.CoreV1().Events(vm.Namespace).List(context.Background(), metav1.ListOptions{})
+					events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(vm)).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, e := range events.Items {
 						if e.Reason == "SourcePVCNotAvailabe" {
@@ -1027,7 +1024,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				if cloneMutateFunc != nil {
 					cloneMutateFunc()
 				}
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("insufficient permissions in clone source namespace"))
 
@@ -1045,7 +1042,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, testsuite.NamespaceTestAlternative)
 				if fail {
 					Consistently(func() error {
-						_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+						_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 						return err
 					}, 5*time.Second, 1*time.Second).Should(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("insufficient permissions in clone source namespace"))
@@ -1475,23 +1472,4 @@ func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm, true
-}
-
-func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithPVCSource(sourceNamespace, sourceName),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize("1Gi")),
-	)
-
-	vm := libvmi.NewVirtualMachine(
-		libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithDataVolume("disk0", dataVolume.Name),
-			libvmi.WithResourceMemory("1Gi"),
-			libvmi.WithNamespace(targetNamespace),
-		),
-		libvmi.WithDataVolumeTemplate(dataVolume),
-	)
-	return vm
 }

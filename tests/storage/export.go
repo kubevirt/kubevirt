@@ -1282,7 +1282,15 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := newVMWithDataVolumeForExport(sc)
+		vm := libvmifact.NewPersistentDiskTinyOS(
+			libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+				),
+			),
+		)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
@@ -1357,7 +1365,15 @@ var _ = SIGDescribe("Export", func() {
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 		)
 
-		vm := newVMWithDataVolumeForExport(sc)
+		vm := libvmifact.NewPersistentDiskTinyOS(
+			libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithPVC(
+					libdv.PVCWithStorageClass(sc),
+					libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+				),
+			),
+		)
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -2164,7 +2180,15 @@ var _ = SIGDescribe("Export", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
-			vm := newVMWithDataVolumeForExport(sc)
+			vm := libvmifact.NewPersistentDiskTinyOS(
+				libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+					),
+				),
+			)
 			libstorage.AddDataVolumeTemplate(vm, blankDv)
 			addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -2316,7 +2340,15 @@ var _ = SIGDescribe("Export", func() {
 					libdv.WithBlankImageSource(),
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 				)
-				vm := newVMWithDataVolumeForExport(sc)
+				vm := libvmifact.NewPersistentDiskTinyOS(
+					libdv.NewDataVolume(
+						libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+						libdv.WithPVC(
+							libdv.PVCWithStorageClass(sc),
+							libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+						),
+					),
+				)
 				libstorage.AddDataVolumeTemplate(vm, blankDv)
 				addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -2657,27 +2689,4 @@ func (matcher *ConditionNoTimeMatcher) FailureMessage(actual interface{}) (messa
 
 func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return format.Message(actual, "not to match without time", matcher.Cond)
-}
-
-func newVMWithDataVolumeForExport(storageClass string) *virtv1.VirtualMachine {
-	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
-		),
-	)
-	vm := libvmi.NewVirtualMachine(
-		libvmi.New(
-			libvmi.WithDataVolume("disk0", dv.Name),
-			libvmi.WithResourceMemory("256Mi"),
-			libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
-			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-		),
-		libvmi.WithDataVolumeTemplate(dv),
-	)
-
-	return vm
 }
