@@ -317,21 +317,21 @@ tests:
   # values : `0+100x15  0+100x5`  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
         values: '0+100x15  0+100x5'
 
     alert_rule_test:
@@ -390,21 +390,21 @@ tests:
   # values : '0+5x90 0+5x10'  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
         values: '0+5x90 0+5x10'
 
     alert_rule_test:
