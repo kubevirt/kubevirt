@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	v12 "k8s.io/api/core/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -63,7 +63,7 @@ var _ = Describe("Evacuation", func() {
 		)).To(BeTrue())
 	}
 
-	addNode := func(node *v12.Node) {
+	addNode := func(node *k8scorev1.Node) {
 		mockQueue.ExpectAdds(1)
 		nodeSource.Add(node)
 		mockQueue.Wait()
@@ -82,8 +82,8 @@ var _ = Describe("Evacuation", func() {
 			},
 		})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
-		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v12.Node{})
-		podInformer, podSource = testutils.NewFakeInformerFor(&v12.Pod{})
+		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&k8scorev1.Node{})
+		podInformer, podSource = testutils.NewFakeInformerFor(&k8scorev1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
@@ -95,7 +95,7 @@ var _ = Describe("Evacuation", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 		// Set up mock client
-		virtClient.EXPECT().VirtualMachineInstanceMigration(v12.NamespaceDefault).Return(migrationInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8scorev1.NamespaceDefault).Return(migrationInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
@@ -170,7 +170,7 @@ var _ = Describe("Evacuation", func() {
 
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionFalse}}
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8scorev1.ConditionFalse}}
 			vmiFeeder.Add(vmi)
 
 			vmi1 := newVirtualMachine("testvm1", node.Name)
@@ -262,13 +262,13 @@ var _ = Describe("Evacuation", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionFalse,
+					Status: k8scorev1.ConditionFalse,
 				},
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionFalse,
+					Status: k8scorev1.ConditionFalse,
 				},
 			}
 			vmi.Status.EvacuationNodeName = vmi.Status.NodeName
@@ -285,7 +285,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionFalse,
+					Status: k8scorev1.ConditionFalse,
 				},
 			}
 			vmi.Status.EvacuationNodeName = node.Name
@@ -338,7 +338,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: v12.ConditionTrue,
+					Status: k8scorev1.ConditionTrue,
 				},
 			}
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
@@ -363,10 +363,10 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 
-			podSource.Add(newPod(vmi, "runningPod", v12.PodRunning, true))
-			podSource.Add(newPod(vmi, "succededPod", v12.PodSucceeded, true))
-			podSource.Add(newPod(vmi, "failedPod", v12.PodFailed, true))
-			podSource.Add(newPod(vmi, "notOwnedRunningPod", v12.PodRunning, false))
+			podSource.Add(newPod(vmi, "runningPod", k8scorev1.PodRunning, true))
+			podSource.Add(newPod(vmi, "succededPod", k8scorev1.PodSucceeded, true))
+			podSource.Add(newPod(vmi, "failedPod", k8scorev1.PodFailed, true))
+			podSource.Add(newPod(vmi, "notOwnedRunningPod", k8scorev1.PodRunning, false))
 			// pods do not cause the queue to get added to
 			// we just use them for caching purposes
 			// so wait for cache to catch up with a brief sleep
@@ -390,8 +390,8 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 
-			podSource.Add(newPod(vmi, "runningPod", v12.PodRunning, true))
-			podSource.Add(newPod(vmi, "pendingPod", v12.PodPending, true))
+			podSource.Add(newPod(vmi, "runningPod", k8scorev1.PodRunning, true))
+			podSource.Add(newPod(vmi, "pendingPod", k8scorev1.PodPending, true))
 			// pods do not cause the queue to get added to
 			// we just use them for caching purposes
 			// so wait for cache to catch up with a brief sleep
@@ -549,12 +549,12 @@ var _ = Describe("Evacuation", func() {
 	})
 })
 
-func newNode(name string) *v12.Node {
-	return &v12.Node{
+func newNode(name string) *k8scorev1.Node {
+	return &k8scorev1.Node{
 		ObjectMeta: v13.ObjectMeta{
 			Name: name,
 		},
-		Spec: v12.NodeSpec{},
+		Spec: k8scorev1.NodeSpec{},
 	}
 }
 
@@ -563,7 +563,7 @@ func newVirtualMachineMarkedForEviction(name string, nodeName string) *v1.Virtua
 	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 		{
 			Type:   v1.VirtualMachineInstanceIsMigratable,
-			Status: v12.ConditionTrue,
+			Status: k8scorev1.ConditionTrue,
 		},
 	}
 
@@ -576,22 +576,22 @@ func newVirtualMachine(name string, nodeName string) *v1.VirtualMachineInstance 
 	vmi := api.NewMinimalVMI("testvm")
 	vmi.Name = name
 	vmi.Status.NodeName = nodeName
-	vmi.Namespace = v12.NamespaceDefault
+	vmi.Namespace = k8scorev1.NamespaceDefault
 	vmi.UID = "1234"
-	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionTrue}}
+	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8scorev1.ConditionTrue}}
 	return vmi
 }
 
-func newPod(vmi *v1.VirtualMachineInstance, name string, phase v12.PodPhase, ownedByVMI bool) *v12.Pod {
-	pod := &v12.Pod{
+func newPod(vmi *v1.VirtualMachineInstance, name string, phase k8scorev1.PodPhase, ownedByVMI bool) *k8scorev1.Pod {
+	pod := &k8scorev1.Pod{
 		ObjectMeta: v13.ObjectMeta{
 			Name:      name,
 			Namespace: vmi.Namespace,
 		},
-		Status: v12.PodStatus{
+		Status: k8scorev1.PodStatus{
 			Phase: phase,
-			ContainerStatuses: []v12.ContainerStatus{
-				{Ready: false, Name: "compute", State: v12.ContainerState{Running: &v12.ContainerStateRunning{}}},
+			ContainerStatuses: []k8scorev1.ContainerStatus{
+				{Ready: false, Name: "compute", State: k8scorev1.ContainerState{Running: &k8scorev1.ContainerStateRunning{}}},
 			},
 		},
 	}
@@ -613,7 +613,7 @@ func newMigration(name string, vmi string, phase v1.VirtualMachineInstanceMigrat
 	migration := kubecli.NewMinimalMigration(name)
 	migration.Status.Phase = phase
 	migration.Spec.VMIName = vmi
-	migration.Namespace = v12.NamespaceDefault
+	migration.Namespace = k8scorev1.NamespaceDefault
 	return migration
 }
 
@@ -627,9 +627,9 @@ func newEvictionStrategyNone() *v1.EvictionStrategy {
 	return &strategy
 }
 
-func newTaint() *v12.Taint {
-	return &v12.Taint{
-		Effect: v12.TaintEffectNoSchedule,
+func newTaint() *k8scorev1.Taint {
+	return &k8scorev1.Taint{
+		Effect: k8scorev1.TaintEffectNoSchedule,
 		Key:    "kubevirt.io/drain",
 	}
 }
