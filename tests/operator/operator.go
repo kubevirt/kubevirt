@@ -2973,11 +2973,19 @@ spec:
 
 	Context("[Serial] Deployment of common-instancetypes", Serial, func() {
 		var (
+			fgEnabled     bool
 			appComponent  string
 			labelSelector string
 		)
 
 		BeforeEach(func() {
+			if fgEnabled = checks.HasFeature(virtconfig.PersistentReservation); fgEnabled {
+				// Disable feature gate for cases in which the feature gate was enabled
+				// prior to running any of these tests. (e.g. in downstream)
+				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				testsuite.EnsureKubevirtReady()
+			}
+
 			appComponent = apply.GetAppComponent(util2.GetCurrentKv(virtClient))
 			labelSelector = labels.Set{
 				v1.AppComponentLabel: appComponent,
@@ -2986,7 +2994,12 @@ spec:
 		})
 
 		AfterEach(func() {
-			tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			// Reset the feature gate to its original value after running any of these tests.
+			if fgEnabled {
+				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			} else {
+				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			}
 			testsuite.EnsureKubevirtReady()
 		})
 
