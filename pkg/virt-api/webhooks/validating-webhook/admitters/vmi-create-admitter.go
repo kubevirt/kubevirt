@@ -171,10 +171,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
-	networkInterfaceMap, newCauses := validateNetworksMatchInterfaces(field, spec, config)
-	causes = append(causes, newCauses...)
-
-	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
+	causes = append(causes, validateNetworksMatchInterfaces(field, spec, config)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
@@ -253,11 +250,11 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
 
 	// Make sure interfaces and networks are 1to1 related
-	networkInterfaceMap = make(map[string]struct{})
+	networkInterfaceMap := make(map[string]struct{})
 
 	// Make sure the port name is unique across all the interfaces
 	portForwardMap := make(map[string]struct{})
@@ -282,7 +279,7 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}
-	return networkInterfaceMap, causes
+	return causes
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
@@ -611,28 +608,6 @@ func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[s
 			Message: "Only one interface can be connected to one specific network",
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 		})
-	}
-	return causes
-}
-
-func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkInterfaceMap map[string]struct{}) (causes []metav1.StatusCause) {
-	networkDuplicates := map[string]struct{}{}
-	for i, network := range spec.Networks {
-		if _, exists := networkDuplicates[network.Name]; exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("Network with name %q already exists, every network must have a unique name", network.Name),
-				Field:   field.Child("networks").Index(i).Child("name").String(),
-			})
-		}
-		networkDuplicates[network.Name] = struct{}{}
-		if _, exists := networkInterfaceMap[network.Name]; !exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("networks").Index(i).Child("name").String(), network.Name),
-				Field:   field.Child("networks").Index(i).Child("name").String(),
-			})
-		}
 	}
 	return causes
 }

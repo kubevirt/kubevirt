@@ -36,6 +36,10 @@ var _ = Describe("Validate network source", func() {
 		const net1Name = "default"
 		const net2Name = "default2"
 		vmi := v1.VirtualMachineInstance{}
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+			{Name: net1Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			{Name: net2Name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		}
 		vmi.Spec.Networks = []v1.Network{
 			{Name: net1Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 			{Name: net2Name, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},

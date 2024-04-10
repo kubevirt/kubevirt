@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "admit.go",
         "binding.go",
+        "netiface.go",
         "netsource.go",
         "slirp.go",
         "validator.go",
@@ -25,6 +26,7 @@ go_test(
         "admit_suite_test.go",
         "admit_test.go",
         "binding_test.go",
+        "netiface_test.go",
         "netsource_test.go",
         "slirp_test.go",
     ],
