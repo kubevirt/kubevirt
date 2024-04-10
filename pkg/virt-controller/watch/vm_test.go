@@ -88,6 +88,7 @@ var _ = Describe("VirtualMachine", func() {
 		var virtClient *kubecli.MockKubevirtClient
 		var config *virtconfig.ClusterConfig
 		var kvInformer cache.SharedIndexInformer
+		var virtFakeClient *fake.Clientset
 
 		syncCaches := func() {
 			Expect(cache.WaitForCacheSync(stop,
@@ -112,7 +113,7 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-			generatedInterface := fake.NewSimpleClientset()
+			virtFakeClient = fake.NewSimpleClientset()
 
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
@@ -174,8 +175,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
-			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-			virtClient.EXPECT().GeneratedKubeVirtClient().Return(generatedInterface).AnyTimes()
+
+			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
+				virtFakeClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault),
+			).AnyTimes()
+			// TODO Remove GeneratedKubeVirtClient
+			virtClient.EXPECT().GeneratedKubeVirtClient().Return(virtFakeClient).AnyTimes()
 
 			cdiClient = cdifake.NewSimpleClientset()
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
