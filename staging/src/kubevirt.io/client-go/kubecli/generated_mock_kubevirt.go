@@ -1089,7 +1089,7 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Patch(arg0, arg1, arg2,
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *SerialConsoleOptions) (v121.StreamInterface, error) {
+func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *v121.SerialConsoleOptions) (v121.StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "SerialConsole", name, options)
 	ret0, _ := ret[0].(v121.StreamInterface)
 	ret1, _ := ret[1].(error)

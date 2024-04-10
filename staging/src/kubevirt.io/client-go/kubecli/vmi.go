@@ -94,11 +94,7 @@ type connectionStruct struct {
 	err error
 }
 
-type SerialConsoleOptions struct {
-	ConnectionTimeout time.Duration
-}
-
-func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
+func (v *vmis) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
 
 	if options != nil && options.ConnectionTimeout != 0 {
 		timeoutChan := time.Tick(options.ConnectionTimeout)

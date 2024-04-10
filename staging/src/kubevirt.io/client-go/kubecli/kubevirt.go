@@ -233,26 +233,6 @@ func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client
 
 type VirtualMachineInstanceInterface interface {
 	kvcorev1.VirtualMachineInstanceInterface
-	SerialConsole(name string, options *SerialConsoleOptions) (kvcorev1.StreamInterface, error)
-	USBRedir(vmiName string) (kvcorev1.StreamInterface, error)
-	VNC(name string) (kvcorev1.StreamInterface, error)
-	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
-	PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error)
-	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
-	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
-	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
-	Unfreeze(ctx context.Context, name string) error
-	SoftReboot(ctx context.Context, name string) error
-	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
-	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
-	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
-	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
-	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
-	VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInterface, error)
-	SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error)
-	SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error)
-	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
-	SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error
 }
 
 type ReplicaSetInterface interface {

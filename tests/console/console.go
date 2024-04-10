@@ -134,7 +134,7 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 func RunCommandAndStoreOutput(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) (string, error) {
 	virtClient := kubevirt.Client()
 
-	opts := &kubecli.SerialConsoleOptions{ConnectionTimeout: timeout}
+	opts := &kvcorev1.SerialConsoleOptions{ConnectionTimeout: timeout}
 	stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, opts)
 	if err != nil {
 		return "", err
@@ -242,7 +242,7 @@ func NewExpecter(
 	resCh := make(chan error)
 
 	startTime := time.Now()
-	serialConsoleOptions := &kubecli.SerialConsoleOptions{ConnectionTimeout: timeout}
+	serialConsoleOptions := &kvcorev1.SerialConsoleOptions{ConnectionTimeout: timeout}
 	con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, serialConsoleOptions)
 	if err != nil {
 		return nil, nil, err

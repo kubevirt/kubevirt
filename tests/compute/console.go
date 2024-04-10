@@ -83,7 +83,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 				By("opening 1st console connection")
-				stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{})
+				stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer stream.AsConn().Close()
 
@@ -114,7 +114,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				Expect(err).ToNot(HaveOccurred())
 
 				By("and connecting to it very quickly. Hopefully the VM is not yet up")
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -127,7 +127,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).To(MatchError("Timeout trying to connect to the virtual machine instance"))
 			})
 		})
@@ -138,7 +138,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
 				By("failing to connect to serial console")
-				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})
+				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{})
 				Expect(err).To(MatchError("No serial consoles are present."), "serial console should not connect if there are no serial consoles present")
 			})
 		})
