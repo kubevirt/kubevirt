@@ -328,7 +328,7 @@ When enabled, KubeVirt attempts to use post-copy live-migration in case it
 reaches its completion timeout while attempting pre-copy live-migration.
 Post-copy migrations allow even the busiest VMs to successfully live-migrate.
 However, events like a network failure or a failure in any of the source or
-destination nodes can cause the migrated VM to crash or reach inconsistency.
+destination nodes can cause the migrated VM to crash.
 Enable this option when evicting nodes is more important than keeping VMs
 alive.
 
