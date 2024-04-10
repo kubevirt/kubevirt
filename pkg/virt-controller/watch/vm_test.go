@@ -176,7 +176,9 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
 
 			// Set up mock client
-			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
+				virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault),
+			).AnyTimes()
 
 			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
 				virtFakeClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault),
