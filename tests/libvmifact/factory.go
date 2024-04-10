@@ -20,12 +20,21 @@
 package libvmifact
 
 import (
+	"context"
+	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/api/core/v1"
 	kvirtv1 "kubevirt.io/api/core/v1"
-
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -145,4 +154,41 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Firmware = &kvirtv1.Firmware{UUID: WindowsFirmware}
 	return vmi
+}
+
+func NewAlpineWithDataVolume(sc string, accessMode k8sv1.PersistentVolumeAccessMode, opts ...libvmi.Option) (*kvirtv1.VirtualMachineInstance, error) {
+	virtClient := kubevirt.Client()
+
+	imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(sc),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
+			libdv.PVCWithAccessMode(accessMode),
+			libdv.PVCWithVolumeMode(getVolumeModeForAccessMode(accessMode)),
+		),
+	)
+
+	dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	libstorage.EventuallyDV(dataVolume, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+	vmiOpts := []libvmi.Option{
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithDataVolume("disk0", dataVolume.Name),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	}
+	vmiOpts = append(vmiOpts, opts...)
+
+	return libvmi.New(vmiOpts...), nil
+}
+
+func getVolumeModeForAccessMode(accessMode k8sv1.PersistentVolumeAccessMode) k8sv1.PersistentVolumeMode {
+	if accessMode == k8sv1.ReadWriteMany {
+		return k8sv1.PersistentVolumeBlock
+	}
+	return k8sv1.PersistentVolumeFilesystem
 }

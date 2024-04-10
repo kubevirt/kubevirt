@@ -1017,7 +1017,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
 			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, func() {
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				Expect(libstorage.HasCDI()).To(BeTrue())
+				sc, foundSC := libstorage.GetRWXBlockStorageClass()
+				Expect(foundSC).To(BeTrue())
+				vmi, err := libvmifact.NewAlpineWithDataVolume(sc, k8sv1.ReadWriteMany)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 300)
@@ -1077,7 +1081,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				Expect(libstorage.HasCDI()).To(BeTrue())
+				sc, foundSC := libstorage.GetRWXBlockStorageClass()
+				Expect(foundSC).To(BeTrue())
+				vmi, err := libvmifact.NewAlpineWithDataVolume(sc, k8sv1.ReadWriteMany)
+				Expect(err).ToNot(HaveOccurred())
+
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 				tests.AddEphemeralDisk(vmi, "myephemeral", v1.VirtIO, image)
 
@@ -1096,7 +1105,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				Expect(libstorage.HasCDI()).To(BeTrue())
+				sc, foundSC := libstorage.GetRWXBlockStorageClass()
+				Expect(foundSC).To(BeTrue())
+				vmi, err := libvmifact.NewAlpineWithDataVolume(sc, k8sv1.ReadWriteMany)
+				Expect(err).ToNot(HaveOccurred())
+
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1112,8 +1126,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
+				Expect(libstorage.HasCDI()).To(BeTrue())
+				sc, foundSC := libstorage.GetRWXBlockStorageClass()
+				Expect(foundSC).To(BeTrue())
+				vmi, err := libvmifact.NewAlpineWithDataVolume(sc, k8sv1.ReadWriteMany)
+				Expect(err).ToNot(HaveOccurred())
 
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -1965,8 +1983,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				// Start the VirtualMachineInstance with the PVC attached
+				Expect(libstorage.HasCDI()).To(BeTrue())
+				sc, foundSC := libstorage.GetRWOBlockStorageClass()
+				Expect(foundSC).To(BeTrue())
+				vmi, err := libvmifact.NewAlpineWithDataVolume(sc, k8sv1.ReadWriteOnce)
+				Expect(err).ToNot(HaveOccurred())
 
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteOnce)
 				vmi.Spec.Hostname = string(cd.ContainerDiskAlpine)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
