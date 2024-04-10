@@ -57,6 +57,13 @@ import (
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
 
+type DefaultInfraComponentsNodePlacement int
+
+const (
+	AnyNode DefaultInfraComponentsNodePlacement = iota
+	RequireControlPlanePreferNonWorker
+)
+
 const (
 	replaceSpecPatchTemplate     = `{ "op": "replace", "path": "/spec", "value": %s }`
 	replaceWebhooksValueTemplate = `{ "op": "replace", "path": "/webhooks", "value": %s }`
@@ -125,7 +132,7 @@ const (
 )
 
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
-func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
+func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec, nodePlacementOption DefaultInfraComponentsNodePlacement) {
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
 	}
