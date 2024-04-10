@@ -32,7 +32,7 @@ var _ = Describe("Clone mutating webhook", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		const expectedTargetSuffix = "12345"
-		mutator := mutators.NewCloneMutatorWithTargetSuffix(expectedTargetSuffix)
+		mutator := mutators.NewCloneCreateMutatorWithTargetSuffix(expectedTargetSuffix)
 
 		expectedVirtualMachineCloneSpec := vmClone.Spec.DeepCopy()
 		expectedVirtualMachineCloneSpec.Target = &k8sv1.TypedLocalObjectReference{

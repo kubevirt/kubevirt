@@ -43,10 +43,10 @@ type CloneCreateMutator struct {
 
 func NewCloneCreateMutator() *CloneCreateMutator {
 	const randomSuffixLength = 5
-	return NewCloneMutatorWithTargetSuffix(rand.String(randomSuffixLength))
+	return NewCloneCreateMutatorWithTargetSuffix(rand.String(randomSuffixLength))
 }
 
-func NewCloneMutatorWithTargetSuffix(targetSuffix string) *CloneCreateMutator {
+func NewCloneCreateMutatorWithTargetSuffix(targetSuffix string) *CloneCreateMutator {
 	return &CloneCreateMutator{
 		targetSuffix: targetSuffix,
 	}
