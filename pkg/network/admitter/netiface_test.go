@@ -50,6 +50,21 @@ var _ = Describe("Validating VMI network spec", func() {
 		}))
 	})
 
+	It("should reject interface with missing network", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "fake.domain.devices.interfaces[0].name 'default' not found.",
+			Field:   "fake.domain.devices.interfaces[0].name",
+		}))
+	})
+
 	It("should reject networks with duplicate names", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}

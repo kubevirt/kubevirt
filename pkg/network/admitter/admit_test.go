@@ -42,6 +42,9 @@ var _ = Describe("Validating VMI network spec", func() {
 			State:                  value,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 		}
+		vm.Spec.Networks = []v1.Network{
+			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
+		}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	},
@@ -52,6 +55,7 @@ var _ = Describe("Validating VMI network spec", func() {
 	It("network interface state value is invalid", func() {
 		vm := api.NewMinimalVMI("testvm")
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: v1.InterfaceState("foo")}}
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
@@ -68,6 +72,9 @@ var _ = Describe("Validating VMI network spec", func() {
 			State:                  v1.InterfaceStateAbsent,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 		}}
+		vm.Spec.Networks = []v1.Network{
+			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
+		}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{

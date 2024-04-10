@@ -46,6 +46,26 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 	return causes
 }
 
+func validateInterfacesAssignedToNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	const nameOfTypeNotFoundMessagePattern = "%s '%s' not found."
+	networkSet := vmispec.IndexNetworkSpecByName(spec.Networks)
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+		if _, exists := networkSet[iface.Name]; !exists {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(
+					nameOfTypeNotFoundMessagePattern,
+					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+					iface.Name,
+				),
+				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		}
+	}
+	return causes
+}
+
 func validateNetworkNameUnique(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	networkSet := map[string]struct{}{}

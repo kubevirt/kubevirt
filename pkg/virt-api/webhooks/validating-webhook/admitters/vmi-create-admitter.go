@@ -262,7 +262,7 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		networkData, networkExists := networkNameMap[iface.Name]
 
-		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, &networkData, config, numOfInterfaces)...)
+		causes = append(causes, validateInterfaceNetworkBasics(field, idx, iface, &networkData, config, numOfInterfaces)...)
 
 		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
 
@@ -276,10 +276,8 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 	return causes
 }
 
-func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
-	if !networkExists {
-		causes = appendStatusCauseForNetworkNotFound(field, causes, idx, iface)
-	} else if iface.Masquerade != nil && networkData.Pod == nil {
+func validateInterfaceNetworkBasics(field *k8sfield.Path, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
+	if iface.Masquerade != nil && networkData.Pod == nil {
 		causes = appendStatusCauseForMasqueradeWithoutPodNetwork(field, causes, idx)
 	} else if iface.Masquerade != nil && link.IsReserved(iface.MacAddress) {
 		causes = appendStatusCauseForInvalidMasqueradeMacAddress(field, causes, idx)
@@ -526,15 +524,6 @@ func appendStatusCauseForMasqueradeWithoutPodNetwork(field *k8sfield.Path, cause
 	causes = append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Message: "Masquerade interface only implemented with pod network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForNetworkNotFound(field *k8sfield.Path, causes []metav1.StatusCause, idx int, iface v1.Interface) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
 	return causes

@@ -42,6 +42,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			Binding:                &v1.PluginBinding{Name: "boo"},
 		}}
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
@@ -57,6 +58,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			Name:    "foo",
 			Binding: &v1.PluginBinding{Name: "boo"},
 		}}
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	})
@@ -67,6 +69,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			Name:                   "foo",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 		}}
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	})
