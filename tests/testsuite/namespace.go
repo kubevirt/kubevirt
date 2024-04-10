@@ -21,7 +21,9 @@ package testsuite
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -35,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/klog/v2"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -46,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -363,7 +365,7 @@ func GetLabelsForNamespace(namespace string) map[string]string {
 }
 
 func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace string) error {
-	return libnet.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
+	return PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
 		if ns.Labels == nil {
 			return
 		}
@@ -412,4 +414,56 @@ func GetTestNamespace(object metav1.Object) string {
 	}
 
 	return util.NamespaceTestDefault
+}
+
+func AddLabelToNamespace(client kubecli.KubevirtClient, namespace, key, value string) error {
+	return PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
+		if ns.Labels == nil {
+			ns.Labels = map[string]string{}
+		}
+		ns.Labels[key] = value
+	})
+}
+
+func RemoveLabelFromNamespace(client kubecli.KubevirtClient, namespace, key string) error {
+	return PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
+		if ns.Labels == nil {
+			return
+		}
+		delete(ns.Labels, key)
+	})
+}
+
+func PatchNamespace(client kubecli.KubevirtClient, namespace string, patchFunc func(*k8sv1.Namespace)) error {
+	ns, err := client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	newNS := ns.DeepCopy()
+	patchFunc(newNS)
+	if reflect.DeepEqual(ns, newNS) {
+		return nil
+	}
+
+	oldJSON, err := json.Marshal(ns)
+	if err != nil {
+		return err
+	}
+
+	newJSON, err := json.Marshal(newNS)
+	if err != nil {
+		return err
+	}
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(oldJSON, newJSON, ns)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.CoreV1().Namespaces().Patch(context.Background(), ns.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -6,7 +6,6 @@ go_library(
         "expose_util.go",
         "interface.go",
         "ipaddress.go",
-        "namespace.go",
         "network_attachment_definition.go",
         "ping.go",
         "plumbing.go",
@@ -30,8 +29,6 @@ go_library(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
     ],
 )
