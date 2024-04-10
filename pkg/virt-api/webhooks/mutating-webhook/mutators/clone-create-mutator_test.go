@@ -75,6 +75,26 @@ var _ = Describe("Clone mutating webhook", func() {
 			),
 		),
 	)
+
+	It("should not mutate the spec when the target is fully set", func() {
+		const testTargetName = "my-vm"
+
+		vmClone := newVirtualMachineClone(
+			withVirtualMachineSource(testSourceVirtualMachineName),
+			withVirtualMachineTarget(testTargetName),
+		)
+
+		admissionReview, err := newAdmissionReviewForVMCloneCreation(vmClone)
+		Expect(err).ToNot(HaveOccurred())
+
+		mutator := mutators.NewCloneCreateMutator()
+
+		Expect(mutator.Mutate(admissionReview)).To(Equal(
+			&admissionv1.AdmissionResponse{
+				Allowed: true,
+			},
+		))
+	})
 })
 
 type option func(vmClone *clonev1alpha1.VirtualMachineClone)

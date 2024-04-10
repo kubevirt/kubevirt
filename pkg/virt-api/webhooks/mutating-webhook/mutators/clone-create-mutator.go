@@ -62,15 +62,21 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 		return resp
 	}
 
-	raw := ar.Request.Object.Raw
-	vmClone := &clonev1alpha1.VirtualMachineClone{}
+	vmCloneOrig := &clonev1alpha1.VirtualMachineClone{}
 
-	err := json.Unmarshal(raw, &vmClone)
-	if err != nil {
+	if err := json.Unmarshal(ar.Request.Object.Raw, &vmCloneOrig); err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
+	vmClone := vmCloneOrig.DeepCopy()
+
 	mutateClone(vmClone, mutator.targetSuffix)
+
+	if !hasTargetChanged(vmCloneOrig.Spec.Target, vmClone.Spec.Target) {
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
 
 	var patchOps []patch.PatchOperation
 	var value interface{}
@@ -123,4 +129,22 @@ func generateDefaultTarget(cloneSpec *clonev1alpha1.VirtualMachineCloneSpec, tar
 	}
 
 	return target
+}
+
+func hasTargetChanged(original, mutated *k8sv1.TypedLocalObjectReference) bool {
+	if original == nil {
+		return true
+	}
+
+	if original.Name != mutated.Name ||
+		original.Kind != mutated.Kind {
+		return true
+	}
+
+	if original.APIGroup != nil &&
+		*original.APIGroup != *mutated.APIGroup {
+		return true
+	}
+
+	return false
 }
