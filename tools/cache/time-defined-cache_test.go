@@ -20,6 +20,7 @@
 package cache_test
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -71,49 +72,41 @@ var _ = Describe("time defined cache", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should not allow two threads to set value in parallel", func() {
-		stopChannel := make(chan struct{})
-		defer close(stopChannel)
-		firstCallMadeChannel := make(chan struct{})
-
-		recalcFunctionCalls := int64(0)
+	It("when multiple go routines get a value only one is recalculating and others get the same cached value", func() {
+		firstCallBarrier := make(chan struct{})
+		recalcFunctionCallsCount := int64(0)
 
 		recalcFunc := func() (int, error) {
-			firstCallMadeChannel <- struct{}{}
-			atomic.AddInt64(&recalcFunctionCalls, 1)
-
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
-
-			select {
-			case <-ticker.C:
-				time.Sleep(100 * time.Millisecond)
-			case <-stopChannel:
-				break
-			}
-
-			return 1, nil
+			atomic.AddInt64(&recalcFunctionCallsCount, 1)
+			firstCallBarrier <- struct{}{}
+			return int(recalcFunctionCallsCount), nil
 		}
 
-		cache, err := virtcache.NewTimeDefinedCache(0, true, recalcFunc)
+		cache, err := virtcache.NewTimeDefinedCache(time.Hour, true, recalcFunc)
 		Expect(err).ToNot(HaveOccurred())
 
+		const goroutineCount = 20
+		getReturnValues := make(chan int, goroutineCount)
 		getValueFromCache := func() {
 			defer GinkgoRecover()
-			_, err = cache.Get()
+			ret, err := cache.Get()
 			Expect(err).ShouldNot(HaveOccurred())
+			getReturnValues <- ret
 		}
 
-		for i := 0; i < 5; i++ {
+		for i := 0; i < goroutineCount; i++ {
 			go getValueFromCache()
 		}
 
-		// To ensure the first call is already made
-		<-firstCallMadeChannel
+		Consistently(getReturnValues).Should(BeEmpty(), "all go routines should wait for the first one to finish")
+		Eventually(firstCallBarrier).Should(Receive(), "first go routine should start re-calculating")
+		Eventually(getReturnValues).Should(HaveLen(goroutineCount), fmt.Sprintf("expected all go routines to finish calling Get(). %d/%d finished", len(getReturnValues), goroutineCount))
 
-		Consistently(func() {
-			Expect(recalcFunctionCalls).To(Equal(int64(1)), "value is being re-calculated, only one caller is expected")
-		}).WithPolling(250 * time.Millisecond).WithTimeout(1 * time.Second)
+		close(getReturnValues)
+		for getValue := range getReturnValues {
+			Expect(getValue).To(Equal(1), "Get() calls are expected to return the cached value")
+		}
+		Expect(firstCallBarrier).To(BeEmpty(), "ensure no other go routine called the re-calculation funtion")
 	})
 
 })

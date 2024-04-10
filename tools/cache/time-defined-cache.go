@@ -23,15 +23,16 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 )
 
 type TimeDefinedCache[T any] struct {
 	minRefreshDuration time.Duration
-	lastRefresh        time.Time
-	savedValueSet      bool
-	savedValue         T
+	lastRefresh        *time.Time
+	value              T
 	reCalcFunc         func() (T, error)
-	valueLock          *sync.RWMutex
+	valueLock          *sync.Mutex
 }
 
 // NewTimeDefinedCache creates a new cache that will refresh the value every minRefreshDuration. If the value is requested
@@ -51,34 +52,30 @@ func NewTimeDefinedCache[T any](minRefreshDuration time.Duration, useValueLock b
 	}
 
 	if useValueLock {
-		t.valueLock = &sync.RWMutex{}
+		t.valueLock = &sync.Mutex{}
 	}
 
 	return t, nil
 }
 
 func (t *TimeDefinedCache[T]) Get() (T, error) {
-	if t.savedValueSet && t.minRefreshDuration.Nanoseconds() != 0 && time.Since(t.lastRefresh) <= t.minRefreshDuration {
-		if t.valueLock != nil {
-			t.valueLock.RLock()
-			defer t.valueLock.RUnlock()
-		}
-		return t.savedValue, nil
-	}
-
 	if t.valueLock != nil {
 		t.valueLock.Lock()
 		defer t.valueLock.Unlock()
 	}
 
+	if t.lastRefresh != nil && t.minRefreshDuration.Nanoseconds() != 0 && time.Since(*t.lastRefresh) <= t.minRefreshDuration {
+		return t.value, nil
+	}
+
 	value, err := t.reCalcFunc()
 	if err != nil {
-		return t.savedValue, err
+		return t.value, err
 	}
 
 	t.setWithoutLock(value)
 
-	return t.savedValue, nil
+	return t.value, nil
 }
 
 func (t *TimeDefinedCache[T]) Set(value T) {
@@ -91,7 +88,9 @@ func (t *TimeDefinedCache[T]) Set(value T) {
 }
 
 func (t *TimeDefinedCache[T]) setWithoutLock(value T) {
-	t.savedValue = value
-	t.savedValueSet = true
-	t.lastRefresh = time.Now()
+	t.value = value
+
+	if t.lastRefresh == nil || t.minRefreshDuration.Nanoseconds() != 0 {
+		t.lastRefresh = k6tpointer.P(time.Now())
+	}
 }
