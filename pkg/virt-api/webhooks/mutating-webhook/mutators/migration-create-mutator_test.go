@@ -41,12 +41,12 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 	It("Should mutate the VirtualMachineInstanceMigration object", func() {
 		migration := newMigration()
 
-		admissionReview, err := newAdmissionReview(migration)
+		admissionReview, err := newAdmissionReviewForVMIMCreation(migration)
 		Expect(err).ToNot(HaveOccurred())
 
 		mutator := &mutators.MigrationCreateMutator{}
 
-		expectedJSONPatch, err := expectedJSONPatch(
+		expectedJSONPatch, err := expectedJSONPatchForVMIMCreation(
 			expectedMigrationObjectMeta(migration.ObjectMeta, migration.Spec.VMIName),
 		)
 		Expect(err).NotTo(HaveOccurred())
@@ -72,7 +72,7 @@ func newMigration() *v1.VirtualMachineInstanceMigration {
 	}
 }
 
-func newAdmissionReview(migration *v1.VirtualMachineInstanceMigration) (*admissionv1.AdmissionReview, error) {
+func newAdmissionReviewForVMIMCreation(migration *v1.VirtualMachineInstanceMigration) (*admissionv1.AdmissionReview, error) {
 	migrationBytes, err := json.Marshal(migration)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func expectedMigrationObjectMeta(currentObjectMeta k8smetav1.ObjectMeta, vmiName
 	return expectedObjectMeta
 }
 
-func expectedJSONPatch(expectedObjectMeta k8smetav1.ObjectMeta) ([]byte, error) {
+func expectedJSONPatchForVMIMCreation(expectedObjectMeta k8smetav1.ObjectMeta) ([]byte, error) {
 	return patch.GeneratePatchPayload(
 		patch.PatchOperation{
 			Op:    patch.PatchReplaceOp,
