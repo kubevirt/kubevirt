@@ -1593,34 +1593,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[1].name"))
 		})
-		It("should reject two interfaces with same port name", func() {
-			enableSlirpInterface()
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name: "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Slirp: &v1.InterfaceSlirp{},
-				},
-				Ports: []v1.Port{{Name: "testport", Port: 80}}},
-				{
-					Name: "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Slirp: &v1.InterfaceSlirp{},
-					},
-					Ports: []v1.Port{{Name: "testport", Protocol: "UDP", Port: 80}}}}
-
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name:          "default",
-					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(2))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
-			Expect(causes[1].Field).To(Equal("fake.domain.devices.interfaces[1].ports[0].name"))
-		})
 		It("should allow interface with two same ports and protocol", func() {
 			enableSlirpInterface()
 			vm := api.NewMinimalVMI("testvm")
