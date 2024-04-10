@@ -560,6 +560,19 @@ var _ = Describe("Apply", func() {
 				Entry("nil component config", nil),
 				Entry("nil node placement", &v1.ComponentConfig{}),
 			)
+
+			Context("should not add requirement scheduling to control-plane nodes", func() {
+				It("if the user already provided a node placement", func() {
+					componentConfig = &v1.ComponentConfig{
+						NodePlacement: &v1.NodePlacement{
+							Tolerations: []corev1.Toleration{},
+						},
+					}
+					InjectPlacementMetadata(componentConfig, podSpec, RequireControlPlanePreferNonWorker)
+
+					Expect(podSpec.Affinity).To(BeNil())
+				})
+			})
 		})
 	})
 })
