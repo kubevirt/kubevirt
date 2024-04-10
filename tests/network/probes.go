@@ -60,10 +60,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		var probeBackendPod *corev1.Pod
 		if isHTTPProbe(*probe) {
 			port := probe.HTTPGet.Port.IntVal
-			probeBackendPod = tests.StartHTTPServerPod(family, int(port))
+			probeBackendPod = libnet.StartHTTPServerPod(family, int(port))
 		} else {
 			port := probe.TCPSocket.Port.IntVal
-			probeBackendPod = tests.StartTCPServerPod(family, int(port))
+			probeBackendPod = libnet.StartTCPServerPod(family, int(port))
 		}
 		return probeBackendPod, func() error {
 			return virtClient.CoreV1().Pods(testsuite.GetTestNamespace(probeBackendPod)).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})

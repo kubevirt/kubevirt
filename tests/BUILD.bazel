@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "io_utils.go",
-        "pod_servers.go",
         "utils.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests",
