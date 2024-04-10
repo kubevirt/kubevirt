@@ -48,7 +48,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -246,30 +245,6 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-// NewRandomVMI
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMI() *v1.VirtualMachineInstance {
-	// To avoid mac address issue in the tests change the pod interface binding to masquerade
-	// https://github.com/kubevirt/kubevirt/issues/1494
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-	)
-	vmi.ObjectMeta.Namespace = testsuite.GetTestNamespace(vmi)
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
-
-	if checks.IsARM64(testsuite.Arch) {
-		// Cirros image need 256M to boot on ARM64,
-		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
-	} else {
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-	}
-
-	return vmi
-}
-
 // NewRandomVMWithDataVolumeWithRegistryImport
 //
 // Deprecated: Use libvmi directly
@@ -296,17 +271,32 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
+func cirrosMemory() string {
+	// Cirros image need 256M to boot on ARM64,
+	// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
+	if checks.IsARM64(testsuite.Arch) {
+		return "256Mi"
+	}
+	return "128Mi"
+}
+
 // NewRandomVMIWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
-	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
-		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
+	opts := []libvmi.Option{
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+		libvmi.WithResourceMemory(cirrosMemory()),
+		libvmi.WithContainerDisk("disk0", containerImage),
 	}
-	return vmi
+	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
+		opts = append(
+			[]libvmi.Option{libvmi.WithRng()},
+			opts...)
+	}
+	return libvmi.New(opts...)
 }
 
 // AddEphemeralDisk
