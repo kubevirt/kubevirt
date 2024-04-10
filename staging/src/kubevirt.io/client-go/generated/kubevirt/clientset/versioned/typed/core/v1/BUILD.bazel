@@ -12,6 +12,7 @@ go_library(
         "virtualmachine.go",
         "virtualmachine_expansion.go",
         "virtualmachineinstance.go",
+        "virtualmachineinstance_expansion.go",
         "virtualmachineinstancemigration.go",
         "virtualmachineinstancepreset.go",
         "virtualmachineinstancereplicaset.go",

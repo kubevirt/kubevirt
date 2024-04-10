@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -210,7 +211,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 							expectNoErr(err)
 						},
 						func() {
-							_, err := vmiInterface.SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+							_, err := vmiInterface.SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 							expectNoErr(err)
 						},
 					}

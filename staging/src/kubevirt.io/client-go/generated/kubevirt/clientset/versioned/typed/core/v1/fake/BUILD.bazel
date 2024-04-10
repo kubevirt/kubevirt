@@ -9,6 +9,7 @@ go_library(
         "fake_virtualmachine.go",
         "fake_virtualmachine_expansion.go",
         "fake_virtualmachineinstance.go",
+        "fake_virtualmachineinstance_expansion.go",
         "fake_virtualmachineinstancemigration.go",
         "fake_virtualmachineinstancepreset.go",
         "fake_virtualmachineinstancereplicaset.go",
