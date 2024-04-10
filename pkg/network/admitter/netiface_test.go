@@ -77,4 +77,25 @@ var _ = Describe("Validating VMI network spec", func() {
 			Field:   "fake.networks[1].name",
 		}))
 	})
+
+	It("should reject interfaces with duplicate names", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			*v1.DefaultBridgeNetworkInterface(),
+			*v1.DefaultBridgeNetworkInterface(),
+		}
+		spec.Networks = []v1.Network{
+			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}}},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ContainElements(metav1.StatusCause{
+			Type:    "FieldValueDuplicate",
+			Message: "Only one interface can be connected to one specific network",
+			Field:   "fake.domain.devices.interfaces[1].name",
+		}))
+	})
 })

@@ -253,9 +253,6 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
 
-	// Make sure interfaces and networks are 1to1 related
-	networkInterfaceMap := make(map[string]struct{})
-
 	// Make sure the port name is unique across all the interfaces
 	portForwardMap := make(map[string]struct{})
 
@@ -267,10 +264,7 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, &networkData, config, numOfInterfaces)...)
 
-		causes = append(causes, validateInterfaceNameUnique(field, networkInterfaceMap, iface, idx)...)
 		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
-
-		networkInterfaceMap[iface.Name] = struct{}{}
 
 		causes = append(causes, validatePortConfiguration(field, networkExists, &networkData, iface, idx, portForwardMap)...)
 		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
@@ -595,17 +589,6 @@ func validateInterfaceNameFormat(field *k8sfield.Path, iface v1.Interface, idx i
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		})
-	}
-	return causes
-}
-
-func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[string]struct{}, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueDuplicate,
-			Message: "Only one interface can be connected to one specific network",
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 		})
 	}

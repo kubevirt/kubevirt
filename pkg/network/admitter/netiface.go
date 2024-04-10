@@ -61,3 +61,19 @@ func validateNetworkNameUnique(field *k8sfield.Path, spec *v1.VirtualMachineInst
 	}
 	return causes
 }
+
+func validateInterfaceNameUnique(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	ifaceSet := map[string]struct{}{}
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+		if _, exists := ifaceSet[iface.Name]; exists {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: "Only one interface can be connected to one specific network",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		}
+		ifaceSet[iface.Name] = struct{}{}
+	}
+	return causes
+}
