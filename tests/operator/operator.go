@@ -2966,8 +2966,10 @@ spec:
 	})
 
 	Context("[Serial] Deployment of common-instancetypes", Serial, func() {
-		var appComponent string
-		var labelSelector string
+		var (
+			appComponent  string
+			labelSelector string
+		)
 
 		BeforeEach(func() {
 			appComponent = apply.GetAppComponent(util2.GetCurrentKv(virtClient))
@@ -3027,8 +3029,10 @@ spec:
 		})
 
 		Context("Should take ownership", func() {
-			const appComponentChanged = "something"
-			const managedByChanged = "someone"
+			const (
+				appComponentChanged = "something"
+				managedByChanged    = "someone"
+			)
 
 			It("of instancetypes", func() {
 				By("Getting instancetypes to be deployed by virt-operator")
@@ -3146,9 +3150,11 @@ spec:
 		})
 
 		Context("Should revert changes", func() {
-			const keyTest = "test"
-			const valModified = "modified"
-			const cpu = uint32(1024)
+			const (
+				keyTest     = "test"
+				valModified = "modified"
+				cpu         = uint32(1024)
+			)
 
 			var preferredTopology = v1beta1.PreferThreads
 
