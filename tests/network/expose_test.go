@@ -1,4 +1,4 @@
-package network
+package network_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/network"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -82,7 +84,7 @@ func includesIpv4(ipFamily ipFamily) bool {
 	return ipFamily != ipv6
 }
 
-var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", decorators.Expose, func() {
+var _ = network.SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", decorators.Expose, func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
