@@ -1477,6 +1477,12 @@ const (
 	RunStrategyOnce VirtualMachineRunStrategy = "Once"
 )
 
+type UpdateVolumesStrategy string
+
+const (
+	UpdateVolumesStrategyReplacement UpdateVolumesStrategy = "Replacement"
+)
+
 // VirtualMachineSpec describes how the proper VirtualMachine
 // should look like
 type VirtualMachineSpec struct {
@@ -1500,6 +1506,9 @@ type VirtualMachineSpec struct {
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
 	DataVolumeTemplates []DataVolumeTemplateSpec `json:"dataVolumeTemplates,omitempty"`
+
+	// UpdateVolumesStrategy is the strategy to apply on volumes updates
+	UpdateVolumesStrategy *UpdateVolumesStrategy `json:"updateVolumesStrategy,omitempty"`
 }
 
 // StateChangeRequestType represents the existing state change requests that are possible

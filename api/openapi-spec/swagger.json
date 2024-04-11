@@ -20903,6 +20903,10 @@
      "template": {
       "description": "Template is the direct specification of VirtualMachineInstance",
       "$ref": "#/definitions/v1.VirtualMachineInstanceTemplateSpec"
+     },
+     "updateVolumesStrategy": {
+      "description": "UpdateVolumesStrategy is the strategy to apply on volumes updates",
+      "type": "string"
      }
     }
    },

@@ -24887,6 +24887,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 							},
 						},
 					},
+					"updateVolumesStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpdateVolumesStrategy is the strategy to apply on volumes updates",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"template"},
 			},

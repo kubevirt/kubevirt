@@ -7501,6 +7501,9 @@ var CRDsValidation map[string]string = map[string]string{
               - domain
               type: object
           type: object
+        updateVolumesStrategy:
+          description: UpdateVolumesStrategy is the strategy to apply on volumes updates
+          type: string
       required:
       - template
       type: object
@@ -21588,6 +21591,10 @@ var CRDsValidation map[string]string = map[string]string{
                       - domain
                       type: object
                   type: object
+                updateVolumesStrategy:
+                  description: UpdateVolumesStrategy is the strategy to apply on volumes
+                    updates
+                  type: string
               required:
               - template
               type: object
@@ -26826,6 +26833,10 @@ var CRDsValidation map[string]string = map[string]string{
                           - domain
                           type: object
                       type: object
+                    updateVolumesStrategy:
+                      description: UpdateVolumesStrategy is the strategy to apply
+                        on volumes updates
+                      type: string
                   required:
                   - template
                   type: object
