@@ -74,3 +74,48 @@ var _ = Describe("Validating network binding combinations", func() {
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 })
+
+var _ = Describe("Validating core binding", func() {
+	It("should reject a masquerade interface on a network different than pod", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			Ports:                  []v1.Port{{Name: "test"}},
+		}}
+		spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "Masquerade interface only implemented with pod network",
+			Field:   "fake.domain.devices.interfaces[0].name",
+		}))
+	})
+
+	It("should reject a masquerade interface with a specified reserved MAC address", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			MacAddress:             "02:00:00:00:00:00",
+		}}
+		spec.Networks = []v1.Network{
+			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "The requested MAC address is reserved for the in-pod bridge. Please choose another one.",
+			Field:   "fake.domain.devices.interfaces[0].macAddress",
+		}))
+	})
+})

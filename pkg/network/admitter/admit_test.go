@@ -70,7 +70,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "foo",
 			State:                  v1.InterfaceStateAbsent,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 		}}
 		vm.Spec.Networks = []v1.Network{
 			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},

@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
@@ -277,11 +276,7 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
-	if iface.Masquerade != nil && networkData.Pod == nil {
-		causes = appendStatusCauseForMasqueradeWithoutPodNetwork(field, causes, idx)
-	} else if iface.Masquerade != nil && link.IsReserved(iface.MacAddress) {
-		causes = appendStatusCauseForInvalidMasqueradeMacAddress(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
+	if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
 		causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)
 	} else if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
 		causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
@@ -516,24 +511,6 @@ func appendStatusCauseForBridgeNotEnabled(field *k8sfield.Path, causes []metav1.
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForMasqueradeWithoutPodNetwork(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Masquerade interface only implemented with pod network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForInvalidMasqueradeMacAddress(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "The requested MAC address is reserved for the in-pod bridge. Please choose another one.",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
 	})
 	return causes
 }
