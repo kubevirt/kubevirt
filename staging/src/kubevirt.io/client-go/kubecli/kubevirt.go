@@ -254,7 +254,6 @@ type VirtualMachineInterface interface {
 
 type VirtualMachineInstanceMigrationInterface interface {
 	kvcorev1.VirtualMachineInstanceMigrationInterface
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error)
 }
 
 type KubeVirtInterface interface {

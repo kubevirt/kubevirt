@@ -14,6 +14,7 @@ go_library(
         "virtualmachineinstance.go",
         "virtualmachineinstance_expansion.go",
         "virtualmachineinstancemigration.go",
+        "virtualmachineinstancemigration_expansion.go",
         "virtualmachineinstancepreset.go",
         "virtualmachineinstancereplicaset.go",
         "websocket.go",

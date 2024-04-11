@@ -20,8 +20,6 @@ package v1
 
 type KubeVirtExpansion interface{}
 
-type VirtualMachineInstanceMigrationExpansion interface{}
-
 type VirtualMachineInstancePresetExpansion interface{}
 
 type VirtualMachineInstanceReplicaSetExpansion interface{}
