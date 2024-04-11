@@ -256,12 +256,11 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 	portForwardMap := make(map[string]struct{})
 
 	// Validate that each interface has a matching network
-	numOfInterfaces := len(spec.Domain.Devices.Interfaces)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 
 		networkData, networkExists := networkNameMap[iface.Name]
 
-		causes = append(causes, validateInterfaceNetworkBasics(field, idx, iface, &networkData, config, numOfInterfaces)...)
+		causes = append(causes, validateInterfaceNetworkBasics(field, idx, iface, &networkData, config)...)
 
 		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
 
@@ -275,13 +274,11 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 	return causes
 }
 
-func validateInterfaceNetworkBasics(field *k8sfield.Path, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
+func validateInterfaceNetworkBasics(field *k8sfield.Path, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if iface.InterfaceBindingMethod.Passt != nil && !config.PasstEnabled() {
 		causes = appendStatusCauseForPasstFeatureGateNotEnabled(field, causes, idx)
 	} else if iface.Passt != nil && networkData.Pod == nil {
 		causes = appendStatusCauseForPasstWithoutPodNetwork(field, causes, idx)
-	} else if iface.Passt != nil && numOfInterfaces > 1 {
-		causes = appendStatusCauseForPasstWithMultipleInterfaces(field, causes, idx)
 	} else if iface.Binding != nil && !config.NetworkBindingPlugingsEnabled() {
 		causes = appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field, causes, idx)
 	}
@@ -495,14 +492,6 @@ func appendStatusCauseForPasstWithoutPodNetwork(field *k8sfield.Path, causes []m
 	return append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Message: "Passt interface only implemented with pod network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-}
-
-func appendStatusCauseForPasstWithMultipleInterfaces(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Passt interface is only supported as the single interface of the VMI",
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
 }
