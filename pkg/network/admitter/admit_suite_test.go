@@ -33,6 +33,7 @@ type stubClusterConfigChecker struct {
 	slirpEnabled                 bool
 	bridgeBindingOnPodNetEnabled bool
 	macvtapFeatureGateEnabled    bool
+	passtFeatureGateEnabled      bool
 }
 
 func (s stubClusterConfigChecker) IsSlirpInterfaceEnabled() bool {
@@ -45,4 +46,8 @@ func (s stubClusterConfigChecker) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 
 func (s stubClusterConfigChecker) MacvtapEnabled() bool {
 	return s.macvtapFeatureGateEnabled
+}
+
+func (s stubClusterConfigChecker) PasstEnabled() bool {
+	return s.passtFeatureGateEnabled
 }

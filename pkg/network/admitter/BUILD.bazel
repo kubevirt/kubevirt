@@ -8,6 +8,7 @@ go_library(
         "macvtap.go",
         "netiface.go",
         "netsource.go",
+        "passt.go",
         "slirp.go",
         "validator.go",
     ],
@@ -31,6 +32,7 @@ go_test(
         "macvtap_test.go",
         "netiface_test.go",
         "netsource_test.go",
+        "passt_test.go",
         "slirp_test.go",
     ],
     deps = [

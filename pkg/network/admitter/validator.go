@@ -32,6 +32,7 @@ type clusterConfigChecker interface {
 	IsSlirpInterfaceEnabled() bool
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
 	MacvtapEnabled() bool
+	PasstEnabled() bool
 }
 
 type Validator struct {
