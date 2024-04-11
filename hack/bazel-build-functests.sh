@@ -60,6 +60,9 @@ bazel run \
     :build-functests -- ${TESTS_OUT_DIR}/tests.test
 bazel run \
     --config=${HOST_ARCHITECTURE} \
+    :build-functests-sig-net -- ${TESTS_OUT_DIR}/sig-net.test
+bazel run \
+    --config=${HOST_ARCHITECTURE} \
     :build-junit-merger -- ${TESTS_OUT_DIR}/junit-merger
 bazel run \
     --config=${HOST_ARCHITECTURE} \
