@@ -28,3 +28,11 @@ import (
 func TestAdmitter(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
+
+type stubClusterConfigChecker struct {
+	slirpEnabled bool
+}
+
+func (s stubClusterConfigChecker) IsSlirpInterfaceEnabled() bool {
+	return s.slirpEnabled
+}

@@ -40,7 +40,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -55,7 +55,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		spec.Networks = []v1.Network{}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -83,7 +83,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			},
 		}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -104,7 +104,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}}},
 		}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ContainElements(metav1.StatusCause{

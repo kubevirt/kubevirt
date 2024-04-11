@@ -43,7 +43,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			Binding:                &v1.PluginBinding{Name: "boo"},
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -59,7 +59,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			Binding: &v1.PluginBinding{Name: "boo"},
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 
@@ -70,7 +70,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 })
@@ -88,7 +88,7 @@ var _ = Describe("Validating core binding", func() {
 			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
 		}}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
@@ -109,7 +109,7 @@ var _ = Describe("Validating core binding", func() {
 			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 		}
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubSlirpClusterConfigChecker{})
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
 		causes := validator.Validate()
 
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
