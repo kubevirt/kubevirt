@@ -254,13 +254,13 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no migration was actually created")
-			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7636]delete a migration", func() {
 			By("Create a migration")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Migration")
@@ -269,22 +269,22 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Delete(vmim.Name, &opts)
+			err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Delete(context.Background(), vmim.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no migration was actually deleted")
-			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7637]update a migration", func() {
 			By("Create a migration")
-			vmim, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+			vmim, err := virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update the migration")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+				vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -298,14 +298,14 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmim.Annotations["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7638]patch a migration", func() {
 			By("Create a migration")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim, &metav1.CreateOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(context.Background(), vmim, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch the migration")
@@ -314,7 +314,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(vmim.Name, &metav1.GetOptions{})
+			vmim, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Get(context.Background(), vmim.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmim.Labels["key"]).ToNot(Equal("42"))
 		})

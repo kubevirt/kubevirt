@@ -47,53 +47,37 @@ type migration struct {
 }
 
 // Create new VirtualMachineInstanceMigration in the cluster to specified namespace
-func (o *migration) Create(newMigration *v1.VirtualMachineInstanceMigration, options *k8smetav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error) {
-	opts := k8smetav1.CreateOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newMigrationResult, err := o.VirtualMachineInstanceMigrationInterface.Create(context.Background(), newMigration, opts)
+func (o *migration) Create(ctx context.Context, newMigration *v1.VirtualMachineInstanceMigration, options k8smetav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	newMigrationResult, err := o.VirtualMachineInstanceMigrationInterface.Create(ctx, newMigration, options)
 	newMigrationResult.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return newMigrationResult, err
 }
 
 // Get the VirtualMachineInstanceMigration from the cluster by its name and namespace
-func (o *migration) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVm, err := o.VirtualMachineInstanceMigrationInterface.Get(context.Background(), name, opts)
+func (o *migration) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	newVm, err := o.VirtualMachineInstanceMigrationInterface.Get(ctx, name, options)
 	newVm.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return newVm, err
 }
 
 // Update the VirtualMachineInstanceMigration instance in the cluster in given namespace
-func (o *migration) Update(migration *v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error) {
-	updatedVm, err := o.VirtualMachineInstanceMigrationInterface.Update(context.Background(), migration, k8smetav1.UpdateOptions{})
+func (o *migration) Update(ctx context.Context, migration *v1.VirtualMachineInstanceMigration, opts k8smetav1.UpdateOptions) (*v1.VirtualMachineInstanceMigration, error) {
+	updatedVm, err := o.VirtualMachineInstanceMigrationInterface.Update(ctx, migration, opts)
 	updatedVm.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 
 	return updatedVm, err
 }
 
 // Delete the defined VirtualMachineInstanceMigration in the cluster in defined namespace
-func (o *migration) Delete(name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return o.VirtualMachineInstanceMigrationInterface.Delete(context.Background(), name, opts)
+func (o *migration) Delete(ctx context.Context, name string, options k8smetav1.DeleteOptions) error {
+	return o.VirtualMachineInstanceMigrationInterface.Delete(ctx, name, options)
 }
 
 // List all VirtualMachineInstanceMigrations in given namespace
-func (o *migration) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error) {
-	opts := k8smetav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVmiMigrationList, err := o.VirtualMachineInstanceMigrationInterface.List(context.Background(), opts)
+func (o *migration) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error) {
+	newVmiMigrationList, err := o.VirtualMachineInstanceMigrationInterface.List(ctx, options)
 	for i := range newVmiMigrationList.Items {
 		newVmiMigrationList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 	}
@@ -101,16 +85,16 @@ func (o *migration) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineInst
 	return newVmiMigrationList, err
 }
 
-func (o *migration) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error) {
-	return o.VirtualMachineInstanceMigrationInterface.Patch(context.Background(), name, pt, data, k8smetav1.PatchOptions{}, subresources...)
+func (o *migration) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error) {
+	return o.VirtualMachineInstanceMigrationInterface.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-func (o *migration) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error) {
-	return o.Patch(name, pt, data, "status")
+func (o *migration) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error) {
+	return o.Patch(ctx, name, pt, data, opts, "status")
 }
 
-func (o *migration) UpdateStatus(vmim *v1.VirtualMachineInstanceMigration) (result *v1.VirtualMachineInstanceMigration, err error) {
-	result, err = o.VirtualMachineInstanceMigrationInterface.UpdateStatus(context.Background(), vmim, k8smetav1.UpdateOptions{})
+func (o *migration) UpdateStatus(ctx context.Context, vmim *v1.VirtualMachineInstanceMigration, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceMigration, err error) {
+	result, err = o.VirtualMachineInstanceMigrationInterface.UpdateStatus(ctx, vmim, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
 	return
 }

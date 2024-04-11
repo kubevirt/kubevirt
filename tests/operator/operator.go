@@ -858,7 +858,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			// the results
 			Eventually(func() error {
 				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(&metav1.ListOptions{})
+				migrationList, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
 				for _, vmi := range vmis {
 					count := 0
@@ -1906,7 +1906,7 @@ spec:
 			if len(migratableVMIs) > 0 {
 				By("Verifying that a once migrated VMI after an update can be migrated again")
 				vmi := migratableVMIs[0]
-				migration, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(vmi)).Create(libmigration.New(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
+				migration, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libmigration.New(vmi.Name, vmi.Namespace), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
 			}

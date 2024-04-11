@@ -309,14 +309,8 @@ type VirtualMachineInterface interface {
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
-	Get(name string, options *metav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error)
-	List(opts *metav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error)
-	Create(migration *v1.VirtualMachineInstanceMigration, options *metav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
-	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
-	UpdateStatus(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error)
+	kvcorev1.VirtualMachineInstanceMigrationInterface
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error)
 }
 
 type KubeVirtInterface interface {

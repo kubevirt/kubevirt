@@ -212,11 +212,11 @@ func CleanNamespaces() {
 
 		// Remove all Migration Objects
 		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error())
-		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
+		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(context.Background(), metav1.ListOptions{})
 		util.PanicOnError(err)
 		for _, migration := range migrations.Items {
 			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
-				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(context.Background(), migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
 				if !errors.IsNotFound(err) {
 					util.PanicOnError(err)
 				}

@@ -1725,7 +1725,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vmClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vm, nil)
 			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
-			migrateClient.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, errors.NewInternalError(fmt.Errorf("error creating object")))
+			migrateClient.EXPECT().Create(context.Background(), gomock.Any(), gomock.Any()).Return(nil, errors.NewInternalError(fmt.Errorf("error creating object")))
 			app.MigrateVMRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
@@ -1753,8 +1753,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vm, nil)
 			vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vmi, nil)
 
-			migrateClient.EXPECT().Create(gomock.Any(), gomock.Any()).Do(
-				func(obj interface{}, opts *k8smetav1.CreateOptions) {
+			migrateClient.EXPECT().Create(context.Background(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context, obj interface{}, opts k8smetav1.CreateOptions) {
 					Expect(opts.DryRun).To(BeEquivalentTo(migrateOptions.DryRun))
 				}).Return(&migration, nil)
 			app.MigrateVMRequestHandler(request, response)
