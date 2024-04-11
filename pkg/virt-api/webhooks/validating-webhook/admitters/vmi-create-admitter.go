@@ -276,11 +276,7 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
-	if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
-		causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
-		causes = appendStatusCauseForMacvtapOnlyAllowedWithMultus(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Passt != nil && !config.PasstEnabled() {
+	if iface.InterfaceBindingMethod.Passt != nil && !config.PasstEnabled() {
 		causes = appendStatusCauseForPasstFeatureGateNotEnabled(field, causes, idx)
 	} else if iface.Passt != nil && networkData.Pod == nil {
 		causes = appendStatusCauseForPasstWithoutPodNetwork(field, causes, idx)
@@ -483,24 +479,6 @@ func validateForwardPortNonZero(field *k8sfield.Path, forwardPort v1.Port, idx i
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 		})
 	}
-	return causes
-}
-
-func appendStatusCauseForMacvtapOnlyAllowedWithMultus(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Macvtap interface only implemented with Multus network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForMacvtapFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Macvtap feature gate is not enabled",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
 	return causes
 }
 
