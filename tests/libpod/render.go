@@ -20,8 +20,6 @@
 package libpod
 
 import (
-	"fmt"
-
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -29,7 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -42,7 +40,7 @@ func RenderPrivilegedPod(name string, cmd []string, args []string) *v1.Pod {
 	}
 	pod.Spec.Containers = []v1.Container{
 		renderPrivilegedContainerSpec(
-			fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+			libregistry.GetUtilityImageFromRegistry("vm-killer"),
 			name,
 			cmd,
 			args),
@@ -63,7 +61,7 @@ func RenderPod(name string, cmd []string, args []string) *v1.Pod {
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
 				renderContainerSpec(
-					fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+					libregistry.GetUtilityImageFromRegistry("vm-killer"),
 					name,
 					cmd,
 					args),
@@ -137,7 +135,7 @@ func RenderTargetcliPod(name, disksPVC string) *v1.Pod {
 	)
 	hostPathDirectory := v1.HostPathDirectory
 	targetcliContainer := renderPrivilegedContainerSpec(
-		fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+		libregistry.GetUtilityImageFromRegistry("vm-killer"),
 		"targetcli", []string{"tail", "-f", "/dev/null"}, []string{})
 	targetcliContainer.VolumeMounts = []v1.VolumeMount{
 		{

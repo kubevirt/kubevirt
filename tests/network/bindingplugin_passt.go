@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -61,7 +62,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 
 	BeforeEach(func() {
 		const passtBindingName = "passt"
-		const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,

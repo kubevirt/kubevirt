@@ -207,6 +207,7 @@ go_test(
         "//tests/libnet/cloudinit:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libpod:go_default_library",
+        "//tests/libregistry:go_default_library",
         "//tests/libreplicaset:go_default_library",
         "//tests/libsecret:go_default_library",
         "//tests/libssh:go_default_library",
