@@ -276,9 +276,7 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
-	if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
-		causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
+	if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
 		causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
 	} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
 		causes = appendStatusCauseForMacvtapOnlyAllowedWithMultus(field, causes, idx)
@@ -501,15 +499,6 @@ func appendStatusCauseForMacvtapFeatureGateNotEnabled(field *k8sfield.Path, caus
 	causes = append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Message: "Macvtap feature gate is not enabled",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForBridgeNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
 	return causes

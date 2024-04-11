@@ -31,12 +31,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func validateInterfaceBinding(fieldPath *field.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateInterfaceBinding(
+	fieldPath *field.Path, spec *v1.VirtualMachineInstanceSpec, config clusterConfigChecker) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	networksByName := vmispec.IndexNetworkSpecByName(spec.Networks)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		causes = append(causes, validateInterfaceBindingExists(fieldPath, idx, iface)...)
 		causes = append(causes, validateMasqueradeBinding(fieldPath, idx, iface, networksByName[iface.Name])...)
+		causes = append(causes, validateBridgeBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
 	}
 	return causes
 }
@@ -78,4 +80,16 @@ func validateMasqueradeBinding(fieldPath *field.Path, idx int, iface v1.Interfac
 		})
 	}
 	return causes
+}
+
+func validateBridgeBinding(
+	fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network, config clusterConfigChecker) []metav1.StatusCause {
+	if iface.InterfaceBindingMethod.Bridge != nil && net.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
+			Field:   fieldPath.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+		}}
+	}
+	return nil
 }

@@ -91,14 +91,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
-	disableBridgeOnPodNetwork := func() {
-		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			PermitBridgeInterfaceOnPodNetwork: pointer.Bool(false),
-		}
-
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
-	}
 
 	updateDefaultArchitecture := func(defaultArchitecture string) {
 		kvConfig := kv.DeepCopy()
@@ -1347,15 +1339,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
-		})
-		It("should reject a bridge interface on a pod network when it is not permitted", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			disableBridgeOnPodNetwork()
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
 		})
 		It("should reject a bad port name", func() {
 			vm := api.NewMinimalVMI("testvm")
