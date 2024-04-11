@@ -24,6 +24,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
