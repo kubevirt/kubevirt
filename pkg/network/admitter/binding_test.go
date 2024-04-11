@@ -43,7 +43,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			Binding:                &v1.PluginBinding{Name: "boo"},
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
+		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true, bindingPluginFGEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
@@ -60,7 +60,8 @@ var _ = Describe("Validating network binding combinations", func() {
 			Binding: &v1.PluginBinding{Name: "boo"},
 		}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
+		clusterConfig := stubClusterConfigChecker{bindingPluginFGEnabled: true}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 
@@ -132,6 +133,24 @@ var _ = Describe("Validating core binding", func() {
 		Expect(causes).To(ConsistOf(metav1.StatusCause{
 			Type:    "FieldValueInvalid",
 			Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
+			Field:   "fake.domain.devices.interfaces[0].name",
+		}))
+	})
+
+	It("should reject networks with a binding plugin interface when network-binding-plugin feature gate disabled", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:    "default",
+			Binding: &v1.PluginBinding{Name: "testplugin"},
+		}}
+		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "Binding plugins feature gate is not enabled",
 			Field:   "fake.domain.devices.interfaces[0].name",
 		}))
 	})

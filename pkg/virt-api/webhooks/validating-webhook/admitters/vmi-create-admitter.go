@@ -170,7 +170,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
-	causes = append(causes, validateNetworksMatchInterfaces(field, spec, config)...)
+	causes = append(causes, validateNetworksMatchInterfaces(field, spec)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
@@ -249,7 +249,7 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
 
 	// Make sure the port name is unique across all the interfaces
@@ -260,8 +260,6 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		networkData, networkExists := networkNameMap[iface.Name]
 
-		causes = append(causes, validateInterfaceNetworkBasics(field, idx, iface, config)...)
-
 		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
 
 		causes = append(causes, validatePortConfiguration(field, networkExists, &networkData, iface, idx, portForwardMap)...)
@@ -270,13 +268,6 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
 		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
-	}
-	return causes
-}
-
-func validateInterfaceNetworkBasics(field *k8sfield.Path, idx int, iface v1.Interface, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if iface.Binding != nil && !config.NetworkBindingPlugingsEnabled() {
-		causes = appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field, causes, idx)
 	}
 	return causes
 }
@@ -472,15 +463,6 @@ func validateForwardPortNonZero(field *k8sfield.Path, forwardPort v1.Port, idx i
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 		})
 	}
-	return causes
-}
-
-func appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Binding plugins feature gate is not enabled",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
 	return causes
 }
 
