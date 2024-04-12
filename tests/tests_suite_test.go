@@ -73,8 +73,7 @@ func TestTests(t *testing.T) {
 
 	suiteConfig, _ := GinkgoConfiguration()
 	if suiteConfig.ParallelTotal > 1 {
-		artifactsPath = filepath.Join(artifactsPath, strconv.Itoa(GinkgoParallelProcess()))
-		junitOutput = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", GinkgoParallelProcess()))
+		artifactsPath, junitOutput = testsuite.UpdateArtifactsForParallel(artifactsPath, junitOutput)
 	}
 
 	outputEnricherReporter := reporter.NewCapturedOutputEnricher(

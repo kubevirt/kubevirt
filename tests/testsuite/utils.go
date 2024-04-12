@@ -20,7 +20,11 @@
 package testsuite
 
 import (
+	"fmt"
 	"path/filepath"
+	"strconv"
+
+	. "github.com/onsi/ginkgo/v2"
 
 	"kubevirt.io/kubevirt/tests/flags"
 
@@ -33,4 +37,11 @@ func GetJunitOutputPath() string {
 		junitOutput = qe_reporters.JunitOutput
 	}
 	return junitOutput
+}
+
+func UpdateArtifactsForParallel(artifactsPath string, junitOutput string) (artifactsPathForParallel, junitOutputForParallel string) {
+	artifactsPathForParallel = filepath.Join(artifactsPath, strconv.Itoa(GinkgoParallelProcess()))
+	junitOutputForParallel = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", GinkgoParallelProcess()))
+
+	return artifactsPathForParallel, junitOutputForParallel
 }
