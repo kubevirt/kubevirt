@@ -18,3 +18,19 @@
  */
 
 package testsuite
+
+import (
+	"path/filepath"
+
+	"kubevirt.io/kubevirt/tests/flags"
+
+	qe_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
+)
+
+func GetJunitOutputPath() string {
+	junitOutput := filepath.Join(flags.ArtifactsDir, "junit.functest.xml")
+	if qe_reporters.JunitOutput != "" {
+		junitOutput = qe_reporters.JunitOutput
+	}
+	return junitOutput
+}

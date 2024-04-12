@@ -55,10 +55,7 @@ func TestTests(t *testing.T) {
 	testsuite.CalculateNamespaces()
 	maxFails := getMaxFailsFromEnv()
 	artifactsPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter")
-	junitOutput := filepath.Join(flags.ArtifactsDir, "junit.functest.xml")
-	if qe_reporters.JunitOutput != "" {
-		junitOutput = qe_reporters.JunitOutput
-	}
+	junitOutput := testsuite.GetJunitOutputPath()
 
 	suiteConfig, _ := GinkgoConfiguration()
 	if suiteConfig.ParallelTotal > 1 {
