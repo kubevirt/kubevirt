@@ -227,43 +227,26 @@ func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine)
 }
 
 func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
-	var patches []patch.PatchOperation
-
+	patchSet := patch.New()
 	if instancetypeRevision != nil {
-		patches = append(patches,
-			patch.PatchOperation{
-				Op:    patch.PatchTestOp,
-				Path:  "/spec/instancetype/revisionName",
-				Value: nil,
-			},
-			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/spec/instancetype/revisionName",
-				Value: instancetypeRevision.Name,
-			},
+		patchSet.AddOption(
+			patch.WithTest("/spec/instancetype/revisionName", nil),
+			patch.WithAdd("/spec/instancetype/revisionName", instancetypeRevision.Name),
 		)
 	}
 
 	if preferenceRevision != nil {
-		patches = append(patches,
-			patch.PatchOperation{
-				Op:    patch.PatchTestOp,
-				Path:  "/spec/preference/revisionName",
-				Value: nil,
-			},
-			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/spec/preference/revisionName",
-				Value: preferenceRevision.Name,
-			},
+		patchSet.AddOption(
+			patch.WithTest("/spec/preference/revisionName", nil),
+			patch.WithAdd("/spec/preference/revisionName", preferenceRevision.Name),
 		)
 	}
 
-	if len(patches) == 0 {
+	if patchSet.IsEmpty() {
 		return nil, nil
 	}
 
-	payload, err := patch.GeneratePatchPayload(patches...)
+	payload, err := patchSet.GeneratePayload()
 	if err != nil {
 		// This is a programmer's error and should not happen
 		return nil, fmt.Errorf("failed to generate patch payload: %w", err)
@@ -293,7 +276,7 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 		return err
 	}
 	if len(revisionPatch) > 0 {
-		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, &metav1.PatchOptions{}); err != nil {
+		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, metav1.PatchOptions{}); err != nil {
 			logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
 			return err
 		}

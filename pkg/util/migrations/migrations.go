@@ -5,6 +5,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -35,6 +36,10 @@ func FilterRunningMigrations(migrations []*v1.VirtualMachineInstanceMigration) [
 
 // IsMigrating returns true if a given VMI is still migrating and false otherwise.
 func IsMigrating(vmi *v1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		log.Log.V(4).Infof("checking if VMI is migrating, but it is empty")
+		return false
+	}
 
 	now := v12.Now()
 

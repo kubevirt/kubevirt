@@ -118,7 +118,7 @@ var _ = Describe("test configuration", func() {
 	)
 
 	nodeSelectors := map[string]string{
-		"kubernetes.io/hostname":          "node02",
+		kubev1.LabelHostname:              "node02",
 		"node-role.kubernetes.io/compute": "true",
 	}
 	DescribeTable(" when nodeSelectors", func(value, result map[string]string) {

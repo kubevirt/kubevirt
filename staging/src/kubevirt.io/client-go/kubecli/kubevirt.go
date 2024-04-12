@@ -292,15 +292,9 @@ type VirtualMachineInstancePresetInterface interface {
 // VirtualMachineInterface provides convenience methods to work with
 // virtual machines inside the cluster
 type VirtualMachineInterface interface {
-	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachine, error)
+	kvcorev1.VirtualMachineInterface
 	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
-	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineList, error)
-	Create(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
-	Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
-	Delete(ctx context.Context, name string, options *metav1.DeleteOptions) error
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
-	UpdateStatus(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.VirtualMachine, err error)
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.VirtualMachine, err error)
 	Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	Start(ctx context.Context, name string, startOptions *v1.StartOptions) error
@@ -315,14 +309,8 @@ type VirtualMachineInterface interface {
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
-	Get(name string, options *metav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error)
-	List(opts *metav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error)
-	Create(migration *v1.VirtualMachineInstanceMigration, options *metav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
-	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
-	UpdateStatus(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error)
+	kvcorev1.VirtualMachineInstanceMigrationInterface
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error)
 }
 
 type KubeVirtInterface interface {

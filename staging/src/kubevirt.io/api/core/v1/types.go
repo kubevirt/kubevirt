@@ -1174,7 +1174,7 @@ func UpdateAntiAffinityFromVMINode(pod *k8sv1.Pod, vmi *VirtualMachineInstance) 
 // This is useful for the case when a migration away from a node must occur.
 func PrepareVMINodeAntiAffinitySelectorRequirement(vmi *VirtualMachineInstance) k8sv1.NodeSelectorRequirement {
 	return k8sv1.NodeSelectorRequirement{
-		Key:      "kubernetes.io/hostname",
+		Key:      k8sv1.LabelHostname,
 		Operator: k8sv1.NodeSelectorOpNotIn,
 		Values:   []string{vmi.Status.NodeName},
 	}

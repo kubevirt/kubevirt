@@ -6,7 +6,6 @@ aliases:
     - stu-gott
     - fabiand
     - AlonaKaplan
-    - dhiller
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -25,10 +24,10 @@ aliases:
     - codificat
     - ashleyschuett
     - zcahana
+    - dhiller # 2024-03-15
   code-reviewers:
     - stu-gott
     - vladikr
-    - dhiller
     - enp0s3
     - jean-edouard
     - AlonaKaplan
@@ -115,8 +114,10 @@ aliases:
   # Owns the responsibility to keep kubevirt observable by i.e.
   # having mertics, alters, and runbooks.
   #
-  sig-observability-approvers: []
-  sig-observability-reviewers: []
+  sig-observability-approvers:
+    - sradco
+  sig-observability-reviewers:
+    - machadovilaca
 
   #
   # SIG Release

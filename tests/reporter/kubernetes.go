@@ -70,10 +70,10 @@ const (
 )
 
 type KubernetesReporter struct {
-	failureCount int
-	artifactsDir string
-	maxFails     int
-	alwaysReport bool
+	failureCount      int
+	artifactsDir      string
+	maxFails          int
+	programmaticFocus bool
 }
 
 type commands struct {
@@ -91,8 +91,8 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 
 func (r *KubernetesReporter) ConfigurePerSpecReporting(report Report) {
 	// we want to emit k8s logs anyhow if we focus tests by i.e. FIt
-	r.alwaysReport = report.SuiteHasProgrammaticFocus
-	_, err := fmt.Fprintf(GinkgoWriter, "ConfigurePerSpecReporting r.alwaysReport = %t", r.alwaysReport)
+	r.programmaticFocus = report.SuiteHasProgrammaticFocus
+	_, err := fmt.Fprintf(GinkgoWriter, "ConfigurePerSpecReporting r.programmaticFocus = %t", r.programmaticFocus)
 	if err != nil {
 		GinkgoT().Error(err)
 	}
@@ -114,12 +114,12 @@ func (r *KubernetesReporter) Report(report types.Report) {
 
 func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
-	if !r.alwaysReport && r.failureCount > r.maxFails {
+	if !r.programmaticFocus && r.failureCount > r.maxFails {
 		return
 	}
 	if specReport.Failed() {
 		r.failureCount++
-	} else if !r.alwaysReport {
+	} else if !r.programmaticFocus {
 		return
 	}
 
@@ -127,7 +127,11 @@ func (r *KubernetesReporter) ReportSpec(specReport types.SpecReport) {
 	if r.artifactsDir == "" {
 		return
 	}
-	By("Collecting Logs for failed test")
+	reason := "due to failure"
+	if r.programmaticFocus {
+		reason = "due to use of programmatic focus container"
+	}
+	By(fmt.Sprintf("Collecting Logs %s", reason))
 	r.DumpTestNamespaces(specReport.RunTime)
 }
 
@@ -257,7 +261,7 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, vmis 
 }
 
 func (r *KubernetesReporter) logVMs(virtCli kubecli.KubevirtClient) {
-	vms, err := virtCli.VirtualMachine(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
+	vms, err := virtCli.VirtualMachine(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vms: %v\n", err)
 		return
@@ -937,7 +941,7 @@ func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList 
 
 func getVMIMList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceMigrationList {
 
-	vmims, err := virtCli.VirtualMachineInstanceMigration(v1.NamespaceAll).List(&metav1.ListOptions{})
+	vmims, err := virtCli.VirtualMachineInstanceMigration(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vmims: %v\n", err)
 		return nil

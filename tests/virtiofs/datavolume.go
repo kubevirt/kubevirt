@@ -173,7 +173,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 			// We change the owner to qemu regardless of virtiofsd's privileges,
 			// because the root user will be able to access the directory anyway
-			nodeSelector := map[string]string{"kubernetes.io/hostname": node}
+			nodeSelector := map[string]string{k8sv1.LabelHostname: node}
 			args := []string{fmt.Sprintf(`chown 107 %s`, pvhostpath)}
 			pod := libpod.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 			pod.Spec.NodeSelector = nodeSelector
@@ -246,23 +246,8 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 			By("Finding virt-launcher pod")
-			var virtlauncherPod *k8sv1.Pod
-			Eventually(func() *k8sv1.Pod {
-				podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-				if err != nil {
-					return nil
-				}
-				for _, pod := range podList.Items {
-					for _, ownerRef := range pod.GetOwnerReferences() {
-						if ownerRef.UID == vmi.GetUID() {
-							virtlauncherPod = &pod
-							break
-						}
-					}
-				}
-				return virtlauncherPod
-			}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
-			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
+			virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			foundContainer := false
 			virtiofsContainerName := fmt.Sprintf("virtiofs-%s", pvcName)
 			for _, container := range virtlauncherPod.Spec.Containers {

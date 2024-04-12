@@ -75,8 +75,11 @@ The current available memory of the VM containers based on the rss. Type: Gauge.
 ### kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes
 The current available memory of the VM containers based on the working set. Type: Gauge.
 
+### kubevirt_vm_created_by_pod_total
+The total number of VMs created by namespace and virt-api pod, since install. Type: Counter.
+
 ### kubevirt_vm_created_total
-Amount of VMs created, broken down by namespace, since install. Type: Counter.
+The total number of VMs created by namespace, since install. Type: Counter.
 
 ### kubevirt_vm_error_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to error status. Type: Counter.
@@ -266,6 +269,15 @@ Returns the labels of the persistent volume claims that are used for restoring v
 
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
+
+### rest_client_rate_limiter_duration_seconds
+Client side rate limiter latency in seconds. Broken down by verb and URL. Type: Histogram.
+
+### rest_client_request_latency_seconds
+Request latency in seconds. Broken down by verb and URL. Type: Histogram.
+
+### rest_client_requests_total
+Number of HTTP requests, partitioned by status code, method, and host. Type: Counter.
 
 ## Developing new metrics
 After developing new metrics or changing old ones, please run `make generate` to regenerate this document.

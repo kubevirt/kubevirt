@@ -48,7 +48,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -119,24 +118,6 @@ func CreateSecret(name, namespace string, data map[string]string) {
 	}
 }
 
-func DeleteConfigMap(name, namespace string) {
-	virtCli := kubevirt.Client()
-
-	err := virtCli.CoreV1().ConfigMaps(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-}
-
-func DeleteSecret(name, namespace string) {
-	virtCli := kubevirt.Client()
-
-	err := virtCli.CoreV1().Secrets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util2.PanicOnError(err)
-	}
-}
-
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -197,31 +178,6 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	}
 
 	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
-func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
-	const (
-		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
-	)
-
-	output, err = exec.ExecuteCommandOnPod(
-		pod,
-		"compute",
-		[]string{"cat", cgroupV2cpusetPath},
-	)
-
-	if err == nil {
-		return
-	}
-
-	output, err = exec.ExecuteCommandOnPod(
-		pod,
-		"compute",
-		[]string{"cat", cgroupV1cpusetPath},
-	)
-
-	return
 }
 
 // NewRandomVirtualMachineInstanceWithDisk
@@ -289,30 +245,6 @@ func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, ac
 	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
 }
 
-// NewRandomVMI
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMI() *v1.VirtualMachineInstance {
-	// To avoid mac address issue in the tests change the pod interface binding to masquerade
-	// https://github.com/kubevirt/kubevirt/issues/1494
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-	)
-	vmi.ObjectMeta.Namespace = testsuite.GetTestNamespace(vmi)
-	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
-
-	if checks.IsARM64(testsuite.Arch) {
-		// Cirros image need 256M to boot on ARM64,
-		// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
-	} else {
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-	}
-
-	return vmi
-}
-
 // NewRandomVMWithDataVolumeWithRegistryImport
 //
 // Deprecated: Use libvmi directly
@@ -339,44 +271,32 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
-// NewRandomVMWithDataVolume
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithDataVolume(imageUrl string, namespace string) (*v1.VirtualMachine, bool) {
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
-	if !exists {
-		return nil, false
+func cirrosMemory() string {
+	// Cirros image need 256M to boot on ARM64,
+	// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
+	if checks.IsARM64(testsuite.Arch) {
+		return "256Mi"
 	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(imageUrl),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm, true
+	return "128Mi"
 }
 
 // NewRandomVMIWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMI()
-
-	AddEphemeralDisk(vmi, "disk0", v1.DiskBusVirtio, containerImage)
-	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
-		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
+	opts := []libvmi.Option{
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+		libvmi.WithResourceMemory(cirrosMemory()),
+		libvmi.WithContainerDisk("disk0", containerImage),
 	}
-	return vmi
+	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
+		opts = append(
+			[]libvmi.Option{libvmi.WithRng()},
+			opts...)
+	}
+	return libvmi.New(opts...)
 }
 
 // AddEphemeralDisk
@@ -424,15 +344,6 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddCloudInitConfigDriveData(vmi, "disk1", userData, "", false)
-	return vmi
-}
-
-// NewRandomVMIWithEphemeralDiskAndUserdataNetworkData
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	AddCloudInitNoCloudData(vmi, "disk1", userData, networkData, b64encode)
 	return vmi
 }
 
@@ -723,47 +634,19 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	return output
 }
 
-// RunCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration
-func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) (string, error) {
-	virtClient := kubevirt.Client()
-
-	pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
-	var vmiPod *k8sv1.Pod
-	for _, pod := range pods.Items {
-		if pod.Name == vmi.Status.MigrationState.TargetPod {
-			vmiPod = &pod
-			break
-		}
-	}
-	if vmiPod == nil {
-		return "", fmt.Errorf("failed to find migration target pod")
-	}
-
-	output, err := exec.ExecuteCommandOnPod(
-		vmiPod,
-		"compute",
-		command,
-	)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	return output, nil
-}
-
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient := kubevirt.Client()
 
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = pointer.P(false)
 		updatedVM.Spec.RunStrategy = nil
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
 	Eventually(func() error {
@@ -772,7 +655,7 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	}, timeout, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The vmi did not disappear")
 	By("VM has not the running condition")
 	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
 	}, timeout, 1*time.Second).Should(BeFalse())
@@ -788,14 +671,14 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	virtClient := kubevirt.Client()
 
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = pointer.P(true)
 		updatedVM.Spec.RunStrategy = nil
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance created
 	Eventually(func() error {
@@ -804,7 +687,7 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	}, 300*time.Second, 1*time.Second).Should(Succeed())
 	By("VMI has the running condition")
 	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
 	}, 300*time.Second, 1*time.Second).Should(BeTrue())
@@ -1289,15 +1172,15 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 	By("Starting the VirtualMachine")
 
 	Eventually(func() error {
-		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		updatedVM.Spec.Running = nil
 		updatedVM.Spec.RunStrategy = &runStrategy
-		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	// Observe the VirtualMachineInstance created
@@ -1308,19 +1191,10 @@ func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *
 
 	By("VMI has the running condition")
 	Eventually(func() bool {
-		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
 	}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
 	return updatedVM
-}
-func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
-	for key, _ := range node.Labels {
-		if strings.HasPrefix(key, v1.HostModelCPULabel) {
-			hostModel = strings.TrimPrefix(key, v1.HostModelCPULabel)
-			break
-		}
-	}
-	return hostModel
 }

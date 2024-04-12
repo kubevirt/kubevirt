@@ -25,10 +25,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/util"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -44,14 +40,19 @@ import (
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hooksv1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -127,23 +128,8 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				By("Finding virt-launcher pod")
-				var virtlauncherPod *k8sv1.Pod
-				Eventually(func() *k8sv1.Pod {
-					podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-					if err != nil {
-						return nil
-					}
-					for _, pod := range podList.Items {
-						for _, ownerRef := range pod.GetOwnerReferences() {
-							if ownerRef.UID == vmi.GetUID() {
-								virtlauncherPod = &pod
-								break
-							}
-						}
-					}
-					return virtlauncherPod
-				}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
-				Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
+				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
 				foundContainer := false
 				for _, container := range virtlauncherPod.Spec.Containers {
 					if container.Name == "hook-sidecar-0" {
@@ -357,22 +343,22 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 
 func RenderSidecar(version string) map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s", "imagePullPolicy": "IfNotPresent"}]`, version, libregistry.GetUtilityImageFromRegistry(hookSidecarImage)),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
 
 func RenderInvalidSMBiosSidecar() map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s", "imagePullPolicy": "IfNotPresent"}]`, libregistry.GetUtilityImageFromRegistry(hookSidecarImage)),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
 
 func RenderSidecarWithConfigMapPlusImage(version, name string) map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "image":"%s/%s:%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
-			version, flags.KubeVirtUtilityRepoPrefix, sidecarShimImage, flags.KubeVirtVersionTag, name, configMapKey),
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "image":"%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+			version, libregistry.GetUtilityImageFromRegistry(sidecarShimImage), name, configMapKey),
 	}
 }
 

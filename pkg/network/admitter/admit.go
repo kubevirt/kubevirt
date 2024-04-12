@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func ValidateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		if iface.State != "" && iface.State != v1.InterfaceStateAbsent {
@@ -57,29 +57,4 @@ func ValidateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineIn
 		}
 	}
 	return causes
-}
-
-func ValidateInterfaceBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	for idx, iface := range spec.Domain.Devices.Interfaces {
-		if iface.Binding != nil {
-			if hasInterfaceBindingMethod(iface) {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("logical %s interface cannot have both binding plugin and interface binding method", iface.Name),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("binding").String(),
-				})
-			}
-		}
-	}
-	return causes
-}
-
-func hasInterfaceBindingMethod(iface v1.Interface) bool {
-	return iface.InterfaceBindingMethod.Bridge != nil ||
-		iface.InterfaceBindingMethod.Slirp != nil ||
-		iface.InterfaceBindingMethod.Masquerade != nil ||
-		iface.InterfaceBindingMethod.SRIOV != nil ||
-		iface.InterfaceBindingMethod.Macvtap != nil ||
-		iface.InterfaceBindingMethod.Passt != nil
 }

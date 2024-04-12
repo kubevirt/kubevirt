@@ -119,6 +119,10 @@ func Execute() {
 
 	log.InitializeLogging(VirtOperator)
 
+	if err := metrics.SetupMetrics(); err != nil {
+		golog.Fatalf("Error setting up metrics: %v", err)
+	}
+
 	host, err := os.Hostname()
 	if err != nil {
 		golog.Fatalf("unable to get hostname: %v", err)
@@ -297,11 +301,6 @@ func Execute() {
 	app.reInitChan = make(chan string, 0)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldUpdateConfigurationMetrics)
-
-	// Setup monitoring
-	if err := metrics.SetupMetrics(); err != nil {
-		golog.Fatalf("Error setting up metrics: %v", err)
-	}
 
 	go app.Run()
 	<-app.reInitChan

@@ -44,7 +44,7 @@ var (
 			Help: "Histogram of VM migration phase transitions duration from creation time in seconds.",
 		},
 		prometheus.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi migration

@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -39,9 +37,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -68,7 +67,7 @@ func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.Persi
 			Containers: []k8sv1.Container{
 				{
 					Name:    name,
-					Image:   fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+					Image:   libregistry.GetUtilityImageFromRegistry("vm-killer"),
 					Command: cmd,
 					Args:    args,
 					SecurityContext: &k8sv1.SecurityContext{
@@ -276,7 +275,7 @@ func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      util.KubernetesIoHostName,
+									Key:      k8sv1.LabelHostname,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{nodeName},
 								},
@@ -339,7 +338,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, 
 						{
 							MatchExpressions: []k8sv1.NodeSelectorRequirement{
 								{
-									Key:      util.KubernetesIoHostName,
+									Key:      k8sv1.LabelHostname,
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{libnode.SchedulableNode},
 								},

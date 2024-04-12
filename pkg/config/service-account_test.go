@@ -23,6 +23,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -52,18 +54,9 @@ var _ = Describe("ServiceAccount", func() {
 	})
 
 	It("Should create a new service account iso disk", func() {
-		vmi := api.NewMinimalVMI("fake-vmi")
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "serviceaccount-volume",
-			VolumeSource: v1.VolumeSource{
-				ServiceAccount: &v1.ServiceAccountVolumeSource{
-					ServiceAccountName: "testaccount",
-				},
-			},
-		})
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "serviceaccount-volume",
-		})
+		vmi := libvmi.New(
+			libvmi.WithServiceAccountDisk("testaccount"),
+		)
 
 		err := CreateServiceAccountDisk(vmi, false)
 		Expect(err).NotTo(HaveOccurred())

@@ -1141,7 +1141,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 							NodeSelectorTerms: []kubev1.NodeSelectorTerm{
 								{
 									MatchExpressions: []kubev1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
+										{Key: k8sv1.LabelHostname, Operator: kubev1.NodeSelectorOpIn, Values: []string{nodeWithHugepages.Name}},
 									},
 								},
 							},
@@ -1614,7 +1614,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMI()
+				vmi = libvmifact.NewGuestless()
 			})
 
 			It("[test_id:6960]should reject disk with missing volume", func() {
@@ -1653,7 +1653,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				tests.UpdateKubeVirtConfigValueAndWait(*config)
 
 				By("Creating a new VMI")
-				vmi := tests.NewRandomVMI()
+				vmi := libvmifact.NewGuestless()
 				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
 				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
 				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
@@ -1670,7 +1670,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := util.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
-			vmi := tests.RunVMIAndExpectLaunch(tests.NewRandomVMI(), 60)
+			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
 
 			By("Checking for absence of runtimeClassName")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1896,7 +1896,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			vmi.Spec.Domain.Machine = nil
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1934,8 +1934,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine = nil
+			vmi := libvmifact.NewGuestless()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
@@ -1974,7 +1973,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:3128]should set CPU request when it is not provided", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -1992,7 +1991,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.CPURequest = &configureCPURequest
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
@@ -2015,7 +2014,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 		It("should not set a CPU limit if the namespace doesn't match the selector", func() {
 			By("Creating a running VMI")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			By("Ensuring no CPU limit is set")
@@ -2027,10 +2026,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 		It("should set a CPU limit if the namespace matches the selector", func() {
 			By("Creating a VMI object")
-			vmi := tests.NewRandomVMI()
+			vmi := libvmifact.NewGuestless()
 
 			By("Adding the right label to VMI namespace")
-			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
+			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			namespace.Labels["autocpulimit"] = "true"
 			namespace, err = virtClient.CoreV1().Namespaces().Update(context.Background(), namespace, metav1.UpdateOptions{})
@@ -2590,7 +2589,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2712,7 +2711,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.GetPodCPUSet(readyPod)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2905,7 +2904,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						kubev1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
-				cpuvmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				cpuvmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 2,
@@ -2915,7 +2914,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						kubev1.ResourceMemory: resource.MustParse("512M"),
 					},
 				}
-				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
 			})
 
 			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
@@ -3468,4 +3467,29 @@ func getVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error
 	Expect(err).ToNot(HaveOccurred())
 
 	return strings.TrimSpace(output), err
+}
+
+func getPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
+	const (
+		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+		cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+	)
+
+	output, err = exec.ExecuteCommandOnPod(
+		pod,
+		"compute",
+		[]string{"cat", cgroupV2cpusetPath},
+	)
+
+	if err == nil {
+		return
+	}
+
+	output, err = exec.ExecuteCommandOnPod(
+		pod,
+		"compute",
+		[]string{"cat", cgroupV1cpusetPath},
+	)
+
+	return
 }

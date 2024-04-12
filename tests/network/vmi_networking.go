@@ -57,12 +57,10 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -253,7 +251,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 								{
 									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVMI.Status.NodeName}},
+										{Key: k8sv1.LabelHostname, Operator: op, Values: []string{inboundVMI.Status.NodeName}},
 									},
 								},
 							},
@@ -409,28 +407,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).To(HaveOccurred())
 			testErr := err.(*errors.StatusError)
 			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
-		})
-	})
-
-	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
-		It("[test_id:1773]should configure custom MAC address", func() {
-			By(checkingEth0MACAddr)
-			slirpIface := libvmi.InterfaceDeviceWithSlirpBinding(v1.DefaultPodNetwork().Name)
-			slirpIface.MacAddress = "de:ad:00:00:be:af"
-			deadbeafVMI := libvmifact.NewAlpine(
-				libvmi.WithInterface(slirpIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			const unregisterSlipImageWarning = "no Slirp network binding plugin image is set in Kubevirt config, using " +
-				"'quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8' sidecar image for Slirp network binding configuration"
-			warnings := append(testsuite.TestRunConfiguration.WarningToIgnoreList, unregisterSlipImageWarning)
-			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine, libwait.WithWarningsIgnoreList(warnings))
-			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
-
-			events.ExpectEvent(deadbeafVMI, k8sv1.EventTypeWarning, netbinding.UnregisteredNetworkBindingPluginReason)
 		})
 	})
 

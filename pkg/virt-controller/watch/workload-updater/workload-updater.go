@@ -10,7 +10,6 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +30,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
@@ -45,15 +45,6 @@ const (
 	SuccessfulEvictVirtualMachineInstanceReason = "SuccessfulEvict"
 )
 
-var (
-	outdatedVirtualMachineInstanceWorkloads = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "kubevirt_vmi_number_of_outdated",
-			Help: "Indication for the total number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.",
-		},
-	)
-)
-
 // time to wait before re-enqueing when outdated VMIs are still detected
 const periodicReEnqueueIntervalSeconds = 30
 
@@ -62,10 +53,6 @@ const defaultThrottleInterval = 5 * time.Second
 
 const defaultBatchDeletionIntervalSeconds = 60
 const defaultBatchDeletionCount = 10
-
-func init() {
-	prometheus.MustRegister(outdatedVirtualMachineInstanceWorkloads)
-}
 
 type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
@@ -429,7 +416,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		return err
 	}
 
-	outdatedVirtualMachineInstanceWorkloads.Set(float64(len(data.allOutdatedVMIs)))
+	metrics.SetOutdatedVirtualMachineInstanceWorkloads(len(data.allOutdatedVMIs))
 
 	// update outdated workload count on kv
 	if kv.Status.OutdatedVirtualMachineInstanceWorkloads == nil || *kv.Status.OutdatedVirtualMachineInstanceWorkloads != len(data.allOutdatedVMIs) {
@@ -529,7 +516,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	for _, vmi := range migrationCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), &virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						virtv1.WorkloadUpdateMigrationAnnotation: "",
@@ -539,7 +526,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
-			}, &metav1.CreateOptions{})
+			}, metav1.CreateOptions{})
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)

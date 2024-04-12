@@ -145,6 +145,22 @@ func fetchMetric(cli kubecli.KubevirtClient, query string) (*QueryRequestResult,
 	return &result, nil
 }
 
+func QueryRange(cli kubecli.KubevirtClient, query string, start time.Time, end time.Time, step time.Duration) (*QueryRequestResult, error) {
+	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query_range?query=%s&start=%d&end=%d&step=%d", query, start.Unix(), end.Unix(), int(step.Seconds())))
+
+	var result QueryRequestResult
+	err := json.Unmarshal(bodyBytes, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Status != "success" {
+		return nil, fmt.Errorf("api request failed. result: %v", result)
+	}
+
+	return &result, nil
+}
+
 func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte {
 
 	monitoringNs := getMonitoringNs(cli)

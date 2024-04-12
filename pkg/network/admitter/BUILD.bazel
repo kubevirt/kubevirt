@@ -2,7 +2,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["admit.go"],
+    srcs = [
+        "admit.go",
+        "binding.go",
+        "netsource.go",
+        "slirp.go",
+        "validator.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/network/admitter",
     visibility = ["//visibility:public"],
     deps = [
@@ -15,11 +21,18 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["admit_test.go"],
+    srcs = [
+        "admit_suite_test.go",
+        "admit_test.go",
+        "binding_test.go",
+        "netsource_test.go",
+        "slirp_test.go",
+    ],
     deps = [
         ":go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",

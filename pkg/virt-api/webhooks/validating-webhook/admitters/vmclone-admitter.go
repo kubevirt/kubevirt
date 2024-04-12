@@ -54,7 +54,7 @@ type VirtualMachineCloneAdmitter struct {
 	Client kubecli.KubevirtClient
 }
 
-// NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
+// NewVMCloneAdmitter creates a VM Clone Admitter
 func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VirtualMachineCloneAdmitter {
 	return &VirtualMachineCloneAdmitter{
 		Config: config,
@@ -290,7 +290,7 @@ func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, k
 }
 
 func validateCloneSourceVM(client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
-	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, &metav1.GetOptions{})
+	vm, err := client.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	causes := validateCloneSourceExists(err, sourceField, virtualMachineKind, name, namespace)
 
 	if causes != nil {

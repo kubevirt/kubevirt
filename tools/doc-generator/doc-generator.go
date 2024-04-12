@@ -15,6 +15,7 @@ import (
 	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
 	virt_api "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	virt_controller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	virt_handler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	virt_operator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 	_ "kubevirt.io/kubevirt/pkg/virt-controller/watch"
@@ -152,25 +153,12 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 		},
 	}
 
-	err := virt_controller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
-	checkError(err)
-	for _, m := range virt_controller.ListMetrics() {
-		metrics = append(metrics, newMetric(m))
-	}
+	metrics = append(metrics, getVirtControllerMetrics()...)
+	metrics = append(metrics, getComponentMetrics(virt_api.SetupMetrics, virt_api.ListMetrics)...)
+	metrics = append(metrics, getComponentMetrics(virt_operator.SetupMetrics, virt_operator.ListMetrics)...)
+	metrics = append(metrics, getComponentMetrics(virt_handler.SetupMetrics, virt_handler.ListMetrics)...)
 
-	err = virt_api.SetupMetrics()
-	checkError(err)
-	for _, m := range virt_api.ListMetrics() {
-		metrics = append(metrics, newMetric(m))
-	}
-
-	err = virt_operator.SetupMetrics()
-	checkError(err)
-	for _, m := range virt_operator.ListMetrics() {
-		metrics = append(metrics, newMetric(m))
-	}
-
-	err = rules.SetupRules("")
+	err := rules.SetupRules("")
 	checkError(err)
 
 	for _, rule := range rules.ListRecordingRules() {
@@ -180,6 +168,31 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 			mType:       string(rule.GetType()),
 		})
 	}
+
+	return metrics
+}
+
+func getVirtControllerMetrics() metricList {
+	err := virt_controller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+	checkError(err)
+	return listComponentMetrics(virt_controller.ListMetrics)
+}
+
+func getComponentMetrics(setup func() error, list func() []operatormetrics.Metric) metricList {
+	err := setup()
+	checkError(err)
+	return listComponentMetrics(list)
+}
+
+func listComponentMetrics(list func() []operatormetrics.Metric) metricList {
+	metrics := metricList{}
+
+	for _, m := range list() {
+		metrics = append(metrics, newMetric(m))
+	}
+
+	err := operatormetrics.CleanRegistry()
+	checkError(err)
 
 	return metrics
 }

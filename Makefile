@@ -210,6 +210,7 @@ lint:
 	hack/dockerized "golangci-lint run --timeout 20m --verbose \
 	  pkg/instancetype/... \
 	  pkg/libvmi/... \
+	  pkg/network/admitter/... \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
 	  pkg/network/sriov/... \
@@ -218,6 +219,7 @@ lint:
 	  tests/libnode/... \
 	  tests/libpod/... \
 	  tests/libvmifact/... \
+	  tests/libsecret/... \
 	  && \
 	  golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
 	  ./pkg/... \
