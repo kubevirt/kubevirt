@@ -26,9 +26,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"kubevirt.io/client-go/log"
 
 	"k8s.io/client-go/tools/clientcmd"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )

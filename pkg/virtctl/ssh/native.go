@@ -12,11 +12,11 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
-	"kubevirt.io/client-go/log"
 
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 )
 
 const (
