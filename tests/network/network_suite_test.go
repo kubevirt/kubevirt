@@ -69,7 +69,7 @@ func TestTests(t *testing.T) {
 
 	if qe_reporters.Polarion.Run {
 		if suiteConfig.ParallelTotal > 1 {
-			qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
+			qe_reporters.Polarion.Filename = testsuite.GetPolarionFilename()
 		}
 		afterSuiteReporters = append(afterSuiteReporters, &qe_reporters.Polarion)
 	}

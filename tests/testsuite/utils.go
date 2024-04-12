@@ -45,3 +45,7 @@ func UpdateArtifactsForParallel(artifactsPath string, junitOutput string) (artif
 
 	return artifactsPathForParallel, junitOutputForParallel
 }
+
+func GetPolarionFilename() string {
+	return filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
+}
