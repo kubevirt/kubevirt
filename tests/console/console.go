@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
@@ -258,7 +259,7 @@ func NewExpecter(
 	timeout -= serialConsoleCreateDuration
 
 	go func() {
-		resCh <- con.Stream(kubecli.StreamOptions{
+		resCh <- con.Stream(kvcorev1.StreamOptions{
 			In:  vmiReader,
 			Out: expecterWriter,
 		})

@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
@@ -91,7 +92,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 						return
 					}
 
-					k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+					k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
 						In:  pipeInReader,
 						Out: pipeOutWriter,
 					})
@@ -145,7 +146,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			Expect(err).ToNot(HaveOccurred())
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource, url.Values{})
+			req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource, url.Values{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Add an Origin header to look more like an arbitrary browser
@@ -169,7 +170,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			Expect(err).ToNot(HaveOccurred())
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc", url.Values{})
+			req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc", url.Values{})
 			Expect(err).ToNot(HaveOccurred())
 			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())
@@ -303,8 +304,8 @@ func upgradeCheckRoundTripperFromConfig(config *rest.Config, subprotocols []stri
 	dialer := &websocket.Dialer{
 		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
-		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
-		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
+		WriteBufferSize: kvcorev1.WebsocketMessageBufferSize,
+		ReadBufferSize:  kvcorev1.WebsocketMessageBufferSize,
 		Subprotocols:    subprotocols,
 	}
 

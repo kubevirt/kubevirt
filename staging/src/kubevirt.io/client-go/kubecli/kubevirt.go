@@ -27,8 +27,6 @@ package kubecli
 
 import (
 	"context"
-	"io"
-	"net"
 	"time"
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
@@ -233,23 +231,13 @@ func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
 }
 
-type StreamOptions struct {
-	In  io.Reader
-	Out io.Writer
-}
-
-type StreamInterface interface {
-	Stream(options StreamOptions) error
-	AsConn() net.Conn
-}
-
 type VirtualMachineInstanceInterface interface {
 	kvcorev1.VirtualMachineInstanceInterface
-	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
-	USBRedir(vmiName string) (StreamInterface, error)
-	VNC(name string) (StreamInterface, error)
+	SerialConsole(name string, options *SerialConsoleOptions) (kvcorev1.StreamInterface, error)
+	USBRedir(vmiName string) (kvcorev1.StreamInterface, error)
+	VNC(name string) (kvcorev1.StreamInterface, error)
 	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
-	PortForward(name string, port int, protocol string) (StreamInterface, error)
+	PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error)
 	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
 	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
 	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
@@ -260,7 +248,7 @@ type VirtualMachineInstanceInterface interface {
 	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
-	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
+	VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInterface, error)
 	SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error)
 	SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error)
 	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
@@ -292,7 +280,7 @@ type VirtualMachineInterface interface {
 	Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
-	PortForward(name string, port int, protocol string) (StreamInterface, error)
+	PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error)
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
 }
