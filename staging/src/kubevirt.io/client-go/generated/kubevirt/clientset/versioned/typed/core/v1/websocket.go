@@ -17,7 +17,7 @@
  *
  */
 
-package kubecli
+package v1
 
 import (
 	"crypto/tls"

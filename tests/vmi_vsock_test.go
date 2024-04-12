@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -213,7 +214,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 				stopChan <- err
 				return
 			}
-			stopChan <- vsock.Stream(kubecli.StreamOptions{
+			stopChan <- vsock.Stream(kvcorev1.StreamOptions{
 				In:  svrConn,
 				Out: svrConn,
 			})
@@ -271,7 +272,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		}()
 		vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(9999)})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(vsock.Stream(kubecli.StreamOptions{
+		Expect(vsock.Stream(kvcorev1.StreamOptions{
 			In:  svrConn,
 			Out: svrConn,
 		})).NotTo(Succeed())

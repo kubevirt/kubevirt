@@ -38,6 +38,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
 var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
@@ -251,7 +252,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		pipeOutReader, pipeOutWriter := io.Pipe()
 
 		go func() {
-			vnc.Stream(StreamOptions{
+			vnc.Stream(kvcorev1.StreamOptions{
 				In:  pipeInReader,
 				Out: pipeOutWriter,
 			})

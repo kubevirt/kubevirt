@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/virtctl/templates:go_default_library",
         "//pkg/virtctl/utils:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",

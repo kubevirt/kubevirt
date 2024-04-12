@@ -218,6 +218,6 @@ func (v *vm) RemoveVolume(ctx context.Context, name string, removeVolumeOptions 
 	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
-func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
+func (v *vm) PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
+	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
 }

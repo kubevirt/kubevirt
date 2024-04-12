@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -93,7 +94,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 					io.Copy(io.Discard, outReader)
 				}()
 				go func() {
-					firstConsoleErrChan <- stream.Stream(kubecli.StreamOptions{
+					firstConsoleErrChan <- stream.Stream(kvcorev1.StreamOptions{
 						In:  inReader,
 						Out: outWriter,
 					})
