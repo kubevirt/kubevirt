@@ -283,7 +283,9 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 		log.Log.Errorf("No supported VNC app found in %s", osType)
 		err = fmt.Errorf("No supported VNC app found in %s", osType)
 	} else {
-		log.Log.Infof("Executing commandline: '%s %v'", vncBin, args)
+		if log.Log.Verbosity(4) {
+			log.Log.Infof("Executing commandline: '%s %v'", vncBin, args)
+		}
 		// #nosec No risk for attacket injection. vncBin and args include predefined strings
 		cmnd := exec.Command(vncBin, args...)
 		output, err := cmnd.CombinedOutput()
@@ -298,7 +300,9 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 
 func tigerVncArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf(listenAddressFmt, port))
-	args = append(args, "Log=*:stderr:100")
+	if log.Log.Verbosity(4) {
+		args = append(args, "Log=*:stderr:100")
+	}
 	return
 }
 
@@ -312,13 +316,17 @@ func realVncArgs(port int) (args []string) {
 	args = append(args, "-WarnUnencrypted=0")
 	args = append(args, "-Shared=0")
 	args = append(args, "-ShareFiles=0")
-	args = append(args, "-log=*:stderr:100")
+	if log.Log.Verbosity(4) {
+		args = append(args, "-log=*:stderr:100")
+	}
 	return
 }
 
 func remoteViewerArgs(port int) (args []string) {
 	args = append(args, fmt.Sprintf("vnc://127.0.0.1:%d", port))
-	args = append(args, "--debug")
+	if log.Log.Verbosity(4) {
+		args = append(args, "--debug")
+	}
 	return
 }
 
