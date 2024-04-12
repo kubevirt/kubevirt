@@ -76,6 +76,8 @@ type DeploymentOperatorParams struct {
 	VirtIOWinContainer  string
 	Smbios              string
 	Machinetype         string
+	Amd64MachineType    string
+	Arm64MachineType    string
 	HcoKvIoVersion      string
 	KubevirtVersion     string
 	CdiVersion          string
@@ -227,6 +229,14 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 							{
 								Name:  "MACHINETYPE",
 								Value: params.Machinetype,
+							},
+							{
+								Name:  "AMD64_MACHINETYPE",
+								Value: params.Amd64MachineType,
+							},
+							{
+								Name:  "ARM64_MACHINETYPE",
+								Value: params.Arm64MachineType,
 							},
 							{
 								Name:  util.HcoKvIoVersionName,

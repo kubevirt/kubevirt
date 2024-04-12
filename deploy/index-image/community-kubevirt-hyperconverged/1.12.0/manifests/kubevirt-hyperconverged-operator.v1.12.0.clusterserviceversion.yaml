@@ -3330,6 +3330,8 @@ spec:
                     Manufacturer: KubeVirt
                     Product: None
                 - name: MACHINETYPE
+                - name: AMD64_MACHINETYPE
+                - name: ARM64_MACHINETYPE
                 - name: HCO_KV_IO_VERSION
                   value: 1.12.0
                 - name: KUBEVIRT_VERSION

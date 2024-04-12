@@ -65,7 +65,9 @@ var (
 	cliDownloadsImage = flag.String("cli-downloads-image", "", "Downloads Server image")
 	kvVirtIOWinImage  = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
 	smbios            = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
-	machinetype       = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
+	machinetype       = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap (Deprecated, use amd64-machinetype)")
+	amd64MachineType  = flag.String("amd64-machinetype", "", "Custom AMD64_MACHINETYPE string for KubeVirt ConfigMap")
+	arm64MachineType  = flag.String("arm64-machinetype", "", "Custom ARM64_MACHINETYPE string for KubeVirt ConfigMap")
 	hcoKvIoVersion    = flag.String("hco-kv-io-version", "", "KubeVirt version")
 	kubevirtVersion   = flag.String("kubevirt-version", "", "Kubevirt operator version")
 	cdiVersion        = flag.String("cdi-version", "", "CDI operator version")
@@ -425,6 +427,8 @@ func getOperatorParameters() *components.DeploymentOperatorParams {
 		VirtIOWinContainer: *kvVirtIOWinImage,
 		Smbios:             *smbios,
 		Machinetype:        *machinetype,
+		Amd64MachineType:   *amd64MachineType,
+		Arm64MachineType:   *arm64MachineType,
 		HcoKvIoVersion:     *hcoKvIoVersion,
 		KubevirtVersion:    *kubevirtVersion,
 		CdiVersion:         *cdiVersion,

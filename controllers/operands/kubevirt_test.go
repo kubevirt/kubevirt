@@ -172,10 +172,6 @@ var _ = Describe("KubeVirt Operand", func() {
 		var hco *hcov1beta1.HyperConverged
 		var req *common.HcoRequest
 
-		defer os.Unsetenv(smbiosEnvName)
-		defer os.Unsetenv(machineTypeEnvName)
-		defer os.Unsetenv(kvmEmulationEnvName)
-
 		BeforeEach(func() {
 			hco = commontestutils.NewHco()
 			req = commontestutils.NewReq(hco)
@@ -186,8 +182,17 @@ Manufacturer: smbios manufacturer
 Sku: 1.2.3
 Version: 1.2.3`)
 
-			os.Setenv(machineTypeEnvName, "machine-type")
+			os.Setenv(amd64MachineTypeEnvName, "q35")
+			os.Setenv(arm64MachineTypeEnvName, "virt")
 			os.Setenv(kvmEmulationEnvName, "false")
+
+			DeferCleanup(func() {
+				os.Unsetenv(smbiosEnvName)
+				os.Unsetenv(machineTypeEnvName)
+				os.Unsetenv(amd64MachineTypeEnvName)
+				os.Unsetenv(arm64MachineTypeEnvName)
+				os.Unsetenv(kvmEmulationEnvName)
+			})
 		})
 
 		It("should create if not present", func() {
@@ -232,8 +237,11 @@ Version: 1.2.3`)
 			Expect(foundResource.Spec.Configuration.DeveloperConfiguration.DiskVerification).ToNot(BeNil())
 			Expect(*foundResource.Spec.Configuration.DeveloperConfiguration.DiskVerification.MemoryLimit).To(Equal(kvDiskVerificationMemoryLimit))
 
-			Expect(foundResource.Spec.Configuration.MachineType).To(Equal("machine-type"))
-			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).To(Equal("machine-type"))
+			Expect(foundResource.Spec.Configuration.MachineType).To(BeEmpty())
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).To(Equal("q35"))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.OVMFPath).To(Equal(DefaultAMD64OVMFPath))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Arm64.MachineType).To(Equal("virt"))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Arm64.OVMFPath).To(Equal(DefaultARM64OVMFPath))
 
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig).ToNot(BeNil())
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig.Family).To(Equal("smbios family"))
@@ -370,17 +378,20 @@ Product: smbios product
 Manufacturer: smbios manufacturer
 Sku: 1.2.3
 Version: 1.2.3`)
-			os.Setenv(machineTypeEnvName, "machine-type")
+			os.Setenv(amd64MachineTypeEnvName, "q35")
+			os.Setenv(arm64MachineTypeEnvName, "virt")
 
 			existKv, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			existKv.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
 				FeatureGates: []string{"wrongFG1", "wrongFG2", "wrongFG3"},
 			}
-			existKv.Spec.Configuration.MachineType = "wrong machine type"
 			existKv.Spec.Configuration.ArchitectureConfiguration = &kubevirtcorev1.ArchConfiguration{
 				Amd64: &kubevirtcorev1.ArchSpecificConfiguration{
-					MachineType: "wrong machine type",
+					MachineType: "wrong amd64 machine type",
+				},
+				Arm64: &kubevirtcorev1.ArchSpecificConfiguration{
+					MachineType: "wrong arm64 machine type",
 				},
 			}
 			existKv.Spec.Configuration.SMBIOSConfig = &kubevirtcorev1.SMBiosConfiguration{
@@ -434,8 +445,11 @@ Version: 1.2.3`)
 				kvWithHostPassthroughCPU,
 			))
 
-			Expect(foundResource.Spec.Configuration.MachineType).To(Equal("machine-type"))
-			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).To(Equal("machine-type"))
+			Expect(foundResource.Spec.Configuration.MachineType).To(BeEmpty())
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).To(Equal("q35"))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.OVMFPath).To(Equal(DefaultAMD64OVMFPath))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Arm64.MachineType).To(Equal("virt"))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Arm64.OVMFPath).To(Equal(DefaultARM64OVMFPath))
 
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig).ToNot(BeNil())
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig.Family).To(Equal("smbios family"))
@@ -460,6 +474,20 @@ Version: 1.2.3`)
 			Expect(mc.Network).To(BeNil())
 			Expect(*mc.AllowAutoConverge).To(BeFalse())
 			Expect(*mc.AllowPostCopy).To(BeFalse())
+		})
+
+		It("should use legacy MACHINETYPE env if provided", func() {
+			os.Setenv(machineTypeEnvName, "legacy")
+			os.Setenv(amd64MachineTypeEnvName, "q35")
+			os.Unsetenv(arm64MachineTypeEnvName)
+
+			kv, err := NewKubeVirt(hco, commontestutils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(kv.Spec.Configuration.MachineType).To(BeEmpty())
+			Expect(kv.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).To(Equal("legacy"))
+			Expect(kv.Spec.Configuration.ArchitectureConfiguration.Amd64.OVMFPath).To(Equal(DefaultAMD64OVMFPath))
+			Expect(kv.Spec.Configuration.ArchitectureConfiguration.Arm64).To(BeNil())
 		})
 
 		It("should fail if the SMBIOS is wrongly formatted mandatory configurations", func() {

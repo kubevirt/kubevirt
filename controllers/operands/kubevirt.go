@@ -30,13 +30,16 @@ import (
 
 // env vars
 const (
-	kvmEmulationEnvName = "KVM_EMULATION"
-	smbiosEnvName       = "SMBIOS"
-	machineTypeEnvName  = "MACHINETYPE"
+	kvmEmulationEnvName     = "KVM_EMULATION"
+	smbiosEnvName           = "SMBIOS"
+	machineTypeEnvName      = "MACHINETYPE"
+	amd64MachineTypeEnvName = "AMD64_MACHINETYPE"
+	arm64MachineTypeEnvName = "ARM64_MACHINETYPE"
 )
 
 const (
-	DefaultOVMFPath              = "/usr/share/OVMF"
+	DefaultAMD64OVMFPath         = "/usr/share/OVMF"
+	DefaultARM64OVMFPath         = "/usr/share/AAVMF"
 	DefaultAMD64EmulatedMachines = "q35*,pc-q35*"
 	DefaultARM64EmulatedMachines = "virt*"
 )
@@ -458,21 +461,34 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		}
 	}
 
-	if val, ok := os.LookupEnv(machineTypeEnvName); ok {
-		if val = strings.TrimSpace(val); val != "" {
-			config.MachineType = val
+	var amd64MachineType string
+	// Remain backwards compatibility with the original env variable for a release before removing
+	if machineTypeEnvValue, ok := os.LookupEnv(machineTypeEnvName); ok {
+		amd64MachineType = machineTypeEnvValue
+	} else if machineTypeEnvValue, ok := os.LookupEnv(amd64MachineTypeEnvName); ok {
+		amd64MachineType = machineTypeEnvValue
+	}
 
-			config.ArchitectureConfiguration = &kubevirtcorev1.ArchConfiguration{
-				Amd64: &kubevirtcorev1.ArchSpecificConfiguration{
-					MachineType:      val,
-					OVMFPath:         DefaultOVMFPath,
-					EmulatedMachines: strings.Split(DefaultAMD64EmulatedMachines, ","),
-				},
-				Arm64: &kubevirtcorev1.ArchSpecificConfiguration{
-					MachineType:      val,
-					OVMFPath:         DefaultOVMFPath,
-					EmulatedMachines: strings.Split(DefaultARM64EmulatedMachines, ","),
-				},
+	if amd64MachineType = strings.TrimSpace(amd64MachineType); amd64MachineType != "" {
+		if config.ArchitectureConfiguration == nil {
+			config.ArchitectureConfiguration = &kubevirtcorev1.ArchConfiguration{}
+		}
+		config.ArchitectureConfiguration.Amd64 = &kubevirtcorev1.ArchSpecificConfiguration{
+			MachineType:      amd64MachineType,
+			OVMFPath:         DefaultAMD64OVMFPath,
+			EmulatedMachines: strings.Split(DefaultAMD64EmulatedMachines, ","),
+		}
+	}
+
+	if armMachineType, ok := os.LookupEnv(arm64MachineTypeEnvName); ok {
+		if armMachineType = strings.TrimSpace(armMachineType); armMachineType != "" {
+			if config.ArchitectureConfiguration == nil {
+				config.ArchitectureConfiguration = &kubevirtcorev1.ArchConfiguration{}
+			}
+			config.ArchitectureConfiguration.Arm64 = &kubevirtcorev1.ArchSpecificConfiguration{
+				MachineType:      armMachineType,
+				OVMFPath:         DefaultARM64OVMFPath,
+				EmulatedMachines: strings.Split(DefaultARM64EmulatedMachines, ","),
 			}
 		}
 	}
