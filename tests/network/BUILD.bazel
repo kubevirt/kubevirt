@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -92,5 +92,26 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["network_suite_test.go"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":go_default_library",
+        "//staging/src/kubevirt.io/client-go/reporter:go_default_library",
+        "//tests:go_default_library",
+        "//tests/flags:go_default_library",
+        "//tests/libnode:go_default_library",
+        "//tests/reporter:go_default_library",
+        "//tests/testsuite:go_default_library",
+        "//tools/vms-generator/utils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/client-go/plugin/pkg/client/auth:go_default_library",
+        "//vendor/kubevirt.io/qe-tools/pkg/ginkgo-reporters:go_default_library",
     ],
 )
