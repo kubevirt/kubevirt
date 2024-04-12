@@ -20,10 +20,7 @@
 package tests_test
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -67,7 +64,7 @@ var k8sReporter *reporter.KubernetesReporter
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
 	testsuite.CalculateNamespaces()
-	maxFails := getMaxFailsFromEnv()
+	maxFails := testsuite.GetMaxFailsFromEnv()
 	artifactsPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter")
 	junitOutput := testsuite.GetJunitOutputPath()
 
@@ -104,21 +101,6 @@ var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.Synchr
 var _ = AfterEach(func() {
 	testCleanup()
 })
-
-func getMaxFailsFromEnv() int {
-	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")
-	if maxFailsEnv == "" {
-		return 10
-	}
-
-	maxFails, err := strconv.Atoi(maxFailsEnv)
-	if err != nil { // if the variable is set with a non int value
-		fmt.Println("Invalid REPORTER_MAX_FAILS variable, defaulting to 10")
-		return 10
-	}
-
-	return maxFails
-}
 
 var _ = ReportAfterSuite("Collect cluster data", func(report Report) {
 	artifactPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter", "suite")

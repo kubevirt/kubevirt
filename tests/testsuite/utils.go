@@ -21,6 +21,7 @@ package testsuite
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -48,4 +49,20 @@ func UpdateArtifactsForParallel(artifactsPath string, junitOutput string) (artif
 
 func GetPolarionFilename() string {
 	return filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
+}
+
+func GetMaxFailsFromEnv() int {
+	const defaultMaxFails = 10
+	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")
+	if maxFailsEnv == "" {
+		return defaultMaxFails
+	}
+
+	maxFails, err := strconv.Atoi(maxFailsEnv)
+	if err != nil { // if the variable is set with a non int value
+		fmt.Println("Invalid REPORTER_MAX_FAILS variable, defaulting to 10")
+		return defaultMaxFails
+	}
+
+	return maxFails
 }
