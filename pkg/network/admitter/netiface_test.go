@@ -310,4 +310,81 @@ var _ = Describe("Validating VMI network spec", func() {
 			),
 		)
 	})
+
+	When("the interface DHCP options is specified", func() {
+		DescribeTable("should reject interface DHCP options with", func(dhcpOpts v1.DHCPOptions, expectedCauses []metav1.StatusCause) {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				DHCPOptions:            &dhcpOpts,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
+		},
+			Entry(
+				"invalid DHCPPrivateOptions",
+				v1.DHCPOptions{PrivateOptions: []v1.DHCPPrivateOptions{{Option: 223, Value: "extra.options.kubevirt.io"}}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
+					Field:   "fake",
+				}},
+			),
+			Entry(
+				"duplicate DHCPPrivateOptions",
+				v1.DHCPOptions{
+					PrivateOptions: []v1.DHCPPrivateOptions{
+						{Option: 240, Value: "extra.options.kubevirt.io"},
+						{Option: 240, Value: "sameextra.options.kubevirt.io"}},
+				},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Found Duplicates: you have provided duplicate DHCPPrivateOptions",
+					Field:   "fake",
+				}},
+			),
+			Entry(
+				"non-IPv4 NTP servers",
+				v1.DHCPOptions{NTPServers: []string{"::1", "hostname"}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "NTP servers must be a list of valid IPv4 addresses.",
+					Field:   "fake.domain.devices.interfaces[0].dhcpOptions.ntpServers[0]",
+				}, {
+					Type:    "FieldValueInvalid",
+					Message: "NTP servers must be a list of valid IPv4 addresses.",
+					Field:   "fake.domain.devices.interfaces[0].dhcpOptions.ntpServers[1]",
+				}},
+			),
+		)
+
+		DescribeTable("should accept interface DHCP options with", func(dhcpOpts v1.DHCPOptions) {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				DHCPOptions:            &dhcpOpts,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			Expect(validator.Validate()).To(BeEmpty())
+		},
+			Entry("  valid DHCPPrivateOptions", v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "extra.options.kubevirt.io"}},
+			}),
+			Entry(" valid NTP servers", v1.DHCPOptions{NTPServers: []string{"127.0.0.1", "127.0.0.2"}}),
+			Entry(
+				"unique DHCPPrivateOptions",
+				v1.DHCPOptions{
+					PrivateOptions: []v1.DHCPPrivateOptions{
+						{Option: 240, Value: "extra.options.kubevirt.io"},
+						{Option: 241, Value: "extra.options.kubevirt.io"}},
+				},
+			),
+		)
+	})
 })

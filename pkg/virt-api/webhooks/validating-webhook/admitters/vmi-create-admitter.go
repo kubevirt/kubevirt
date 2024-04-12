@@ -168,8 +168,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
-	causes = append(causes, validateNetworksMatchInterfaces(field, spec)...)
-
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
@@ -247,59 +245,6 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	for idx, iface := range spec.Domain.Devices.Interfaces {
-		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
-		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
-	}
-	return causes
-}
-
-func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if iface.DHCPOptions != nil {
-		privateOptions := iface.DHCPOptions.PrivateOptions
-		if countUniqueDHCPPrivateOptions(privateOptions) < len(privateOptions) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Found Duplicates: you have provided duplicate DHCPPrivateOptions",
-				Field:   field.String(),
-			})
-		}
-
-		for _, DHCPPrivateOption := range privateOptions {
-			causes = append(causes, validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption)...)
-		}
-	}
-	return causes
-}
-
-func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if iface.DHCPOptions != nil {
-		for index, ip := range iface.DHCPOptions.NTPServers {
-			if net.ParseIP(ip).To4() == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "NTP servers must be a list of valid IPv4 addresses.",
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("dhcpOptions", "ntpServers").Index(index).String(),
-				})
-			}
-		}
-	}
-	return causes
-}
-
-func validateDHCPPrivateOptionsWithinRange(field *k8sfield.Path, DHCPPrivateOption v1.DHCPPrivateOptions) (causes []metav1.StatusCause) {
-	if !(DHCPPrivateOption.Option >= 224 && DHCPPrivateOption.Option <= 254) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
-			Field:   field.String(),
-		})
-	}
-	return causes
-}
-
 func validateInterfaceBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, bootOrderMap map[uint]bool) (causes []metav1.StatusCause) {
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		if iface.BootOrder != nil {
@@ -323,80 +268,6 @@ func validateInterfaceBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineIns
 				bootOrderMap[order] = true
 			}
 		}
-	}
-	return causes
-}
-
-func validatePortConfiguration(field *k8sfield.Path, networkExists bool, networkData *v1.Network, iface v1.Interface, idx int, portForwardMap map[string]struct{}) (causes []metav1.StatusCause) {
-
-	// Check only ports configured on interfaces connected to a pod network
-	if networkExists && networkData.Pod != nil && iface.Ports != nil {
-		for portIdx, forwardPort := range iface.Ports {
-			causes = append(causes, validateForwardPortNonZero(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortInRange(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortProtocol(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortName(field, forwardPort, portForwardMap, idx, portIdx)...)
-		}
-	}
-	return causes
-}
-
-func validateForwardPortName(field *k8sfield.Path, forwardPort v1.Port, portForwardMap map[string]struct{}, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Name != "" {
-		if _, ok := portForwardMap[forwardPort.Name]; ok {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-			})
-		}
-
-		if msgs := validation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-			})
-		}
-
-		portForwardMap[forwardPort.Name] = struct{}{}
-	}
-	return causes
-}
-
-func validateForwardPortProtocol(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Protocol != "" {
-		if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Unknown protocol, only TCP or UDP allowed",
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
-			})
-		}
-	} else {
-		forwardPort.Protocol = "TCP"
-	}
-	return causes
-}
-
-func validateForwardPortInRange(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Port < 0 || forwardPort.Port > 65536 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Port field must be in range 0 < x < 65536.",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-		})
-	}
-	return causes
-}
-
-func validateForwardPortNonZero(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Port == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Port field is mandatory.",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-		})
 	}
 	return causes
 }
@@ -1316,14 +1187,6 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	}
 
 	return causes
-}
-
-func countUniqueDHCPPrivateOptions(privateOptions []v1.DHCPPrivateOptions) int {
-	optionSet := map[int]struct{}{}
-	for _, DHCPPrivateOption := range privateOptions {
-		optionSet[DHCPPrivateOption.Option] = struct{}{}
-	}
-	return len(optionSet)
 }
 
 // Copied from kubernetes/pkg/apis/core/validation/validation.go
