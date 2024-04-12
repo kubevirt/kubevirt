@@ -621,6 +621,17 @@ genrule(
 )
 
 genrule(
+    name = "build-functests-sig-net",
+    testonly = True,
+    srcs = [
+        "//tests/network:go_default_test",
+    ],
+    outs = ["functests-copier-sig-net"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-example-guest-agent",
     testonly = True,
     srcs = [
