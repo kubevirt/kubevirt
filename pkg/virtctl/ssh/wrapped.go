@@ -2,11 +2,12 @@ package ssh
 
 import (
 	"fmt"
-	"kubevirt.io/client-go/log"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"kubevirt.io/client-go/log"
 )
 
 var runCommand = func(cmd *exec.Cmd) error {
