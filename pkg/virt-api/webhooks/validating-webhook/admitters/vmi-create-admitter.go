@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -249,17 +248,7 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 }
 
 func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
-
-	// Make sure the port name is unique across all the interfaces
-	portForwardMap := make(map[string]struct{})
-
-	// Validate that each interface has a matching network
 	for idx, iface := range spec.Domain.Devices.Interfaces {
-
-		networkData, networkExists := networkNameMap[iface.Name]
-
-		causes = append(causes, validatePortConfiguration(field, networkExists, &networkData, iface, idx, portForwardMap)...)
 		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}

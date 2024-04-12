@@ -28,6 +28,7 @@ import (
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -103,11 +104,13 @@ func validateInterfaceNameUnique(field *k8sfield.Path, spec *v1.VirtualMachineIn
 
 func validateInterfacesFields(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
+	networksByName := vmispec.IndexNetworkSpecByName(spec.Networks)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		causes = append(causes, validateInterfaceNameFormat(field, idx, iface)...)
 		causes = append(causes, validateInterfaceModel(field, idx, iface)...)
 		causes = append(causes, validateMacAddress(field, idx, iface)...)
 		causes = append(causes, validatePciAddress(field, idx, iface)...)
+		causes = append(causes, validatePortConfiguration(field, idx, iface, networksByName[iface.Name])...)
 	}
 	return causes
 }
@@ -197,4 +200,79 @@ func validatePciAddress(field *k8sfield.Path, idx int, iface v1.Interface) []met
 		}
 	}
 	return nil
+}
+
+func validatePortConfiguration(field *k8sfield.Path, idx int, iface v1.Interface, network v1.Network) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if network.Pod != nil && iface.Ports != nil {
+		causes = append(causes, validateForwardPortName(field, idx, iface.Ports)...)
+
+		for portIdx, forwardPort := range iface.Ports {
+			causes = append(causes, validateForwardPortNonZero(field, idx, forwardPort, portIdx)...)
+			causes = append(causes, validateForwardPortInRange(field, idx, forwardPort, portIdx)...)
+			causes = append(causes, validateForwardPortProtocol(field, idx, forwardPort, portIdx)...)
+		}
+	}
+	return causes
+}
+
+func validateForwardPortName(field *k8sfield.Path, idx int, ports []v1.Port) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	portForwardMap := map[string]struct{}{}
+	for portIdx, forwardPort := range ports {
+		if forwardPort.Name == "" {
+			continue
+		}
+		if _, ok := portForwardMap[forwardPort.Name]; ok {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+			})
+		}
+		if msgs := k8svalidation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+			})
+		}
+		portForwardMap[forwardPort.Name] = struct{}{}
+	}
+	return causes
+}
+
+func validateForwardPortProtocol(field *k8sfield.Path, idx int, forwardPort v1.Port, portIdx int) (causes []metav1.StatusCause) {
+	if forwardPort.Protocol != "" {
+		if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Unknown protocol, only TCP or UDP allowed",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
+			})
+		}
+	}
+	return causes
+}
+
+func validateForwardPortInRange(field *k8sfield.Path, idx int, forwardPort v1.Port, portIdx int) (causes []metav1.StatusCause) {
+	if forwardPort.Port < 0 || forwardPort.Port > 65536 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Port field must be in range 0 < x < 65536.",
+			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+		})
+	}
+	return causes
+}
+
+func validateForwardPortNonZero(field *k8sfield.Path, idx int, forwardPort v1.Port, portIdx int) (causes []metav1.StatusCause) {
+	if forwardPort.Port == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Port field is mandatory.",
+			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+		})
+	}
+	return causes
 }

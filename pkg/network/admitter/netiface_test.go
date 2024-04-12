@@ -229,4 +229,85 @@ var _ = Describe("Validating VMI network spec", func() {
 		Entry("valid address A", "0000:81:11.1"),
 		Entry("valid address B", "0001:02:00.0"),
 	)
+
+	When("the interface port is specified", func() {
+		DescribeTable("should reject interface port with", func(ports []v1.Port, expectedCauses []metav1.StatusCause) {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Ports:                  ports,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
+		},
+			Entry(
+				"only the port name",
+				[]v1.Port{{Name: "test"}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueRequired",
+					Message: "Port field is mandatory.",
+					Field:   "fake.domain.devices.interfaces[0].ports[0]",
+				}},
+			),
+			Entry(
+				"bad protocol type",
+				[]v1.Port{{Protocol: "bad", Port: 80}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Unknown protocol, only TCP or UDP allowed",
+					Field:   "fake.domain.devices.interfaces[0].ports[0].protocol",
+				}},
+			),
+			Entry(
+				"port out of range",
+				[]v1.Port{{Port: 80000}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Port field must be in range 0 < x < 65536.",
+					Field:   "fake.domain.devices.interfaces[0].ports[0]",
+				}},
+			),
+			Entry(
+				"two ports that have the same name",
+				[]v1.Port{{Name: "testport", Port: 80}, {Name: "testport", Protocol: "UDP", Port: 80}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueDuplicate",
+					Message: "Duplicate name of the port: testport",
+					Field:   "fake.domain.devices.interfaces[0].ports[1].name",
+				}},
+			),
+			Entry(
+				"bad port name",
+				[]v1.Port{{Name: "Test", Port: 80}},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Invalid name of the port: Test",
+					Field:   "fake.domain.devices.interfaces[0].ports[0].name",
+				}},
+			),
+		)
+
+		DescribeTable("should accept interface with", func(ports []v1.Port) {
+			spec := &v1.VirtualMachineInstanceSpec{}
+			spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Ports:                  ports,
+			}}
+			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+			Expect(validator.Validate()).To(BeEmpty())
+		},
+			Entry("single minimal port", []v1.Port{{Port: 80}}),
+			Entry("multiple ports, same number, with protocol and without", []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}}),
+			Entry(
+				"multiple ports, same number, different protocols",
+				[]v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Protocol: "TCP", Port: 80}},
+			),
+		)
+	})
 })
