@@ -23,7 +23,6 @@ go_library(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
-        "//vendor/github.com/pkg/errors:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],

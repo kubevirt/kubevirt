@@ -42,12 +42,11 @@ require (
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
 	github.com/opencontainers/runc v1.1.12
-	github.com/opencontainers/selinux v1.10.2
+	github.com/opencontainers/selinux v1.11.0
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
 	github.com/openshift/library-go v0.0.0-20211220195323-eca2c467c492
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
-	github.com/pkg/errors v0.9.1
 	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.68.0
 	github.com/prometheus/client_golang v1.16.0
@@ -136,13 +135,13 @@ require (
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pkg/diff v0.0.0-20190930165518-531926345625 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.11.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/seccomp/libseccomp-golang v0.10.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
-	github.com/willf/bitset v1.1.11 // indirect
 	go.mongodb.org/mongo-driver v1.8.4 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
 	golang.org/x/mod v0.14.0 // indirect
@@ -169,7 +168,6 @@ replace (
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 
 	github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
-	github.com/opencontainers/selinux => github.com/opencontainers/selinux v1.6.0
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
