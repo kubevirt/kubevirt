@@ -10,6 +10,7 @@ go_library(
         "kubevirt.go",
         "streamer.go",
         "virtualmachine.go",
+        "virtualmachine_expansion.go",
         "virtualmachineinstance.go",
         "virtualmachineinstancemigration.go",
         "virtualmachineinstancepreset.go",
