@@ -47,6 +47,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -5466,6 +5467,37 @@ var _ = Describe("VirtualMachine", func() {
 					sanityExecute(vm)
 				})
 
+			})
+
+			Context("Volumes", func() {
+				DescribeTable("should set the restart condition", func(strategy *v1.UpdateVolumesStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{
+										virtconfig.VMLiveUpdateFeaturesGate,
+										virtconfig.VolumesUpdateStrategy,
+									},
+								},
+							},
+						},
+					})
+					vm, vmi := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "vol1"})
+					vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: "vol2"})
+					controller.handleVolumeUpdateRequest(vm, vmi)
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineRestartRequired)
+					Expect(cond).ToNot(BeNil())
+					Expect(cond.Status).To(Equal(k8score.ConditionTrue))
+					Expect(cond.Message).To(Equal("the volumes replacement is effective only after restart"))
+				},
+					Entry("without the updateVolumeStrategy field", nil),
+					Entry("with the replacement updateVolumeStrategy",
+						virtpointer.P(v1.UpdateVolumesStrategyReplacement)),
+				)
 			})
 		})
 
