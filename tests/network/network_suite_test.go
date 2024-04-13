@@ -77,7 +77,7 @@ func TestTests(t *testing.T) {
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
 
-	RunSpecs(t, "Tests Suite")
+	RunSpecs(t, "Tests Network Suite")
 }
 
 var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuiteSetup)
