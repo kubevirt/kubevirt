@@ -102,6 +102,10 @@ var _ = ReportAfterSuite("TestTests", func(report Report) {
 	}
 })
 
+var _ = ReportBeforeSuite(func(report Report) {
+	k8sReporter.ConfigurePerSpecReporting(report)
+})
+
 var _ = JustAfterEach(func() {
 	k8sReporter.ReportSpec(CurrentSpecReport())
 })
