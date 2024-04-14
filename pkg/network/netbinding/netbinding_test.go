@@ -117,7 +117,7 @@ var _ = Describe("Network Binding", func() {
 			vmi = v1.NewVMI("test", "1234")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name:                   "testnet",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}},
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
 			}}
 		})
 
@@ -151,7 +151,7 @@ var _ = Describe("Network Binding", func() {
 
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
 				Name:                   testNetworkName2,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}},
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
 			})
 			Expect(netbinding.NetBindingPluginSidecarList(vmi, config, fakeRecorder)).To(ConsistOf(hooks.HookSidecarList{{
 				ImagePullPolicy: k8scorev1.PullIfNotPresent,

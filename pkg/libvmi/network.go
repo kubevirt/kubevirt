@@ -69,7 +69,7 @@ func InterfaceDeviceWithSlirpBinding(name string, ports ...kvirtv1.Port) kvirtv1
 	return kvirtv1.Interface{
 		Name: name,
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
-			Slirp: &kvirtv1.InterfaceSlirp{},
+			DeprecatedSlirp: &kvirtv1.DeprecatedInterfaceSlirp{},
 		},
 		Ports: ports,
 	}

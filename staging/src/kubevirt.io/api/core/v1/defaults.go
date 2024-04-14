@@ -195,7 +195,7 @@ func DefaultSlirpNetworkInterface() *Interface {
 	iface := &Interface{
 		Name: "default",
 		InterfaceBindingMethod: InterfaceBindingMethod{
-			Slirp: &InterfaceSlirp{},
+			DeprecatedSlirp: &DeprecatedInterfaceSlirp{},
 		},
 	}
 	return iface

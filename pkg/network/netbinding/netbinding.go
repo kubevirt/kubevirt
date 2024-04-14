@@ -90,7 +90,7 @@ const (
 
 func slirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) *hooks.HookSidecar {
 	slirpIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
-		return i.Slirp != nil
+		return i.DeprecatedSlirp != nil
 	})
 	if len(slirpIfaces) == 0 {
 		return nil

@@ -345,6 +345,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DataVolumeSource":                                                   schema_kubevirtio_api_core_v1_DataVolumeSource(ref),
 		"kubevirt.io/api/core/v1.DataVolumeTemplateDummyStatus":                                      schema_kubevirtio_api_core_v1_DataVolumeTemplateDummyStatus(ref),
 		"kubevirt.io/api/core/v1.DataVolumeTemplateSpec":                                             schema_kubevirtio_api_core_v1_DataVolumeTemplateSpec(ref),
+		"kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp":                                           schema_kubevirtio_api_core_v1_DeprecatedInterfaceSlirp(ref),
 		"kubevirt.io/api/core/v1.DeveloperConfiguration":                                             schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/api/core/v1.Devices":                                                            schema_kubevirtio_api_core_v1_Devices(ref),
 		"kubevirt.io/api/core/v1.DisableFreePageReporting":                                           schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref),
@@ -399,7 +400,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.InterfaceMasquerade":                                                schema_kubevirtio_api_core_v1_InterfaceMasquerade(ref),
 		"kubevirt.io/api/core/v1.InterfacePasst":                                                     schema_kubevirtio_api_core_v1_InterfacePasst(ref),
 		"kubevirt.io/api/core/v1.InterfaceSRIOV":                                                     schema_kubevirtio_api_core_v1_InterfaceSRIOV(ref),
-		"kubevirt.io/api/core/v1.InterfaceSlirp":                                                     schema_kubevirtio_api_core_v1_InterfaceSlirp(ref),
 		"kubevirt.io/api/core/v1.KSMConfiguration":                                                   schema_kubevirtio_api_core_v1_KSMConfiguration(ref),
 		"kubevirt.io/api/core/v1.KVMTimer":                                                           schema_kubevirtio_api_core_v1_KVMTimer(ref),
 		"kubevirt.io/api/core/v1.KernelBoot":                                                         schema_kubevirtio_api_core_v1_KernelBoot(ref),
@@ -16792,6 +16792,17 @@ func schema_kubevirtio_api_core_v1_DataVolumeTemplateSpec(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_core_v1_DeprecatedInterfaceSlirp(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp that connects to a given network using QEMU user networking mode. Deprecated: Removed in v1.3",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18564,7 +18575,8 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"slirp": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfaceSlirp"),
+							Description: "DeprecatedSlirp is an alias to the deprecated Slirp interface Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp"),
 						},
 					},
 					"masquerade": {
@@ -18662,7 +18674,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.InterfaceSlirp", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
+			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
 	}
 }
 
@@ -18680,7 +18692,8 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 					},
 					"slirp": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfaceSlirp"),
+							Description: "DeprecatedSlirp is an alias to the deprecated Slirp interface Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp"),
 						},
 					},
 					"masquerade": {
@@ -18709,7 +18722,7 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.InterfaceSlirp"},
+			"kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV"},
 	}
 }
 
@@ -18829,17 +18842,6 @@ func schema_kubevirtio_api_core_v1_InterfaceSRIOV(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
-				Type:        []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_InterfaceSlirp(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "InterfaceSlirp connects to a given network using QEMU user networking mode.",
 				Type:        []string{"object"},
 			},
 		},
@@ -20476,8 +20478,9 @@ func schema_kubevirtio_api_core_v1_NetworkConfiguration(ref common.ReferenceCall
 					},
 					"permitSlirpInterface": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface. Deprecated: Removed in v1.3.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"permitBridgeInterfaceOnPodNetwork": {

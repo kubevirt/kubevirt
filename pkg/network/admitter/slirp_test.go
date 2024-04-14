@@ -36,7 +36,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name: "default",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				Slirp: &v1.InterfaceSlirp{},
+				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
 			},
 		}}
 		vmi.Spec.Networks = []v1.Network{{
@@ -55,7 +55,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name: "default",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				Slirp: &v1.InterfaceSlirp{},
+				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
 			},
 		}}
 		vmi.Spec.Networks = []v1.Network{{
@@ -75,7 +75,7 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name: "default",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				Slirp: &v1.InterfaceSlirp{},
+				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
 			},
 		}}
 		vmi.Spec.Networks = []v1.Network{{

@@ -5501,8 +5501,8 @@ var _ = Describe("VirtualMachine", func() {
 					Spec: v1.KubeVirtSpec{
 						Configuration: v1.KubeVirtConfiguration{
 							NetworkConfiguration: &v1.NetworkConfiguration{
-								NetworkInterface:     iface,
-								PermitSlirpInterface: &permit,
+								NetworkInterface:               iface,
+								DeprecatedPermitSlirpInterface: &permit,
 							},
 						},
 					},
@@ -5526,7 +5526,7 @@ var _ = Describe("VirtualMachine", func() {
 			},
 			Entry("as bridge", "bridge", gstruct.Fields{"Bridge": Not(BeNil())}),
 			Entry("as masquerade", "masquerade", gstruct.Fields{"Masquerade": Not(BeNil())}),
-			Entry("as slirp", "slirp", gstruct.Fields{"Slirp": Not(BeNil())}),
+			Entry("as slirp", "slirp", gstruct.Fields{"DeprecatedSlirp": Not(BeNil())}),
 		)
 
 		DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {

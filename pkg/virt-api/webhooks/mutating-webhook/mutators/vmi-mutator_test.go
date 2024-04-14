@@ -421,8 +421,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
-							NetworkInterface:     expectedIface,
-							PermitSlirpInterface: kvpointer.P(true),
+							NetworkInterface:               expectedIface,
+							DeprecatedPermitSlirpInterface: kvpointer.P(true),
 						},
 					},
 				},
@@ -433,7 +433,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		},
 		Entry("as bridge", "bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
 		Entry("as masquerade", "masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
-		Entry("as slirp", "slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}),
+		Entry("as slirp", "slirp", v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}}),
 	)
 
 	DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {

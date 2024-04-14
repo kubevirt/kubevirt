@@ -207,7 +207,7 @@ func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachin
 			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		case v1.MasqueradeInterface:
 			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case v1.SlirpInterface:
+		case v1.DeprecatedSlirpInterface:
 			if !c.IsSlirpInterfaceEnabled() {
 				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
 			}
@@ -221,7 +221,7 @@ func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachin
 }
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return *c.GetConfig().NetworkConfiguration.PermitSlirpInterface
+	return *c.GetConfig().NetworkConfiguration.DeprecatedPermitSlirpInterface
 }
 
 func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {

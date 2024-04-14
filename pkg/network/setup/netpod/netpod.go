@@ -279,7 +279,7 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			spec.LinuxStack.IPv4.UnprivilegedPortStart = pointer.P(0)
 		case iface.Macvtap != nil:
 		case iface.SRIOV != nil:
-		case iface.Slirp != nil:
+		case iface.DeprecatedSlirp != nil:
 		case iface.Binding != nil:
 		default:
 			return nil, fmt.Errorf("undefined binding method: %v", iface)

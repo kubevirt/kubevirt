@@ -702,6 +702,7 @@ func (DHCPPrivateOptions) SwaggerDoc() map[string]string {
 func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "Represents the method which will be used to connect the interface to the guest.\nOnly one of its members may be specified.",
+		"slirp":   "DeprecatedSlirp is an alias to the deprecated Slirp interface\nDeprecated: Removed in v1.3",
 		"macvtap": "Deprecated, please refer to Kubevirt user guide for alternatives.\n+optional",
 		"passt":   "Deprecated, please refer to Kubevirt user guide for alternatives.\n+optional",
 	}
@@ -713,9 +714,9 @@ func (InterfaceBridge) SwaggerDoc() map[string]string {
 	}
 }
 
-func (InterfaceSlirp) SwaggerDoc() map[string]string {
+func (DeprecatedInterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
+		"": "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp\nthat connects to a given network using QEMU user networking mode.\nDeprecated: Removed in v1.3",
 	}
 }
 

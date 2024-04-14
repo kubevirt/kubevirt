@@ -1705,8 +1705,9 @@ type NetworkInterfaceType string
 const (
 	// Virtual machine instance bride interface
 	BridgeInterface NetworkInterfaceType = "bridge"
-	// Virtual machine instance slirp interface
-	SlirpInterface NetworkInterfaceType = "slirp"
+	// Virtual machine instance slirp interface is deprecated,
+	// Deprecated: Removed in v1.3.
+	DeprecatedSlirpInterface NetworkInterfaceType = "slirp"
 	// Virtual machine instance masquerade interface
 	MasqueradeInterface NetworkInterfaceType = "masquerade"
 	// Virtual machine instance passt interface
@@ -2765,8 +2766,10 @@ type KSMConfiguration struct {
 
 // NetworkConfiguration holds network options
 type NetworkConfiguration struct {
-	NetworkInterface                  string                            `json:"defaultNetworkInterface,omitempty"`
-	PermitSlirpInterface              *bool                             `json:"permitSlirpInterface,omitempty"`
+	NetworkInterface string `json:"defaultNetworkInterface,omitempty"`
+	// DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface.
+	// Deprecated: Removed in v1.3.
+	DeprecatedPermitSlirpInterface    *bool                             `json:"permitSlirpInterface,omitempty"`
 	PermitBridgeInterfaceOnPodNetwork *bool                             `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
 	Binding                           map[string]InterfaceBindingPlugin `json:"binding,omitempty"`
 }

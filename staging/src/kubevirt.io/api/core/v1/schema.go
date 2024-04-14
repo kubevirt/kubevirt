@@ -1335,10 +1335,12 @@ type DHCPPrivateOptions struct {
 // Represents the method which will be used to connect the interface to the guest.
 // Only one of its members may be specified.
 type InterfaceBindingMethod struct {
-	Bridge     *InterfaceBridge     `json:"bridge,omitempty"`
-	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
-	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
-	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
+	Bridge *InterfaceBridge `json:"bridge,omitempty"`
+	// DeprecatedSlirp is an alias to the deprecated Slirp interface
+	// Deprecated: Removed in v1.3
+	DeprecatedSlirp *DeprecatedInterfaceSlirp `json:"slirp,omitempty"`
+	Masquerade      *InterfaceMasquerade      `json:"masquerade,omitempty"`
+	SRIOV           *InterfaceSRIOV           `json:"sriov,omitempty"`
 	// Deprecated, please refer to Kubevirt user guide for alternatives.
 	// +optional
 	Macvtap *InterfaceMacvtap `json:"macvtap,omitempty"`
@@ -1350,8 +1352,10 @@ type InterfaceBindingMethod struct {
 // InterfaceBridge connects to a given network via a linux bridge.
 type InterfaceBridge struct{}
 
-// InterfaceSlirp connects to a given network using QEMU user networking mode.
-type InterfaceSlirp struct{}
+// DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp
+// that connects to a given network using QEMU user networking mode.
+// Deprecated: Removed in v1.3
+type DeprecatedInterfaceSlirp struct{}
 
 // InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.
 type InterfaceMasquerade struct{}

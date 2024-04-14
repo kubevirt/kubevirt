@@ -16555,6 +16555,10 @@
      }
     }
    },
+   "v1.DeprecatedInterfaceSlirp": {
+    "description": "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp that connects to a given network using QEMU user networking mode. Deprecated: Removed in v1.3",
+    "type": "object"
+   },
    "v1.DeveloperConfiguration": {
     "description": "DeveloperConfiguration holds developer options",
     "type": "object",
@@ -17550,7 +17554,8 @@
       }
      },
      "slirp": {
-      "$ref": "#/definitions/v1.InterfaceSlirp"
+      "description": "DeprecatedSlirp is an alias to the deprecated Slirp interface Deprecated: Removed in v1.3",
+      "$ref": "#/definitions/v1.DeprecatedInterfaceSlirp"
      },
      "sriov": {
       "$ref": "#/definitions/v1.InterfaceSRIOV"
@@ -17617,10 +17622,6 @@
    },
    "v1.InterfaceSRIOV": {
     "description": "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
-    "type": "object"
-   },
-   "v1.InterfaceSlirp": {
-    "description": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
     "type": "object"
    },
    "v1.KSMConfiguration": {
@@ -18515,6 +18516,7 @@
       "type": "boolean"
      },
      "permitSlirpInterface": {
+      "description": "DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface. Deprecated: Removed in v1.3.",
       "type": "boolean"
      }
     }

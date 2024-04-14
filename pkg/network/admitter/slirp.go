@@ -37,7 +37,7 @@ func validateSlirpBinding(
 	spec *v1.VirtualMachineInstanceSpec,
 	configChecker slirpClusterConfigChecker) (causes []metav1.StatusCause) {
 	for idx, ifaceSpec := range spec.Domain.Devices.Interfaces {
-		if ifaceSpec.Slirp == nil {
+		if ifaceSpec.DeprecatedSlirp == nil {
 			continue
 		}
 		net := vmispec.LookupNetworkByName(spec.Networks, ifaceSpec.Name)

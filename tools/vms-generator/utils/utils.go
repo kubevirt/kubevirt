@@ -537,9 +537,9 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 		&vm.Spec,
 		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
 
-	slirp := &v1.InterfaceSlirp{}
+	slirp := &v1.DeprecatedInterfaceSlirp{}
 	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: slirp}}}
 
 	return vm
 }

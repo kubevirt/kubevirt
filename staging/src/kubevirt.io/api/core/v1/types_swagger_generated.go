@@ -914,7 +914,8 @@ func (KSMConfiguration) SwaggerDoc() map[string]string {
 
 func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "NetworkConfiguration holds network options",
+		"":                     "NetworkConfiguration holds network options",
+		"permitSlirpInterface": "DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface.\nDeprecated: Removed in v1.3.",
 	}
 }
 

@@ -56,7 +56,7 @@ func main() {
 			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices"},
 		},
 		NetworkConfiguration: &v1.NetworkConfiguration{
-			PermitSlirpInterface:              &permit,
+			DeprecatedPermitSlirpInterface:    &permit,
 			PermitBridgeInterfaceOnPodNetwork: &permit,
 		},
 		PermittedHostDevices: &v1.PermittedHostDevices{

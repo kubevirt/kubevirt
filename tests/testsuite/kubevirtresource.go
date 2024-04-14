@@ -121,7 +121,7 @@ func AdjustKubeVirtResource() {
 		testDefaultPermitSlirpInterface := true
 
 		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			PermitSlirpInterface: &testDefaultPermitSlirpInterface,
+			DeprecatedPermitSlirpInterface: &testDefaultPermitSlirpInterface,
 		}
 	}
 
