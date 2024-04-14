@@ -5496,13 +5496,11 @@ var _ = Describe("VirtualMachine", func() {
 			func(iface string, field gstruct.Fields) {
 				vm, _ := DefaultVirtualMachine(true)
 
-				permit := true
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 					Spec: v1.KubeVirtSpec{
 						Configuration: v1.KubeVirtConfiguration{
 							NetworkConfiguration: &v1.NetworkConfiguration{
-								NetworkInterface:               iface,
-								DeprecatedPermitSlirpInterface: &permit,
+								NetworkInterface: iface,
 							},
 						},
 					},
@@ -5526,8 +5524,31 @@ var _ = Describe("VirtualMachine", func() {
 			},
 			Entry("as bridge", "bridge", gstruct.Fields{"Bridge": Not(BeNil())}),
 			Entry("as masquerade", "masquerade", gstruct.Fields{"Masquerade": Not(BeNil())}),
-			Entry("as slirp", "slirp", gstruct.Fields{"DeprecatedSlirp": Not(BeNil())}),
 		)
+
+		It("should reject adding a default deprecated slirp interface", func() {
+			vm, _ := DefaultVirtualMachine(true)
+
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						NetworkConfiguration: &v1.NetworkConfiguration{
+							NetworkInterface:               string(v1.DeprecatedSlirpInterface),
+							DeprecatedPermitSlirpInterface: kvpointer.P(true),
+						},
+					},
+				},
+			})
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			sanityExecute(vm)
+
+			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(MatchError(ContainSubstring("not found")))
+		})
 
 		DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
 			vm, _ := DefaultVirtualMachine(true)

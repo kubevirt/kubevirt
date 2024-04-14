@@ -22,6 +22,7 @@ package mutators
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	rt "runtime"
 
 	"k8s.io/utils/pointer"
@@ -421,8 +422,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
-							NetworkInterface:               expectedIface,
-							DeprecatedPermitSlirpInterface: kvpointer.P(true),
+							NetworkInterface: expectedIface,
 						},
 					},
 				},
@@ -433,8 +433,27 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		},
 		Entry("as bridge", "bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
 		Entry("as masquerade", "masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
-		Entry("as slirp", "slirp", v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}}),
 	)
+
+	It("should reject adding a default deprecated slirp interface", func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					NetworkConfiguration: &v1.NetworkConfiguration{
+						NetworkInterface:               string(v1.DeprecatedSlirpInterface),
+						DeprecatedPermitSlirpInterface: kvpointer.P(true),
+					},
+				},
+			},
+		})
+		resp := admitVMI(rt.GOARCH)
+		Expect(resp).To(Equal(&admissionv1.AdmissionResponse{
+			Result: &k8smetav1.Status{
+				Message: "slirp interface is deprecated as of v1.3",
+				Code:    http.StatusBadRequest,
+			},
+		}))
+	})
 
 	DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
 		vmi.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)

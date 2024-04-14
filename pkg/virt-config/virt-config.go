@@ -208,11 +208,7 @@ func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachin
 		case v1.MasqueradeInterface:
 			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 		case v1.DeprecatedSlirpInterface:
-			if !c.IsSlirpInterfaceEnabled() {
-				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
-			}
-			defaultIface := v1.DefaultSlirpNetworkInterface()
-			spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+			return fmt.Errorf("slirp interface is deprecated as of v1.3")
 		}
 
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
