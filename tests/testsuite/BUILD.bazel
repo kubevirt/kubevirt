@@ -9,6 +9,7 @@ go_library(
         "namespace.go",
         "runconfiguration.go",
         "serviceaccount.go",
+        "utils.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/testsuite",
     visibility = ["//visibility:public"],
@@ -46,5 +47,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
         "//vendor/k8s.io/klog/v2:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
+        "//vendor/kubevirt.io/qe-tools/pkg/ginkgo-reporters:go_default_library",
     ],
 )
