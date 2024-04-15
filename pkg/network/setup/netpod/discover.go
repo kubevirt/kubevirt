@@ -87,6 +87,7 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return err
 			}
 
+		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case vmiSpecIface.DeprecatedSlirp != nil:
 			if !podIfaceExists {
 				return fmt.Errorf("pod link (%s) is missing", podIfaceName)

@@ -187,6 +187,8 @@ var _ = Describe("netpod", func() {
 		Entry("bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
 		Entry("masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
 		Entry("passt", v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}),
+
+		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		Entry("slirp", v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}}),
 	)
 
@@ -985,6 +987,8 @@ var _ = Describe("netpod", func() {
 		// Not processed by the discovery & config steps.
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}, nmstate.Spec{}),
 		Entry("Macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, nmstate.Spec{}),
+
+		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		// Processed by the discovery but not by the config step.
 		// When processed by the config step, the nmstate structure will be initialized (e.g. to an empty interface list).
 		// Interfaces will not get populated because the specific binding (slirp) is not treated there.
