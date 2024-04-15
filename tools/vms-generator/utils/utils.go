@@ -69,7 +69,6 @@ const (
 	VmiPVC                      = "vmi-pvc"
 	VmiWindows                  = "vmi-windows"
 	VmiKernelBoot               = "vmi-kernel-boot"
-	VmiSlirp                    = "vmi-slirp"
 	VmiMasquerade               = "vmi-masquerade"
 	VmiSRIOV                    = "vmi-sriov"
 	VmiWithHookSidecar          = "vmi-with-sidecar-hook"
@@ -525,23 +524,6 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
-}
-
-func GetVMISlirp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiSlirp)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(
-		&vm.Spec,
-		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
-
-	slirp := &v1.DeprecatedInterfaceSlirp{}
-	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: slirp}}}
-
-	return vm
 }
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {

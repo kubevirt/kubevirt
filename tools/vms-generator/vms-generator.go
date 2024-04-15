@@ -114,7 +114,6 @@ func main() {
 		utils.VmiNoCloud:                  utils.GetVMINoCloud(),
 		utils.VmiPVC:                      utils.GetVMIPvc(),
 		utils.VmiWindows:                  utils.GetVMIWindows(),
-		utils.VmiSlirp:                    utils.GetVMISlirp(),
 		utils.VmiSRIOV:                    utils.GetVMISRIOV(),
 		utils.VmiWithHookSidecar:          utils.GetVMIWithHookSidecar(),
 		utils.VmiWithHookSidecarConfigMap: utils.GetVmiWithHookSidecarConfigMap(),
