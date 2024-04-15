@@ -38,7 +38,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
