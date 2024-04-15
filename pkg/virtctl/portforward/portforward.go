@@ -62,6 +62,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.InitializeLogging("portforward")
 			c := PortForward{clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
@@ -81,8 +82,6 @@ type PortForward struct {
 }
 
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
-	log.InitializeLogging("portforward-virtctl")
-
 	setOutput(cmd)
 	kind, namespace, name, ports, err := o.prepareCommand(args)
 	if err != nil {

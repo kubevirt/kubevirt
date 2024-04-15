@@ -74,6 +74,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    templates.ExactArgs("vnc", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.InitializeLogging("vnc")
 			c := VNC{clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
@@ -92,8 +93,6 @@ type VNC struct {
 }
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
-	log.InitializeLogging("vnc-virtctl")
-
 	namespace, _, err := o.clientConfig.Namespace()
 	if err != nil {
 		return err

@@ -46,6 +46,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    templates.ExactArgs("usb", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.InitializeLogging("usbredir")
 			c := usbredirCommand{clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
@@ -59,8 +60,6 @@ type usbredirCommand struct {
 }
 
 func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) error {
-	log.InitializeLogging("usbredir-virtctl")
-
 	if _, err := exec.LookPath(usbredirClient); err != nil {
 		return fmt.Errorf("Error on finding %s in $PATH: %s", usbredirClient, err.Error())
 	}

@@ -55,6 +55,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    templates.ExactArgs("ssh", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.InitializeLogging("ssh")
 			return c.Run(cmd, args)
 		},
 	}
@@ -121,8 +122,6 @@ type SSHOptions struct {
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
-	log.InitializeLogging("ssh-virtctl")
-
 	kind, namespace, name, err := PrepareCommand(cmd, o.clientConfig, &o.options, args)
 	if err != nil {
 		return err
