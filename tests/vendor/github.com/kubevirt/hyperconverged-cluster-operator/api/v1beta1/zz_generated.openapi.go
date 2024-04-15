@@ -257,7 +257,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"deployTektonTaskResources": {
 						SchemaProps: spec.SchemaProps{
-							Description: "deploy resources (kubevirt tekton tasks and example pipelines) in SSP operator",
+							Description: "deploy resources (kubevirt tekton tasks and example pipelines) in SSP operator Deprecated: This field is ignored.",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
@@ -564,14 +564,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					},
 					"tektonPipelinesNamespace": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TektonPipelinesNamespace defines namespace in which example pipelines will be deployed. If unset, then the default value is the operator namespace.",
+							Description: "TektonPipelinesNamespace defines namespace in which example pipelines will be deployed. If unset, then the default value is the operator namespace. Deprecated: This field is ignored.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"tektonTasksNamespace": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TektonTasksNamespace defines namespace in which tekton tasks will be deployed. If unset, then the default value is the operator namespace.",
+							Description: "TektonTasksNamespace defines namespace in which tekton tasks will be deployed. If unset, then the default value is the operator namespace. Deprecated: This field is ignored.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -155,12 +155,6 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 		// causing nil pointers dereferences at the DeepCopyInto() below.
 		TLSSecurityProfile: hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
 		FeatureGates:       &sspv1beta2.FeatureGates{},
-		TektonPipelines:    &sspv1beta2.TektonPipelines{},
-		TektonTasks:        &sspv1beta2.TektonTasks{},
-	}
-
-	if hc.Spec.FeatureGates.DeployTektonTaskResources != nil {
-		spec.FeatureGates.DeployTektonTaskResources = *hc.Spec.FeatureGates.DeployTektonTaskResources
 	}
 
 	if hc.Spec.FeatureGates.DeployVMConsoleProxy != nil {
@@ -169,22 +163,6 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 
 	// Disable common-instancetypes deployment by SSP from 4.16, now handled by virt-operator
 	spec.FeatureGates.DeployCommonInstancetypes = ptr.To(false)
-
-	// Default value is the operator namespace
-	pipelinesNamespace := getNamespace(hc.Namespace, opts)
-	if hc.Spec.TektonPipelinesNamespace != nil {
-		pipelinesNamespace = *hc.Spec.TektonPipelinesNamespace
-	}
-
-	spec.TektonPipelines.Namespace = pipelinesNamespace
-
-	// Default value is the operator namespace
-	tasksNamespace := getNamespace(hc.Namespace, opts)
-	if hc.Spec.TektonTasksNamespace != nil {
-		tasksNamespace = *hc.Spec.TektonTasksNamespace
-	}
-
-	spec.TektonTasks.Namespace = tasksNamespace
 
 	if hc.Spec.Infra.NodePlacement != nil {
 		spec.TemplateValidator.Placement = hc.Spec.Infra.NodePlacement.DeepCopy()

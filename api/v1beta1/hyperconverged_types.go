@@ -177,11 +177,15 @@ type HyperConvergedSpec struct {
 	// TektonPipelinesNamespace defines namespace in which example pipelines will be deployed.
 	// If unset, then the default value is the operator namespace.
 	// +optional
+	// +kubebuilder:deprecatedversion:warning="tektonPipelinesNamespace field is ignored"
+	// Deprecated: This field is ignored.
 	TektonPipelinesNamespace *string `json:"tektonPipelinesNamespace,omitempty"`
 
 	// TektonTasksNamespace defines namespace in which tekton tasks will be deployed.
 	// If unset, then the default value is the operator namespace.
 	// +optional
+	// +kubebuilder:deprecatedversion:warning="tektonTasksNamespace field is ignored"
+	// Deprecated: This field is ignored.
 	TektonTasksNamespace *string `json:"tektonTasksNamespace,omitempty"`
 
 	// KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS
@@ -419,6 +423,8 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=false
 	// +default=false
+	// +kubebuilder:deprecatedversion:warning="deployTektonTaskResources feature gate ignored"
+	// Deprecated: This field is ignored.
 	DeployTektonTaskResources *bool `json:"deployTektonTaskResources,omitempty"`
 
 	// deploy VM console proxy resources in SSP operator

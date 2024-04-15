@@ -162,15 +162,6 @@ the [dataImportCronTemplates field](#configure-custom-golden-images), even if th
 
 **Default**: `true`
 
-### deployTektonTaskResources Feature Gate
-Set the `deployTektonTaskResources` feature gate to true to allow SSP operator to deploy its resources. SSP operator will 
-deploy example pipelines and tasks which enables tekton to work with VMs, disks and common-templates.
-
-**Note**: Once `deployTektonTaskResources` is set to true, SSP operator will not delete deployed resources if `deployTektonTaskResources` is 
-reverted back to false.
-
-**Default**: `false`
-
 ### deployVmConsoleProxy Feature Gate
 Set the `deployVmConsoleProxy` feature gate to true to allow SSP operator to deploy its resources. SSP operator will 
 deploy a proxy that provides an access to the VNC console of a KubeVirt Virtual Machine (VM).
