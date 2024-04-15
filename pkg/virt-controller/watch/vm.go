@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -1225,6 +1226,15 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachi
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
 		return vm, err
+	}
+
+	netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
+	var validateErrors []error
+	for _, cause := range netValidator.ValidateCreation() {
+		validateErrors = append(validateErrors, errors.New(cause.String()))
+	}
+	if validateErr := errors.Join(validateErrors...); validateErrors != nil {
+		return vm, fmt.Errorf("failed create validation: %v", validateErr)
 	}
 
 	c.expectations.ExpectCreations(vmKey, 1)
