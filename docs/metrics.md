@@ -24,6 +24,9 @@ Indicates whether the Software Emulation is enabled in the configuration. Type: 
 ### kubevirt_console_active_connections
 Amount of active Console connections, broken down by namespace and vmi name. Type: Gauge.
 
+### kubevirt_memory_delta_from_requested_bytes
+The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
+
 ### kubevirt_nodes_with_kvm
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 

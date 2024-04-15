@@ -62,6 +62,7 @@ func buildRecordingRulesRules() []promv1.Rule {
 		rules = append(rules, promv1.Rule{
 			Record: recordingRule.MetricsOpts.Name,
 			Expr:   recordingRule.Expr,
+			Labels: recordingRule.MetricsOpts.ConstLabels,
 		})
 	}
 
