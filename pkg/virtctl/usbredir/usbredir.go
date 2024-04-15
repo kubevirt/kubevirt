@@ -59,6 +59,8 @@ type usbredirCommand struct {
 }
 
 func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) error {
+	log.InitializeLogging("usbredir-virtctl")
+
 	if _, err := exec.LookPath(usbredirClient); err != nil {
 		return fmt.Errorf("Error on finding %s in $PATH: %s", usbredirClient, err.Error())
 	}

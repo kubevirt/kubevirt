@@ -81,6 +81,8 @@ type PortForward struct {
 }
 
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
+	log.InitializeLogging("portforward-virtctl")
+
 	setOutput(cmd)
 	kind, namespace, name, ports, err := o.prepareCommand(args)
 	if err != nil {

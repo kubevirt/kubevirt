@@ -121,6 +121,8 @@ type SSHOptions struct {
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
+	log.InitializeLogging("ssh-virtctl")
+
 	kind, namespace, name, err := PrepareCommand(cmd, o.clientConfig, &o.options, args)
 	if err != nil {
 		return err

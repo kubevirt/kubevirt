@@ -92,6 +92,8 @@ type VNC struct {
 }
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
+	log.InitializeLogging("vnc-virtctl")
+
 	namespace, _, err := o.clientConfig.Namespace()
 	if err != nil {
 		return err
