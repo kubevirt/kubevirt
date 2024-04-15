@@ -27,7 +27,7 @@ const (
 	workloads = "workloads"
 )
 
-var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, Label(highlyAvailableClusterLabel), func() {
+var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, Label(tests.HighlyAvailableClusterLabel), func() {
 	ctx := context.TODO()
 	tests.FlagParse()
 	hco := &hcov1beta1.HyperConverged{}
@@ -44,9 +44,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		Expect(err).ToNot(HaveOccurred())
 
 		nodes := listNodesByLabels(cli, "node-role.kubernetes.io/control-plane!=")
-		if len(nodes.Items) < 2 {
-			Skip("Skipping Node Placement tests due to insufficient cluster nodes")
-		}
+		tests.FailIfSingleNode(len(nodes.Items) < 2)
 
 		// Label all but first node with "node.kubernetes.io/hco-test-node-type=infra"
 		// We are doing this to remove dependency of this Describe block on a shell script that

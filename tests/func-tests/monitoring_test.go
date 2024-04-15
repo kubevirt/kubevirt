@@ -37,7 +37,7 @@ const (
 	criticalImpact
 )
 
-var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, Label(openshiftLabel), func() {
+var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, Label(tests.OpenshiftLabel), func() {
 	flag.Parse()
 
 	var err error
@@ -53,7 +53,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		virtCli, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 
-		tests.SkipIfNotOpenShift(virtCli, "Prometheus")
+		tests.FailIfNotOpenShift(virtCli, "Prometheus")
 		promClient = initializePromClient(getPrometheusURL(virtCli), getAuthorizationTokenForPrometheus(virtCli))
 		prometheusRule = getPrometheusRule(virtCli)
 
@@ -144,18 +144,6 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			return alert
 		}, 60*time.Second, time.Second).ShouldNot(BeNil())
 		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
-	})
-
-	It("[test_id:10760] KubevirtHyperconvergedClusterOperatorSingleStackIPv6 alert should be fired for single stack ipv6 cluster", Label("test_id:10760"), func() {
-		tests.SkipIfNotSingleStackIPv6OpenShift(virtCli, "KubevirtHyperconvergedClusterOperatorSingleStackIPv6")
-
-		Eventually(func() *promApiv1.Alert {
-			alerts, err := promClient.Alerts(context.TODO())
-			Expect(err).ToNot(HaveOccurred())
-			return getAlertByName(alerts, "KubevirtHyperconvergedClusterOperatorSingleStackIPv6")
-		}, 60*time.Second, time.Second).ShouldNot(BeNil())
-
-		Expect(getMetricValue(promClient, "kubevirt_hco_single_stack_ipv6")).To(Equal(criticalImpact))
 	})
 })
 

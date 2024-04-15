@@ -15,46 +15,42 @@ import (
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
-var _ = Describe("[rfe_id:5108][crit:medium][vendor:cnv-qe@redhat.com][level:system]Dashboard configmaps", Label(openshiftLabel), func() {
+var _ = Describe("[rfe_id:5108][crit:medium][vendor:cnv-qe@redhat.com][level:system]Dashboard configmaps", Label(tests.OpenshiftLabel), func() {
 	flag.Parse()
+
+	var cli kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		tests.BeforeEach()
-	})
 
-	It("[test_id:5919]should create configmaps for OCP Dashboard", Label("test_id:5919"), func() {
 		virtCli, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 
-		tests.SkipIfNotOpenShift(virtCli, "Dashboard configmaps")
+		tests.FailIfNotOpenShift(virtCli, "Dashboard configmaps")
 
-		client, err := kubecli.GetKubevirtClientFromRESTConfig(virtCli.Config())
+		cli, err = kubecli.GetKubevirtClientFromRESTConfig(virtCli.Config())
 		Expect(err).ToNot(HaveOccurred())
-
-		checkExpectedConfigMaps(client)
 	})
 
-})
+	It("[test_id:5919]should create configmaps for OCP Dashboard", Label("test_id:5919"), func() {
+		By("Checking expected configmaps")
+		s := scheme.Scheme
+		_ = consolev1.Install(s)
+		s.AddKnownTypes(consolev1.GroupVersion)
 
-func checkExpectedConfigMaps(client kubecli.KubevirtClient) {
-	By("Checking expected configmaps")
-	s := scheme.Scheme
-	_ = consolev1.Install(s)
-	s.AddKnownTypes(consolev1.GroupVersion)
+		items := tests.GetConfig().Dashboard.TestItems
 
-	items := tests.GetConfig().Dashboard.TestItems
-
-	if len(items) == 0 {
-		Skip("There is no test item for dashboard tests.")
-	}
-
-	for _, item := range items {
-		cm, err := client.CoreV1().ConfigMaps(item.Namespace).Get(context.TODO(), item.Name, v1.GetOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		for _, key := range item.Keys {
-			_, ok := cm.Data[key]
-			ExpectWithOffset(1, ok).Should(BeTrue())
+		if len(items) == 0 {
+			GinkgoLogr.Info("There is no test item for dashboard tests.")
 		}
-	}
 
-}
+		for _, item := range items {
+			cm, err := cli.CoreV1().ConfigMaps(item.Namespace).Get(context.TODO(), item.Name, v1.GetOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			for _, key := range item.Keys {
+				_, ok := cm.Data[key]
+				ExpectWithOffset(1, ok).Should(BeTrue())
+			}
+		}
+	})
+})

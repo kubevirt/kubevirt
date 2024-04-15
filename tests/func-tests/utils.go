@@ -3,12 +3,10 @@ package tests
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"sync"
 	"time"
 
-	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega" //nolint dot-imports
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +32,13 @@ var KubeVirtStorageClassLocal string
 
 const resource = "hyperconvergeds"
 
+// labels
+const (
+	SingleNodeLabel             = "SINGLE_NODE_ONLY"
+	HighlyAvailableClusterLabel = "HIGHLY_AVAILABLE_CLUSTER"
+	OpenshiftLabel              = "OpenShift"
+)
+
 func init() {
 	flag.StringVar(&KubeVirtStorageClassLocal, "storage-class-local", "local", "Storage provider to use for tests which want local storage")
 }
@@ -56,7 +61,7 @@ func BeforeEach() {
 	deleteAllResources(virtClient.CoreV1().RESTClient(), "persistentvolumeclaims")
 }
 
-func SkipIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
+func FailIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
 	isOpenShift := false
 	Eventually(func() error {
 		var err error
@@ -64,18 +69,15 @@ func SkipIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
 		return err
 	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "failed to check if running on an openshift cluster")
 
-	if !isOpenShift {
-		ginkgo.Skip(fmt.Sprintf("Skipping %s tests when the cluster is not OpenShift", testName))
-	}
+	ExpectWithOffset(1, isOpenShift).To(BeTrue(), `the %q test must run on openshift cluster. Use the "!%s" label filter in order to skip this test`, testName, OpenshiftLabel)
 }
 
-func SkipIfNotSingleStackIPv6OpenShift(cli kubecli.KubevirtClient, testName string) {
-	isSingleStackIPv6, err := IsOpenShiftSingleStackIPv6(cli)
-	Expect(err).ToNot(HaveOccurred())
+func FailIfSingleNode(singleWorkerCluster bool) {
+	ExpectWithOffset(1, singleWorkerCluster).To(BeFalse(), `this test requires a single worker cluster; use the "!%s" label filter to skip this test`, SingleNodeLabel)
+}
 
-	if !isSingleStackIPv6 {
-		ginkgo.Skip(fmt.Sprintf("Skipping %s tests since the OpenShift cluster is not single stack IPv6", testName))
-	}
+func FailIfHighAvailableCluster(singleWorkerCluster bool) {
+	ExpectWithOffset(1, singleWorkerCluster).To(BeTrue(), `this test requires a highly available cluster; use the "!%s" label filter to skip this test`, HighlyAvailableClusterLabel)
 }
 
 type cacheIsOpenShift struct {

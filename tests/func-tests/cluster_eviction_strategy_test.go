@@ -20,7 +20,7 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 
 	var (
 		initialEvictionStrategy *v1.EvictionStrategy
-		singleworkerCluster     bool
+		singleWorkerCluster     bool
 	)
 
 	BeforeEach(func() {
@@ -29,7 +29,7 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 		Expect(cli).ToNot(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 
-		singleworkerCluster, err = isSingleWorkerCluster(cli)
+		singleWorkerCluster, err = isSingleWorkerCluster(cli)
 		Expect(err).ToNot(HaveOccurred())
 
 		tests.BeforeEach()
@@ -43,10 +43,9 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 		_ = tests.UpdateHCORetry(ctx, cli, hc)
 	})
 
-	It("Should set spec.evictionStrategy = None by default on single worker clusters", Label(singleNodeLabel), func() {
-		if !singleworkerCluster {
-			Skip("Skipping single worker cluster test having more than one worker node")
-		}
+	It("Should set spec.evictionStrategy = None by default on single worker clusters", Label(tests.SingleNodeLabel), func() {
+		Expect(singleWorkerCluster).To(BeTrue(), "this test requires single worker cluster; use the %q label to skip this test", tests.SingleNodeLabel)
+
 		hco := tests.GetHCO(ctx, cli)
 		hco.Spec.EvictionStrategy = nil
 		hco = tests.UpdateHCORetry(ctx, cli, hco)
@@ -55,10 +54,8 @@ var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered
 		Expect(hco.Spec.EvictionStrategy).To(Equal(&noneEvictionStrategy))
 	})
 
-	It("Should set spec.evictionStrategy = LiveMigrate by default with multiple worker node", Label(highlyAvailableClusterLabel), func() {
-		if singleworkerCluster {
-			Skip("Skipping not single worker cluster test having a single worker node")
-		}
+	It("Should set spec.evictionStrategy = LiveMigrate by default with multiple worker node", Label(tests.HighlyAvailableClusterLabel), func() {
+		tests.FailIfSingleNode(singleWorkerCluster)
 		hco := tests.GetHCO(ctx, cli)
 		hco.Spec.EvictionStrategy = nil
 		hco = tests.UpdateHCORetry(ctx, cli, hco)

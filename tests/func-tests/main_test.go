@@ -16,13 +16,6 @@ import (
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
-// labels
-const (
-	singleNodeLabel             = "SINGLE_NODE_ONLY"
-	highlyAvailableClusterLabel = "HIGHLY_AVAILABLE_CLUSTER"
-	openshiftLabel              = "OpenShift"
-)
-
 func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "HyperConverged cluster E2E Test suite")

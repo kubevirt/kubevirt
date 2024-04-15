@@ -29,7 +29,7 @@ const (
 	openshiftConsoleNamespace = "openshift-console"
 )
 
-var _ = Describe("kubevirt console plugin", Label(openshiftLabel), func() {
+var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel), func() {
 	var (
 		cli                               kubecli.KubevirtClient
 		ctx                               context.Context
@@ -48,7 +48,7 @@ var _ = Describe("kubevirt console plugin", Label(openshiftLabel), func() {
 		cli, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 
-		tests.SkipIfNotOpenShift(cli, "kubevirt console plugin")
+		tests.FailIfNotOpenShift(cli, "kubevirt console plugin")
 		ctx = context.Background()
 
 		hco := tests.GetHCO(ctx, cli)

@@ -20,7 +20,7 @@ const (
 	setWaspFGPatchTemplate = `[{"op": "replace", "path": "/spec/featureGates/enableHigherDensityWithSwap", "value": %t}]`
 )
 
-var _ = Describe("wasp-agent", Label("wasp", openshiftLabel), Serial, Ordered, func() {
+var _ = Describe("wasp-agent", Label("wasp", tests.OpenshiftLabel), Serial, Ordered, func() {
 	tests.FlagParse()
 	var (
 		cli kubecli.KubevirtClient
@@ -33,7 +33,7 @@ var _ = Describe("wasp-agent", Label("wasp", openshiftLabel), Serial, Ordered, f
 		cli, err = kubecli.GetKubevirtClient()
 		Expect(cli).ToNot(BeNil())
 		Expect(err).ToNot(HaveOccurred())
-		tests.SkipIfNotOpenShift(cli, "wasp-agent")
+		tests.FailIfNotOpenShift(cli, "wasp-agent")
 
 		ctx = context.Background()
 		hc := tests.GetHCO(ctx, cli)

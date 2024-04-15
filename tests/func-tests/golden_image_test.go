@@ -65,7 +65,7 @@ var (
 	}
 )
 
-var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, Label(openshiftLabel), func() {
+var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, Label(tests.OpenshiftLabel), func() {
 	var (
 		cli kubecli.KubevirtClient
 		ctx context.Context
@@ -95,7 +95,7 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 		cli, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 
-		tests.SkipIfNotOpenShift(cli, "golden image test")
+		tests.FailIfNotOpenShift(cli, "golden image test")
 
 		ctx = context.Background()
 	})
