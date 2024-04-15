@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -86,5 +87,31 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		config := stubClusterConfigChecker{slirpEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
 		Expect(validator.Validate()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Validate creation of interface with SLIRP binding", func() {
+	It("should be rejected", func() {
+		vmi := v1.VirtualMachineInstance{}
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name: "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{},
+			},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
+		causes := validator.ValidateCreation()
+		Expect(causes).To(
+			ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "Slirp interface support has been discontinued since v1.3",
+				Field:   "fake.domain.devices.interfaces[0].slirp",
+			}),
+		)
 	})
 })

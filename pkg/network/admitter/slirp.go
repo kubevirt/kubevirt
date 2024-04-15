@@ -61,3 +61,18 @@ func validateSlirpBinding(
 	}
 	return causes
 }
+
+func validateCreationSlirpBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	for idx, ifaceSpec := range spec.Domain.Devices.Interfaces {
+		if ifaceSpec.DeprecatedSlirp != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Slirp interface support has been discontinued since v1.3",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("slirp").String(),
+			})
+		}
+	}
+	return causes
+}
