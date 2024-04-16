@@ -42,6 +42,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -415,40 +416,24 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	)
 
 	DescribeTable("should add the default network interface",
-		func(iface string) {
-			expectedIface := "bridge"
-			switch iface {
-			case "masquerade":
-				expectedIface = "masquerade"
-			case "slirp":
-				expectedIface = "slirp"
-			}
-
-			permit := true
+		func(expectedIface string, expectedIfaceBindingMethod v1.InterfaceBindingMethod) {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
 							NetworkInterface:     expectedIface,
-							PermitSlirpInterface: &permit,
+							PermitSlirpInterface: kvpointer.P(true),
 						},
 					},
 				},
 			})
 
 			_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-			switch expectedIface {
-			case "bridge":
-				Expect(vmiSpec.Domain.Devices.Interfaces[0].Bridge).NotTo(BeNil())
-			case "masquerade":
-				Expect(vmiSpec.Domain.Devices.Interfaces[0].Masquerade).NotTo(BeNil())
-			case "slirp":
-				Expect(vmiSpec.Domain.Devices.Interfaces[0].Slirp).NotTo(BeNil())
-			}
+			Expect(vmiSpec.Domain.Devices.Interfaces[0].InterfaceBindingMethod).To(Equal(expectedIfaceBindingMethod))
 		},
-		Entry("as bridge", "bridge"),
-		Entry("as masquerade", "masquerade"),
-		Entry("as slirp", "slirp"),
+		Entry("as bridge", "bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
+		Entry("as masquerade", "masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
+		Entry("as slirp", "slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}),
 	)
 
 	DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
