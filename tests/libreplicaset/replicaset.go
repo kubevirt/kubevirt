@@ -24,7 +24,7 @@ func DoScaleWithScaleSubresource(virtClient kubecli.KubevirtClient, name string,
 		s, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).GetScale(context.Background(), name, v12.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		s.Spec.Replicas = scale
-		s, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).UpdateScale(name, s)
+		s, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).UpdateScale(context.Background(), name, s)
 		return err
 	})
 

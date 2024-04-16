@@ -59,7 +59,7 @@ func (v *rc) GetScale(ctx context.Context, replicaSetName string, options k8smet
 	return
 }
 
-func (v *rc) UpdateScale(replicaSetName string, scale *autov1.Scale) (result *autov1.Scale, err error) {
+func (v *rc) UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (result *autov1.Scale, err error) {
 	result = &autov1.Scale{}
 	err = v.restClient.Put().
 		Namespace(v.namespace).
@@ -67,7 +67,7 @@ func (v *rc) UpdateScale(replicaSetName string, scale *autov1.Scale) (result *au
 		Name(replicaSetName).
 		SubResource("scale").
 		Body(scale).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return
 }
