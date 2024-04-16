@@ -202,6 +202,7 @@ go_test(
         "//tests/hotplug:go_default_library",
         "//tests/infrastructure:go_default_library",
         "//tests/launchsecurity:go_default_library",
+        "//tests/libclient:go_default_library",
         "//tests/libconfigmap:go_default_library",
         "//tests/libdv:go_default_library",
         "//tests/libinfra:go_default_library",

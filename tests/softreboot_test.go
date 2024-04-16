@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +39,6 @@ import (
 	virtctlpause "kubevirt.io/kubevirt/pkg/virtctl/pause"
 	virtctlsoftreboot "kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -85,7 +85,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi with agent connected via API", func() {
 			It("should succeed", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -98,7 +98,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi with ACPI feature enabled via API", func() {
 			It("should succeed", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewCirros(), vmiLaunchTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewCirros(), vmiLaunchTimeout)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
@@ -112,7 +112,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi with agent connected via virtctl", func() {
 			It("should succeed", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -125,7 +125,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi with ACPI feature enabled via virtctl", func() {
 			It("should succeed", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewCirros(), vmiLaunchTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewCirros(), vmiLaunchTimeout)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
@@ -139,7 +139,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi neither have the agent connected nor the ACPI feature enabled via virtctl", func() {
 			It("should failed", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewCirros(withoutACPI()), vmiLaunchTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewCirros(withoutACPI()), vmiLaunchTimeout)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
@@ -153,7 +153,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		When("soft reboot vmi after paused and unpaused via virtctl", func() {
 			It("should failed to soft reboot a paused vmi", func() {
-				vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				command := clientcmd.NewRepeatableVirtctlCommand(virtctlpause.COMMAND_PAUSE, "vmi", "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)

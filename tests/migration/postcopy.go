@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
@@ -172,7 +173,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())

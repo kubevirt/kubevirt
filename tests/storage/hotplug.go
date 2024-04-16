@@ -48,6 +48,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -1191,7 +1192,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			DescribeTable("should allow live migration with attached hotplug volumes", func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 				volumeName := "testvolume"
 				volumeMode := corev1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI

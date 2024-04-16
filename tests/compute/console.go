@@ -34,8 +34,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/libclient"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -64,7 +64,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 		Context("with a serial console", func() {
 			It("[test_id:1588]should return OS login", func() {
 				vmi := libvmifact.NewCirros()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, startupTimeout)
 				expectConsoleOutput(
 					vmi,
 					"login as 'cirros' user",
@@ -72,7 +72,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 			})
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				vmi := libvmifact.NewAlpine()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
 				for i := 0; i < 5; i++ {
 					expectConsoleOutput(vmi, "login")
@@ -80,7 +80,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 			})
 
 			It("[test_id:1591]should close console connection when new console connection is opened", func() {
-				vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
+				vmi := libclient.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 				By("opening 1st console connection")
 				stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{})
@@ -135,7 +135,7 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 		Context("without a serial console", func() {
 			It("[test_id:4118]should run but not be connectable via the serial console", func() {
 				vmi := libvmifact.NewAlpine(libvmi.WithoutSerialConsole())
-				vmi = tests.RunVMIAndExpectLaunch(vmi, startupTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
 				By("failing to connect to serial console")
 				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{})

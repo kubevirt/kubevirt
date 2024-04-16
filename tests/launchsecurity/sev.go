@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
@@ -322,7 +323,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 					checks.SkipTestIfNotSEVESCapable()
 				}
 				vmi := newSEVFedora(withES)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())

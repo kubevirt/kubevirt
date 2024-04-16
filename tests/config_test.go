@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -112,7 +113,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Running VMI")
 				vmi := libvmifact.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -177,7 +178,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					libvmi.WithConfigMapDisk(configMaps[1], configMaps[1]),
 					libvmi.WithConfigMapDisk(configMaps[2], configMaps[2]))
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -213,7 +214,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Running VMI")
 				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -274,7 +275,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					libvmi.WithSecretDisk(secrets[1], secrets[1]),
 					libvmi.WithSecretDisk(secrets[2], secrets[2]))
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
@@ -288,7 +289,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
 			vmi := libvmifact.NewAlpine(libvmi.WithServiceAccountDisk("default"))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)
@@ -396,7 +397,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					}
 				}
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -505,7 +506,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Running VMI")
 				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				CheckIsoVolumeSizes(vmi)
@@ -566,7 +567,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIDisk(downwardAPIName))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			CheckIsoVolumeSizes(vmi)

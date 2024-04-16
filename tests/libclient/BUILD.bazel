@@ -5,4 +5,13 @@ go_library(
     srcs = ["libclient.go"],
     importpath = "kubevirt.io/kubevirt/tests/libclient",
     visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//tests/framework/kubevirt:go_default_library",
+        "//tests/libwait:go_default_library",
+        "//tests/testsuite:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
 )

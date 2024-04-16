@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 
@@ -182,7 +183,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, libmigration.MigrationWaitTime)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, libmigration.MigrationWaitTime)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -236,7 +237,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 
 		It("oc/kubectl logs <vmi-pod> return default container log", func() {
 			vm = libvmifact.NewCirros()
-			vm = tests.RunVMIAndExpectLaunch(vm, 30)
+			vm = libclient.RunVMIAndExpectLaunch(vm, 30)
 
 			k8sClient := clientcmd.GetK8sCmdClient()
 			pod, err := libpod.GetPodByVirtualMachineInstance(vm, vm.Namespace)

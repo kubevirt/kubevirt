@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -283,7 +284,7 @@ var _ = SIGDescribe("Storage", func() {
 					if storageEngine == "nfs" {
 						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 					} else {
-						vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+						vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 					}
 
 					By(checkingVMInstanceConsoleOut)
@@ -303,7 +304,7 @@ var _ = SIGDescribe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					vmi := tests.RunVMIAndExpectLaunch(vmi, 90)
+					vmi := libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
@@ -331,7 +332,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithResourceMemory("512M"),
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusVirtio, resource.MustParse("1G")),
 				)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
@@ -377,7 +378,7 @@ var _ = SIGDescribe("Storage", func() {
 						},
 					},
 				})
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -443,7 +444,7 @@ var _ = SIGDescribe("Storage", func() {
 					if storageEngine == "nfs" {
 						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
 					} else {
-						vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
+						vmi = libclient.RunVMIAndExpectLaunch(vmi, 120)
 					}
 
 					By(checkingVMInstanceConsoleOut)
@@ -468,7 +469,7 @@ var _ = SIGDescribe("Storage", func() {
 				if isRunOnKindInfra {
 					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
 				} else {
-					createdVMI = tests.RunVMIAndExpectLaunch(vmi, 90)
+					createdVMI = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				}
 
 				By("Writing an arbitrary file to it's EFI partition")
@@ -496,7 +497,7 @@ var _ = SIGDescribe("Storage", func() {
 				if isRunOnKindInfra {
 					tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
 				} else {
-					tests.RunVMIAndExpectLaunch(vmi, 90)
+					libclient.RunVMIAndExpectLaunch(vmi, 90)
 				}
 
 				By("Making sure that the previously written file is not present")
@@ -534,7 +535,7 @@ var _ = SIGDescribe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					obj := tests.RunVMIAndExpectLaunch(vmi, 240)
+					obj := libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
@@ -624,7 +625,7 @@ var _ = SIGDescribe("Storage", func() {
 						)
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
 
-						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img has been created")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -654,7 +655,7 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if another.img has been created")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -709,7 +710,7 @@ var _ = SIGDescribe("Storage", func() {
 							// hostdisk needs a privileged namespace
 							libvmi.WithNamespace(testsuite.NamespacePrivileged),
 						)
-						vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+						vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img exists")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -796,7 +797,7 @@ var _ = SIGDescribe("Storage", func() {
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 							libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: node}}))
-						vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+						vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -916,7 +917,7 @@ var _ = SIGDescribe("Storage", func() {
 						libvmi.WithNamespace(testsuite.NamespacePrivileged),
 					)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
-					tests.RunVMIAndExpectLaunch(vmi, 30)
+					libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 					By("Checking events")
 					objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
@@ -956,7 +957,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithPersistentVolumeClaim("disk0", dataVolume.Name),
 					libvmi.WithCloudInitNoCloudEncodedUserData(cirrosUserData),
 				)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 				By(checkingVMInstanceConsoleOut)
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -970,7 +971,7 @@ var _ = SIGDescribe("Storage", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
 				By("Launching a VMI with PVC ")
-				tests.RunVMIAndExpectLaunch(vmi, 180)
+				libclient.RunVMIAndExpectLaunch(vmi, 180)
 
 				By(checkingVMInstanceConsoleOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1030,7 +1031,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusSCSI, resource.MustParse("1Gi")),
 					libvmi.WithEmptyDisk("emptydisk2", v1.DiskBusSATA, resource.MustParse("1Gi")),
 				)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -1052,7 +1053,7 @@ var _ = SIGDescribe("Storage", func() {
 					vmi = libvmifact.NewAlpine(
 						libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusUSB, resource.MustParse("128Mi")),
 					)
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 					By("Checking that /dev/sda has a capacity of 128Mi")
@@ -1096,7 +1097,7 @@ var _ = SIGDescribe("Storage", func() {
 				)
 
 				By("Initializing the VM")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1116,7 +1117,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Initializing the VM")
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 				runningPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1241,8 +1242,8 @@ var _ = SIGDescribe("Storage", func() {
 				setShareable(vmi2, diskName)
 
 				By("Starting the VirtualMachineInstances")
-				vmi1 = tests.RunVMIAndExpectLaunch(vmi1, 500)
-				vmi2 = tests.RunVMIAndExpectLaunch(vmi2, 500)
+				vmi1 = libclient.RunVMIAndExpectLaunch(vmi1, 500)
+				vmi2 = libclient.RunVMIAndExpectLaunch(vmi2, 500)
 				By("Write data from the first VMI")
 				Expect(console.LoginToAlpine(vmi1)).To(Succeed())
 

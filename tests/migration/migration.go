@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -222,7 +223,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Starting hello world in the VM")
 			vmnetserver.StartTCPServer(vmi, port, console.LoginToCirros)
@@ -262,7 +263,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
@@ -314,7 +315,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libnet.WithMasqueradeNetworking()...,
 				)
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				durationLowBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "10Mi", 3)
 				durationHighBandwidth := repeatedlyMigrateWithBandwidthLimitation(vmi, "128Mi", 3)
@@ -335,7 +336,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -354,7 +355,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -384,7 +385,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -406,7 +407,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.EvictionStrategy = &strategy
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -478,7 +479,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					via,
 				)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("starting the migration")
@@ -519,7 +520,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				)
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the TSC frequency on the Domain XML")
@@ -560,7 +561,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -594,7 +595,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -614,7 +615,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -654,7 +655,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -701,7 +702,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -728,7 +729,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -783,7 +784,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
@@ -838,7 +839,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration that is expected to fail
 				By("Starting the Migration")
@@ -902,7 +903,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -928,7 +929,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1002,7 +1003,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
@@ -1023,7 +1024,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 300)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 300)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1040,7 +1041,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1085,7 +1086,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				tests.AddEphemeralDisk(vmi, "myephemeral", v1.VirtIO, image)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1100,7 +1101,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1119,7 +1120,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1423,7 +1424,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1445,7 +1446,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1526,7 +1527,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1637,7 +1638,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1663,7 +1664,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1751,7 +1752,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Annotations = map[string]string{v1.FuncTestForceLauncherMigrationFailureAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				for i := 0; i < 10; i++ {
 					// execute a migration, wait for finalized state
@@ -1792,7 +1793,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Annotations = map[string]string{v1.FuncTestForceLauncherMigrationFailureAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1826,7 +1827,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Annotations = map[string]string{v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration
 				By("Starting the Migration")
@@ -1908,7 +1909,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Annotations = map[string]string{v1.FuncTestBlockLauncherPrepareMigrationTargetAnnotation: ""}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				// execute a migration
 				By("Starting the Migration")
@@ -1973,7 +1974,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteOnce)
 				vmi.Spec.Hostname = string(cd.ContainerDiskAlpine)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -2038,7 +2039,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2064,7 +2065,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -2123,7 +2124,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 				vmiOriginalNode := vmi.Status.NodeName
 
 				// execute a migration, wait for finalized state
@@ -2194,7 +2195,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Trying to migrate VM and expect for the migration to get stuck")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2327,7 +2328,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(v1.CPUModeHostModel))
 
 				By("Fetching original host CPU model & supported CPU features")
@@ -2370,7 +2371,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Saving the original node's state")
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
@@ -2429,7 +2430,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 					By("Starting the VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					for indx, node := range nodes {
 						patchedNode := libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, virtClient)
@@ -2503,7 +2504,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					setParallelMigration(vmi)
 
 					By("Running vmi %s" + vmi.Name)
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+					vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 					By("Starting the Migration")
 					migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2550,7 +2551,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2587,7 +2588,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -2622,7 +2623,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(7))
 			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(1))
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -2643,7 +2644,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 			By("Starting the VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -2796,7 +2797,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = libclient.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
@@ -2859,7 +2860,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = libclient.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
@@ -3099,7 +3100,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Starting the migration")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -3118,7 +3119,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+		vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 		By("Starting a Migration")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -3139,7 +3140,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Checking that there always is at most one migration running")
 			Consistently(func() int {
@@ -3187,7 +3188,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithResourceMemory("1Mi"),
 					libvmi.WithCPUFeature("invtsc", "require"),
 				)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)
 			})
@@ -3197,7 +3198,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
 				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)
 			})
@@ -3227,7 +3228,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 		It("retrying immediately should be blocked by the migration backoff", func() {
 			By("Starting the VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Waiting for the migration to fail")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -3244,7 +3245,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 		It("after a successful migration backoff should be cleared", func() {
 			By("Starting the VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Waiting for the migration to fail")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -3300,7 +3301,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			_ = createResourceQuota(resourceQuota)
 
 			By("Starting the VirtualMachineInstance")
-			_ = tests.RunVMIAndExpectLaunch(vmi, 240)
+			_ = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Trying to migrate the VirtualMachineInstance")
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))

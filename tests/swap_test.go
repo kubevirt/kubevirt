@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 
@@ -122,7 +123,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 			By("Consume more memory than the node's memory")
 			err = fillMemWithStressFedoraVMI(vmi, memToUseInTheVmKib)
@@ -176,7 +177,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 
 			By("Starting the VirtualMachineInstance")
-			vmiToFillTargetNodeMem = tests.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
+			vmiToFillTargetNodeMem = libclient.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
 			Expect(console.LoginToFedora(vmiToFillTargetNodeMem)).To(Succeed())
 
 			By("reaching memory overcommitment in the target node")
@@ -193,7 +194,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
-			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = libclient.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
 			// execute a migration, wait for finalized state

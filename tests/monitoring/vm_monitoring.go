@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -160,7 +161,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Migrating VMIs")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -187,7 +188,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 			labels := map[string]string{
 				"vmi": vmi.Name,
 			}
@@ -283,7 +284,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		It("should fire KubevirtVmHighMemoryUsage alert", func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("fill up the vmi pod memory")
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -303,7 +304,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
-			tests.RunVMIAndExpectLaunch(vmi, 240)
+			libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("delete virt-handler daemonset")
 			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
@@ -328,7 +329,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 func createAgentVMI() *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 	vmiAgentConnectedConditionMatcher := MatchFields(IgnoreExtras, Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})
-	vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...), 180)
+	vmi := libclient.RunVMIAndExpectLaunch(libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...), 180)
 
 	var err error
 	var agentVMI *v1.VirtualMachineInstance

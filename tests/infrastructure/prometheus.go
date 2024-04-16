@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -56,7 +57,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
@@ -238,7 +238,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 				libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: preferredNodeName}}))
 		}
 
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+		vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 		nodeName := vmi.Status.NodeName
 
 		By("Expecting the VirtualMachineInstance console")

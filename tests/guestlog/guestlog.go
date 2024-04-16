@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +22,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -52,7 +52,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				By("Starting a VMI")
 				cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(autoattachSerialConsole)
 				cirrosVmi.Spec.Domain.Devices.LogSerialConsole = pointer.P(logSerialConsole)
-				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi := libclient.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -81,7 +81,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 
 			It("it should exit cleanly when the shutdown is initiated by the guest", func() {
 				By("Starting a VMI")
-				vmi := tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi := libclient.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -124,7 +124,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 `
 
 			It("it should fetch logs for a running VM with logs API", func() {
-				vmi = tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -173,7 +173,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 			})
 
 			It("it should rotate the internal log files", func() {
-				vmi = tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 
 				By("Finding virt-launcher pod")
 				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -203,7 +203,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 						k8sv1.ResourceMemory: resource.MustParse("256M"),
 					},
 				}
-				vmi = tests.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
+				vmi = libclient.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
 				Expect(vmi.Status.QOSClass).ToNot(BeNil())
 				Expect(*vmi.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 

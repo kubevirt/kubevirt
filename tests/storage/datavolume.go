@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	expect "github.com/google/goexpect"
 	storagev1 "k8s.io/api/storage/v1"
@@ -136,7 +137,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				libvmi.WithResourceMemory("1Gi"),
 				libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n"),
 			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 500)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 500)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -227,7 +228,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 120)
 
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())

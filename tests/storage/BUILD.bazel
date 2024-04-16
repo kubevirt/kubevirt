@@ -54,6 +54,7 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/framework/storage:go_default_library",
+        "//tests/libclient:go_default_library",
         "//tests/libdv:go_default_library",
         "//tests/libinstancetype:go_default_library",
         "//tests/libmigration:go_default_library",

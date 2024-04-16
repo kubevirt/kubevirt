@@ -27,10 +27,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -91,7 +91,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 				"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
 			})
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -130,7 +130,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 				"fedora": []byte(customPassword),
 			})
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -166,7 +166,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
 			})
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -188,7 +188,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
 				"fedora": []byte(customPassword),
 			})
-			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -234,7 +234,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 				"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
 			})
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 			verifySSHKeys(vmi)
 		},
 			Entry("[test_id:6224]using configdrive", libvmi.WithCloudInitConfigDriveUserData, v1.SSHPublicKeyAccessCredentialPropagationMethod{
