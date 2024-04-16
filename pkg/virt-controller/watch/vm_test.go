@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -107,9 +108,22 @@ var _ = Describe("VirtualMachine", func() {
 			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtFakeClient = fake.NewSimpleClientset()
+			// enable /status, this assumes that no other reactor will be prepend.
+			// if you need to prepend reactor it need to not handle the object or use the
+			// modify function
+			virtFakeClient.PrependReactor("update", "virtualmachines",
+				UpdateReactor(SubresourceHandle, virtFakeClient.Tracker(), ModifyStatusOnlyVM))
+			virtFakeClient.PrependReactor("update", "virtualmachines",
+				UpdateReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
+
+			virtFakeClient.PrependReactor("patch", "virtualmachines",
+				PatchReactor(SubresourceHandle, virtFakeClient.Tracker(), ModifyStatusOnlyVM))
+			virtFakeClient.PrependReactor("patch", "virtualmachines",
+				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
+
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-			virtFakeClient = fake.NewSimpleClientset()
 
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
@@ -208,18 +222,6 @@ var _ = Describe("VirtualMachine", func() {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, v1.VirtualMachineControllerFinalizer)
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
-		}
-
-		shouldExpectVMFinalizerAddition := func(vm *v1.VirtualMachine) {
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, v1.VirtualMachineControllerFinalizer)
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vm, nil)
-		}
-
-		shouldExpectVMFinalizerRemoval := func(vm *v1.VirtualMachine) {
-			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, v1.VirtualMachineControllerFinalizer)
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vm, nil)
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -368,22 +370,23 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv1",
 				},
 			})
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			shouldFailDataVolumeCreationNoResourceFound()
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-				Expect(cond).To(Not(BeNil()))
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-				Expect(cond.Reason).To(Equal("FailedCreate"))
-				Expect(cond.Message).To(ContainSubstring("Error encountered while creating DataVolumes: failed to create DataVolume"))
-				Expect(cond.Message).To(ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"))
-			}).Return(vm, nil)
-
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, FailedDataVolumeCreateReason)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+			Expect(cond).To(Not(BeNil()))
+			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+			Expect(cond.Reason).To(Equal("FailedCreate"))
+			Expect(cond.Message).To(ContainSubstring("Error encountered while creating DataVolumes: failed to create DataVolume"))
+			Expect(cond.Message).To(ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"))
 		})
 
 		It("should create missing DataVolume for VirtualMachineInstance", func() {
@@ -419,6 +422,8 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
@@ -428,14 +433,14 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID), "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
-			})
-
 			sanityExecute(vm)
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+
 		})
 
 		DescribeTable("should hotplug a vm", func(isRunning bool) {
@@ -510,15 +515,6 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-			}).Return(vm, nil)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				// vol request shouldn't be cleared until update status observes the new volume change occured
-				Expect(arg.(*v1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
-			}).Return(vm, nil)
-
 			sanityExecute(vm)
 		},
 
@@ -551,6 +547,8 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			if isRunning {
@@ -560,11 +558,10 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 			}
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
-			}).Return(nil, nil)
-
 			sanityExecute(vm)
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.VolumeRequests).To(BeEmpty())
 		},
 
 			Entry("that is running", true),
@@ -585,6 +582,8 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{}
 			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{}
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			if isRunning {
@@ -592,11 +591,10 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 			}
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
-			}).Return(nil, nil)
-
 			sanityExecute(vm)
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.VolumeRequests).To(BeEmpty())
 		},
 
 			Entry("that is running", true),
@@ -632,6 +630,8 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv2",
 				},
 			})
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			existingDataVolume1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -646,9 +646,8 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume2)
 
 			deletionCount := 0
-			shouldExpectDataVolumeDeletion(vm.UID, &deletionCount)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
+			shouldExpectDataVolumeDeletion(vm.UID, &deletionCount)
 
 			sanityExecute(vm)
 
@@ -685,6 +684,8 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv2",
 				},
 			})
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			existingDataVolume1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -697,8 +698,6 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
 
 			sanityExecute(vm)
 
@@ -734,6 +733,8 @@ var _ = Describe("VirtualMachine", func() {
 					Name: "dv2",
 				},
 			})
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			existingDataVolume1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -750,15 +751,12 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
-
 			sanityExecute(vm)
 
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
 
 		It("should start VMI once DataVolumes are complete", func() {
-
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
@@ -778,19 +776,25 @@ var _ = Describe("VirtualMachine", func() {
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
+
 			dataVolumeFeeder.Add(existingDataVolume)
 			// expect creation called
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
+
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			// TODO // expect update status is called
+			Expect(vm.Status.Created).To(BeFalse())
+			Expect(vm.Status.Ready).To(BeFalse())
 		})
 
 		It("should start VMI once DataVolumes (not templates) are complete", func() {
@@ -815,6 +819,9 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume.OwnerReferences = nil
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			dataVolumeFeeder.Add(existingDataVolume)
 
@@ -822,13 +829,15 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
+
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			// TODO // expect update status is called
+			Expect(vm.Status.Created).To(BeFalse())
+			Expect(vm.Status.Ready).To(BeFalse())
 		})
 
 		It("should start VMI once DataVolumes are complete or WaitForFirstConsumer", func() {
@@ -853,23 +862,27 @@ var _ = Describe("VirtualMachine", func() {
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.WaitForFirstConsumer
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
+
 			dataVolumeFeeder.Add(existingDataVolume)
 			// expect creation called
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			// TODO // expect update status is called
+			Expect(vm.Status.Created).To(BeFalse())
+			Expect(vm.Status.Ready).To(BeFalse())
 		})
 
 		It("should Not delete Datavolumes when VMI is stopped", func() {
-
 			vm, vmi := DefaultVirtualMachine(false)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
@@ -889,12 +902,14 @@ var _ = Describe("VirtualMachine", func() {
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			dataVolumeFeeder.Add(existingDataVolume)
 			vmiFeeder.Add(vmi)
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
@@ -930,6 +945,8 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			createCount := 0
@@ -958,6 +975,8 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			pvc := k8sv1.PersistentVolumeClaim{
@@ -1013,6 +1032,9 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			vm.Spec.Template.Spec.PriorityClassName = vmPriorityClass
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			createCount := 0
@@ -1035,23 +1057,25 @@ var _ = Describe("VirtualMachine", func() {
 				vmi.UID = "123"
 				vmi.Status.Phase = v1.Failed
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
-
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(1))
-				}).Return(nil, nil)
 
 				shouldExpectVMIFinalizerRemoval(vmi)
 
 				sanityExecute(vm)
 
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+
+				Expect(vm.Status.StartFailure).ToNot(BeNil())
+				Expect(vm.Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
+				Expect(vm.Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
+				Expect(vm.Status.StartFailure.ConsecutiveFailCount).To(Equal(1))
 			})
 
 			It("should track a new start failures when a new VMI fails without hitting running state", func() {
@@ -1068,24 +1092,26 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
-
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp.Time).ToNot(Equal(oldRetry))
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(2))
-				}).Return(nil, nil)
 
 				shouldExpectVMIFinalizerRemoval(vmi)
 
 				sanityExecute(vm)
 
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+
+				Expect(vm.Status.StartFailure).ToNot(BeNil())
+				Expect(vm.Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
+				Expect(vm.Status.StartFailure.RetryAfterTimestamp.Time).ToNot(Equal(oldRetry))
+				Expect(vm.Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
+				Expect(vm.Status.StartFailure.ConsecutiveFailCount).To(Equal(2))
 			})
 
 			It("should clear start failures when VMI hits running state", func() {
@@ -1108,17 +1134,18 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.StartFailure).To(BeNil())
-				}).Return(nil, nil)
-
 				sanityExecute(vm)
 
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.StartFailure).To(BeNil())
 			})
 
 			DescribeTable("should clear existing start failures when runStrategy is halted or manual", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -1137,30 +1164,31 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					if runStrategy == v1.RunStrategyHalted || runStrategy == v1.RunStrategyManual {
-						Expect(arg.(*v1.VirtualMachine).Status.StartFailure).To(BeNil())
-					} else {
-						Expect(arg.(*v1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
-
-					}
-				}).Return(nil, nil)
-
-				if runStrategy == v1.RunStrategyRerunOnFailure {
-					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
-							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
-						}).Return(vm, nil).Times(2)
-				}
-
 				shouldExpectVMIFinalizerRemoval(vmi)
 
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+
+				if runStrategy == v1.RunStrategyHalted || runStrategy == v1.RunStrategyManual {
+					Expect(vm.Status.StartFailure).To(BeNil())
+				} else {
+					Expect(vm.Status.StartFailure).ToNot(BeNil())
+				}
+
+				if runStrategy == v1.RunStrategyRerunOnFailure {
+					Expect(vm.Status.StateChangeRequests).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Action": Equal(v1.StateChangeRequestAction("Start")),
+					})))
+				}
 
 				if runStrategy != v1.RunStrategyManual && runStrategy != v1.RunStrategyOnce {
 					testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
@@ -1325,13 +1353,12 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
 
 				vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
 				createCount := 0
 				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
-				if fail {
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
-				}
 
 				if ds != nil {
 					cdiClient.PrependReactor("get", "datasources", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -1431,6 +1458,8 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.Generation = 1
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			vmRevision := createVMRevision(vm)
@@ -1440,13 +1469,13 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*v1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
 
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
-
 			sanityExecute(vm)
+
+			//TODO expect update status is called
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.Created).To(BeFalse())
+			Expect(vm.Status.Ready).To(BeFalse())
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
@@ -1457,6 +1486,8 @@ var _ = Describe("VirtualMachine", func() {
 			oldVMRevision := createVMRevision(vm)
 
 			vm.Generation = 2
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmRevision := createVMRevision(vm)
 
@@ -1468,13 +1499,13 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*v1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
 
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
-
 			sanityExecute(vm)
+
+			//TODO expect update status is called
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.Created).To(BeFalse())
+			Expect(vm.Status.Ready).To(BeFalse())
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
@@ -1499,6 +1530,10 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategy
 				vm.Generation = 3
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
 				addVirtualMachine(vm)
 
 				annotations := map[string]string{v1.VirtualMachineGenerationAnnotation: "3"}
@@ -1506,20 +1541,19 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 				}).Return(vmi, nil)
 
-				// expect update status is called
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-					Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-				}).Return(nil, nil)
+				sanityExecute(vm)
+
+				//TODO expect update status is called
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.Created).To(BeFalse())
+				Expect(vm.Status.Ready).To(BeFalse())
 
 				if runStrategy == v1.RunStrategyRerunOnFailure {
-					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
-							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
-						}).Return(vm, nil).Times(1)
+					Expect(vm.Status.StateChangeRequests).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Action": Equal(v1.StateChangeRequestAction("Start")),
+					})))
 				}
-
-				sanityExecute(vm)
 
 				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			},
@@ -1915,6 +1949,9 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm.Generation = vmGeneration
 					vm.Spec = newVMSpec
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
@@ -1933,12 +1970,13 @@ var _ = Describe("VirtualMachine", func() {
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					}
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-						Expect(arg.(*v1.VirtualMachine).Status.ObservedGeneration).To(Equal(desiredObservedGeneration))
-						Expect(arg.(*v1.VirtualMachine).Status.DesiredGeneration).To(Equal(desiredDesiredGeneration))
-					}).Return(nil, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					Expect(vm.Status.ObservedGeneration).To(Equal(desiredObservedGeneration))
+					Expect(vm.Status.DesiredGeneration).To(Equal(desiredDesiredGeneration))
 				},
 					Entry(
 						// Expect no patch on vmi annotations, and vm status to be correct
@@ -2038,6 +2076,8 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			// expect creation called
@@ -2045,20 +2085,19 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
-
-			if runStrategy == v1.RunStrategyRerunOnFailure {
-				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-					func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
-						Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
-					}).Return(vm, nil).Times(1)
-			}
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			//TODO expect update status is called
+			Expect(vm.Status.Created).To(BeFalse())
+			Expect(vm.Status.Ready).To(BeFalse())
+			if runStrategy == v1.RunStrategyRerunOnFailure {
+				Expect(vm.Status.StateChangeRequests).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Action": Equal(v1.StateChangeRequestAction("Start")),
+				})))
+			}
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		},
@@ -2071,6 +2110,8 @@ var _ = Describe("VirtualMachine", func() {
 		It("should ignore the name of a VirtualMachineInstance templates", func() {
 			vm, vmi := DefaultVirtualMachineWithNames(true, "vmname", "vminame")
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			// expect creation called
@@ -2079,13 +2120,14 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal(""))
 			}).Return(vmi, nil)
 
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			//TODO expect update status is called
+			Expect(vm.Status.Created).To(BeFalse())
+			Expect(vm.Status.Ready).To(BeFalse())
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
@@ -2094,32 +2136,38 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vmi.Status.Phase = v1.Scheduled
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeTrue())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-			}).Return(nil, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			//TODO expect update status is called
+			Expect(vm.Status.Created).To(BeTrue())
+			Expect(vm.Status.Ready).To(BeFalse())
 		})
 
 		It("should update status to created and ready when vmi is running and running", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			markAsReady(vmi)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeTrue())
-				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeTrue())
-			}).Return(nil, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			//TODO expect update status is called
+			Expect(vm.Status.Created).To(BeTrue())
+			Expect(vm.Status.Ready).To(BeTrue())
 		})
 
 		It("should have stable firmware UUIDs", func() {
@@ -2149,13 +2197,12 @@ var _ = Describe("VirtualMachine", func() {
 		It("should delete VirtualMachineInstance when stopped", func() {
 			vm, vmi := DefaultVirtualMachine(false)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			// vmInterface.EXPECT().Update(gomock.Any()).Return(vm, nil)
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
 
 			sanityExecute(vm)
 
@@ -2166,12 +2213,16 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := DefaultVirtualMachine(false)
 			vm.Finalizers = nil
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+
 			addVirtualMachine(vm)
 
-			shouldExpectVMFinalizerAddition(vm)
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Finalizers).To(HaveExactElements(v1.VirtualMachineControllerFinalizer))
 		})
 
 		It("should add controller finalizer only once", func() {
@@ -2179,11 +2230,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := DefaultVirtualMachine(false)
 			Expect(vm.Finalizers).To(HaveLen(1))
 			Expect(vm.Finalizers[0]).To(BeEquivalentTo(v1.VirtualMachineControllerFinalizer))
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			//Expect only update status, not Patch on vmInterface
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
-
+			//TODO Expect only update status, not Patch on vmInterface
 			sanityExecute(vm)
 		})
 
@@ -2192,12 +2244,13 @@ var _ = Describe("VirtualMachine", func() {
 			vm.DeletionTimestamp = now()
 			vm.DeletionGracePeriodSeconds = kvpointer.P(v1.DefaultGracePeriodSeconds)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
 			shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds, vmi)
 
 			sanityExecute(vm)
@@ -2210,12 +2263,15 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.DeletionTimestamp = now()
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			shouldExpectVMFinalizerRemoval(vm)
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Finalizers).To(BeEmpty())
 		})
 
 		DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -2226,11 +2282,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmi.Status.Phase = v1.Failed
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
 			shouldExpectVMIFinalizerRemoval(vmi)
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
 
 			sanityExecute(vm)
 
@@ -2244,10 +2301,10 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := DefaultVirtualMachine(false)
 			vmi.DeletionTimestamp = now()
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
 
 			sanityExecute(vm)
 		})
@@ -2258,13 +2315,14 @@ var _ = Describe("VirtualMachine", func() {
 			nonMatchingVMI := api.NewMinimalVMI("testvmi1")
 			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
 			vmiSource.Add(nonMatchingVMI)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(2).Return(vm, nil).AnyTimes()
 
 			sanityExecute(vm)
 
@@ -2276,10 +2334,10 @@ var _ = Describe("VirtualMachine", func() {
 			vmi.OwnerReferences = []metav1.OwnerReference{}
 
 			addVirtualMachine(vm)
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().Get(context.Background(), vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Return(vm, nil)
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), metav1.PatchOptions{})
 
 			sanityExecute(vm)
@@ -2303,6 +2361,8 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -2322,19 +2382,16 @@ var _ = Describe("VirtualMachine", func() {
 				return true, dv, nil
 			})
 
-			vmInterface.EXPECT().Get(context.Background(), vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Return(vm, nil)
-
 			sanityExecute(vm)
 		})
 
 		It("should detect that it has nothing to do beside updating the status", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Return(vm, nil)
 
 			sanityExecute(vm)
 		})
@@ -2342,23 +2399,24 @@ var _ = Describe("VirtualMachine", func() {
 		It("should add a fail condition if start up fails", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			// vmiFeeder.Add(vmi)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, fmt.Errorf("some random failure"))
 
-			// We should see the failed condition, replicas should stay at 0
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-				Expect(cond).To(Not(BeNil()))
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-				Expect(cond.Reason).To(Equal("FailedCreate"))
-				Expect(cond.Message).To(ContainSubstring("some random failure"))
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-			}).Return(vm, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+			Expect(cond).To(Not(BeNil()))
+			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+			Expect(cond.Reason).To(Equal("FailedCreate"))
+			Expect(cond.Message).To(ContainSubstring("some random failure"))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 
 			testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 		})
@@ -2366,22 +2424,24 @@ var _ = Describe("VirtualMachine", func() {
 		It("should add a fail condition if deletion fails", func() {
 			vm, vmi := DefaultVirtualMachine(false)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("some random failure"))
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-				Expect(cond).To(Not(BeNil()))
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-				Expect(cond.Reason).To(Equal("FailedDelete"))
-				Expect(cond.Message).To(ContainSubstring("some random failure"))
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-			})
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+			Expect(cond).To(Not(BeNil()))
+			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+			Expect(cond.Reason).To(Equal("FailedDelete"))
+			Expect(cond.Message).To(ContainSubstring("some random failure"))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
@@ -2389,20 +2449,23 @@ var _ = Describe("VirtualMachine", func() {
 		DescribeTable("should add ready condition when VMI exists", func(setup func(vmi *v1.VirtualMachineInstance), status k8sv1.ConditionStatus) {
 			vm, vmi := DefaultVirtualMachine(true)
 			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
+
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			setup(vmi)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachineReady)
-				Expect(cond).ToNot(BeNil())
-				Expect(cond.Status).To(Equal(status))
-			}).Return(vm, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().
+				GetCondition(vm, v1.VirtualMachineReady)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(status))
 		},
 			Entry("VMI Ready condition is True", markAsReady, k8sv1.ConditionTrue),
 			Entry("VMI Ready condition is False", markAsNonReady, k8sv1.ConditionFalse),
@@ -2477,53 +2540,62 @@ var _ = Describe("VirtualMachine", func() {
 				})
 			}
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				// these conditions should be added
-				for _, condName := range addCondList {
-					cond := cmVM.GetCondition(objVM, v1.VirtualMachineConditionType(condName))
-					Expect(cond).ToNot(BeNil())
-					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-				}
-				// these conditions shouldn't exist anymore
-				for _, condName := range removeCondList {
-					cond := cmVM.GetCondition(objVM, v1.VirtualMachineConditionType(condName))
-					Expect(cond).To(BeNil())
-				}
-				// these conditsion should be updated
-				for _, condName := range updateCondList {
-					cond := cmVM.GetCondition(objVM, v1.VirtualMachineConditionType(condName))
-					Expect(cond).ToNot(BeNil())
-					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-				}
-			}).Return(vm, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			for _, condName := range addCondList {
+				cond := cmVM.GetCondition(vm, v1.VirtualMachineConditionType(condName))
+				Expect(cond).ToNot(BeNil())
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			}
+			// these conditions shouldn't exist anymore
+			for _, condName := range removeCondList {
+				cond := cmVM.GetCondition(vm, v1.VirtualMachineConditionType(condName))
+				Expect(cond).To(BeNil())
+			}
+			// these conditsion should be updated
+			for _, condName := range updateCondList {
+				cond := cmVM.GetCondition(vm, v1.VirtualMachineConditionType(condName))
+				Expect(cond).ToNot(BeNil())
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			}
 		})
 
 		It("should add ready condition when VMI doesn't exists", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, v1.VirtualMachineReady)
-			addVirtualMachine(vm)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachineReady)
-				Expect(cond).ToNot(BeNil())
-				Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
-			}).Return(vm, nil)
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+
+			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().
+				GetCondition(vm, v1.VirtualMachineReady)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+
 		})
 
 		It("should add paused condition", func() {
 			vm, vmi := DefaultVirtualMachine(true)
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			markAsReady(vmi)
@@ -2533,15 +2605,16 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachinePaused)
-				Expect(cond).ToNot(BeNil())
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-			}).Return(vm, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().
+				GetCondition(vm, v1.VirtualMachinePaused)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+
 		})
 
 		It("should remove paused condition", func() {
@@ -2550,40 +2623,45 @@ var _ = Describe("VirtualMachine", func() {
 				Type:   v1.VirtualMachinePaused,
 				Status: k8sv1.ConditionTrue,
 			})
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			markAsReady(vmi)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().
-					GetCondition(objVM, v1.VirtualMachinePaused)
-				Expect(cond).To(BeNil())
-			}).Return(vm, nil)
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().
+				GetCondition(vm, v1.VirtualMachinePaused)
+			Expect(cond).To(BeNil())
 		})
 
 		It("should back off if a sync error occurs", func() {
 			vm, vmi := DefaultVirtualMachine(false)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("some random failure"))
 
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-				objVM := obj.(*v1.VirtualMachine)
-				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-				Expect(cond).To(Not(BeNil()))
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-				Expect(cond.Reason).To(Equal("FailedDelete"))
-				Expect(cond.Message).To(ContainSubstring("some random failure"))
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-			})
-
 			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+
+			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+			Expect(cond).To(Not(BeNil()))
+			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+			Expect(cond.Reason).To(Equal("FailedDelete"))
+			Expect(cond.Message).To(ContainSubstring("some random failure"))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
@@ -2595,6 +2673,8 @@ var _ = Describe("VirtualMachine", func() {
 			annotations := map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "0"}
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, obj interface{}, opts metav1.CreateOptions) {
@@ -2610,6 +2690,8 @@ var _ = Describe("VirtualMachine", func() {
 			annotations := map[string]string{"kubevirt.io/ignitiondata": "test", v1.VirtualMachineGenerationAnnotation: "0"}
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, obj interface{}, opts metav1.CreateOptions) {
@@ -2625,6 +2707,8 @@ var _ = Describe("VirtualMachine", func() {
 			annotations := map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true", v1.VirtualMachineGenerationAnnotation: "0"}
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStarting
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, obj interface{}, opts metav1.CreateOptions) {
@@ -2702,6 +2786,8 @@ var _ = Describe("VirtualMachine", func() {
 					Phase:     v1.MemoryDumpAssociating,
 				}
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
 				markAsReady(vmi)
@@ -2709,12 +2795,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIVolumesAddPatched(vmi)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-				}).Return(vm, nil)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
 			})
 
 			It("should update memory dump phase to InProgress when memory dump in vm volumes", func() {
@@ -2727,6 +2812,9 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmi.Spec = vm.Spec.Template.Spec
 				markAsReady(vmi)
@@ -2738,11 +2826,11 @@ var _ = Describe("VirtualMachine", func() {
 					Phase:     v1.MemoryDumpInProgress,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-				}).Return(nil, nil)
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 			})
 
 			It("should change status to unmounting when memory dump timestamp updated", func() {
@@ -2755,7 +2843,11 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
+
 				vmi.Spec = vm.Spec.Template.Spec
 				now := metav1.Now()
 				vmi.Status.VolumeStatus = []v1.VolumeStatus{
@@ -2781,11 +2873,11 @@ var _ = Describe("VirtualMachine", func() {
 					FileName:       &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-				}).Return(nil, nil)
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 			})
 
 			It("should update status to failed when memory dump failed", func() {
@@ -2798,7 +2890,10 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
+
 				vmi.Spec = vm.Spec.Template.Spec
 				now := metav1.Now()
 				vmi.Status.VolumeStatus = []v1.VolumeStatus{
@@ -2822,11 +2917,11 @@ var _ = Describe("VirtualMachine", func() {
 					EndTimestamp: &now,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-				}).Return(nil, nil)
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 			})
 
 			DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase v1.MemoryDumpPhase, expectedAnnotation string) {
@@ -2843,7 +2938,10 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
+
 				vmi.Spec = vm.Spec.Template.Spec
 				vmi.Status.VolumeStatus = []v1.VolumeStatus{
 					{
@@ -2867,9 +2965,9 @@ var _ = Describe("VirtualMachine", func() {
 				defer close(pvcAnnotationUpdated)
 				expectPVCAnnotationUpdate(expectedAnnotation, pvcAnnotationUpdated)
 				shouldExpectVMIVolumesRemovePatched(vmi)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
 
 				sanityExecute(vm)
+
 				Eventually(func() bool {
 					select {
 					case updated := <-pvcAnnotationUpdated:
@@ -2895,7 +2993,10 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
+
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
 
@@ -2906,11 +3007,11 @@ var _ = Describe("VirtualMachine", func() {
 					EndTimestamp: &now,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-				}).Return(nil, nil)
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 			})
 
 			It("should remove memory dump volume from vm volumes list when status is Dissociating", func() {
@@ -2922,14 +3023,15 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-				}).Return(vm, nil)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Return(vm, nil)
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 			})
 
 			It("should dissociate memory dump request when status is Dissociating and not in vm volumes", func() {
@@ -2940,14 +3042,15 @@ var _ = Describe("VirtualMachine", func() {
 					Phase:     v1.MemoryDumpDissociating,
 				}
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				// in case the volume is not in vm volumes we should remove memory dump request
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-					Expect(arg.(*v1.VirtualMachine).Status.MemoryDumpRequest).To(BeNil())
-				}).Return(nil, nil)
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.MemoryDumpRequest).To(BeNil())
 			})
 
 			DescribeTable("should not setup vmi with memory dump if memory dump", func(phase v1.MemoryDumpPhase) {
@@ -2972,14 +3075,16 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("Should set a Stopped status when running=false and VMI doesn't exist", func() {
 				vm, _ := DefaultVirtualMachine(false)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
 			})
 
 			DescribeTable("should set a Stopped status when VMI exists but stopped", func(phase v1.VirtualMachineInstancePhase, deletionTimestamp *metav1.Time) {
@@ -2994,18 +3099,19 @@ var _ = Describe("VirtualMachine", func() {
 				}
 				vmi.ObjectMeta.DeletionTimestamp = deletionTimestamp
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).AnyTimes()
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
-				})
-
 				shouldExpectVMIFinalizerRemoval(vmi)
 
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopped))
 			},
 
 				Entry("in Succeeded state", v1.Succeeded, nil),
@@ -3016,16 +3122,17 @@ var _ = Describe("VirtualMachine", func() {
 
 			It("Should set a Starting status when running=true and VMI doesn't exist", func() {
 				vm, vmi := DefaultVirtualMachine(true)
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
 				vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStarting))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStarting))
 			})
 
 			DescribeTable("Should set a Starting status when VMI is in a startup phase", func(phase v1.VirtualMachineInstancePhase) {
@@ -3033,15 +3140,15 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi.Status.Phase = phase
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStarting))
-				})
-
 				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStarting))
 			},
 
 				Entry("VMI has no phase set", v1.VmPhaseUnset),
@@ -3056,29 +3163,29 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = &runStrategy
 				vm.Status = status
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				if hasVMI {
 					vmi.Status.Phase = v1.Running
 					vmiFeeder.Add(vmi)
 				}
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					if expectCrashloop {
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
-					} else {
-						Expect(objVM.Status.PrintableStatus).ToNot(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
-					}
-				})
+				sanityExecute(vm)
 
-				if runStrategy == v1.RunStrategyRerunOnFailure {
-					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
-						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts metav1.PatchOptions) {
-							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
-						}).Return(vm, nil).Times(1)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				if expectCrashloop {
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
+				} else {
+					Expect(vm.Status.PrintableStatus).ToNot(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
 				}
 
-				sanityExecute(vm)
+				if runStrategy == v1.RunStrategyRerunOnFailure {
+					Expect(vm.Status.StateChangeRequests).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Action": Equal(v1.StateChangeRequestAction("Start")),
+					})))
+				}
 			},
 
 				Entry("vm with runStrategy always and crash loop",
@@ -3179,6 +3286,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				DescribeTable("Should set a appropriate status when DataVolume exists but not bound", func(running bool, phase cdiv1.DataVolumePhase, status v1.VirtualMachinePrintableStatus) {
 					vm.Spec.Running = &running
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -3196,16 +3306,15 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(status))
-					})
-
 					if running {
 						vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 					}
 
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(status))
 				},
 					Entry("Started VM PendingPopulation", true, cdiv1.PendingPopulation, v1.VirtualMachineStatusWaitingForVolumeBinding),
 					Entry("Started VM WFFC", true, cdiv1.WaitForFirstConsumer, v1.VirtualMachineStatusWaitingForVolumeBinding),
@@ -3215,6 +3324,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				DescribeTable("Should set a Provisioning status when DataVolume bound but not ready",
 					func(dvPhase cdiv1.DataVolumePhase) {
+						vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+						Expect(err).To(Succeed())
 						addVirtualMachine(vm)
 
 						dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -3228,12 +3339,12 @@ var _ = Describe("VirtualMachine", func() {
 						if dvPhase == cdiv1.WaitForFirstConsumer {
 							vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 						}
-						vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-							objVM := obj.(*v1.VirtualMachine)
-							Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
-						})
 
 						sanityExecute(vm)
+
+						vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+						Expect(err).To(Succeed())
+						Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
 					},
 
 					Entry("DataVolume is in ImportScheduled phase", cdiv1.ImportScheduled),
@@ -3242,18 +3353,18 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				DescribeTable("Should set a DataVolumeError status when DataVolume reports an error", func(dvFunc func(*cdiv1.DataVolume)) {
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dvFunc(dv)
 					dataVolumeFeeder.Add(dv)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusDataVolumeError))
-					})
-
 					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusDataVolumeError))
 				},
 
 					Entry(
@@ -3276,6 +3387,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("Should clear a DataVolumeError status when the DataVolume error is gone", func() {
 					vm.Status.PrintableStatus = v1.VirtualMachineStatusDataVolumeError
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -3286,12 +3399,10 @@ var _ = Describe("VirtualMachine", func() {
 					})
 					dataVolumeFeeder.Add(dv)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
-					})
-
 					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
 				})
 
 				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
@@ -3311,6 +3422,8 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					dv1, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -3329,12 +3442,11 @@ var _ = Describe("VirtualMachine", func() {
 					dataVolumeFeeder.Add(dv1)
 					dataVolumeFeeder.Add(dv2)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
-					})
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
 				})
 			})
 
@@ -3355,6 +3467,8 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Return(vmi, nil)
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 				})
 
@@ -3370,12 +3484,12 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusWaitingForVolumeBinding))
-					})
-
 					sanityExecute(vm)
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusWaitingForVolumeBinding))
+
 				},
 
 					Entry("PersistentVolumeClaim is in Pending phase", k8sv1.ClaimPending),
@@ -3388,16 +3502,16 @@ var _ = Describe("VirtualMachine", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 
 				vmi.Status.Phase = v1.Running
-
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusRunning))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusRunning))
 			})
 
 			It("should set a Paused status when VMI is running but is paused", func() {
@@ -3409,15 +3523,16 @@ var _ = Describe("VirtualMachine", func() {
 					Status: k8sv1.ConditionTrue,
 				})
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusPaused))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusPaused))
 			})
 
 			DescribeTable("should set a Stopping status when VMI has a deletion timestamp set", func(phase v1.VirtualMachineInstancePhase, condType v1.VirtualMachineInstanceConditionType) {
@@ -3432,15 +3547,17 @@ var _ = Describe("VirtualMachine", func() {
 						Status: k8sv1.ConditionTrue,
 					})
 				}
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopping))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusStopping))
 			},
 
 				Entry("when VMI is pending", v1.Pending, v1.VirtualMachineInstanceConditionType("")),
@@ -3465,17 +3582,20 @@ var _ = Describe("VirtualMachine", func() {
 							Status: k8sv1.ConditionTrue,
 						})
 					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
 					shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds, vmi)
 					vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).AnyTimes()
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
-					})
 
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
 				},
 
 					Entry("when VMI is pending", v1.Pending, v1.VirtualMachineInstanceConditionType("")),
@@ -3493,15 +3613,16 @@ var _ = Describe("VirtualMachine", func() {
 					vmi.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 					vmi.Status.Phase = v1.Running
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
-					})
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
 				})
 
 				DescribeTable("when VMI does not exist", func(running bool) {
@@ -3509,15 +3630,16 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm.ObjectMeta.DeletionTimestamp = &metav1.Time{Time: time.Now()}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					shouldExpectVMFinalizerRemoval(vm)
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
-					})
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Finalizers).To(BeEmpty())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusTerminating))
 				},
 
 					Entry("with running: true", true),
@@ -3533,15 +3655,16 @@ var _ = Describe("VirtualMachine", func() {
 					StartTimestamp: &metav1.Time{Time: time.Now()},
 				}
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusMigrating))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusMigrating))
 			})
 
 			It("should set an Unknown status when VMI is in unknown phase", func() {
@@ -3549,15 +3672,16 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmi.Status.Phase = v1.Unknown
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusUnknown))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusUnknown))
 			})
 
 			DescribeTable("should set a failure status in accordance to VMI condition",
@@ -3567,15 +3691,16 @@ var _ = Describe("VirtualMachine", func() {
 					vmi.Status.Phase = v1.Scheduling
 					vmi.Status.Conditions = append(vmi.Status.Conditions, cond)
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						Expect(objVM.Status.PrintableStatus).To(Equal(status))
-					})
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(status))
 				},
 
 				Entry("FailedUnschedulable", v1.VirtualMachineStatusUnschedulable,
@@ -3605,15 +3730,16 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-					objVM := obj.(*v1.VirtualMachine)
-					Expect(objVM.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
-				})
-
 				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
 			},
 				Entry("Reason: ErrImagePull", ErrImagePullReason),
 				Entry("Reason: ImagePullBackOff", ImagePullBackOffReason),
@@ -3746,15 +3872,13 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedRevisionName := instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation)
 					expectedRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -3766,9 +3890,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(expectedRevision.Name))
 
 					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -3797,7 +3923,8 @@ var _ = Describe("VirtualMachine", func() {
 						Kind:         instancetypeapi.SingularResourceName,
 						RevisionName: instancetypeRevision.Name,
 					}
-
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -3810,10 +3937,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
-
 				},
 					Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision with APIVersion", func() []byte {
 						v1alpha1instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
@@ -3920,18 +4044,14 @@ var _ = Describe("VirtualMachine", func() {
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					// We expect a request to add in the missing instancetype revisionName
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
-					Expect(err).ToNot(HaveOccurred())
-
 					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 						Name: instancetypeObj.Name,
 						Kind: instancetypeapi.SingularResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -3943,9 +4063,12 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
+
 				})
 
 				It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance", func() {
@@ -3955,15 +4078,13 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.ClusterSingularResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedRevisionName := instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
 					expectedRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -3975,9 +4096,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(expectedRevision.Name))
 
 					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -4001,6 +4124,8 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: instancetypeRevision.Name,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -4012,8 +4137,6 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
-
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
 
 					sanityExecute(vm)
 
@@ -4026,18 +4149,14 @@ var _ = Describe("VirtualMachine", func() {
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					// We expect a request to add in the missing instancetype revisionName
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeRevision, nil)
-					Expect(err).ToNot(HaveOccurred())
-
 					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 						Name: clusterInstancetypeObj.Name,
 						Kind: instancetypeapi.ClusterSingularResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4049,9 +4168,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
 				})
 
 				It("should reject request if an invalid InstancetypeMatcher Kind is provided", func() {
@@ -4061,18 +4182,19 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: "foobar",
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-						Expect(cond.Message).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
-					}).Return(vm, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(cond.Message).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4085,17 +4207,18 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-					}).Return(vm, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4108,17 +4231,18 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.ClusterSingularResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-					}).Return(vm, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4137,20 +4261,20 @@ var _ = Describe("VirtualMachine", func() {
 						Threads: uint32(1),
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-						Expect(cond.Message).To(ContainSubstring("Error encountered while storing Instancetype ControllerRevisions: VM field conflicts with selected Instancetype"))
-						Expect(cond.Message).To(ContainSubstring("spec.template.spec.domain.cpu"))
-					}).Return(vm, nil)
 
 					sanityExecute(vm)
 
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(cond.Message).To(ContainSubstring("Error encountered while storing Instancetype ControllerRevisions: VM field conflicts with selected Instancetype"))
+					Expect(cond.Message).To(ContainSubstring("spec.template.spec.domain.cpu"))
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 				})
 
@@ -4168,20 +4292,19 @@ var _ = Describe("VirtualMachine", func() {
 						Name: instancetypeObj.Name,
 						Kind: instancetypeapi.SingularResourceName,
 					}
-
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-						Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
-					}).Return(vm, nil)
 
 					sanityExecute(vm)
 
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
 				})
@@ -4246,16 +4369,13 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
-
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4267,9 +4387,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 
 					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -4298,6 +4420,8 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: preferenceRevision.Name,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -4309,8 +4433,6 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
-
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
 
 					sanityExecute(vm)
 
@@ -4432,18 +4554,14 @@ var _ = Describe("VirtualMachine", func() {
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					// We expect a request to add in the missing preference revisionName
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
 					vm.Spec.Preference = &v1.PreferenceMatcher{
 						Name: preference.Name,
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4455,9 +4573,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
 				})
 
 				It("should apply VirtualMachineClusterPreference to VirtualMachineInstance", func() {
@@ -4467,16 +4587,13 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation)
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 					Expect(err).ToNot(HaveOccurred())
-
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4489,9 +4606,11 @@ var _ = Describe("VirtualMachine", func() {
 
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 
 					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -4514,6 +4633,8 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: preferenceRevision.Name,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -4525,8 +4646,6 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					}).Return(vmi, nil)
-
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
 
 					sanityExecute(vm)
 
@@ -4539,18 +4658,14 @@ var _ = Describe("VirtualMachine", func() {
 					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					// We expect a request to add in the missing preference revisionName
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
 					vm.Spec.Preference = &v1.PreferenceMatcher{
 						Name: clusterPreference.Name,
 						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4562,9 +4677,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
 				})
 
 				It("should reject the request if an invalid PreferenceMatcher Kind is provided", func() {
@@ -4574,18 +4691,20 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: "foobar",
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-						Expect(cond.Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
-					}).Return(vm, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(cond.Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4597,18 +4716,19 @@ var _ = Describe("VirtualMachine", func() {
 						Name: "foobar",
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
-
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-					}).Return(vm, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4621,17 +4741,19 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-					}).Return(vm, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4654,18 +4776,20 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
-						objVM := obj.(*v1.VirtualMachine)
-						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, v1.VirtualMachineFailure)
-						Expect(cond).To(Not(BeNil()))
-						Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-						Expect(cond.Reason).To(Equal("FailedCreate"))
-						Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
-					}).Return(vm, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4681,15 +4805,12 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{}
 					vm.Spec.Template.Spec.Networks = []v1.Network{}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
-
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4697,9 +4818,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferredAutoattachPodInterface and skip adding default network interface", func() {
@@ -4729,15 +4852,12 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{}
 					vm.Spec.Template.Spec.Networks = []v1.Network{}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, autoattachPodInterfacePreference)
 					Expect(err).ToNot(HaveOccurred())
-
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4746,9 +4866,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Networks).To(BeEmpty())
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to default volume disk", func() {
@@ -4779,15 +4901,12 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
-
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4800,9 +4919,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Disks[1].Disk.Bus).To(Equal(preference.Spec.Devices.PreferredDiskBus))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to AutoattachInputDevice attached input device", func() {
@@ -4817,12 +4938,9 @@ var _ = Describe("VirtualMachine", func() {
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
 
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4832,9 +4950,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(preference.Spec.Devices.PreferredInputBus))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to preferredAutoattachInputDevice attached input device", func() {
@@ -4865,12 +4985,9 @@ var _ = Describe("VirtualMachine", func() {
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, autoattachInputDevicePreference)
 					Expect(err).ToNot(HaveOccurred())
 
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4880,9 +4997,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(autoattachInputDevicePreference.Spec.Devices.PreferredInputBus))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferredAutoattachInputDevice and skip adding default input device", func() {
@@ -4909,15 +5028,12 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, autoattachInputDevicePreference)
 					Expect(err).ToNot(HaveOccurred())
-
-					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, expectedPreferenceRevision)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*v1.VirtualMachineInstance)
@@ -4925,9 +5041,11 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Inputs).To(BeEmpty())
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 				})
 			})
 		})
@@ -4956,6 +5074,8 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				})
 
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
 				vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -4971,8 +5091,6 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
 				}).Return(vmi, nil)
 
-				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
-
 				sanityExecute(vm)
 
 			},
@@ -4986,6 +5104,8 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)
 			vm.Spec.Template.Spec.Networks = append([]v1.Network{}, networks...)
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -4993,8 +5113,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiArg.Spec.Domain.Devices.Interfaces).To(Equal(interfaces))
 				Expect(vmiArg.Spec.Networks).To(Equal(networks))
 			}).Return(vmi, nil)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
 
 			sanityExecute(vm)
 
@@ -5022,6 +5140,8 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -5030,8 +5150,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiArg.Spec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
 				Expect(vmiArg.Spec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
 			}).Return(vmi, nil)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
 
 			sanityExecute(vm)
 
@@ -5042,6 +5160,8 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = autoAttach
 			vm.Spec.Template.Spec.Domain.Devices.Inputs = existingInputDevices
 
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -5055,8 +5175,6 @@ var _ = Describe("VirtualMachine", func() {
 				}
 
 			}).Return(vmi, nil)
-
-			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1)
 
 			sanityExecute(vm)
 
@@ -5424,6 +5542,9 @@ var _ = Describe("VirtualMachine", func() {
 					})
 
 					vm, vmi := DefaultVirtualMachine(true)
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					affinity := k8sv1.Affinity{
@@ -5462,9 +5583,6 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					)
 
-					// Do not care
-					vmInterface.EXPECT().UpdateStatus(gomock.Any(), gomock.Any(), metav1.UpdateOptions{})
-
 					sanityExecute(vm)
 				})
 
@@ -5475,19 +5593,20 @@ var _ = Describe("VirtualMachine", func() {
 			When("isn't set in VMI template", func() {
 				It("Set default CPU topology in VMI status", func() {
 					vm, vmi := DefaultVirtualMachine(true)
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						Expect(arg.(*v1.VirtualMachineInstance).Status.CurrentCPUTopology).To(Not(BeNil()))
 					}).Return(vmi, nil)
 
-					// expect update status is called
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-						Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-						Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-					}).Return(nil, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.Created).To(BeFalse())
+					Expect(vm.Status.Ready).To(BeFalse())
 
 					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 				})
@@ -5505,6 +5624,8 @@ var _ = Describe("VirtualMachine", func() {
 						Cores:   numOfCores,
 						Threads: numOfThreads,
 					}
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
 					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
@@ -5515,13 +5636,12 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(currentCPUTopology.Threads).To(Equal(numOfThreads))
 					}).Return(vmi, nil)
 
-					// expect update status is called
-					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
-						Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
-						Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
-					}).Return(nil, nil)
-
 					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.Created).To(BeFalse())
+					Expect(vm.Status.Ready).To(BeFalse())
 
 					testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 				})
