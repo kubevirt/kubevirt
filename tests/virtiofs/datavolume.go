@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -317,7 +318,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			)
 			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 			// import and start
-			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+			vmi = libclient.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 			// Wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))

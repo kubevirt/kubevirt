@@ -1192,8 +1192,8 @@ var _ = SIGDescribe("Storage", func() {
 				setShareable(vmi2, "disk0")
 
 				By("Starting the VirtualMachineInstances")
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi1, dv, 500)
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi2, dv, 500)
+				libclient.RunVMIAndExpectLaunchWithDataVolume(vmi1, dv, 500)
+				libclient.RunVMIAndExpectLaunchWithDataVolume(vmi2, dv, 500)
 			})
 		})
 		Context("write and read data from a shared disk", func() {

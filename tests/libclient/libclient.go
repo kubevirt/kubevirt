@@ -27,8 +27,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -41,6 +44,20 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 	By(waitingVMInstanceStart)
 	return libwait.WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
+		libwait.WithTimeout(timeout),
+	)
+}
+
+func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1beta1.DataVolume, timeout int) *v1.VirtualMachineInstance {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	By("Waiting until the DataVolume is ready")
+	libstorage.EventuallyDV(dv, timeout, matcher.HaveSucceeded())
+	By(waitingVMInstanceStart)
+	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
+	return libwait.WaitForVMIPhase(vmi,
+		[]v1.VirtualMachineInstancePhase{v1.Running},
+		libwait.WithWarningsIgnoreList(warningsIgnoreList),
 		libwait.WithTimeout(timeout),
 	)
 }

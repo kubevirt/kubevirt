@@ -103,20 +103,6 @@ func CreateSecret(name, namespace string, data map[string]string) {
 	}
 }
 
-func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By("Waiting until the DataVolume is ready")
-	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
-	By(waitingVMInstanceStart)
-	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithWarningsIgnoreList(warningsIgnoreList),
-		libwait.WithTimeout(timeout),
-	)
-}
-
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())

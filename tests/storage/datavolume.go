@@ -280,7 +280,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+					vmi := libclient.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -371,7 +371,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
-				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+				vmi = libclient.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1205,7 +1205,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Making sure the slow Fedora import is complete before creating the VMI")
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
-			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+			vmi = libclient.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
