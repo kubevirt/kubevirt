@@ -394,8 +394,8 @@ func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
 	featuresMap := make(map[string]bool)
 	for _, node := range nodesList.Items {
 		for key := range node.Labels {
-			if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
-				feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+			if strings.Contains(key, v1.CPUFeatureLabel) {
+				feature := strings.TrimPrefix(key, v1.CPUFeatureLabel)
 				if _, ok := featureDenyList[feature]; !ok {
 					featuresMap[feature] = true
 				}
@@ -418,8 +418,8 @@ func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
 	cpuMap := make(map[string]bool)
 	for _, node := range nodeList.Items {
 		for key := range node.Labels {
-			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+			if strings.Contains(key, v1.CPUModelLabel) {
+				cpu := strings.TrimPrefix(key, v1.CPUModelLabel)
 				if _, ok := cpuDenyList[cpu]; !ok {
 					cpuMap[cpu] = true
 				}

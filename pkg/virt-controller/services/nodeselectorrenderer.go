@@ -109,7 +109,7 @@ func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, er
 }
 
 func cpuModelLabel(cpuModel string) string {
-	return NFD_CPU_MODEL_PREFIX + cpuModel
+	return v1.CPUModelLabel + cpuModel
 }
 
 func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
@@ -117,7 +117,7 @@ func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
 	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
 		for _, feature := range vmi.Spec.Domain.CPU.Features {
 			if feature.Policy == "" || feature.Policy == "require" {
-				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
+				labels = append(labels, v1.CPUFeatureLabel+feature.Name)
 			}
 		}
 	}
@@ -132,7 +132,7 @@ func hypervNodeSelectors(vmiFeatures *v1.Features) map[string]string {
 
 	for _, hv := range makeHVFeatureLabelTable(vmiFeatures) {
 		if isFeatureStateEnabled(hv.Feature) {
-			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
+			nodeSelectors[v1.HypervLabel+hv.Label] = "true"
 		}
 	}
 
