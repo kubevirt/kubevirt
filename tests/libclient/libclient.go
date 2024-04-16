@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
@@ -68,6 +69,22 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 	By(waitingVMInstanceStart)
 	return libwait.WaitForSuccessfulVMIStart(vmi,
 		libwait.WithFailOnWarnings(false),
+		libwait.WithTimeout(timeout),
+	)
+}
+
+func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	wp := watcher.WarningsPolicy{FailOnWarnings: true}
+	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)
+}
+
+func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	By("Waiting until the VirtualMachineInstance will be scheduled")
+	return libwait.WaitForVMIPhase(vmi,
+		[]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
+		libwait.WithWarningsPolicy(&wp),
 		libwait.WithTimeout(timeout),
 	)
 }

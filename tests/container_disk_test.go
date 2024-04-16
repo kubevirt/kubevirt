@@ -67,7 +67,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy = policy
 
-		vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+		vmi = libclient.RunVMIAndExpectScheduling(vmi, 60)
 		Expect(vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy).To(Equal(expectedPolicy))
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).ToNot(HaveOccurred())

@@ -385,7 +385,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
+					vmi = libclient.RunVMIAndExpectScheduling(vmi, 30)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
 					launcher, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -416,7 +416,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					createdVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+					createdVMI := libclient.RunVMIAndExpectScheduling(vmi, 30)
 					launcher, err := libpod.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
 					Expect(err).ToNot(HaveOccurred())
 					// Wait until we see that starting the VirtualMachineInstance is failing
@@ -459,7 +459,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				vmi := libvmifact.NewCirros()
 				By("setting nodeselector with non-existing-os label")
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelOSStable: "not-existing-os"}
-				vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
+				vmi = libclient.RunVMIAndExpectScheduling(vmi, 30)
 
 				pods, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())

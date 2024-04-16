@@ -76,19 +76,16 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const (
-	BinBash                = "/bin/bash"
-	waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue    = "echo $?\n"
-	CustomHostPath         = "custom-host-path"
-	DiskAlpineHostPath     = "disk-alpine-host-path"
-	DiskWindowsSysprep     = "disk-windows-sysprep"
-	DiskCustomHostPath     = "disk-custom-host-path"
+	BinBash             = "/bin/bash"
+	EchoLastReturnValue = "echo $?\n"
+	CustomHostPath      = "custom-host-path"
+	DiskAlpineHostPath  = "disk-alpine-host-path"
+	DiskWindowsSysprep  = "disk-windows-sysprep"
+	DiskCustomHostPath  = "disk-custom-host-path"
 )
 
 func CreateSecret(name, namespace string, data map[string]string) {
@@ -101,22 +98,6 @@ func CreateSecret(name, namespace string, data map[string]string) {
 	if !errors.IsAlreadyExists(err) {
 		util2.PanicOnError(err)
 	}
-}
-
-func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)
-}
-
-func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By("Waiting until the VirtualMachineInstance will be scheduled")
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
-		libwait.WithWarningsPolicy(&wp),
-		libwait.WithTimeout(timeout),
-	)
 }
 
 func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
