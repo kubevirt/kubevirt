@@ -26,7 +26,6 @@ package kubecli
 */
 
 import (
-	"context"
 	"time"
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
@@ -258,7 +257,6 @@ type VirtualMachineInstanceMigrationInterface interface {
 
 type KubeVirtInterface interface {
 	kvcorev1.KubeVirtInterface
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.KubeVirt, err error)
 }
 
 type ServerVersionInterface interface {

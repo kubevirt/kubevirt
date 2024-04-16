@@ -8,6 +8,7 @@ go_library(
         "doc.go",
         "generated_expansion.go",
         "kubevirt.go",
+        "kubevirt_expansion.go",
         "streamer.go",
         "virtualmachine.go",
         "virtualmachine_expansion.go",
