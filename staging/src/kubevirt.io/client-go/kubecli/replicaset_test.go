@@ -173,7 +173,7 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, rsPath, "scale")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, scale),
 		))
-		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).GetScale(rs.Name, k8smetav1.GetOptions{})
+		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).GetScale(context.Background(), rs.Name, k8smetav1.GetOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

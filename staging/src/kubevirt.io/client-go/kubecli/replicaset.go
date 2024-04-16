@@ -47,14 +47,14 @@ type rc struct {
 	resource   string
 }
 
-func (v *rc) GetScale(replicaSetName string, options k8smetav1.GetOptions) (result *autov1.Scale, err error) {
+func (v *rc) GetScale(ctx context.Context, replicaSetName string, options k8smetav1.GetOptions) (result *autov1.Scale, err error) {
 	result = &autov1.Scale{}
 	err = v.restClient.Get().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Name(replicaSetName).
 		SubResource("scale").
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return
 }
