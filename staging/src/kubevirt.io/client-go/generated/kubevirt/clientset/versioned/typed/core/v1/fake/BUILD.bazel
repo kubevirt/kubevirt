@@ -6,6 +6,7 @@ go_library(
         "doc.go",
         "fake_core_client.go",
         "fake_kubevirt.go",
+        "fake_kubevirt_expansion.go",
         "fake_virtualmachine.go",
         "fake_virtualmachine_expansion.go",
         "fake_virtualmachineinstance.go",

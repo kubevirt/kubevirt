@@ -18,8 +18,6 @@ limitations under the License.
 
 package v1
 
-type KubeVirtExpansion interface{}
-
 type VirtualMachineInstancePresetExpansion interface{}
 
 type VirtualMachineInstanceReplicaSetExpansion interface{}
