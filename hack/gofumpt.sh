@@ -26,6 +26,7 @@ coveredpaths="\
   pkg/network/namescheme \
   pkg/network/domainspec \
   pkg/network/deviceinfo \
+  pkg/virtctl/credentials/common \
   tests/console \
   tests/libnet \
   tests/libnode \

@@ -53,7 +53,7 @@ const exampleUsage = `  # Add an SSH key for a running virtual machine.
 `
 
 type addSshKeyFlags struct {
-	common.SshCommandFlags
+	common.SSHCommandFlags
 
 	CreateSecret bool
 	UpdateSecret bool
@@ -62,7 +62,7 @@ type addSshKeyFlags struct {
 }
 
 func (a *addSshKeyFlags) AddToCommand(cmd *cobra.Command) {
-	a.SshCommandFlags.AddToCommand(cmd)
+	a.SSHCommandFlags.AddToCommand(cmd)
 
 	const (
 		createSecretFlag = "create-secret"
@@ -84,7 +84,7 @@ func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSshKeyFl
 	}
 
 	// Reading the key before accessing cluster
-	sshKey, err := common.GetSshKey(&cmdFlags.SshCommandFlags)
+	sshKey, err := common.GetSSHKey(&cmdFlags.SSHCommandFlags)
 	if err != nil {
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
@@ -141,7 +141,7 @@ func addSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlag
 }
 
 func updateSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdFlags *addSshKeyFlags, vm *v1.VirtualMachine, sshKey string) error {
-	secrets := common.GetSshSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
+	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
 	if len(secrets) == 0 {
 		return fmt.Errorf("no secrets specified for user: %s", cmdFlags.User)
 	}
@@ -163,7 +163,7 @@ func updateSecretWithSshKey(cmd *cobra.Command, cli kubecli.KubevirtClient, cmdF
 
 	if !cmdFlags.Force {
 		// Check if secret is owned by the VM. This is useful to not accidentally update a secret that is used by multiple VMs.
-		if !common.IsOwnedByVm(secret, vm) {
+		if !common.IsOwnedByVM(secret, vm) {
 			return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 		}
 	}
@@ -194,7 +194,7 @@ func shouldCreateNewSecret(flags *addSshKeyFlags, vm *v1.VirtualMachine) bool {
 	}
 
 	// Default behavior: Create a new secret, if no secret is defined for a user
-	secrets := common.GetSshSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, flags.User)
+	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, flags.User)
 	return len(secrets) == 0
 }
 

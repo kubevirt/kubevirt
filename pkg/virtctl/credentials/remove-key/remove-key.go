@@ -42,13 +42,13 @@ const exampleUsage = `  # Remove an SSH key for a running virtual machine.
 `
 
 type removeSshKeyFlags struct {
-	common.SshCommandFlags
+	common.SSHCommandFlags
 
 	Force bool
 }
 
 func (r *removeSshKeyFlags) AddToCommand(cmd *cobra.Command) {
-	r.SshCommandFlags.AddToCommand(cmd)
+	r.SSHCommandFlags.AddToCommand(cmd)
 
 	cmd.Flags().BoolVar(&r.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
@@ -62,7 +62,7 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSs
 	}
 
 	// Reading the key before accessing cluster
-	sshKey, err := common.GetSshKey(&cmdFlags.SshCommandFlags)
+	sshKey, err := common.GetSSHKey(&cmdFlags.SSHCommandFlags)
 	if err != nil {
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
@@ -77,7 +77,7 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSs
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
 
-	secrets := common.GetSshSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
+	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
 	if len(secrets) == 0 {
 		cmd.Printf("No secrets associated with user %s", cmdFlags.User)
 		return nil
@@ -124,7 +124,7 @@ func removeKeyFromSecret(ctx context.Context, cli kubecli.KubevirtClient, vm *v1
 
 		if !force {
 			// Check if secret is owned by the VM. This is useful to not accidentally update a secret that is used by multiple VMs.
-			if !common.IsOwnedByVm(secret, vm) {
+			if !common.IsOwnedByVM(secret, vm) {
 				return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 			}
 		}

@@ -94,7 +94,7 @@ func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwo
 		}
 
 		// Check if secret is owned by the VM. This is useful to not accidentally update a secret that is used by multiple VMs.
-		if !common.IsOwnedByVm(secret, vm) {
+		if !common.IsOwnedByVM(secret, vm) {
 			return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 		}
 	}
