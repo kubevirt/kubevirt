@@ -106,7 +106,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		var s *autov1.Scale
 		By("Checking the number of replicas")
 		EventuallyWithOffset(1, func() int32 {
-			s, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).GetScale(name, v12.GetOptions{})
+			s, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).GetScale(context.Background(), name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return s.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(expected)))

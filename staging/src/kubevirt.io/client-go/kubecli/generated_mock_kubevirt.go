@@ -1464,15 +1464,15 @@ func (_mr *_MockReplicaSetInterfaceRecorder) Patch(arg0, arg1, arg2, arg3, arg4 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockReplicaSetInterface) GetScale(replicaSetName string, options v12.GetOptions) (*v11.Scale, error) {
-	ret := _m.ctrl.Call(_m, "GetScale", replicaSetName, options)
+func (_m *MockReplicaSetInterface) GetScale(ctx context.Context, replicaSetName string, options v12.GetOptions) (*v11.Scale, error) {
+	ret := _m.ctrl.Call(_m, "GetScale", ctx, replicaSetName, options)
 	ret0, _ := ret[0].(*v11.Scale)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockReplicaSetInterfaceRecorder) GetScale(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetScale", arg0, arg1)
+func (_mr *_MockReplicaSetInterfaceRecorder) GetScale(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetScale", arg0, arg1, arg2)
 }
 
 func (_m *MockReplicaSetInterface) UpdateScale(replicaSetName string, scale *v11.Scale) (*v11.Scale, error) {

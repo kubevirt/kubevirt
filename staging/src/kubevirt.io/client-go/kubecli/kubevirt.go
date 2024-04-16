@@ -269,7 +269,7 @@ type VirtualMachineInstanceInterface interface {
 
 type ReplicaSetInterface interface {
 	kvcorev1.VirtualMachineInstanceReplicaSetInterface
-	GetScale(replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
+	GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
 	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
 	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
