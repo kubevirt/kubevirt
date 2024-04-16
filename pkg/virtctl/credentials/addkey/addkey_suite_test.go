@@ -1,4 +1,4 @@
-package add_key_test
+package addkey_test
 
 import (
 	"testing"

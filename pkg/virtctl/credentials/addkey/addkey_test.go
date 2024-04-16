@@ -1,4 +1,4 @@
-package add_key_test
+package addkey_test
 
 import (
 	"context"
@@ -21,12 +21,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
@@ -90,7 +90,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: pointer.P(true),
 				}},
 			},
 		}
@@ -109,57 +109,59 @@ var _ = Describe("Credentials add-ssh-key", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachineInstance, error) {
-			if name == vmName && vmi != nil {
-				return vmi, nil
-			}
-			return nil, errors.NewNotFound(schema.GroupResource{
-				Group:    core.GroupName,
-				Resource: "VirtualMachineInstance",
-			}, name)
-		}).AnyTimes()
+		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachineInstance, error) {
+				if name == vmName && vmi != nil {
+					return vmi, nil
+				}
+				return nil, errors.NewNotFound(schema.GroupResource{
+					Group:    core.GroupName,
+					Resource: "VirtualMachineInstance",
+				}, name)
+			}).AnyTimes()
 
-		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
-			if name == vmName && vm != nil {
-				return vm, nil
-			}
-			return nil, errors.NewNotFound(schema.GroupResource{
-				Group:    core.GroupName,
-				Resource: "VirtualMachine",
-			}, name)
-		}).AnyTimes()
-
-		vmInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), types.JSONPatchType, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, name string, _ any, patchData []byte, _ any, _ ...any) (*v1.VirtualMachine, error) {
-			if name != vmName || vm == nil {
+		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
+				if name == vmName && vm != nil {
+					return vm, nil
+				}
 				return nil, errors.NewNotFound(schema.GroupResource{
 					Group:    core.GroupName,
 					Resource: "VirtualMachine",
 				}, name)
-			}
+			}).AnyTimes()
 
-			patch, err := jsonpatch.DecodePatch(patchData)
-			if err != nil {
-				return nil, err
-			}
+		vmInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), types.JSONPatchType, gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ any, name string, _ any, patchData []byte, _ any, _ ...any) (*v1.VirtualMachine, error) {
+				if name != vmName || vm == nil {
+					return nil, errors.NewNotFound(schema.GroupResource{
+						Group:    core.GroupName,
+						Resource: "VirtualMachine",
+					}, name)
+				}
 
-			vmJson, err := json.Marshal(vm)
-			if err != nil {
-				return nil, err
-			}
+				patch, err := jsonpatch.DecodePatch(patchData)
+				if err != nil {
+					return nil, err
+				}
 
-			modifiedVmJson, err := patch.Apply(vmJson)
-			if err != nil {
-				return nil, err
-			}
+				vmJSON, err := json.Marshal(vm)
+				if err != nil {
+					return nil, err
+				}
 
-			err = json.Unmarshal(modifiedVmJson, vm)
-			if err != nil {
-				return nil, err
-			}
+				modifiedVMJSON, err := patch.Apply(vmJSON)
+				if err != nil {
+					return nil, err
+				}
 
-			return vm, nil
-		}).AnyTimes()
+				err = json.Unmarshal(modifiedVMJSON, vm)
+				if err != nil {
+					return nil, err
+				}
 
+				return vm, nil
+			}).AnyTimes()
 	})
 
 	It("should fail if no key is specified", func() {
@@ -243,7 +245,8 @@ var _ = Describe("Credentials add-ssh-key", func() {
 							Users: []string{userName},
 						},
 					},
-				}})
+				},
+			})
 
 		err := runAddKeyCommand(
 			"--user", userName,
@@ -291,7 +294,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 		const testKey = "key contents in file"
 
 		filename := filepath.Join(GinkgoT().TempDir(), "test-key-file")
-		Expect(os.WriteFile(filename, []byte(testKey), 0666)).To(Succeed())
+		Expect(os.WriteFile(filename, []byte(testKey), 0o600)).To(Succeed())
 
 		err := runAddKeyCommand(
 			"--user", userName,
@@ -314,7 +317,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: pointer.P(true),
 				}},
 			},
 		}
@@ -335,7 +338,8 @@ var _ = Describe("Credentials add-ssh-key", func() {
 							Users: []string{userName},
 						},
 					},
-				}})
+				},
+			})
 
 		const testKey = "test-key"
 		err = runAddKeyCommand(
@@ -415,7 +419,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 			Expect(vm.Spec.Template.Spec.AccessCredentials).To(HaveLen(2))
 
 			credential := vm.Spec.Template.Spec.AccessCredentials[1]
-			expectAccessCredentialIsSshWithUser(&credential, userName)
+			expectAccessCredentialIsSSHWithUser(&credential, userName)
 
 			newSecretName := credential.SSHPublicKey.Source.Secret.SecretName
 			expectSecretToContainKey(kubeClient, newSecretName, testKey)
@@ -439,7 +443,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 			Expect(vm.Spec.Template.Spec.AccessCredentials).To(HaveLen(1))
 
 			credential := vm.Spec.Template.Spec.AccessCredentials[0]
-			expectAccessCredentialIsSshWithUser(&credential, userName)
+			expectAccessCredentialIsSSHWithUser(&credential, userName)
 
 			newSecretName := credential.SSHPublicKey.Source.Secret.SecretName
 			expectSecretToContainKey(kubeClient, newSecretName, testKey)
@@ -469,7 +473,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 			Expect(vm.Spec.Template.Spec.AccessCredentials).To(HaveLen(2))
 
 			credential := vm.Spec.Template.Spec.AccessCredentials[1]
-			expectAccessCredentialIsSshWithUser(&credential, userName)
+			expectAccessCredentialIsSSHWithUser(&credential, userName)
 
 			newSecretName := credential.SSHPublicKey.Source.Secret.SecretName
 			expectSecretToContainKey(kubeClient, newSecretName, testKey)
@@ -489,7 +493,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 	})
 })
 
-func expectSecretToContainKey(cli kubernetes.Interface, name string, key string) {
+func expectSecretToContainKey(cli kubernetes.Interface, name, key string) {
 	secret, err := cli.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -497,7 +501,7 @@ func expectSecretToContainKey(cli kubernetes.Interface, name string, key string)
 	ExpectWithOffset(1, secret.Data).To(ContainElement([]byte(key)))
 }
 
-func expectAccessCredentialIsSshWithUser(credential *v1.AccessCredential, user string) {
+func expectAccessCredentialIsSSHWithUser(credential *v1.AccessCredential, user string) {
 	Expect(credential.SSHPublicKey).ToNot(BeNil())
 	Expect(credential.SSHPublicKey.Source.Secret).ToNot(BeNil())
 	Expect(credential.SSHPublicKey.Source.Secret.SecretName).ToNot(BeEmpty())

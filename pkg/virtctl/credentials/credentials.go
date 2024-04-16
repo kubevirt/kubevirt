@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	add_key "kubevirt.io/kubevirt/pkg/virtctl/credentials/add-key"
+	add_key "kubevirt.io/kubevirt/pkg/virtctl/credentials/addkey"
 	remove_key "kubevirt.io/kubevirt/pkg/virtctl/credentials/remove-key"
 	set_password "kubevirt.io/kubevirt/pkg/virtctl/credentials/set-password"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"

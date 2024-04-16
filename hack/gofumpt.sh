@@ -27,6 +27,7 @@ coveredpaths="\
   pkg/network/domainspec \
   pkg/network/deviceinfo \
   pkg/virtctl/credentials/common \
+  pkg/virtctl/credentials/addkey \
   tests/console \
   tests/libnet \
   tests/libnode \
