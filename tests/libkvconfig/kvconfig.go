@@ -20,6 +20,7 @@
 package libkvconfig
 
 import (
+	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +53,6 @@ func patchKV(namespace, name string, patchOps []patch.PatchOperation) error {
 	if err != nil {
 		return err
 	}
-	_, err = kubevirt.Client().KubeVirt(namespace).Patch(name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+	_, err = kubevirt.Client().KubeVirt(namespace).Patch(context.Background(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
 }

@@ -195,7 +195,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) {
+			kubeVirtInterface.EXPECT().PatchStatus(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) {
 				str := string(data)
 				Expect(str).To(Equal("[{ \"op\": \"test\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 0}, { \"op\": \"replace\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 100}]"))
 

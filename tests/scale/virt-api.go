@@ -26,12 +26,12 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 
 	setccs := func(ccs v12.CustomizeComponents) (oldcss v12.CustomizeComponents) {
 		originalKv := util.GetCurrentKv(virtClient)
-		kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &v1.GetOptions{})
+		kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, v1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		oldcss = kv.Spec.CustomizeComponents
 		kv.Spec.CustomizeComponents = ccs
 		EventuallyWithOffset(1, func() error {
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, v1.UpdateOptions{})
 			return err
 		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -40,12 +40,12 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 
 	restorescc := func(ccs v12.CustomizeComponents) {
 		originalKv := util.GetCurrentKv(virtClient)
-		kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &v1.GetOptions{})
+		kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, v1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		kv.Spec.CustomizeComponents = v12.CustomizeComponents{}
 
 		EventuallyWithOffset(1, func() error {
-			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, v1.UpdateOptions{})
 			return err
 		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}

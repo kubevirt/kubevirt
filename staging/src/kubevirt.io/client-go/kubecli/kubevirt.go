@@ -314,14 +314,8 @@ type VirtualMachineInstanceMigrationInterface interface {
 }
 
 type KubeVirtInterface interface {
-	Get(name string, options *metav1.GetOptions) (*v1.KubeVirt, error)
-	List(opts *metav1.ListOptions) (*v1.KubeVirtList, error)
-	Create(instance *v1.KubeVirt) (*v1.KubeVirt, error)
-	Update(*v1.KubeVirt) (*v1.KubeVirt, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error)
-	UpdateStatus(*v1.KubeVirt) (*v1.KubeVirt, error)
-	PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.KubeVirt, err error)
+	kvcorev1.KubeVirtInterface
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.KubeVirt, err error)
 }
 
 type ServerVersionInterface interface {
