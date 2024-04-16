@@ -47,8 +47,8 @@ replace github.com/kubevirt/hyperconverged-cluster-operator/tools/release-notes/
 // FIX: Denial of service in golang.org/x/text/language
 replace golang.org/x/text => golang.org/x/text v0.7.0
 
-// FIX: Uncontrolled Resource Consumption
-replace golang.org/x/net => golang.org/x/net v0.9.0
+// FIX: CVE-2023-45288
+replace golang.org/x/net => golang.org/x/net v0.23.0
 
 // FIX: Use of a Broken or Risky Cryptographic Algorithm in golang.org/x/crypto/ssh
 replace golang.org/x/crypto => golang.org/x/crypto v0.8.0
