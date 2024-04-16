@@ -9,6 +9,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -127,7 +128,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var tcpVM *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			tcpVM = newLabeledVMI("vm")
-			tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
+			tcpVM = libclient.RunVMIAndExpectLaunch(tcpVM, 180)
 			generateHelloWorldServer(tcpVM, testPort, "tcp", console.LoginToAlpine, false)
 		})
 
@@ -392,7 +393,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		var udpVM *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			udpVM = newLabeledVMI("udp-vm")
-			udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
+			udpVM = libclient.RunVMIAndExpectLaunch(udpVM, 180)
 			generateHelloWorldServer(udpVM, testPort, "udp", console.LoginToAlpine, false)
 		})
 

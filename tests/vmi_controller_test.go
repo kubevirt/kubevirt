@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,7 +29,7 @@ var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func(
 		DescribeTable("a scsi controller", func(enabled bool) {
 			vmi := libvmifact.NewCirros()
 			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}

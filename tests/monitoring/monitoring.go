@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libnet"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -43,7 +44,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -97,7 +97,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			By("Starting the VirtualMachineInstance")
 			opts := append(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("2Mi"))
 			vmi := libvmi.New(opts...)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Migrating the VMI 13 times")
 			for i := 0; i < 13; i++ {

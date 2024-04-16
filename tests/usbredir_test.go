@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,7 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
@@ -70,7 +70,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 		})
 
 		It("should fail to connect to VMI's usbredir socket", func() {
@@ -85,7 +85,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
 			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 90)
 		})
 
 		Context("with an usbredir connection", func() {

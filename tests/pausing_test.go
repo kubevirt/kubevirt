@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -72,7 +73,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewCirros(), cirrosStartupTimeout)
+			vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewCirros(), cirrosStartupTimeout)
 		})
 
 		When("paused via API", func() {
@@ -148,7 +149,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						SuccessThreshold:    1,
 						FailureThreshold:    1,
 					}
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+					libclient.RunVMIAndExpectLaunch(vmi, 90)
 
 					By("Pausing it")
 					command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
@@ -438,7 +439,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			By("Starting a Cirros VMI")
-			vmi = tests.RunVMIAndExpectLaunch(libvmifact.NewCirros(), cirrosStartupTimeout)
+			vmi = libclient.RunVMIAndExpectLaunch(libvmifact.NewCirros(), cirrosStartupTimeout)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToCirros(vmi)).To(Succeed())

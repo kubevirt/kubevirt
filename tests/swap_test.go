@@ -27,38 +27,32 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	expect "github.com/google/goexpect"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/tests/console"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/client-go/kubecli"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libclient"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
-
-	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -122,7 +116,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 240)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 			By("Consume more memory than the node's memory")
 			err = fillMemWithStressFedoraVMI(vmi, memToUseInTheVmKib)
@@ -176,7 +170,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 
 			By("Starting the VirtualMachineInstance")
-			vmiToFillTargetNodeMem = tests.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
+			vmiToFillTargetNodeMem = libclient.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
 			Expect(console.LoginToFedora(vmiToFillTargetNodeMem)).To(Succeed())
 
 			By("reaching memory overcommitment in the target node")
@@ -193,7 +187,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
-			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = libclient.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
 			// execute a migration, wait for finalized state

@@ -23,10 +23,6 @@ import (
 	"context"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libinfra"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,10 +30,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libclient"
+	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = DescribeInfra("downwardMetrics", func() {
@@ -51,7 +48,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 
 		vmi := libvmifact.NewFedora(via)
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+		vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		metrics, err := metricsGetter(vmi)
@@ -74,7 +71,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 
 	It("metric ResourceProcessorLimit should be present", func() {
 		vmi := libvmifact.NewFedora(libvmi.WithCPUCount(1, 1, 1), libvmi.WithDownwardMetricsVolume("vhostmd"))
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+		vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 		metrics, err := libinfra.GetDownwardMetricsDisk(vmi)

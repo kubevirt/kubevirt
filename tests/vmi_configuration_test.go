@@ -30,15 +30,7 @@ import (
 	"time"
 	"unicode"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
-
 	"k8s.io/apimachinery/pkg/util/rand"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
@@ -54,30 +46,34 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-
-	"kubevirt.io/kubevirt/tests/util"
-
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -86,6 +82,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/storage"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
@@ -130,7 +127,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
 			)
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: v1.VirtIO, Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -152,7 +149,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: v1.VirtIO, Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -668,7 +665,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						SlicNameRef: volumeSlicSecretName,
 					},
 				}
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 360)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI SLIC table matches the one provided")
@@ -1530,7 +1527,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					},
 				}
 				By("Expecting the VirtualMachineInstance start")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking the TSC frequency on the VMI")
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1661,7 +1658,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := util.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
-			vmi := tests.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
+			vmi := libclient.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), 60)
 
 			By("Checking for absence of runtimeClassName")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1876,7 +1873,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				withMachineType("pc"),
 			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1889,7 +1886,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
 			vmi := libvmifact.NewGuestless()
 			vmi.Spec.Domain.Machine = nil
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1903,7 +1900,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				withMachineType(""),
 			)
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1926,7 +1923,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -2164,7 +2161,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			// ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -2221,7 +2218,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2290,7 +2287,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2328,7 +2325,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2380,7 +2377,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("initializing the VM")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 

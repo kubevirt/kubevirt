@@ -41,16 +41,17 @@ import (
 	hooksv1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -214,7 +215,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with sidecar-shim", func() {
 			It("should receive Terminal signal on VMI deletion", func() {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 360)
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -243,7 +244,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				checks.SkipIfMigrationIsNotPossible()
 
 				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 360)
 
 				sourcePod, exists, err := getVMIPod(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -301,7 +302,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				} else {
 					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
 				}
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 360)
 				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))

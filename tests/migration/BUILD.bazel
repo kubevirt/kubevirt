@@ -42,6 +42,7 @@ go_library(
         "//tests/framework/cleanup:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libclient:go_default_library",
         "//tests/libconfigmap:go_default_library",
         "//tests/libdv:go_default_library",
         "//tests/libinfra:go_default_library",

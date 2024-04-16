@@ -22,21 +22,22 @@ package storage
 import (
 	"context"
 
-	"kubevirt.io/kubevirt/pkg/controller"
-
-	"kubevirt.io/kubevirt/tests/libnet"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libclient"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -90,7 +91,7 @@ var _ = SIGDescribe("[Serial]Backend Storage", Serial, func() {
 			libnet.WithMasqueradeNetworking()...,
 		)
 		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 
 		By("Expecting the creation of a backend storage PVC with the right storage class")
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), backendstorage.PVCForVMI(vmi), metav1.GetOptions{})

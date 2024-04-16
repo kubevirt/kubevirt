@@ -29,11 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -41,23 +36,27 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-
-	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 const (
@@ -143,7 +142,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					libvmi.WithCloudInitNoCloudEncodedUserData(userData),
 				)
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
@@ -182,7 +181,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
@@ -274,7 +273,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 
 			runTest := func(vmi *v1.VirtualMachineInstance, dsType cloudinit.DataSourceType) {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("waiting until login appears")
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -330,7 +329,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				break
 			}
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 			CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)

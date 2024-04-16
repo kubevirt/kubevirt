@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -37,7 +38,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 )
 
@@ -54,7 +54,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, decorators.Requires
 			By("Creating a VMI with TPM enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{}
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)

@@ -26,31 +26,29 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnode"
-
-	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"kubevirt.io/kubevirt/tests/testsuite"
-
 	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
@@ -73,11 +71,11 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 			It("[test_id:707]should create headless vmi without any issue", func() {
-				tests.RunVMIAndExpectLaunch(vmi, 30)
+				libclient.RunVMIAndExpectLaunch(vmi, 30)
 			})
 
 			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", func() {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
@@ -92,7 +90,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 					},
 					OvercommitGuestOverhead: true,
 				}
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
@@ -107,7 +105,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 						kubev1.ResourceMemory: resource.MustParse("100M"),
 					},
 				}
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
@@ -119,8 +117,8 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			It("[test_id:713]should have more memory on pod when headless", func() {
 				normalVmi := libvmifact.NewAlpine()
 
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
+				normalVmi = libclient.RunVMIAndExpectLaunch(normalVmi, 30)
 
 				readyPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
@@ -140,7 +138,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 			It("[test_id:738][posneg:negative]should not connect to VNC", func() {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
 
@@ -148,7 +146,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 			It("[test_id:709][posneg:positive]should connect to console", func() {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("checking that console works")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -159,7 +157,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		Context("without headless", func() {
 
 			It("[test_id:714][posneg:negative]should have one vnc graphic device in xml", func() {
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
@@ -221,7 +219,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 
 				By("Running the VMI")
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = libclient.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("VMI has the guest agent connected condition")
 				Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "should have agent connected condition")

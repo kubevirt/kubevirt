@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libclient"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -130,7 +131,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("checking that we can still start virtual machines and connect to the VMI")
 		vmi := libvmifact.NewAlpine()
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 	})
 
@@ -146,7 +147,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 		Eventually(func() (rotated bool) {
 			vmi := libvmifact.NewAlpine()
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			vmi = libclient.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
