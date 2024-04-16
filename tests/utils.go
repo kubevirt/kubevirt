@@ -103,16 +103,6 @@ func CreateSecret(name, namespace string, data map[string]string) {
 	}
 }
 
-func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By(waitingVMInstanceStart)
-	return libwait.WaitForSuccessfulVMIStart(vmi,
-		libwait.WithFailOnWarnings(false),
-		libwait.WithTimeout(timeout),
-	)
-}
-
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	wp := watcher.WarningsPolicy{FailOnWarnings: true}
 	return RunVMIAndExpectSchedulingWithWarningPolicy(vmi, timeout, wp)

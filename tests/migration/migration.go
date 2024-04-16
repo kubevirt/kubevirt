@@ -1189,7 +1189,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\n echo hello\n"),
 				)
 
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking guest agent")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1262,7 +1262,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Starting the VirtualMachineInstance")
 				// Resizing takes too long and therefor a warning is thrown
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(loginFunc(vmi)).To(Succeed())
@@ -1352,7 +1352,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("Starting the VirtualMachineInstance")
 				// Resizing takes too long and therefor a warning is thrown
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
+				vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(loginFunc(vmi)).To(Succeed())

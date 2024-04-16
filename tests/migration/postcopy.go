@@ -341,7 +341,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		AlignPolicyAndVmi(vmi, migrationPolicy)
 		migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
 	}
-	vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+	vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 	// Wait for cloud init to finish and start the agent inside the vmi.
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))

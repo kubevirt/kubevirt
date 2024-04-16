@@ -282,7 +282,7 @@ var _ = SIGDescribe("Storage", func() {
 					vmi = newVMI(pvName)
 
 					if storageEngine == "nfs" {
-						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+						vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 					} else {
 						vmi = libclient.RunVMIAndExpectLaunch(vmi, 180)
 					}
@@ -442,7 +442,7 @@ var _ = SIGDescribe("Storage", func() {
 					)
 
 					if storageEngine == "nfs" {
-						vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
+						vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
 					} else {
 						vmi = libclient.RunVMIAndExpectLaunch(vmi, 120)
 					}
@@ -467,7 +467,7 @@ var _ = SIGDescribe("Storage", func() {
 				By("Starting the VirtualMachineInstance")
 				var createdVMI *v1.VirtualMachineInstance
 				if isRunOnKindInfra {
-					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+					createdVMI = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
 				} else {
 					createdVMI = libclient.RunVMIAndExpectLaunch(vmi, 90)
 				}
@@ -495,7 +495,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				By("Starting the VirtualMachineInstance again")
 				if isRunOnKindInfra {
-					tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+					libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
 				} else {
 					libclient.RunVMIAndExpectLaunch(vmi, 90)
 				}

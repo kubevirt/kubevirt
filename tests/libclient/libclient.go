@@ -61,3 +61,13 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 		libwait.WithTimeout(timeout),
 	)
 }
+
+func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	By(waitingVMInstanceStart)
+	return libwait.WaitForSuccessfulVMIStart(vmi,
+		libwait.WithFailOnWarnings(false),
+		libwait.WithTimeout(timeout),
+	)
+}

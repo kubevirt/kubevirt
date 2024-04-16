@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,7 +34,6 @@ import (
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -51,7 +51,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 	It("should successfully open connection to guest", func() {
 		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 		vmi.Namespace = util.NamespaceTestDefault
-		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+		libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 		By("Opening PortForward Tunnel to SSH port")
 		var (

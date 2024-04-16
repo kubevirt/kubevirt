@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tests/libclient"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -82,7 +83,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmi := libvmifact.NewFedora(
 				libvmi.WithConfigMapFs(configMapName, configMapName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -140,7 +141,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmi := libvmifact.NewFedora(
 				libvmi.WithSecretFs(secretName, secretName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -183,7 +184,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmi := libvmifact.NewFedora(
 				libvmi.WithServiceAccountFs("default", serviceAccountVolumeName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -242,7 +243,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIFs(downwardAPIName),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			By("Logging into the VMI")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

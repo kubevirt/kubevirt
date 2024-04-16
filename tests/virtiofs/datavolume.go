@@ -117,7 +117,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithNamespace(namespace),
 			)
 
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			// Wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -227,7 +227,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithFilesystemPVC(pvcName),
 				libvmi.WithNamespace(namespace),
 			)
-			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			vmi = libclient.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 			// Wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
