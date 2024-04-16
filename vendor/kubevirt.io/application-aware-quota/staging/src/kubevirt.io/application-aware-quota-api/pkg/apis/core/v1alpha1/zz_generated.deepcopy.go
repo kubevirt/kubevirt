@@ -22,7 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -84,6 +85,13 @@ func (in *AAQCertConfig) DeepCopy() *AAQCertConfig {
 func (in *AAQConfiguration) DeepCopyInto(out *AAQConfiguration) {
 	*out = *in
 	out.VmiCalculatorConfiguration = in.VmiCalculatorConfiguration
+	if in.SidecarEvaluators != nil {
+		in, out := &in.SidecarEvaluators, &out.SidecarEvaluators
+		*out = make([]v1.Container, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
@@ -252,10 +260,10 @@ func (in *AAQSpec) DeepCopyInto(out *AAQSpec) {
 	}
 	if in.NamespaceSelector != nil {
 		in, out := &in.NamespaceSelector, &out.NamespaceSelector
-		*out = new(v1.LabelSelector)
+		*out = new(metav1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
-	out.Configuration = in.Configuration
+	in.Configuration.DeepCopyInto(&out.Configuration)
 	return
 }
 
@@ -542,12 +550,12 @@ func (in *CertConfig) DeepCopyInto(out *CertConfig) {
 	*out = *in
 	if in.Duration != nil {
 		in, out := &in.Duration, &out.Duration
-		*out = new(v1.Duration)
+		*out = new(metav1.Duration)
 		**out = **in
 	}
 	if in.RenewBefore != nil {
 		in, out := &in.RenewBefore, &out.RenewBefore
-		*out = new(v1.Duration)
+		*out = new(metav1.Duration)
 		**out = **in
 	}
 	return

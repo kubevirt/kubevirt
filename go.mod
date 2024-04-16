@@ -34,7 +34,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20240209001042-7a0d5b415232
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 	kubevirt.io/api v1.2.0
-	kubevirt.io/application-aware-quota v1.1.5
+	kubevirt.io/application-aware-quota v1.1.9
 	kubevirt.io/containerized-data-importer-api v1.59.0
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 	kubevirt.io/managed-tenant-quota v1.2.0

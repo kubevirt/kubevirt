@@ -155,6 +155,8 @@ type AAQSpec struct {
 type AAQConfiguration struct {
 	// VmiCalculatorConfiguration determine how resource allocation will be done with ApplicationAwareResourceQuota
 	VmiCalculatorConfiguration VmiCalculatorConfiguration `json:"vmiCalculatorConfiguration,omitempty"`
+	// SidecarEvaluators allow custom quota counting for external operator
+	SidecarEvaluators []corev1.Container `json:"sidecarEvaluators,omitempty"`
 	// AllowApplicationAwareClusterResourceQuota can be set to true to allow creation and management
 	// of ApplicationAwareClusterResourceQuota. Defaults to false
 	AllowApplicationAwareClusterResourceQuota bool `json:"allowApplicationAwareClusterResourceQuota,omitempty"`

@@ -63,11 +63,11 @@ spec:
         - name: SSP_VERSION
           value: v0.19.0
         - name: HPPO_VERSION
-          value: v0.18.0
+          value: v0.19.0
         - name: MTQ_VERSION
           value: v1.2.0
         - name: AAQ_VERSION
-          value: v1.1.5
+          value: v1.1.9
         - name: KV_CONSOLE_PLUGIN_IMAGE
         - name: KV_CONSOLE_PROXY_IMAGE
         - name: WASP_AGENT_IMAGE
@@ -712,17 +712,17 @@ spec:
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:dd2948ca8e62d17eafba40bdcaad8367a97f092fd3b8d9849b2d62aec3152a72
+          value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:246b3819cfa3833f9a8cb01e8cb859aa61a1924a85ea4a112e43e8414f32c429
         - name: PROVISIONER_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner@sha256:adb1d33e95e8991dc47107926172469b5ecbeace509391ce021ca42d305a41d3
+          value: quay.io/kubevirt/hostpath-provisioner@sha256:2b93b6c4ce0307a8f0dbdae2226da4acb1bae781788fbde7f0c32d6ad6421aa0
         - name: CSI_PROVISIONER_IMAGE
-          value: quay.io/kubevirt/hostpath-csi-driver@sha256:8d84b9a33e0ec3749aece7c5f9879d1e0d248e8028ab3f776528a044d387033c
+          value: quay.io/kubevirt/hostpath-csi-driver@sha256:b7ccc469ad7e640fed2e98b50eae57a64e81c7b9862a799b7a9892d14ade8937
         - name: NODE_DRIVER_REG_IMAGE
-          value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:c53535af8a7f7e3164609838c4b191b42b2d81238d75c1b2a2b582ada62a9780
+          value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:f25af73ee708ff9c82595ae99493cdef9295bd96953366cddf36305f82555dac
         - name: LIVENESS_PROBE_IMAGE
           value: registry.k8s.io/sig-storage/livenessprobe@sha256:5baeb4a6d7d517434292758928bb33efc6397368cbb48c8a4cf29496abf4e987
         - name: CSI_SNAPSHOT_IMAGE
-          value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:1a29ab1e4ecdc33a84062cec757620d9787c28b28793202c5b78ae097c3dee27
+          value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:c4b6b02737bc24906fcce57fe6626d1a36cb2b91baa971af2a5e5a919093c34e
         - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
           value: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
         - name: VERBOSITY
@@ -730,7 +730,7 @@ spec:
         - name: MONITORING_NAMESPACE
         - name: PRIORITY_CLASS
           value: kubevirt-cluster-critical
-        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:dd2948ca8e62d17eafba40bdcaad8367a97f092fd3b8d9849b2d62aec3152a72
+        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:246b3819cfa3833f9a8cb01e8cb859aa61a1924a85ea4a112e43e8414f32c429
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 1
@@ -888,17 +888,17 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v1.1.5
+          value: v1.1.9
         - name: CONTROLLER_IMAGE
-          value: quay.io/kubevirt/aaq-controller@sha256:cb2fa52ae3f6a1a99b2de77b58c5db54c43ba8ee86c6540b4844c901180ce611
+          value: quay.io/kubevirt/aaq-controller@sha256:520eb0a4874cfff52b08eefca72bc629c598571bcd4b561b85511261ebfd719b
         - name: AAQ_SERVER_IMAGE
-          value: quay.io/kubevirt/aaq-server@sha256:0c6b01c48030e03e99b3ff2b319658c2bf2b2001f4e3e030ba70d1143b25717a
+          value: quay.io/kubevirt/aaq-server@sha256:031fa63629617c80f2ff33e4357ff0616d83d9c0ba4d8ef9b4a80202b866de83
         - name: VERBOSITY
           value: "1"
         - name: PULL_POLICY
           value: IfNotPresent
         - name: MONITORING_NAMESPACE
-        image: quay.io/kubevirt/aaq-operator@sha256:590d24742401eeff3fb6a9c8ed977c63442f8f0a0505509fae69aa1bf8aa84ae
+        image: quay.io/kubevirt/aaq-operator@sha256:9cc47ae4562c555a0ddc64cc4cb8244a884ca3d6c7332636b9139f281aefe0d1
         imagePullPolicy: IfNotPresent
         name: aaq-operator
         ports:
