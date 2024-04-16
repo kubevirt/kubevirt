@@ -184,7 +184,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 
-		Context("[Serial]without fsgroup support", Serial, func() {
+		Context("without fsgroup support", func() {
 			size := "1Gi"
 
 			It("should succesfully start", func() {
