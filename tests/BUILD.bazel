@@ -94,6 +94,10 @@ container_image(
 container_image(
     name = "conformance_image",
     testonly = True,
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
     base = ":conformance_image_base",
     directory = "/usr/bin",
     entrypoint = ["/usr/bin/conformance"],
