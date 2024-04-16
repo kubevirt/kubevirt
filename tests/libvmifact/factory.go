@@ -57,7 +57,7 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
-		libvmi.WithResourceMemory(cirrosMemory()),
+		WithMinimalOSMemory(),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return libvmi.New(cirrosOpts...)
@@ -65,10 +65,9 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 
 // NewAlpine instantiates a new Alpine based VMI configuration
 func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		libvmi.WithResourceMemory(alpineMemory()),
+		WithMinimalOSMemory(),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -78,11 +77,10 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, AlpineWithTestTooling image takes more than 200s to allow login
 	withNonEmptyUserData := libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		withNonEmptyUserData,
-		libvmi.WithResourceMemory(alpineMemory()),
+		WithMinimalOSMemory(),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -94,6 +92,10 @@ func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 		[]libvmi.Option{libvmi.WithResourceMemory(qemuMinimumMemory())},
 		opts...)
 	return libvmi.New(opts...)
+}
+
+func WithMinimalOSMemory() libvmi.Option {
+	return libvmi.WithResourceMemory(cirrosMemory())
 }
 
 func qemuMinimumMemory() string {
@@ -160,7 +162,7 @@ func NewPersistentDiskTinyOS(dv *cdiv1.DataVolume, extraVMOpts ...libvmi.VMOptio
 	return libvmi.NewVirtualMachine(
 		libvmi.New(
 			libvmi.WithDataVolume("disk0", dv.Name),
-			libvmi.WithResourceMemory(cirrosMemory()),
+			WithMinimalOSMemory(),
 			withNonEmptyUserData,
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(kvirtv1.DefaultPodNetwork()),

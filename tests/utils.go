@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -226,15 +227,6 @@ func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageCla
 	return vm
 }
 
-func cirrosMemory() string {
-	// Cirros image need 256M to boot on ARM64,
-	// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
-	if checks.IsARM64(testsuite.Arch) {
-		return "256Mi"
-	}
-	return "128Mi"
-}
-
 // NewRandomVMIWithEphemeralDisk
 //
 // Deprecated: Use libvmi directly
@@ -243,7 +235,7 @@ func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInst
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithResourceMemory(cirrosMemory()),
+		libvmifact.WithMinimalOSMemory(),
 		libvmi.WithContainerDisk("disk0", containerImage),
 	}
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
