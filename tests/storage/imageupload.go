@@ -41,7 +41,6 @@ const (
 	uploadProxyService   = "svc/cdi-uploadproxy"
 	uploadProxyPort      = 443
 	localUploadProxyPort = 18443
-	imagePath            = "/tmp/alpine.iso"
 	getDataVolume        = "Get DataVolume"
 	getPVC               = "Get PVC"
 	imageUploadCmd       = "image-upload"
@@ -50,8 +49,11 @@ const (
 	insecureArg          = "--insecure"
 )
 
-var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
-	var kubectlCmd *exec.Cmd
+var _ = SIGDescribe("ImageUpload", func() {
+	var (
+		imagePath  string
+		kubectlCmd *exec.Cmd
+	)
 
 	pvcSize := "100Mi"
 
@@ -62,6 +64,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	})
 
 	BeforeEach(func() {
+		imagePath = filepath.Join(os.TempDir(), fmt.Sprintf("alpine-%s.iso", testsuite.GetTestNamespace(nil)))
 		By("Getting the disk image provider pod")
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=disks-images-provider"})
 		Expect(err).ToNot(HaveOccurred())
@@ -82,6 +85,16 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			err = kubectlCmd.Start()
 			Expect(err).ToNot(HaveOccurred())
 		}
+	})
+
+	AfterEach(func() {
+		if kubectlCmd != nil {
+			Expect(kubectlCmd.Process.Kill()).To(Succeed())
+			Expect(kubectlCmd.Wait()).To(Succeed())
+		}
+
+		err := os.Remove(imagePath)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	validateDataVolume := func(targetName string, _ string) {
@@ -313,7 +326,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		var archivePath string
 
 		BeforeEach(func() {
-			archivePath = createArchive("archive", os.TempDir(), imagePath)
+			archivePath = createArchive(fmt.Sprintf("archive-%s", testsuite.GetTestNamespace(nil)), os.TempDir(), imagePath)
 		})
 
 		AfterEach(func() {
@@ -366,7 +379,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		invalidStorageClass := "no-sc"
 
 		BeforeEach(func() {
-			archivePath = createArchive("archive", os.TempDir(), imagePath)
+			archivePath = createArchive(fmt.Sprintf("archive-%s", testsuite.GetTestNamespace(nil)), os.TempDir(), imagePath)
 		})
 
 		AfterEach(func() {
@@ -437,16 +450,6 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Expect(err.Error()).To(ContainSubstring("Provisioning failed"))
 			libstorage.DeleteStorageClass(invalidStorageClass)
 		})
-	})
-
-	AfterEach(func() {
-		if kubectlCmd != nil {
-			Expect(kubectlCmd.Process.Kill()).To(Succeed())
-			Expect(kubectlCmd.Wait()).To(Succeed())
-		}
-
-		err := os.Remove(imagePath)
-		Expect(err).ToNot(HaveOccurred())
 	})
 })
 
