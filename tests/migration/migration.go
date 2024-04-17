@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -129,7 +130,9 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			"config1": "value1",
 			"config2": "value2",
 		}
-		tests.CreateConfigMap(name, namespace, data)
+		cm := libconfigmap.New(name, data)
+		cm, err := virtClient.CoreV1().ConfigMaps(namespace).Create(context.Background(), cm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		return name
 	}
 
@@ -1884,7 +1887,9 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					"password": "community",
 				}
 
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
+				cm := libconfigmap.New(configMapName, config_data)
+				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

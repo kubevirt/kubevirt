@@ -84,6 +84,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -716,7 +717,9 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					"password": "community",
 				}
 
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
+				cm := libconfigmap.New(configMapName, config_data)
+				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

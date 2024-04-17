@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -95,7 +96,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"option2": "value2",
 					"option3": "value3",
 				}
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
+				cm := libconfigmap.New(configMapName, data)
+				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
@@ -152,7 +155,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			BeforeEach(func() {
 				for i := 0; i < configMapsCnt; i++ {
 					name := "configmap-" + uuid.NewString()
-					tests.CreateConfigMap(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
+					cm := libconfigmap.New(name, map[string]string{"option": "value"})
+					cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 					configMaps = append(configMaps, name)
 				}
 			})
@@ -356,7 +361,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"password": "redhat",
 				}
 
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), configData)
+				cm := libconfigmap.New(configMapName, configData)
+				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secretData)
 			})

@@ -217,6 +217,7 @@ lint:
 	  tests/console/... \
 	  tests/libnet/... \
 	  tests/libnode/... \
+	  tests/libconfigmap/... \
 	  tests/libpod/... \
 	  tests/libvmifact/... \
 	  tests/libsecret/... \
