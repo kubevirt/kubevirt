@@ -5,8 +5,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	add_key "kubevirt.io/kubevirt/pkg/virtctl/credentials/addkey"
+	set_password "kubevirt.io/kubevirt/pkg/virtctl/credentials/password"
 	remove_key "kubevirt.io/kubevirt/pkg/virtctl/credentials/removekey"
-	set_password "kubevirt.io/kubevirt/pkg/virtctl/credentials/set-password"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 

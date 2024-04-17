@@ -1,25 +1,24 @@
-package set_password_test
+package password_test
 
 import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
 
+	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
-
-	"github.com/golang/mock/gomock"
 	"kubevirt.io/client-go/kubecli"
 
+	pointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
@@ -68,7 +67,7 @@ var _ = Describe("Credentials set-password", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: pointer.P(true),
 				}},
 			},
 		}
@@ -85,15 +84,16 @@ var _ = Describe("Credentials set-password", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
-			if name == vmName && vm != nil {
-				return vm, nil
-			}
-			return nil, errors.NewNotFound(schema.GroupResource{
-				Group:    core.GroupName,
-				Resource: "VirtualMachine",
-			}, name)
-		}).AnyTimes()
+		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
+				if name == vmName && vm != nil {
+					return vm, nil
+				}
+				return nil, errors.NewNotFound(schema.GroupResource{
+					Group:    core.GroupName,
+					Resource: "VirtualMachine",
+				}, name)
+			}).AnyTimes()
 	})
 
 	It("should fail if no password is specified", func() {
@@ -178,7 +178,7 @@ var _ = Describe("Credentials set-password", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.Bool(true),
+					Controller: pointer.P(true),
 				}},
 			},
 		}
@@ -197,7 +197,8 @@ var _ = Describe("Credentials set-password", func() {
 					PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
 						QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
 					},
-				}})
+				},
+			})
 
 		const testPass = "test-pass"
 		err = runSetPasswordCommand(
@@ -212,7 +213,7 @@ var _ = Describe("Credentials set-password", func() {
 	})
 })
 
-func expectSecretToContainUserWithPassword(cli kubernetes.Interface, secretName string, user string, password string) {
+func expectSecretToContainUserWithPassword(cli kubernetes.Interface, secretName, user, password string) {
 	secret, err := cli.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secretName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 

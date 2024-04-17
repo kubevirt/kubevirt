@@ -29,6 +29,7 @@ coveredpaths="\
   pkg/virtctl/credentials/common \
   pkg/virtctl/credentials/addkey \
   pkg/virtctl/credentials/removekey \
+  pkg/virtctl/credentials/password \
   tests/console \
   tests/libnet \
   tests/libnode \

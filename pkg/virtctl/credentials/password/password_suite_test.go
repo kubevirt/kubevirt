@@ -1,4 +1,4 @@
-package set_password_test
+package password_test
 
 import (
 	"testing"
