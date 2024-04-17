@@ -52,7 +52,8 @@ var (
 		"kubevirt_vmi_phase_count",
 		"VMI phase.",
 		[]string{
-			"node", "phase", "os", "workload", "flavor", "instance_type", "preference",
+			"node", "phase", "os", "workload", "flavor", "instance_type", "preference", "guest_os_kernel_release",
+			"guest_os_machine", "guest_os_name", "guest_os_version_id",
 		},
 		nil,
 	)
@@ -76,13 +77,17 @@ var (
 )
 
 type vmiCountMetric struct {
-	Phase        string
-	OS           string
-	Workload     string
-	Flavor       string
-	InstanceType string
-	Preference   string
-	NodeName     string
+	Phase                string
+	OS                   string
+	Workload             string
+	Flavor               string
+	InstanceType         string
+	Preference           string
+	NodeName             string
+	GuestOSKernelRelease string
+	GuestOSMachine       string
+	GuestOSName          string
+	GuestOSVersionID     string
 }
 
 type VMICollector struct {
@@ -215,18 +220,45 @@ func (co *VMICollector) setPreferenceFromAnnotations(vmc *vmiCountMetric, annota
 	}
 }
 
+func updateFromGuestOSInfo(vmc *vmiCountMetric, guestOSInfo k6tv1.VirtualMachineInstanceGuestOSInfo) {
+	if guestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
+		return
+	}
+
+	if guestOSInfo.KernelRelease != "" {
+		vmc.GuestOSKernelRelease = guestOSInfo.KernelRelease
+	}
+
+	if guestOSInfo.Machine != "" {
+		vmc.GuestOSMachine = guestOSInfo.Machine
+	}
+
+	if guestOSInfo.Name != "" {
+		vmc.GuestOSName = guestOSInfo.Name
+	}
+
+	if guestOSInfo.VersionID != "" {
+		vmc.GuestOSVersionID = guestOSInfo.VersionID
+	}
+}
+
 func (co *VMICollector) newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
 	vmc := vmiCountMetric{
-		Phase:        strings.ToLower(string(vmi.Status.Phase)),
-		OS:           none,
-		Workload:     none,
-		Flavor:       none,
-		InstanceType: none,
-		Preference:   none,
-		NodeName:     vmi.Status.NodeName,
+		Phase:                strings.ToLower(string(vmi.Status.Phase)),
+		OS:                   none,
+		Workload:             none,
+		Flavor:               none,
+		InstanceType:         none,
+		Preference:           none,
+		GuestOSKernelRelease: none,
+		GuestOSMachine:       none,
+		GuestOSName:          none,
+		GuestOSVersionID:     none,
+		NodeName:             vmi.Status.NodeName,
 	}
 
 	co.UpdateFromAnnotations(&vmc, vmi.Annotations)
+	updateFromGuestOSInfo(&vmc, vmi.Status.GuestOSInfo)
 
 	return vmc
 }
@@ -251,6 +283,7 @@ func (co *VMICollector) updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, ch
 			vmiCountDesc, prometheus.GaugeValue,
 			float64(count),
 			vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor, vmc.InstanceType, vmc.Preference,
+			vmc.GuestOSKernelRelease, vmc.GuestOSMachine, vmc.GuestOSName, vmc.GuestOSVersionID,
 		)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Failed to create metric for VMIs phase")
