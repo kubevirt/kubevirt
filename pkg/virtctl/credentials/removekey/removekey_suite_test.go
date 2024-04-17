@@ -1,4 +1,4 @@
-package remove_key_test
+package removekey_test
 
 import (
 	"testing"

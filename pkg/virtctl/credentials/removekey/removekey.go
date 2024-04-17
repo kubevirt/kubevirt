@@ -1,4 +1,4 @@
-package remove_key
+package removekey
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmdFlags := &removeSshKeyFlags{}
+	cmdFlags := &removeSSHKeyFlags{}
 	cmd := &cobra.Command{
 		Use:     "remove-ssh-key",
 		Short:   "Remove credentials from a virtual machine.",
@@ -41,19 +41,19 @@ const exampleUsage = `  # Remove an SSH key for a running virtual machine.
   {{ProgramName}} credentials remove-ssh-key --user <username> --file <path-to-ssh-public-key> --force <vm-name>
 `
 
-type removeSshKeyFlags struct {
+type removeSSHKeyFlags struct {
 	common.SSHCommandFlags
 
 	Force bool
 }
 
-func (r *removeSshKeyFlags) AddToCommand(cmd *cobra.Command) {
+func (r *removeSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
 	r.SSHCommandFlags.AddToCommand(cmd)
 
 	cmd.Flags().BoolVar(&r.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSshKeyFlags, cmd *cobra.Command, args []string) error {
+func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSSHKeyFlags, cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
 	vmNamespace, _, err := clientConfig.Namespace()
@@ -104,7 +104,14 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSs
 	return nil
 }
 
-func removeKeyFromSecret(ctx context.Context, cli kubecli.KubevirtClient, vm *v1.VirtualMachine, secretName string, key string, force bool) error {
+func removeKeyFromSecret(
+	ctx context.Context,
+	cli kubecli.KubevirtClient,
+	vm *v1.VirtualMachine,
+	secretName string,
+	key string,
+	force bool,
+) error {
 	// Looping, because Update API call can fail with conflict
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		select {
@@ -130,7 +137,7 @@ func removeKeyFromSecret(ctx context.Context, cli kubecli.KubevirtClient, vm *v1
 		}
 
 		for fileName, data := range secret.Data {
-			updatedData := removeSshKeyFromBytes(key, data)
+			updatedData := removeSSHKeyFromBytes(key, data)
 			if len(updatedData) == 0 {
 				delete(secret.Data, fileName)
 			} else {
@@ -146,12 +153,12 @@ func removeKeyFromSecret(ctx context.Context, cli kubecli.KubevirtClient, vm *v1
 	})
 }
 
-func removeSshKeyFromBytes(key string, data []byte) []byte {
+func removeSSHKeyFromBytes(key string, data []byte) []byte {
 	lines := strings.Split(string(data), "\n")
 
 	resultLines := make([]string, 0, len(lines))
 	for i := range lines {
-		if !common.LineContainsKey(lines[i], key) && len(strings.TrimSpace(lines[i])) > 0 {
+		if !common.LineContainsKey(lines[i], key) && strings.TrimSpace(lines[i]) != "" {
 			resultLines = append(resultLines, lines[i])
 		}
 	}

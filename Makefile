@@ -216,6 +216,7 @@ lint:
 	  pkg/network/deviceinfo/... \
 	  pkg/virtctl/credentials/common/... \
 	  pkg/virtctl/credentials/addkey/... \
+	  pkg/virtctl/credentials/removekey/... \
 	  tests/console/... \
 	  tests/instancetype/... \
 	  tests/libinstancetype/... \
