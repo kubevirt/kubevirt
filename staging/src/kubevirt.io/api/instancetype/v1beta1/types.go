@@ -330,10 +330,46 @@ type CPUPreferences struct {
 	//+optional
 	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
 
+	//
+	//+optional
+	SpreadOptions *SpreadOptions `json:"spreadOptions,omitempty"`
+
 	// PreferredCPUFeatures optionally defines a slice of preferred CPU features.
 	//
 	//+optional
 	PreferredCPUFeatures []v1.CPUFeature `json:"preferredCPUFeatures,omitempty"`
+}
+
+type SpreadAcross string
+
+const (
+	// Spread vCPUs across sockets, cores and threads
+	SpreadAcrossSocketsCoresThreads SpreadAcross = "SocketsCoresThreads"
+
+	// Spread vCPUs across sockets and cores
+	SpreadAcrossSocketsCores SpreadAcross = "SocketsCores"
+
+	// Spread vCPUs across cores and threads
+	SpreadAcrossCoresThreads SpreadAcross = "CoresThreads"
+)
+
+type SpreadOptions struct {
+	// Across optionally defines how to spread vCPUs across the guest visible topology.
+	// Default: SocketsCores
+	//
+	//+optional
+	Across *SpreadAcross `json:"across,omitempty"`
+
+	// Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
+	//
+	// CoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.
+	// SocketsCores        - 1:N   - Controls the ratio of socket to cores.
+	// SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.
+	//
+	// Default: 2
+	//
+	//+optional
+	Ratio *uint32 `json:"ratio,omitempty"`
 }
 
 // DevicePreferences contains various optional Device preferences.

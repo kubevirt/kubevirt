@@ -22453,6 +22453,9 @@
      "preferredCPUTopology": {
       "description": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.",
       "type": "string"
+     },
+     "spreadOptions": {
+      "$ref": "#/definitions/v1beta1.SpreadOptions"
      }
     }
    },
@@ -23016,6 +23019,20 @@
      "memory": {
       "description": "Required Memory related attributes of the instancetype.",
       "$ref": "#/definitions/v1beta1.MemoryPreferenceRequirement"
+     }
+    }
+   },
+   "v1beta1.SpreadOptions": {
+    "type": "object",
+    "properties": {
+     "across": {
+      "description": "Across optionally defines how to spread vCPUs across the guest visible topology. Default: SocketsCores",
+      "type": "string"
+     },
+     "ratio": {
+      "description": "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted. SocketsCores        - 1:N   - Controls the ratio of socket to cores. SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },

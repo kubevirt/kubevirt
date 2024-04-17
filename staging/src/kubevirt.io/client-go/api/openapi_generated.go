@@ -606,6 +606,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1beta1.MemoryInstancetype":                                    schema_kubevirtio_api_instancetype_v1beta1_MemoryInstancetype(ref),
 		"kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement":                           schema_kubevirtio_api_instancetype_v1beta1_MemoryPreferenceRequirement(ref),
 		"kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements":                                schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref),
+		"kubevirt.io/api/instancetype/v1beta1.SpreadOptions":                                         schema_kubevirtio_api_instancetype_v1beta1_SpreadOptions(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterInstancetype":                     schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterInstancetype(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterInstancetypeList":                 schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterInstancetypeList(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterPreference":                       schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterPreference(ref),
@@ -28023,6 +28024,11 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref common.Refere
 							Format:      "",
 						},
 					},
+					"spreadOptions": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/instancetype/v1beta1.SpreadOptions"),
+						},
+					},
 					"preferredCPUFeatures": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PreferredCPUFeatures optionally defines a slice of preferred CPU features.",
@@ -28041,7 +28047,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUFeature"},
+			"kubevirt.io/api/core/v1.CPUFeature", "kubevirt.io/api/instancetype/v1beta1.SpreadOptions"},
 	}
 }
 
@@ -28443,6 +28449,32 @@ func schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref commo
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/instancetype/v1beta1.CPUPreferenceRequirement", "kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_SpreadOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"across": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Across optionally defines how to spread vCPUs across the guest visible topology. Default: SocketsCores",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ratio": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted. SocketsCores        - 1:N   - Controls the ratio of socket to cores. SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
