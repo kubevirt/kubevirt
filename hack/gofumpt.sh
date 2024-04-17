@@ -26,10 +26,7 @@ coveredpaths="\
   pkg/network/namescheme \
   pkg/network/domainspec \
   pkg/network/deviceinfo \
-  pkg/virtctl/credentials/common \
-  pkg/virtctl/credentials/addkey \
-  pkg/virtctl/credentials/removekey \
-  pkg/virtctl/credentials/password \
+  pkg/virtctl/credentials \
   tests/console \
   tests/libnet \
   tests/libnode \
