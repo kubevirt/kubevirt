@@ -2982,7 +2982,7 @@ spec:
 		)
 
 		BeforeEach(func() {
-			if fgEnabled = checks.HasFeature(virtconfig.PersistentReservation); fgEnabled {
+			if fgEnabled = checks.HasFeature(virtconfig.CommonInstancetypesDeploymentGate); fgEnabled {
 				// Disable feature gate for cases in which the feature gate was enabled
 				// prior to running any of these tests. (e.g. in downstream)
 				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
