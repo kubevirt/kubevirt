@@ -318,6 +318,7 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		windowsVMI = libvmi.New()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
+		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
 		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
 		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
