@@ -104,8 +104,8 @@ github.com/josharian/intern
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/kubevirt/cluster-network-addons-operator v0.91.0
-## explicit; go 1.19
+# github.com/kubevirt/cluster-network-addons-operator v0.92.0
+## explicit; go 1.21
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
