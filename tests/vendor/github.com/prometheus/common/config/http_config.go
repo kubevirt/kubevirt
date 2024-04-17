@@ -427,6 +427,7 @@ type httpClientOptions struct {
 	http2Enabled      bool
 	idleConnTimeout   time.Duration
 	userAgent         string
+	host              string
 }
 
 // HTTPClientOption defines an option that can be applied to the HTTP client.
@@ -464,6 +465,13 @@ func WithIdleConnTimeout(timeout time.Duration) HTTPClientOption {
 func WithUserAgent(ua string) HTTPClientOption {
 	return func(opts *httpClientOptions) {
 		opts.userAgent = ua
+	}
+}
+
+// WithHost allows setting the host header.
+func WithHost(host string) HTTPClientOption {
+	return func(opts *httpClientOptions) {
+		opts.host = host
 	}
 }
 
@@ -566,6 +574,10 @@ func NewRoundTripperFromConfig(cfg HTTPClientConfig, name string, optFuncs ...HT
 
 		if opts.userAgent != "" {
 			rt = NewUserAgentRoundTripper(opts.userAgent, rt)
+		}
+
+		if opts.host != "" {
+			rt = NewHostRoundTripper(opts.host, rt)
 		}
 
 		// Return a new configured RoundTripper.
@@ -1164,9 +1176,19 @@ type userAgentRoundTripper struct {
 	rt        http.RoundTripper
 }
 
+type hostRoundTripper struct {
+	host string
+	rt   http.RoundTripper
+}
+
 // NewUserAgentRoundTripper adds the user agent every request header.
 func NewUserAgentRoundTripper(userAgent string, rt http.RoundTripper) http.RoundTripper {
 	return &userAgentRoundTripper{userAgent, rt}
+}
+
+// NewHostRoundTripper sets the [http.Request.Host] of every request.
+func NewHostRoundTripper(host string, rt http.RoundTripper) http.RoundTripper {
+	return &hostRoundTripper{host, rt}
 }
 
 func (rt *userAgentRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -1176,6 +1198,19 @@ func (rt *userAgentRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 }
 
 func (rt *userAgentRoundTripper) CloseIdleConnections() {
+	if ci, ok := rt.rt.(closeIdler); ok {
+		ci.CloseIdleConnections()
+	}
+}
+
+func (rt *hostRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = cloneRequest(req)
+	req.Host = rt.host
+	req.Header.Set("Host", rt.host)
+	return rt.rt.RoundTrip(req)
+}
+
+func (rt *hostRoundTripper) CloseIdleConnections() {
 	if ci, ok := rt.rt.(closeIdler); ok {
 		ci.CloseIdleConnections()
 	}

@@ -15,35 +15,14 @@
 package compiler
 
 import (
-	yaml "gopkg.in/yaml.v3"
+	"github.com/google/gnostic-models/compiler"
 )
 
 // Context contains state of the compiler as it traverses a document.
-type Context struct {
-	Parent            *Context
-	Name              string
-	Node              *yaml.Node
-	ExtensionHandlers *[]ExtensionHandler
-}
+type Context = compiler.Context
 
 // NewContextWithExtensions returns a new object representing the compiler state
-func NewContextWithExtensions(name string, node *yaml.Node, parent *Context, extensionHandlers *[]ExtensionHandler) *Context {
-	return &Context{Name: name, Node: node, Parent: parent, ExtensionHandlers: extensionHandlers}
-}
+var NewContextWithExtensions = compiler.NewContextWithExtensions
 
 // NewContext returns a new object representing the compiler state
-func NewContext(name string, node *yaml.Node, parent *Context) *Context {
-	if parent != nil {
-		return &Context{Name: name, Node: node, Parent: parent, ExtensionHandlers: parent.ExtensionHandlers}
-	}
-	return &Context{Name: name, Parent: parent, ExtensionHandlers: nil}
-}
-
-// Description returns a text description of the compiler state
-func (context *Context) Description() string {
-	name := context.Name
-	if context.Parent != nil {
-		name = context.Parent.Description() + "." + name
-	}
-	return name
-}
+var NewContext = compiler.NewContext

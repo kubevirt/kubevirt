@@ -64,7 +64,7 @@ type ProbeSpec struct {
 	// If not specified, the Prometheus global scrape timeout is used.
 	ScrapeTimeout Duration `json:"scrapeTimeout,omitempty"`
 	// TLS configuration to use when scraping the endpoint.
-	TLSConfig *ProbeTLSConfig `json:"tlsConfig,omitempty"`
+	TLSConfig *SafeTLSConfig `json:"tlsConfig,omitempty"`
 	// Secret to mount to read bearer token for scraping targets. The secret
 	// needs to be in the same namespace as the probe and accessible by
 	// the Prometheus Operator.
@@ -84,6 +84,16 @@ type ProbeSpec struct {
 	// TargetLimit defines a limit on the number of scraped targets that will be accepted.
 	// +optional
 	TargetLimit *uint64 `json:"targetLimit,omitempty"`
+	// `scrapeProtocols` defines the protocols to negotiate during a scrape. It tells clients the
+	// protocols supported by Prometheus in order of preference (from most to least preferred).
+	//
+	// If unset, Prometheus uses its default value.
+	//
+	// It requires Prometheus >= v2.49.0.
+	//
+	// +listType=set
+	// +optional
+	ScrapeProtocols []ScrapeProtocol `json:"scrapeProtocols,omitempty"`
 	// Per-scrape limit on number of labels that will be accepted for a sample.
 	// Only valid in Prometheus versions 2.27.0 and newer.
 	// +optional
@@ -103,6 +113,11 @@ type ProbeSpec struct {
 	//
 	// +optional
 	KeepDroppedTargets *uint64 `json:"keepDroppedTargets,omitempty"`
+
+	// The scrape class to apply.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	ScrapeClassName *string `json:"scrapeClass,omitempty"`
 }
 
 // ProbeTargets defines how to discover the probed targets.
@@ -204,10 +219,4 @@ type ProbeList struct {
 // DeepCopyObject implements the runtime.Object interface.
 func (l *ProbeList) DeepCopyObject() runtime.Object {
 	return l.DeepCopy()
-}
-
-// ProbeTLSConfig specifies TLS configuration parameters for the prober.
-// +k8s:openapi-gen=true
-type ProbeTLSConfig struct {
-	SafeTLSConfig `json:",inline"`
 }

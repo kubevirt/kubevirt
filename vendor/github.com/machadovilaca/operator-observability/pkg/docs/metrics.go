@@ -81,14 +81,19 @@ func BuildMetricsDocs(metrics []operatormetrics.Metric, recordingRules []operato
 }
 
 func buildMetricsDocs[T docOptions](items []T) []metricDocs {
-	metricsDocs := make([]metricDocs, len(items))
-	for i, metric := range items {
+	uniqueNames := make(map[string]struct{})
+	var metricsDocs []metricDocs
+
+	for _, metric := range items {
 		metricOpts := metric.GetOpts()
-		metricsDocs[i] = metricDocs{
-			Name:        metricOpts.Name,
-			Help:        metricOpts.Help,
-			Type:        getAndConvertMetricType(metric.GetType()),
-			ExtraFields: metricOpts.ExtraFields,
+		if _, exists := uniqueNames[metricOpts.Name]; !exists {
+			uniqueNames[metricOpts.Name] = struct{}{}
+			metricsDocs = append(metricsDocs, metricDocs{
+				Name:        metricOpts.Name,
+				Help:        metricOpts.Help,
+				Type:        getAndConvertMetricType(metric.GetType()),
+				ExtraFields: metricOpts.ExtraFields,
+			})
 		}
 	}
 

@@ -15,383 +15,91 @@
 package compiler
 
 import (
-	"fmt"
-	"regexp"
-	"sort"
-	"strconv"
-
-	"gopkg.in/yaml.v3"
-
-	"github.com/google/gnostic/jsonschema"
+	"github.com/google/gnostic-models/compiler"
 )
 
 // compiler helper functions, usually called from generated code
 
 // UnpackMap gets a *yaml.Node if possible.
-func UnpackMap(in *yaml.Node) (*yaml.Node, bool) {
-	if in == nil {
-		return nil, false
-	}
-	return in, true
-}
+var UnpackMap = compiler.UnpackMap
 
 // SortedKeysForMap returns the sorted keys of a yamlv2.MapSlice.
-func SortedKeysForMap(m *yaml.Node) []string {
-	keys := make([]string, 0)
-	if m.Kind == yaml.MappingNode {
-		for i := 0; i < len(m.Content); i += 2 {
-			keys = append(keys, m.Content[i].Value)
-		}
-	}
-	sort.Strings(keys)
-	return keys
-}
+var SortedKeysForMap = compiler.SortedKeysForMap
 
 // MapHasKey returns true if a yamlv2.MapSlice contains a specified key.
-func MapHasKey(m *yaml.Node, key string) bool {
-	if m == nil {
-		return false
-	}
-	if m.Kind == yaml.MappingNode {
-		for i := 0; i < len(m.Content); i += 2 {
-			itemKey := m.Content[i].Value
-			if key == itemKey {
-				return true
-			}
-		}
-	}
-	return false
-}
+var MapHasKey = compiler.MapHasKey
 
 // MapValueForKey gets the value of a map value for a specified key.
-func MapValueForKey(m *yaml.Node, key string) *yaml.Node {
-	if m == nil {
-		return nil
-	}
-	if m.Kind == yaml.MappingNode {
-		for i := 0; i < len(m.Content); i += 2 {
-			itemKey := m.Content[i].Value
-			if key == itemKey {
-				return m.Content[i+1]
-			}
-		}
-	}
-	return nil
-}
+var MapValueForKey = compiler.MapValueForKey
 
 // ConvertInterfaceArrayToStringArray converts an array of interfaces to an array of strings, if possible.
-func ConvertInterfaceArrayToStringArray(interfaceArray []interface{}) []string {
-	stringArray := make([]string, 0)
-	for _, item := range interfaceArray {
-		v, ok := item.(string)
-		if ok {
-			stringArray = append(stringArray, v)
-		}
-	}
-	return stringArray
-}
+var ConvertInterfaceArrayToStringArray = compiler.ConvertInterfaceArrayToStringArray
 
 // SequenceNodeForNode returns a node if it is a SequenceNode.
-func SequenceNodeForNode(node *yaml.Node) (*yaml.Node, bool) {
-	if node.Kind != yaml.SequenceNode {
-		return nil, false
-	}
-	return node, true
-}
+var SequenceNodeForNode = compiler.SequenceNodeForNode
 
 // BoolForScalarNode returns the bool value of a node.
-func BoolForScalarNode(node *yaml.Node) (bool, bool) {
-	if node == nil {
-		return false, false
-	}
-	if node.Kind == yaml.DocumentNode {
-		return BoolForScalarNode(node.Content[0])
-	}
-	if node.Kind != yaml.ScalarNode {
-		return false, false
-	}
-	if node.Tag != "!!bool" {
-		return false, false
-	}
-	v, err := strconv.ParseBool(node.Value)
-	if err != nil {
-		return false, false
-	}
-	return v, true
-}
+var BoolForScalarNode = compiler.BoolForScalarNode
 
 // IntForScalarNode returns the integer value of a node.
-func IntForScalarNode(node *yaml.Node) (int64, bool) {
-	if node == nil {
-		return 0, false
-	}
-	if node.Kind == yaml.DocumentNode {
-		return IntForScalarNode(node.Content[0])
-	}
-	if node.Kind != yaml.ScalarNode {
-		return 0, false
-	}
-	if node.Tag != "!!int" {
-		return 0, false
-	}
-	v, err := strconv.ParseInt(node.Value, 10, 64)
-	if err != nil {
-		return 0, false
-	}
-	return v, true
-}
+var IntForScalarNode = compiler.IntForScalarNode
 
 // FloatForScalarNode returns the float value of a node.
-func FloatForScalarNode(node *yaml.Node) (float64, bool) {
-	if node == nil {
-		return 0.0, false
-	}
-	if node.Kind == yaml.DocumentNode {
-		return FloatForScalarNode(node.Content[0])
-	}
-	if node.Kind != yaml.ScalarNode {
-		return 0.0, false
-	}
-	if (node.Tag != "!!int") && (node.Tag != "!!float") {
-		return 0.0, false
-	}
-	v, err := strconv.ParseFloat(node.Value, 64)
-	if err != nil {
-		return 0.0, false
-	}
-	return v, true
-}
+var FloatForScalarNode = compiler.FloatForScalarNode
 
 // StringForScalarNode returns the string value of a node.
-func StringForScalarNode(node *yaml.Node) (string, bool) {
-	if node == nil {
-		return "", false
-	}
-	if node.Kind == yaml.DocumentNode {
-		return StringForScalarNode(node.Content[0])
-	}
-	switch node.Kind {
-	case yaml.ScalarNode:
-		switch node.Tag {
-		case "!!int":
-			return node.Value, true
-		case "!!str":
-			return node.Value, true
-		case "!!timestamp":
-			return node.Value, true
-		case "!!null":
-			return "", true
-		default:
-			return "", false
-		}
-	default:
-		return "", false
-	}
-}
+var StringForScalarNode = compiler.StringForScalarNode
 
 // StringArrayForSequenceNode converts a sequence node to an array of strings, if possible.
-func StringArrayForSequenceNode(node *yaml.Node) []string {
-	stringArray := make([]string, 0)
-	for _, item := range node.Content {
-		v, ok := StringForScalarNode(item)
-		if ok {
-			stringArray = append(stringArray, v)
-		}
-	}
-	return stringArray
-}
+var StringArrayForSequenceNode = compiler.StringArrayForSequenceNode
 
 // MissingKeysInMap identifies which keys from a list of required keys are not in a map.
-func MissingKeysInMap(m *yaml.Node, requiredKeys []string) []string {
-	missingKeys := make([]string, 0)
-	for _, k := range requiredKeys {
-		if !MapHasKey(m, k) {
-			missingKeys = append(missingKeys, k)
-		}
-	}
-	return missingKeys
-}
+var MissingKeysInMap = compiler.MissingKeysInMap
 
 // InvalidKeysInMap returns keys in a map that don't match a list of allowed keys and patterns.
-func InvalidKeysInMap(m *yaml.Node, allowedKeys []string, allowedPatterns []*regexp.Regexp) []string {
-	invalidKeys := make([]string, 0)
-	if m == nil || m.Kind != yaml.MappingNode {
-		return invalidKeys
-	}
-	for i := 0; i < len(m.Content); i += 2 {
-		key := m.Content[i].Value
-		found := false
-		// does the key match an allowed key?
-		for _, allowedKey := range allowedKeys {
-			if key == allowedKey {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// does the key match an allowed pattern?
-			for _, allowedPattern := range allowedPatterns {
-				if allowedPattern.MatchString(key) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				invalidKeys = append(invalidKeys, key)
-			}
-		}
-	}
-	return invalidKeys
-}
+var InvalidKeysInMap = compiler.InvalidKeysInMap
 
 // NewNullNode creates a new Null node.
-func NewNullNode() *yaml.Node {
-	node := &yaml.Node{
-		Kind: yaml.ScalarNode,
-		Tag:  "!!null",
-	}
-	return node
-}
+var NewNullNode = compiler.NewNullNode
 
 // NewMappingNode creates a new Mapping node.
-func NewMappingNode() *yaml.Node {
-	return &yaml.Node{
-		Kind:    yaml.MappingNode,
-		Content: make([]*yaml.Node, 0),
-	}
-}
+var NewMappingNode = compiler.NewMappingNode
 
 // NewSequenceNode creates a new Sequence node.
-func NewSequenceNode() *yaml.Node {
-	node := &yaml.Node{
-		Kind:    yaml.SequenceNode,
-		Content: make([]*yaml.Node, 0),
-	}
-	return node
-}
+var NewSequenceNode = compiler.NewSequenceNode
 
 // NewScalarNodeForString creates a new node to hold a string.
-func NewScalarNodeForString(s string) *yaml.Node {
-	return &yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Tag:   "!!str",
-		Value: s,
-	}
-}
+var NewScalarNodeForString = compiler.NewScalarNodeForString
 
 // NewSequenceNodeForStringArray creates a new node to hold an array of strings.
-func NewSequenceNodeForStringArray(strings []string) *yaml.Node {
-	node := &yaml.Node{
-		Kind:    yaml.SequenceNode,
-		Content: make([]*yaml.Node, 0),
-	}
-	for _, s := range strings {
-		node.Content = append(node.Content, NewScalarNodeForString(s))
-	}
-	return node
-}
+var NewSequenceNodeForStringArray = compiler.NewSequenceNodeForStringArray
 
 // NewScalarNodeForBool creates a new node to hold a bool.
-func NewScalarNodeForBool(b bool) *yaml.Node {
-	return &yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Tag:   "!!bool",
-		Value: fmt.Sprintf("%t", b),
-	}
-}
+var NewScalarNodeForBool = compiler.NewScalarNodeForBool
 
 // NewScalarNodeForFloat creates a new node to hold a float.
-func NewScalarNodeForFloat(f float64) *yaml.Node {
-	return &yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Tag:   "!!float",
-		Value: fmt.Sprintf("%g", f),
-	}
-}
+var NewScalarNodeForFloat = compiler.NewScalarNodeForFloat
 
 // NewScalarNodeForInt creates a new node to hold an integer.
-func NewScalarNodeForInt(i int64) *yaml.Node {
-	return &yaml.Node{
-		Kind:  yaml.ScalarNode,
-		Tag:   "!!int",
-		Value: fmt.Sprintf("%d", i),
-	}
-}
+var NewScalarNodeForInt = compiler.NewScalarNodeForInt
 
 // PluralProperties returns the string "properties" pluralized.
-func PluralProperties(count int) string {
-	if count == 1 {
-		return "property"
-	}
-	return "properties"
-}
+var PluralProperties = compiler.PluralProperties
 
 // StringArrayContainsValue returns true if a string array contains a specified value.
-func StringArrayContainsValue(array []string, value string) bool {
-	for _, item := range array {
-		if item == value {
-			return true
-		}
-	}
-	return false
-}
+var StringArrayContainsValue = compiler.StringArrayContainsValue
 
 // StringArrayContainsValues returns true if a string array contains all of a list of specified values.
-func StringArrayContainsValues(array []string, values []string) bool {
-	for _, value := range values {
-		if !StringArrayContainsValue(array, value) {
-			return false
-		}
-	}
-	return true
-}
+var StringArrayContainsValues = compiler.StringArrayContainsValues
 
 // StringValue returns the string value of an item.
-func StringValue(item interface{}) (value string, ok bool) {
-	value, ok = item.(string)
-	if ok {
-		return value, ok
-	}
-	intValue, ok := item.(int)
-	if ok {
-		return strconv.Itoa(intValue), true
-	}
-	return "", false
-}
+var StringValue = compiler.StringValue
 
 // Description returns a human-readable represention of an item.
-func Description(item interface{}) string {
-	value, ok := item.(*yaml.Node)
-	if ok {
-		return jsonschema.Render(value)
-	}
-	return fmt.Sprintf("%+v", item)
-}
+var Description = compiler.Description
 
 // Display returns a description of a node for use in error messages.
-func Display(node *yaml.Node) string {
-	switch node.Kind {
-	case yaml.ScalarNode:
-		switch node.Tag {
-		case "!!str":
-			return fmt.Sprintf("%s (string)", node.Value)
-		}
-	}
-	return fmt.Sprintf("%+v (%T)", node, node)
-}
+var Display = compiler.Display
 
 // Marshal creates a yaml version of a structure in our preferred style
-func Marshal(in *yaml.Node) []byte {
-	clearStyle(in)
-	//bytes, _ := yaml.Marshal(&yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{in}})
-	bytes, _ := yaml.Marshal(in)
-
-	return bytes
-}
-
-func clearStyle(node *yaml.Node) {
-	node.Style = 0
-	for _, c := range node.Content {
-		clearStyle(c)
-	}
-}
+var Marshal = compiler.Marshal

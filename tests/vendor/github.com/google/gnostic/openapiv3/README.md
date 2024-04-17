@@ -22,4 +22,5 @@ openapi-3.1.json from the OpenAPI 3.1 specification document (Markdown).
 
 ### How to rebuild
 
-`protoc -I=. -I=third_party --go_out=. --go_opt=paths=source_relative openapiv3/*.proto`
+Run:
+`COMPILE-PROTOS.sh`

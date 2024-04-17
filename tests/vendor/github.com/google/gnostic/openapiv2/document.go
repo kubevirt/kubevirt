@@ -15,7 +15,7 @@
 package openapi_v2
 
 import (
-	"gopkg.in/yaml.v3"
+	"errors"
 
 	"github.com/google/gnostic/compiler"
 )
@@ -26,17 +26,11 @@ func ParseDocument(b []byte) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if len(info.Content) < 1 {
+		return nil, errors.New("document has no content")
+	}
+
 	root := info.Content[0]
 	return NewDocument(root, compiler.NewContextWithExtensions("$root", root, nil, nil))
-}
-
-// YAMLValue produces a serialized YAML representation of the document.
-func (d *Document) YAMLValue(comment string) ([]byte, error) {
-	rawInfo := d.ToRawInfo()
-	rawInfo = &yaml.Node{
-		Kind:        yaml.DocumentNode,
-		Content:     []*yaml.Node{rawInfo},
-		HeadComment: comment,
-	}
-	return yaml.Marshal(rawInfo)
 }

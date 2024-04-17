@@ -239,9 +239,12 @@ type CatalogSourceStatus struct {
 	// The last time the CatalogSource image registry has been polled to ensure the image is up-to-date
 	LatestImageRegistryPoll *metav1.Time `json:"latestImageRegistryPoll,omitempty"`
 
-	ConfigMapResource     *ConfigMapResourceReference `json:"configMapReference,omitempty"`
-	RegistryServiceStatus *RegistryServiceStatus      `json:"registryService,omitempty"`
-	GRPCConnectionState   *GRPCConnectionState        `json:"connectionState,omitempty"`
+	// ConfigMapReference (deprecated) is the reference to the ConfigMap containing the catalog source's configuration, when the catalog source is a ConfigMap
+	ConfigMapResource *ConfigMapResourceReference `json:"configMapReference,omitempty"`
+	// RegistryService represents the current state of the GRPC service used to serve the catalog
+	RegistryServiceStatus *RegistryServiceStatus `json:"registryService,omitempty"`
+	// ConnectionState represents the current state of the CatalogSource's connection to the registry
+	GRPCConnectionState *GRPCConnectionState `json:"connectionState,omitempty"`
 
 	// Represents the state of a CatalogSource. Note that Message and Reason represent the original
 	// status information, which may be migrated to be conditions based in the future. Any new features

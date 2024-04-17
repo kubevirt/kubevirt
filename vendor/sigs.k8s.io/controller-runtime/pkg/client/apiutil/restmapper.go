@@ -53,7 +53,7 @@ func NewDynamicRESTMapper(cfg *rest.Config, httpClient *http.Client) (meta.RESTM
 // client for discovery information to do REST mappings.
 type mapper struct {
 	mapper      meta.RESTMapper
-	client      *discovery.DiscoveryClient
+	client      discovery.DiscoveryInterface
 	knownGroups map[string]*restmapper.APIGroupResources
 	apiGroups   map[string]*metav1.APIGroup
 
@@ -280,11 +280,15 @@ func (m *mapper) fetchGroupVersionResourcesLocked(groupName string, versions ...
 		groupVersion := schema.GroupVersion{Group: groupName, Version: version}
 
 		apiResourceList, err := m.client.ServerResourcesForGroupVersion(groupVersion.String())
-		if apierrors.IsNotFound(err) && m.isGroupVersionCached(groupVersion) {
+		if apierrors.IsNotFound(err) {
 			// If the version is not found, we remove the group from the cache
 			// so it gets refreshed on the next call.
-			delete(m.apiGroups, groupName)
-			delete(m.knownGroups, groupName)
+			if m.isAPIGroupCached(groupVersion) {
+				delete(m.apiGroups, groupName)
+			}
+			if m.isGroupVersionCached(groupVersion) {
+				delete(m.knownGroups, groupName)
+			}
 			continue
 		} else if err != nil {
 			failedGroups[groupVersion] = err
@@ -309,6 +313,22 @@ func (m *mapper) isGroupVersionCached(gv schema.GroupVersion) bool {
 	if cachedGroup, ok := m.knownGroups[gv.Group]; ok {
 		_, cached := cachedGroup.VersionedResources[gv.Version]
 		return cached
+	}
+
+	return false
+}
+
+// isAPIGroupCached checks if a version for a group is cached in the api groups cache.
+func (m *mapper) isAPIGroupCached(gv schema.GroupVersion) bool {
+	cachedGroup, ok := m.apiGroups[gv.Group]
+	if !ok {
+		return false
+	}
+
+	for _, version := range cachedGroup.Versions {
+		if version.Version == gv.Version {
+			return true
+		}
 	}
 
 	return false
