@@ -48,7 +48,6 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
@@ -3044,7 +3043,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "existing",
 				DiskDevice: virtv1.DiskDevice{
 					Disk: &virtv1.DiskTarget{
-						Bus: v1.DiskBusVirtio,
+						Bus: virtv1.DiskBusVirtio,
 					},
 				},
 			})
@@ -3052,7 +3051,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "hotplug",
 				DiskDevice: virtv1.DiskDevice{
 					Disk: &virtv1.DiskTarget{
-						Bus: v1.DiskBusSATA,
+						Bus: virtv1.DiskBusSATA,
 					},
 				},
 			})
@@ -3127,7 +3126,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "existing",
 				DiskDevice: virtv1.DiskDevice{
 					Disk: &virtv1.DiskTarget{
-						Bus: v1.DiskBusVirtio,
+						Bus: virtv1.DiskBusVirtio,
 					},
 				},
 			})
@@ -3294,7 +3293,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Spec.Architecture = "amd64"
-			vmi.Spec.Domain.CPU = &v1.CPU{
+			vmi.Spec.Domain.CPU = &virtv1.CPU{
 				Features: []virtv1.CPUFeature{
 					{
 						Name:   "invtsc",
@@ -3309,9 +3308,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		getVmiWithReenlightenment := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Spec.Architecture = "amd64"
-			vmi.Spec.Domain.Features = &v1.Features{
-				Hyperv: &v1.FeatureHyperv{
-					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)},
+			vmi.Spec.Domain.Features = &virtv1.Features{
+				Hyperv: &virtv1.FeatureHyperv{
+					Reenlightenment: &virtv1.FeatureState{Enabled: pointer.P(true)},
 				},
 			}
 
@@ -3342,7 +3341,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			Context("HyperV reenlightenment is enabled", func() {
-				var vmi *v1.VirtualMachineInstance
+				var vmi *virtv1.VirtualMachineInstance
 
 				BeforeEach(func() {
 					vmi = getVmiWithReenlightenment()
@@ -3503,7 +3502,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				prependInjectPodPatch(pod)
 			})
 
-			DescribeTable("update pods network annotation with", func(networks []v1.Network, interfaces []v1.Interface, matchers ...gomegaTypes.GomegaMatcher) {
+			DescribeTable("update pods network annotation with", func(networks []virtv1.Network, interfaces []virtv1.Interface, matchers ...gomegaTypes.GomegaMatcher) {
 				vmi.Spec.Networks = networks
 				vmi.Spec.Domain.Devices.Interfaces = interfaces
 				Expect(controller.updateMultusAnnotation(
@@ -3513,25 +3512,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				}
 			},
 				Entry("a single interface",
-					[]v1.Network{{
+					[]virtv1.Network{{
 						Name:          "iface1",
-						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net1"}},
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
 					}},
-					[]v1.Interface{{
+					[]virtv1.Interface{{
 						Name: "iface1",
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
 						`[{"name":"net1","namespace":"default","interface":"pod7e0055a6880"}]`)),
 				Entry("multiple interfaces",
-					[]v1.Network{{
+					[]virtv1.Network{{
 						Name:          "iface1",
-						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net1"}},
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
 					}, {
 						Name:          "iface2",
-						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net1"}},
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
 					}},
-					[]v1.Interface{{
+					[]virtv1.Interface{{
 						Name:       "iface1",
 						MacAddress: "mac1",
 					}, {
@@ -3545,17 +3544,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			DescribeTable("the subject interface name, in the pod networks annotation, should be in similar form as other interfaces",
 				func(testPodNetworkStatus []networkv1.NetworkStatus, expectedMultusNetworksAnnotation string) {
 					vmi = api.NewMinimalVMI(vmName)
-					vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+					vmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{{
 						Name:                   "red",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}, {
+						InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Bridge: &virtv1.InterfaceBridge{}}}, {
 						Name:                   "blue",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+						InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Bridge: &virtv1.InterfaceBridge{}}}}
 
-					vmi.Spec.Networks = []v1.Network{{
+					vmi.Spec.Networks = []virtv1.Network{{
 						Name:          "red",
-						NetworkSource: v1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "red-net"}}}, {
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "red-net"}}}, {
 						Name:          "blue",
-						NetworkSource: v1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "blue-net"}}}}
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "blue-net"}}}}
 
 					pod, err := NewPodForVirtualMachineWithMultusAnnotations(vmi, k8sv1.PodRunning, config, testPodNetworkStatus...)
 					Expect(err).ToNot(HaveOccurred())
