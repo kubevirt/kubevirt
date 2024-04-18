@@ -503,7 +503,6 @@ func (l *LibvirtConnection) checkConnectionLost(err error) {
 
 type VirDomain interface {
 	GetState() (libvirt.DomainState, int, error)
-	Create() error
 	CreateWithFlags(flags libvirt.DomainCreateFlags) error
 	Suspend() error
 	Resume() error

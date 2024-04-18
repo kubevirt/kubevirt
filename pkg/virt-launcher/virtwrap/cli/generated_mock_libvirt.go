@@ -306,16 +306,6 @@ func (_mr *_MockVirDomainRecorder) GetState() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetState")
 }
 
-func (_m *MockVirDomain) Create() error {
-	ret := _m.ctrl.Call(_m, "Create")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) Create() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create")
-}
-
 func (_m *MockVirDomain) CreateWithFlags(flags libvirt.DomainCreateFlags) error {
 	ret := _m.ctrl.Call(_m, "CreateWithFlags", flags)
 	ret0, _ := ret[0].(error)
