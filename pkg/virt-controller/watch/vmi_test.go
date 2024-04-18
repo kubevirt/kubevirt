@@ -111,7 +111,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var cdiConfigInformer cache.SharedIndexInformer
 	var dataVolumeFeeder *testutils.DataVolumeFeeder
 	var qemuGid int64 = 107
-	controllerOf := true
 
 	shouldExpectMatchingPodCreation := func(uid types.UID, matchers ...gomegaTypes.GomegaMatcher) {
 		// Expect pod creation
@@ -391,7 +390,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
@@ -443,7 +442,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
@@ -482,7 +481,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
 			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
 			// be in available
 			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
@@ -545,7 +544,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				})
 
 				dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
-				dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+				dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
 				dvPVC.Status.Phase = k8sv1.ClaimBound
 				Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
@@ -583,7 +582,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Pending)
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
 
@@ -672,7 +671,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
 			Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
@@ -696,7 +695,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
@@ -742,7 +741,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name: "test1",
 			})
 
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
@@ -781,7 +780,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimBound
 			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
 			// be in available
@@ -809,7 +808,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", pointer.P(true))
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
@@ -2775,7 +2774,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		makeVolumeStatusesForUpdateWithMessage := func(podName, podUID string, phase virtv1.VolumePhase, message, reason string, indexes ...int) []virtv1.VolumeStatus {
 			res := make([]virtv1.VolumeStatus, 0)
 			for _, index := range indexes {
-				fsOverhead := storagetypes.DefaultFSOverhead
 				res = append(res, virtv1.VolumeStatus{
 					Name: fmt.Sprintf("volume%d", index),
 					HotplugVolume: &virtv1.HotplugVolumeStatus{
@@ -2789,7 +2787,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
 							k8sv1.ReadOnlyMany,
 						},
-						FilesystemOverhead: &fsOverhead,
+						FilesystemOverhead: pointer.P(storagetypes.DefaultFSOverhead),
 					},
 				})
 			}
@@ -2818,9 +2816,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.VolumeStatus = oldStatus
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			attachmentPods := makePodWithVirtlauncher(virtlauncherPod, podIndexes...)
-			now := metav1.Now()
+
 			for _, pod := range attachmentPods {
-				pod.DeletionTimestamp = &now
+				pod.DeletionTimestamp = now()
 				Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
 			}
 			for _, pvcIndex := range pvcIndexes {
@@ -4059,7 +4057,6 @@ func NewPodForVirtualMachineWithMultusAnnotations(vmi *virtv1.VirtualMachineInst
 }
 
 func NewHotplugPVC(name, namespace string, phase k8sv1.PersistentVolumeClaimPhase) *k8sv1.PersistentVolumeClaim {
-	t := true
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -4069,7 +4066,7 @@ func NewHotplugPVC(name, namespace string, phase k8sv1.PersistentVolumeClaimPhas
 					APIVersion: "v1alpha1",
 					Kind:       "DataVolume",
 					Name:       name,
-					Controller: &t,
+					Controller: pointer.P(true),
 				},
 			},
 		},
@@ -4085,7 +4082,6 @@ func NewHotplugPVC(name, namespace string, phase k8sv1.PersistentVolumeClaimPhas
 }
 
 func NewPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv1.PodPhase) *k8sv1.Pod {
-	t := true
 	return &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -4096,7 +4092,7 @@ func NewPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv
 					Name:       virtlauncher.Name,
 					Kind:       "Pod",
 					APIVersion: "v1",
-					Controller: &t,
+					Controller: pointer.P(true),
 					UID:        virtlauncher.UID,
 				},
 			},
