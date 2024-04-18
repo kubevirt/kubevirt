@@ -268,16 +268,10 @@ type VirtualMachineInstanceInterface interface {
 }
 
 type ReplicaSetInterface interface {
-	Get(name string, options metav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
-	List(opts metav1.ListOptions) (*v1.VirtualMachineInstanceReplicaSetList, error)
-	Create(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
-	Update(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	GetScale(replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
-	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
-	UpdateStatus(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error)
+	kvcorev1.VirtualMachineInstanceReplicaSetInterface
+	GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
+	UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
 type VirtualMachineInstancePresetInterface interface {

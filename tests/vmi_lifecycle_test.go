@@ -1737,12 +1737,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				},
 			}
-			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(rs)
+			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(context.Background(), rs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should create replicaset")
 
 			By("Ensuring that all VMIs are ready")
 			Eventually(func() int32 {
-				rs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Get(createdRs.ObjectMeta.Name, metav1.GetOptions{})
+				rs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Get(context.Background(), createdRs.ObjectMeta.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return rs.Status.ReadyReplicas
 			}, 120*time.Second, 1*time.Second).Should(Equal(replicas))
