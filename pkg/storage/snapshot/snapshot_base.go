@@ -151,6 +151,7 @@ func (ctrl *VMSnapshotController) Init() error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
+			DeleteFunc: ctrl.handleVM,
 		},
 		ctrl.ResyncPeriod,
 	)
@@ -162,6 +163,7 @@ func (ctrl *VMSnapshotController) Init() error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMI,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMI(newObj) },
+			DeleteFunc: ctrl.handleVMI,
 		},
 		ctrl.ResyncPeriod,
 	)
