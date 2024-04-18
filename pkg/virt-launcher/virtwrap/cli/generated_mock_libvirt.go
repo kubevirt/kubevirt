@@ -575,17 +575,6 @@ func (_mr *_MockVirDomainRecorder) SetTime(arg0, arg1, arg2 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetTime", arg0, arg1, arg2)
 }
 
-func (_m *MockVirDomain) AuthorizedSSHKeysGet(user string, flags libvirt.DomainAuthorizedSSHKeysFlags) ([]string, error) {
-	ret := _m.ctrl.Call(_m, "AuthorizedSSHKeysGet", user, flags)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockVirDomainRecorder) AuthorizedSSHKeysGet(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AuthorizedSSHKeysGet", arg0, arg1)
-}
-
 func (_m *MockVirDomain) AuthorizedSSHKeysSet(user string, keys []string, flags libvirt.DomainAuthorizedSSHKeysFlags) error {
 	ret := _m.ctrl.Call(_m, "AuthorizedSSHKeysSet", user, keys, flags)
 	ret0, _ := ret[0].(error)
