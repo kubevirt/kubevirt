@@ -227,6 +227,30 @@ var _ = Describe("VMI network spec", func() {
 			})
 		})
 	})
+
+	Context("binding plugin network with device info exist", func() {
+		const (
+			deviceInfoPlugin    = "deviceinfo"
+			nonDeviceInfoPlugin = "non_deviceinfo"
+		)
+
+		bindingPlugins := map[string]v1.InterfaceBindingPlugin{
+			deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
+			nonDeviceInfoPlugin: {},
+		}
+
+		It("returns false when there is no network with device info plugin", func() {
+			ifaces := []v1.Interface{interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin)}
+			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeFalse())
+		})
+		It("returns true when there is at least one network with device-info plugin", func() {
+			ifaces := []v1.Interface{
+				interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin),
+				interfaceWithBindingPlugin("net2", deviceInfoPlugin),
+			}
+			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeTrue())
+		})
+	})
 })
 
 func podNetwork(name string) v1.Network {

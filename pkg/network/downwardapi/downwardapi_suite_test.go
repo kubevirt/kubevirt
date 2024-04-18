@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright the KubeVirt Authors.
  *
  */
 
-package sriov_test
+package downwardapi_test
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestSRIOV(t *testing.T) {
+func TestDownwardAPI(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

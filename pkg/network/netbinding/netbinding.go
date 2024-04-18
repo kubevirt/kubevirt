@@ -71,6 +71,7 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 			pluginSidecars = append(pluginSidecars, hooks.HookSidecar{
 				Image:           pluginInfo.SidecarImage,
 				ImagePullPolicy: config.ImagePullPolicy,
+				DownwardAPI:     pluginInfo.DownwardAPI,
 			})
 		}
 	}

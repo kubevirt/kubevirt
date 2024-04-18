@@ -17,17 +17,18 @@
 *
  */
 
-package sriov_test
+package deviceinfo_test
 
 import (
 	"fmt"
-
-	"kubevirt.io/kubevirt/pkg/network/sriov"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 )
 
 var _ = Describe("SRIOV", func() {
@@ -195,15 +196,15 @@ var _ = Describe("SRIOV", func() {
   "dns": {}
 }
 ]`
-	DescribeTable("should fail to prepare network pci map on the pod network-pci-map anotation",
+	DescribeTable("should fail to prepare network pci map on the pod network-pci-map annotation",
 		func(networkList []virtv1.Network, interfaceList []virtv1.Interface, networkStatusAnnotationValue string) {
-			networkPCIAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)
+			networkPCIAnnotationValue := deviceinfo.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)
 			Expect(networkPCIAnnotationValue).To(Equal("{}"))
 		},
 		Entry("when networkStatusAnnotation is valid but with no pci data on one of the SRIOV interfaces",
 			[]virtv1.Network{
-				newMultusNetwork("foo", "default/nad1"),
-				newMultusNetwork("boo", "default/nad2"),
+				*libvmi.MultusNetwork("foo", "default/nad1"),
+				*libvmi.MultusNetwork("boo", "default/nad2"),
 			},
 			[]virtv1.Interface{
 				newSRIOVInterface("foo"),
@@ -213,8 +214,8 @@ var _ = Describe("SRIOV", func() {
 		),
 		Entry("when networkStatusAnnotation is valid but with no device-info data on one of the SRIOV interfaces",
 			[]virtv1.Network{
-				newMultusNetwork("foo", "default/nad1"),
-				newMultusNetwork("boo", "default/nad2"),
+				*libvmi.MultusNetwork("foo", "default/nad1"),
+				*libvmi.MultusNetwork("boo", "default/nad2"),
 			},
 			[]virtv1.Interface{
 				newSRIOVInterface("foo"),
@@ -226,22 +227,23 @@ var _ = Describe("SRIOV", func() {
 
 	DescribeTable("should succeed to prepare network pci map on pod's network-pci-map",
 		func(networkList []virtv1.Network, interfaceList []virtv1.Interface, networkStatusAnnotationValue, expectedPciMapString string) {
-			Expect(sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)).To(Equal(expectedPciMapString))
+			Expect(deviceinfo.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)).
+				To(Equal(expectedPciMapString))
 		},
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV}; Networks{1X masquarade(primary),1X Multus} 1xNAD",
-			[]virtv1.Network{newMasqueradeDefaultNetwork(), newMultusNetwork("foo", "default/nad1")},
-			[]virtv1.Interface{newMasqueradePrimaryInterface(), newSRIOVInterface("foo")},
+			[]virtv1.Network{*virtv1.DefaultPodNetwork(), *libvmi.MultusNetwork("foo", "default/nad1")},
+			[]virtv1.Interface{libvmi.InterfaceDeviceWithMasqueradeBinding(), newSRIOVInterface("foo")},
 			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooHashedIfaceName),
 			`{"foo":"0000:04:02.5"}`,
 		),
 		Entry("when given Interfaces{1X masquarade(primary),2X SRIOV}, Networks{1X masquarade(primary),2X Multus}, 2xNAD",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork(),
-				newMultusNetwork("foo", "default/nad1"),
-				newMultusNetwork("boo", "default/nad2"),
+				*virtv1.DefaultPodNetwork(),
+				*libvmi.MultusNetwork("foo", "default/nad1"),
+				*libvmi.MultusNetwork("boo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface(),
+				libvmi.InterfaceDeviceWithMasqueradeBinding(),
 				newSRIOVInterface("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksFmt, fooHashedIfaceName, booHashedIfaceName),
@@ -249,31 +251,31 @@ var _ = Describe("SRIOV", func() {
 		),
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV, 1X Bridge}  Networks{1X masquarade(primary),2X Multus}, 2xNAD",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork(),
-				newMultusNetwork("boo", "default/nad1"),
-				newMultusNetwork("foo", "default/nad2"),
+				*virtv1.DefaultPodNetwork(),
+				*libvmi.MultusNetwork("boo", "default/nad1"),
+				*libvmi.MultusNetwork("foo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface(),
-				newBridgeInterface("boo"), newSRIOVInterface("foo"),
+				libvmi.InterfaceDeviceWithMasqueradeBinding(),
+				libvmi.InterfaceDeviceWithBridgeBinding("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithOneBridgeOneSRIOVNetworksFmt, booHashedIfaceName, fooHashedIfaceName),
 			`{"foo":"0000:65:00.2"}`,
 		),
 		Entry("given 1 primary masquerade, 1 SR-IOV interfaces and pod network status with ordinal names",
-			[]virtv1.Network{newMasqueradeDefaultNetwork(), newMultusNetwork("foo", "default/nad1")},
-			[]virtv1.Interface{newMasqueradePrimaryInterface(), newSRIOVInterface("foo")},
+			[]virtv1.Network{*virtv1.DefaultPodNetwork(), *libvmi.MultusNetwork("foo", "default/nad1")},
+			[]virtv1.Interface{libvmi.InterfaceDeviceWithMasqueradeBinding(), newSRIOVInterface("foo")},
 			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooOrdinalIfaceName),
 			`{"foo":"0000:04:02.5"}`,
 		),
 		Entry("given 1 primary masquerade, 2 SR-IOV interfaces and pod network status with ordinal names",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork(),
-				newMultusNetwork("foo", "default/nad1"),
-				newMultusNetwork("boo", "default/nad2"),
+				*virtv1.DefaultPodNetwork(),
+				*libvmi.MultusNetwork("foo", "default/nad1"),
+				*libvmi.MultusNetwork("boo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface(),
+				libvmi.InterfaceDeviceWithMasqueradeBinding(),
 				newSRIOVInterface("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksFmt, fooOrdinalIfaceName, booOrdinalIfaceName),
@@ -281,27 +283,27 @@ var _ = Describe("SRIOV", func() {
 		),
 		Entry("given 1 primary masquerade, 1 SR-IOV, 1 bridge interfaces and pod network status with ordinal names",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork(),
-				newMultusNetwork("boo", "default/nad1"),
-				newMultusNetwork("foo", "default/nad2"),
+				*virtv1.DefaultPodNetwork(),
+				*libvmi.MultusNetwork("boo", "default/nad1"),
+				*libvmi.MultusNetwork("foo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface(),
-				newBridgeInterface("boo"), newSRIOVInterface("foo"),
+				libvmi.InterfaceDeviceWithMasqueradeBinding(),
+				libvmi.InterfaceDeviceWithBridgeBinding("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithOneBridgeOneSRIOVNetworksFmt, fooOrdinalIfaceName, booOrdinalIfaceName),
 			`{"foo":"0000:65:00.2"}`,
 		),
 		Entry("when pod's networkStatus Annotation does not exist",
-			[]virtv1.Network{newMultusNetwork("foo", "default/nad1")},
+			[]virtv1.Network{*libvmi.MultusNetwork("foo", "default/nad1")},
 			[]virtv1.Interface{newSRIOVInterface("foo")},
 			"",
 			`{}`,
 		),
 		Entry("when networkStatusAnnotation is valid but one SR-IOV entry is missing",
 			[]virtv1.Network{
-				newMultusNetwork("foo", "default/nad1"),
-				newMultusNetwork("boo", "default/nad2"),
+				*libvmi.MultusNetwork("foo", "default/nad1"),
+				*libvmi.MultusNetwork("boo", "default/nad2"),
 			},
 			[]virtv1.Interface{
 				newSRIOVInterface("foo"),
@@ -317,39 +319,5 @@ func newSRIOVInterface(name string) virtv1.Interface {
 	return virtv1.Interface{
 		Name:                   name,
 		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{SRIOV: &virtv1.InterfaceSRIOV{}},
-	}
-}
-
-func newBridgeInterface(name string) virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   name,
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Bridge: &virtv1.InterfaceBridge{}},
-	}
-}
-
-func newMasqueradePrimaryInterface() virtv1.Interface {
-	return virtv1.Interface{
-		Name:                   "testmasquerade",
-		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Masquerade: &virtv1.InterfaceMasquerade{}},
-	}
-}
-
-func newMasqueradeDefaultNetwork() virtv1.Network {
-	return virtv1.Network{
-		Name: "testmasquerade",
-		NetworkSource: virtv1.NetworkSource{
-			Pod: &virtv1.PodNetwork{},
-		},
-	}
-}
-
-func newMultusNetwork(name, networkName string) virtv1.Network {
-	return virtv1.Network{
-		Name: name,
-		NetworkSource: virtv1.NetworkSource{
-			Multus: &virtv1.MultusNetwork{
-				NetworkName: networkName,
-			},
-		},
 	}
 }

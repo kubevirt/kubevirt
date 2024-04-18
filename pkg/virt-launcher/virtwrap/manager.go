@@ -75,8 +75,8 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
-	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
@@ -2021,7 +2021,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 
 	hostDevices := devices.HostDevices
 	for _, dev := range hostDevices {
-		devAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), netsriov.AliasPrefix)
+		devAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), netsriov.SRIOVAliasPrefix)
 		hostDevAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), generic.AliasPrefix)
 		gpuDevAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), gpu.AliasPrefix)
 		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {
