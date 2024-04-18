@@ -339,6 +339,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		mockQueue.ExpectAdds(1)
 		vmiSource.Add(vmi)
 		mockQueue.Wait()
+		_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	addPod := func(pod *k8sv1.Pod) {
+		Expect(podInformer.GetIndexer().Add(pod)).To(Succeed())
+		_, err := kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	addDataVolumePVC := func(dvPVC *k8sv1.PersistentVolumeClaim) {
+		Expect(pvcInformer.GetIndexer().Add(dvPVC)).To(Succeed())
+		_, err := kubeClient.CoreV1().PersistentVolumeClaims(dvPVC.Namespace).Create(context.Background(), dvPVC, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	addDataVolume := func(dv *cdiv1.DataVolume) {
+		Expect(dataVolumeInformer.GetIndexer().Add(dv)).To(Succeed())
 	}
 
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
