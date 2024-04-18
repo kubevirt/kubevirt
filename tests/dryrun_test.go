@@ -336,13 +336,13 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI preset was actually created")
-			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 		})
 
 		It("[test_id:7640]delete a VMI preset", func() {
 			By("Create a VMI preset")
-			_, err := virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			_, err := virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a VMI preset")
@@ -351,22 +351,22 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Delete(preset.Name, &opts)
+			err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Delete(context.Background(), preset.Name, opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no VMI preset was actually deleted")
-			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7641]update a VMI preset", func() {
 			By("Create a VMI preset")
-			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VMI preset")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+				preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -379,14 +379,14 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preset.Labels["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7642]patch a VMI preset", func() {
 			By("Create a VMI preset")
-			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a VMI preset")
@@ -395,7 +395,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(preset.Name, metav1.GetOptions{})
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Get(context.Background(), preset.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preset.Labels["key"]).ToNot(Equal("42"))
 		})
