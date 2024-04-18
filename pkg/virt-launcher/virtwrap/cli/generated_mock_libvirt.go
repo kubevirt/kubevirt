@@ -471,16 +471,6 @@ func (_mr *_MockVirDomainRecorder) GetMetadata(arg0, arg1, arg2 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0, arg1, arg2)
 }
 
-func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error {
-	ret := _m.ctrl.Call(_m, "OpenConsole", devname, stream, flags)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) OpenConsole(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "OpenConsole", arg0, arg1, arg2)
-}
-
 func (_m *MockVirDomain) MigrateToURI3(_param0 string, _param1 *libvirt.DomainMigrateParameters, _param2 libvirt.DomainMigrateFlags) error {
 	ret := _m.ctrl.Call(_m, "MigrateToURI3", _param0, _param1, _param2)
 	ret0, _ := ret[0].(error)
