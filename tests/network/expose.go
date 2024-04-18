@@ -286,10 +286,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			DescribeTable("Should expose a ClusterIP service with the correct IPFamilyPolicy", func(ipFamiyPolicy k8sv1.IPFamilyPolicyType) {
-				if ipFamiyPolicy == k8sv1.IPFamilyPolicyRequireDualStack {
-					libnet.SkipWhenNotDualStackCluster()
-				}
-
 				calcNumOfClusterIPs := func() int {
 					switch ipFamiyPolicy {
 					case k8sv1.IPFamilyPolicySingleStack:
@@ -321,7 +317,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			},
 				Entry("over SingleStack IP family policy", k8sv1.IPFamilyPolicySingleStack),
 				Entry("over PreferDualStack IP family policy", k8sv1.IPFamilyPolicyPreferDualStack),
-				Entry("over RequireDualStack IP family policy", k8sv1.IPFamilyPolicyRequireDualStack),
+				Entry("over RequireDualStack IP family policy", decorators.RequiresDualStackCluster, k8sv1.IPFamilyPolicyRequireDualStack),
 			)
 		})
 

@@ -458,6 +458,11 @@ if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
 fi
 
+# Single stack IPv6 cluster should skip tests that require dual stack cluster
+if [[ ${KUBEVIRT_SINGLE_STACK} == "true" ]]; then
+  add_to_label_filter '(!requires-dual-stack-cluster)' '&&'
+fi
+
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
 # set the whole suite (quarantined and stable) will be run.
 if [ -z "$KUBEVIRT_QUARANTINE" ]; then
