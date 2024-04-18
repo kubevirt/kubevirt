@@ -147,17 +147,6 @@ func (_mr *_MockConnectionRecorder) ListAllDomains(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains", arg0)
 }
 
-func (_m *MockConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
-	ret := _m.ctrl.Call(_m, "NewStream", flags)
-	ret0, _ := ret[0].(Stream)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockConnectionRecorder) NewStream(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "NewStream", arg0)
-}
-
 func (_m *MockConnection) SetReconnectChan(reconnect chan bool) {
 	_m.ctrl.Call(_m, "SetReconnectChan", reconnect)
 }
