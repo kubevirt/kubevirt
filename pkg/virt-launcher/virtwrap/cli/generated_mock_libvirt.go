@@ -367,16 +367,6 @@ func (_mr *_MockVirDomainRecorder) GetBlockInfo(arg0, arg1 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetBlockInfo", arg0, arg1)
 }
 
-func (_m *MockVirDomain) AttachDevice(xml string) error {
-	ret := _m.ctrl.Call(_m, "AttachDevice", xml)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockVirDomainRecorder) AttachDevice(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachDevice", arg0)
-}
-
 func (_m *MockVirDomain) AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
 	ret := _m.ctrl.Call(_m, "AttachDeviceFlags", xml, flags)
 	ret0, _ := ret[0].(error)
