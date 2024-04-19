@@ -48,7 +48,7 @@ type VirtualMachineInstanceExpansion interface {
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
 	SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error)
-	SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error)
+	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
 	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
 	SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error
 }
@@ -138,7 +138,7 @@ func (c *virtualMachineInstances) SEVFetchCertChain(ctx context.Context, name st
 	return v1.SEVPlatformInfo{}, nil
 }
 
-func (c *virtualMachineInstances) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+func (c *virtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error) {
 	// TODO not implemented yet
 	return v1.SEVMeasurementInfo{}, nil
 }

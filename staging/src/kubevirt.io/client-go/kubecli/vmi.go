@@ -331,10 +331,10 @@ func (v *vmis) SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatfo
 	return sevPlatformInfo, err
 }
 
-func (v *vmis) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+func (v *vmis) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error) {
 	sevMeasurementInfo := v1.SEVMeasurementInfo{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/querylaunchmeasurement")
-	err := v.restClient.Get().AbsPath(uri).Do(context.Background()).Into(&sevMeasurementInfo)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&sevMeasurementInfo)
 	return sevMeasurementInfo, err
 }
 
