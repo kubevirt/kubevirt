@@ -557,15 +557,6 @@ func NotDeletedVMs(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) 
 	return
 }
 
-func Running(vmis *v1.VirtualMachineInstanceList) (running []v1.VirtualMachineInstance) {
-	for _, vmi := range vmis.Items {
-		if vmi.DeletionTimestamp == nil && vmi.Status.Phase == v1.Running {
-			running = append(running, vmi)
-		}
-	}
-	return
-}
-
 func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions {
 	virtClient := kubevirt.Client()
 

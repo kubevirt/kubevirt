@@ -427,7 +427,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Eventually(func() int {
 			vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return len(tests.Running(vmis))
+			return len(filterRunningVmis(vmis))
 		}, 40*time.Second, time.Second).Should(Equal(2))
 
 		vmi := &vmis.Items[0]
@@ -481,3 +481,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(resultFields[len(expectedHeader)]).To(Equal(newRS.Name))
 	})
 })
+
+func filterRunningVmis(vmis *v1.VirtualMachineInstanceList) (running []v1.VirtualMachineInstance) {
+	for _, vmi := range vmis.Items {
+		if vmi.DeletionTimestamp == nil && vmi.Status.Phase == v1.Running {
+			running = append(running, vmi)
+		}
+	}
+	return
+}
