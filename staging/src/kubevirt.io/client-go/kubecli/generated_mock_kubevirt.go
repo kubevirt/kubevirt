@@ -1269,15 +1269,15 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVFetchCertChain(arg0,
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVFetchCertChain", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SEVQueryLaunchMeasurement(name string) (v120.SEVMeasurementInfo, error) {
-	ret := _m.ctrl.Call(_m, "SEVQueryLaunchMeasurement", name)
+func (_m *MockVirtualMachineInstanceInterface) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v120.SEVMeasurementInfo, error) {
+	ret := _m.ctrl.Call(_m, "SEVQueryLaunchMeasurement", ctx, name)
 	ret0, _ := ret[0].(v120.SEVMeasurementInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVQueryLaunchMeasurement(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVQueryLaunchMeasurement", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVQueryLaunchMeasurement(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVQueryLaunchMeasurement", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) SEVSetupSession(name string, sevSessionOptions *v120.SEVSessionOptions) error {

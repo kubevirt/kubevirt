@@ -403,7 +403,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(expectedSEVMeasurementInfo.LoaderSHA).To(HaveLen(64))
 
 			By("Querying launch measurement")
-			sevMeasurementInfo, err := virtClient.VirtualMachineInstance(vmi.Namespace).SEVQueryLaunchMeasurement(vmi.Name)
+			sevMeasurementInfo, err := virtClient.VirtualMachineInstance(vmi.Namespace).SEVQueryLaunchMeasurement(context.Background(), vmi.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sevMeasurementInfo).To(Equal(expectedSEVMeasurementInfo))
 			measure := verifyMeasurement(&sevMeasurementInfo, tikBase64)

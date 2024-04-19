@@ -132,7 +132,7 @@ func (c *FakeVirtualMachineInstances) SEVFetchCertChain(ctx context.Context, nam
 	return v1.SEVPlatformInfo{}, err
 }
 
-func (c *FakeVirtualMachineInstances) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+func (c *FakeVirtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error) {
 	_, err := c.Fake.
 		Invokes(testing.NewGetSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/querylaunchmeasurement", name), &v1.SEVMeasurementInfo{})
 
