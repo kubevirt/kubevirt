@@ -3259,16 +3259,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		Context("needs to be set when", func() {
-
-			runController := func(vmi *virtv1.VirtualMachineInstance) {
-				addVirtualMachine(vmi)
-				controller.Execute()
-				expectMatchingPodCreation(vmi)
-			}
-
 			It("invtsc feature exists", func() {
 				vmi := getVmiWithInvTsc()
-				runController(vmi)
+				addVirtualMachine(vmi)
+				controller.Execute()
 				expectTopologyHintsDefined(vmi, BeTrue())
 			})
 
@@ -3281,7 +3275,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				When("TSC frequency is exposed", func() {
 					It("topology hints need to be set", func() {
-						runController(vmi)
+						addVirtualMachine(vmi)
+						controller.Execute()
 						expectTopologyHintsDefined(vmi, BeTrue())
 					})
 				})
@@ -3297,9 +3292,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					It("topology hints don't need to be set and VMI needs to be non-migratable", func() {
 						unexposeTscFrequency(topology.RequiredForMigration)
 						// Make sure no update occurs
-						runController(vmi)
-						expectMatchingPodCreation(vmi)
+						addVirtualMachine(vmi)
+						controller.Execute()
 						expectTopologyHintsDefined(vmi, BeFalse())
+						expectMatchingPodCreation(vmi)
 						testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 					})
 				})
@@ -3310,32 +3306,31 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		Context("pod creation", func() {
 
-			runController := func(vmi *virtv1.VirtualMachineInstance) {
-				addVirtualMachine(vmi)
-				controller.Execute()
-			}
-
 			It("does not need to happen if tsc requiredment is of type RequiredForBoot", func() {
 				vmi := getVmiWithInvTsc()
 				Expect(topology.GetTscFrequencyRequirement(vmi).Type).To(Equal(topology.RequiredForBoot))
 
-				runController(vmi)
+				addVirtualMachine(vmi)
+				controller.Execute()
 				expectTopologyHintsDefined(vmi, BeTrue())
 			})
 
 			It("does not need to happen if tsc requiredment is of type RequiredForMigration", func() {
 				vmi := getVmiWithReenlightenment()
 				Expect(topology.GetTscFrequencyRequirement(vmi).Type).To(Equal(topology.RequiredForMigration))
+				addVirtualMachine(vmi)
 
-				runController(vmi)
+				controller.Execute()
 				expectTopologyHintsDefined(vmi, BeTrue())
 			})
 
 			It("does not need to happen if tsc requiredment is of type NotRequired", func() {
 				vmi := NewPendingVirtualMachine("testvmi")
 				Expect(topology.GetTscFrequencyRequirement(vmi).Type).To(Equal(topology.NotRequired))
+				addVirtualMachine(vmi)
 
-				runController(vmi)
+				controller.Execute()
+
 				testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 				expectMatchingPodCreation(vmi)
 			})
