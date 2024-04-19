@@ -349,7 +349,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer)
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer.GetStore())
 
 	return c.sync(node, vmis, migrations)
 }
@@ -523,7 +523,7 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 			continue
 		}
 
-		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer) > 1 {
+		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer.GetIndexer()) > 1 {
 			// waiting on target/source pods from a previous migration to terminate
 			//
 			// We only want to create a migration when num pods == 1 or else we run the

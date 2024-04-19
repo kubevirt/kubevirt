@@ -2652,7 +2652,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Expect(podInformer.GetIndexer().Add(attachmentPod)).To(Succeed())
 			}
 
-			res, err := kvcontroller.AttachmentPods(virtlauncherPod, podInformer)
+			res, err := kvcontroller.AttachmentPods(virtlauncherPod, podInformer.GetIndexer())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(HaveLen(podCount))
 		},

@@ -389,7 +389,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Only consider pdbs which belong to this vmi
-	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
+	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer.GetIndexer())
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to fetch pod disruption budgets for namespace from cache.")
 		// If the situation does not change there is no benefit in retrying
@@ -430,7 +430,7 @@ func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMach
 		return false, nil
 	}
 
-	runningPods := controller.VMIActivePodsCount(vmi, c.podInformer)
+	runningPods := controller.VMIActivePodsCount(vmi, c.podInformer.GetIndexer())
 	return runningPods == 1, nil
 }
 
