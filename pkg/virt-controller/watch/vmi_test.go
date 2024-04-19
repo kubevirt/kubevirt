@@ -2991,13 +2991,32 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			addPod(virtlauncherPod)
 
-			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
-			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
 			expectHotplugPod()
+			updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVmi.Status.Phase).To(Equal(virtv1.Running))
+			Expect(updatedVmi.Status.VolumeStatus).To(BeEquivalentTo([]virtv1.VolumeStatus{
+				{
+					Name:   "existing",
+					Target: "",
+					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055")),
+					},
+				},
+				{
+					Name:    "hotplug",
+					Target:  "",
+					Phase:   virtv1.VolumeBound,
+					Reason:  "PVCNotReady",
+					Message: "PVC is in phase Bound",
+					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055")),
+					},
+					HotplugVolume: &virtv1.HotplugVolumeStatus{},
+				},
+			}))
 		})
 
 		It("Should properly delete attachment, if volume and disk are removed", func() {
@@ -3079,13 +3098,29 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			addPod(virtlauncherPod)
 			addPod(hpPod)
-
-			//Modify by adding a new hotplugged disk
-			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
-			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
+			updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVmi.Status.Phase).To(Equal(virtv1.Running))
+			Expect(updatedVmi.Status.VolumeStatus).To(BeEquivalentTo([]virtv1.VolumeStatus{
+				{
+					Name:   "existing",
+					Target: "",
+					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055"))},
+				},
+				{
+					Name:   "hotplug",
+					Target: "",
+					Phase:  virtv1.HotplugVolumeDetaching,
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "hp-volume-hotplug",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}))
 			expectPodDoesNotExist(hpPod.Namespace, hpPod.Name)
 		})
 
