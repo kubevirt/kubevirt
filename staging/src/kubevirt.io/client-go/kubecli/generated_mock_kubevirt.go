@@ -1290,14 +1290,14 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVSetupSession(arg0, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVSetupSession", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SEVInjectLaunchSecret(name string, sevSecretOptions *v120.SEVSecretOptions) error {
-	ret := _m.ctrl.Call(_m, "SEVInjectLaunchSecret", name, sevSecretOptions)
+func (_m *MockVirtualMachineInstanceInterface) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v120.SEVSecretOptions) error {
+	ret := _m.ctrl.Call(_m, "SEVInjectLaunchSecret", ctx, name, sevSecretOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVInjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVInjectLaunchSecret", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVInjectLaunchSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVInjectLaunchSecret", arg0, arg1, arg2)
 }
 
 // Mock of ReplicaSetInterface interface

@@ -146,7 +146,7 @@ func (c *FakeVirtualMachineInstances) SEVSetupSession(ctx context.Context, name 
 	return err
 }
 
-func (c *FakeVirtualMachineInstances) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {
+func (c *FakeVirtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/injectlaunchsecret", name, sevSecretOptions), nil)
 

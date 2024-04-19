@@ -50,7 +50,7 @@ type VirtualMachineInstanceExpansion interface {
 	SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error)
 	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
 	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error
-	SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error
+	SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error
 }
 
 func (c *virtualMachineInstances) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
@@ -148,7 +148,7 @@ func (c *virtualMachineInstances) SEVSetupSession(ctx context.Context, name stri
 	return nil
 }
 
-func (c *virtualMachineInstances) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {
+func (c *virtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error {
 	// TODO not implemented yet
 	return nil
 }
