@@ -76,7 +76,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var config *virtconfig.ClusterConfig
 
 	var ctrl *gomock.Controller
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var vmiSource *framework.FakeControllerSource
 	var vmSource *framework.FakeControllerSource
 	var podSource *framework.FakeControllerSource
@@ -253,7 +252,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClientset = kubevirtfake.NewSimpleClientset()
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
