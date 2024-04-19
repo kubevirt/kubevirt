@@ -324,10 +324,10 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInte
 	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }
 
-func (v *vmis) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
+func (v *vmis) SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error) {
 	sevPlatformInfo := v1.SEVPlatformInfo{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/fetchcertchain")
-	err := v.restClient.Get().AbsPath(uri).Do(context.Background()).Into(&sevPlatformInfo)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&sevPlatformInfo)
 	return sevPlatformInfo, err
 }
 

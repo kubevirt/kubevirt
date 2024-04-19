@@ -366,7 +366,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			expectedSEVPlatformInfo.CertChain = entries["cert-chain"]
 
 			By("Fetching platform certificates")
-			sevPlatformInfo, err := virtClient.VirtualMachineInstance(vmi.Namespace).SEVFetchCertChain(vmi.Name)
+			sevPlatformInfo, err := virtClient.VirtualMachineInstance(vmi.Namespace).SEVFetchCertChain(context.Background(), vmi.Name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sevPlatformInfo).To(Equal(expectedSEVPlatformInfo))
 
