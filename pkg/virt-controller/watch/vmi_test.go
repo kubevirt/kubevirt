@@ -2234,7 +2234,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("CreateAttachmentPodTemplate should update status to bound if DV owning PVC is bound but not ready", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, virtv1.VolumeStatus{
+			addVolumeStatuses(vmi, virtv1.VolumeStatus{
 				Name:          "test-pvc-volume",
 				HotplugVolume: &virtv1.HotplugVolumeStatus{},
 				Phase:         virtv1.VolumePending,
@@ -2914,7 +2914,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 			vmi.Spec.Domain.Devices.Disks = disks
 			vmi.Status.Phase = virtv1.Running
-			vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, virtv1.VolumeStatus{
+			addVolumeStatuses(vmi, virtv1.VolumeStatus{
 				Name:   "existing",
 				Target: "",
 			})
@@ -2987,18 +2987,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 			vmi.Spec.Domain.Devices.Disks = disks
 			vmi.Status.Phase = virtv1.Running
-			vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, virtv1.VolumeStatus{
-				Name:   "existing",
-				Target: "",
-			})
-			vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, virtv1.VolumeStatus{
-				Name:   "hotplug",
-				Target: "",
-				HotplugVolume: &virtv1.HotplugVolumeStatus{
-					AttachPodName: "hp-volume-hotplug",
-					AttachPodUID:  "abcd",
+			addVolumeStatuses(vmi,
+				virtv1.VolumeStatus{
+					Name:   "existing",
+					Target: "",
+				}, virtv1.VolumeStatus{
+					Name:   "hotplug",
+					Target: "",
+					HotplugVolume: &virtv1.HotplugVolumeStatus{
+						AttachPodName: "hp-volume-hotplug",
+						AttachPodUID:  "abcd",
+					},
 				},
-			})
+			)
 			addActivePods(vmi, "virt-launch-uid", "")
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
@@ -3843,8 +3844,6 @@ func NewPendingVirtualMachine(name string) *virtv1.VirtualMachineInstance {
 	vmi.Status.Phase = virtv1.Pending
 	setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)
 	kvcontroller.SetLatestApiVersionAnnotation(vmi)
-	vmi.Status.ActivePods = make(map[types.UID]string)
-	vmi.Status.VolumeStatus = make([]virtv1.VolumeStatus, 0)
 	return vmi
 }
 
@@ -4004,6 +4003,11 @@ func markAsNonReady(vmi *virtv1.VirtualMachineInstance) {
 
 func unmarkReady(vmi *virtv1.VirtualMachineInstance) {
 	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+}
+
+func addVolumeStatuses(vmi *virtv1.VirtualMachineInstance, volumeStatuses ...virtv1.VolumeStatus) *virtv1.VirtualMachineInstance {
+	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, volumeStatuses...)
+	return vmi
 }
 
 func addActivePods(vmi *virtv1.VirtualMachineInstance, podUID types.UID, hostName string) *virtv1.VirtualMachineInstance {
