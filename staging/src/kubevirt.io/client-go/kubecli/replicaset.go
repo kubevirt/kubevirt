@@ -22,7 +22,6 @@ package kubecli
 import (
 	"context"
 
-	autov1 "k8s.io/api/autoscaling/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -45,31 +44,6 @@ type rc struct {
 	restClient *rest.RESTClient
 	namespace  string
 	resource   string
-}
-
-func (v *rc) GetScale(ctx context.Context, replicaSetName string, options k8smetav1.GetOptions) (result *autov1.Scale, err error) {
-	result = &autov1.Scale{}
-	err = v.restClient.Get().
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Name(replicaSetName).
-		SubResource("scale").
-		Do(ctx).
-		Into(result)
-	return
-}
-
-func (v *rc) UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (result *autov1.Scale, err error) {
-	result = &autov1.Scale{}
-	err = v.restClient.Put().
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Name(replicaSetName).
-		SubResource("scale").
-		Body(scale).
-		Do(ctx).
-		Into(result)
-	return
 }
 
 func (v *rc) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (replicaset *v1.VirtualMachineInstanceReplicaSet, err error) {
@@ -104,10 +78,6 @@ func (v *rc) Delete(ctx context.Context, name string, options k8smetav1.DeleteOp
 
 func (v *rc) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
 	return v.VirtualMachineInstanceReplicaSetInterface.Patch(ctx, name, pt, data, opts, subresources...)
-}
-
-func (v *rc) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	return v.Patch(ctx, name, pt, data, opts, "status")
 }
 
 func (v *rc) UpdateStatus(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {

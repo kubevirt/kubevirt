@@ -35,16 +35,30 @@ type VirtualMachineInstanceReplicaSetExpansion interface {
 }
 
 func (c *virtualMachineInstanceReplicaSets) GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error) {
-	// TODO not implemented yet
-	return nil, nil
+	result := &autov1.Scale{}
+	err := c.client.Get().
+		Namespace(c.ns).
+		Resource("virtualmachineinstancereplicasets").
+		Name(replicaSetName).
+		SubResource("scale").
+		Do(ctx).
+		Into(result)
+	return result, err
 }
 
 func (c *virtualMachineInstanceReplicaSets) UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error) {
-	// TODO not implemented yet
-	return nil, nil
+	result := &autov1.Scale{}
+	err := c.client.Put().
+		Namespace(c.ns).
+		Resource("virtualmachineinstancereplicasets").
+		Name(replicaSetName).
+		SubResource("scale").
+		Body(scale).
+		Do(ctx).
+		Into(result)
+	return result, err
 }
 
 func (c *virtualMachineInstanceReplicaSets) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*v1.VirtualMachineInstanceReplicaSet, error) {
-	// TODO not implemented yet
-	return nil, nil
+	return c.Patch(ctx, name, pt, data, opts, "status")
 }
