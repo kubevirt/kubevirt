@@ -374,7 +374,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			vmi, err = ThisVMI(vmi)()
 			Expect(err).ToNot(HaveOccurred())
 			sevSessionOptions, tikBase64, tekBase64 := prepareSession(virtClient, vmi.Status.NodeName, sevPlatformInfo.PDH)
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVSetupSession(vmi.Name, sevSessionOptions)
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVSetupSession(context.Background(), vmi.Name, sevSessionOptions)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVMI(vmi), 60).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))
 

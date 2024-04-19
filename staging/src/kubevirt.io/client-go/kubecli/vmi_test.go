@@ -487,7 +487,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMIPath, "sev/setupsession")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVSetupSession("testvm", &v1.SEVSessionOptions{})
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVSetupSession(context.Background(), "testvm", &v1.SEVSessionOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
