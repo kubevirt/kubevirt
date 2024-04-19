@@ -19,5 +19,3 @@ limitations under the License.
 package v1
 
 type VirtualMachineInstancePresetExpansion interface{}
-
-type VirtualMachineInstanceReplicaSetExpansion interface{}
