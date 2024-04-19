@@ -125,6 +125,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		Expect(pod).ToNot(BeNil())
 	}
 
+	expectPodAnnotations := func(pod *k8sv1.Pod, matchers ...gomegaTypes.GomegaMatcher) {
+		retrievedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retrievedPod.Annotations).To(SatisfyAll(matchers...))
+	}
+
 	prependInjectPodPatch := func(pod *k8sv1.Pod) {
 		kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			originalPodBytes, err := json.Marshal(pod)
@@ -801,9 +807,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
-			Expect(pod.Annotations).ToNot(HaveKey(deviceinfo.NetworkPCIMapAnnot))
-			Expect(pod.Annotations).ToNot(HaveKey(downwardapi.NetworkInfoAnnot))
+			expectPodAnnotations(pod, Not(HaveKey(deviceinfo.NetworkPCIMapAnnot)))
+			expectPodAnnotations(pod, Not(HaveKey(downwardapi.NetworkInfoAnnot)))
 		})
+
 		It("should patch network-pci-map when SR-IOV networks exist", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
@@ -841,9 +848,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addPod(pod)
 			addActivePods(vmi, pod.UID, "")
 
-			prependInjectPodPatch(pod)
 			controller.Execute()
-			Expect(pod.Annotations).To(HaveKeyWithValue(deviceinfo.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
+			expectPodAnnotations(pod, HaveKeyWithValue(deviceinfo.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
 		})
 	})
 
