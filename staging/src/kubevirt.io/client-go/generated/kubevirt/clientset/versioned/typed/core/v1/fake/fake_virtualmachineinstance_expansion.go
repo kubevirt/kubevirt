@@ -125,7 +125,7 @@ func (c *FakeVirtualMachineInstances) VSOCK(name string, options *v1.VSOCKOption
 	return nil, nil
 }
 
-func (c *FakeVirtualMachineInstances) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
+func (c *FakeVirtualMachineInstances) SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error) {
 	_, err := c.Fake.
 		Invokes(testing.NewGetSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/fetchcertchain", name), &v1.SEVPlatformInfo{})
 

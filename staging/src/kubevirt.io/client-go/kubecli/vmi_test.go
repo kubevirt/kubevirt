@@ -445,7 +445,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "sev/fetchcertchain")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, sevPlatformIfo),
 		))
-		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVFetchCertChain("testvm")
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVFetchCertChain(context.Background(), "testvm")
 
 		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
 		Expect(fetchedInfo).To(Equal(sevPlatformIfo), "fetched info should be the same as passed in")
