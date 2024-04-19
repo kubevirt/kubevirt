@@ -1280,14 +1280,14 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVQueryLaunchMeasureme
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVQueryLaunchMeasurement", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SEVSetupSession(name string, sevSessionOptions *v120.SEVSessionOptions) error {
-	ret := _m.ctrl.Call(_m, "SEVSetupSession", name, sevSessionOptions)
+func (_m *MockVirtualMachineInstanceInterface) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v120.SEVSessionOptions) error {
+	ret := _m.ctrl.Call(_m, "SEVSetupSession", ctx, name, sevSessionOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVSetupSession(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVSetupSession", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVSetupSession(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVSetupSession", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) SEVInjectLaunchSecret(name string, sevSecretOptions *v120.SEVSecretOptions) error {

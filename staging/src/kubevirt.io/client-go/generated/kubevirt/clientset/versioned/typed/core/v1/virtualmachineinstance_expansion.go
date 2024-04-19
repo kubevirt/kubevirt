@@ -49,7 +49,7 @@ type VirtualMachineInstanceExpansion interface {
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
 	SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error)
 	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
-	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
+	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error
 	SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error
 }
 
@@ -143,7 +143,7 @@ func (c *virtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context,
 	return v1.SEVMeasurementInfo{}, nil
 }
 
-func (c *virtualMachineInstances) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+func (c *virtualMachineInstances) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error {
 	// TODO not implemented yet
 	return nil
 }

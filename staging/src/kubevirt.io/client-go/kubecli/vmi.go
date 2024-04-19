@@ -338,13 +338,13 @@ func (v *vmis) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.S
 	return sevMeasurementInfo, err
 }
 
-func (v *vmis) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+func (v *vmis) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error {
 	body, err := json.Marshal(sevSessionOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/setupsession")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
 func (v *vmis) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {

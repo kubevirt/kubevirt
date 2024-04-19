@@ -139,7 +139,7 @@ func (c *FakeVirtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Cont
 	return v1.SEVMeasurementInfo{}, err
 }
 
-func (c *FakeVirtualMachineInstances) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+func (c *FakeVirtualMachineInstances) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/setupsession", name, sevSessionOptions), nil)
 
