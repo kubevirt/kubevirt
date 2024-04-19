@@ -578,6 +578,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
 				pvc.Status.Phase = k8sv1.ClaimPending
 				pvc.Spec.StorageClassName = pointer.P("testsc123")
+				pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
 				addDataVolumePVC(pvc)
 
 				controller.Execute()
@@ -598,6 +599,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvc := NewPvc(vmi.Namespace, backendstorage.PVCForVMI(vmi))
 				pvc.Status.Phase = k8sv1.ClaimPending
 				pvc.Spec.StorageClassName = pointer.P("testsc456")
+				pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
 				addDataVolumePVC(pvc)
 
 				controller.Execute()
