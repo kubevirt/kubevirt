@@ -410,7 +410,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			sevSecretOptions := encryptSecret(diskSecret, measure, tikBase64, tekBase64)
 
 			By("Injecting launch secret")
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVInjectLaunchSecret(vmi.Name, sevSecretOptions)
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVInjectLaunchSecret(context.Background(), vmi.Name, sevSecretOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Unpausing the VirtualMachineInstance")

@@ -504,7 +504,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMIPath, "sev/injectlaunchsecret")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVInjectLaunchSecret("testvm", &v1.SEVSecretOptions{})
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SEVInjectLaunchSecret(context.Background(), "testvm", &v1.SEVSecretOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
