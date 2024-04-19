@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/util/certificate"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -293,7 +293,7 @@ func unixSocketDialer(vmi *v1.VirtualMachineInstance, unixSocketPath string) fun
 }
 
 func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, dial func() (net.Conn, error), stopCh chan struct{}) {
-	var upgrader = kubecli.NewUpgrader()
+	var upgrader = kvcorev1.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
@@ -313,13 +313,13 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
 	errCh := make(chan error, 2)
 	go func() {
-		_, err := kubecli.CopyTo(clientSocket, conn)
+		_, err := kvcorev1.CopyTo(clientSocket, conn)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
 		errCh <- err
 	}()
 
 	go func() {
-		_, err := kubecli.CopyFrom(conn, clientSocket)
+		_, err := kvcorev1.CopyFrom(conn, clientSocket)
 		log.Log.Object(vmi).Reason(err).Error("error encountered reading from client (virt-api) websocket")
 		errCh <- err
 	}()

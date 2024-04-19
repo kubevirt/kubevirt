@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -62,7 +63,7 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 	}
 
 	done := make(chan struct{})
-	streamer := kubecli.NewWebsocketStreamer(nc, done)
+	streamer := kvcorev1.NewWebsocketStreamer(nc, done)
 	defer close(done)
 
 	ch := make(chan vnc.ServerMessage)
