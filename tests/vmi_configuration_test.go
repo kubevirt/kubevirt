@@ -2149,7 +2149,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskDir := libstorage.HostDiskDir()
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -2360,7 +2360,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("creating a disk image")
 			var nodeName string
-			tmpHostDiskDir := tests.RandTmpDir()
+			tmpHostDiskDir := libstorage.HostDiskDir()
 			tmpHostDiskPath := filepath.Join(tmpHostDiskDir, fmt.Sprintf("disk-%s.img", uuid.NewString()))
 
 			job := libstorage.CreateDiskOnHost(tmpHostDiskPath)

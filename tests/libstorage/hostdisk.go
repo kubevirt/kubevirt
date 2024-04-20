@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -43,4 +44,9 @@ func CreateDiskOnHost(diskPath string) *k8sv1.Pod {
 	pod := libpod.RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
 	return pod
+}
+
+func HostDiskDir() string {
+	const tmpPath = "/var/provision/kubevirt.io/tests"
+	return filepath.Join(tmpPath, rand.String(10))
 }

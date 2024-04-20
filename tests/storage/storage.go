@@ -587,7 +587,7 @@ var _ = SIGDescribe("Storage", func() {
 				var nodeName string
 
 				BeforeEach(func() {
-					hostDiskDir = tests.RandTmpDir()
+					hostDiskDir = libstorage.HostDiskDir()
 					nodeName = ""
 				})
 
@@ -824,7 +824,7 @@ var _ = SIGDescribe("Storage", func() {
 
 				BeforeEach(func() {
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
-					tmpDir := tests.RandTmpDir()
+					tmpDir := libstorage.HostDiskDir()
 					mountDir = filepath.Join(tmpDir, "mount")
 					diskPath = filepath.Join(mountDir, diskImgName)
 					srcDir := filepath.Join(tmpDir, "src")

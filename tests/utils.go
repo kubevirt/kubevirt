@@ -1083,11 +1083,6 @@ func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) 
 	return nil, nil
 }
 
-func RandTmpDir() string {
-	const tmpPath = "/var/provision/kubevirt.io/tests"
-	return filepath.Join(tmpPath, rand.String(10))
-}
-
 func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
