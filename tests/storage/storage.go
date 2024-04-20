@@ -261,7 +261,7 @@ var _ = SIGDescribe("Storage", func() {
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 					if targetImagePath != testsuite.HostPathAlpine {
-						tests.DeleteAlpineWithNonQEMUPermissions()
+						deleteAlpineWithNonQEMUPermissions()
 					}
 				})
 				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
@@ -271,7 +271,7 @@ var _ = SIGDescribe("Storage", func() {
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
 						if !imageOwnedByQEMU {
-							targetImagePath, nodeName = tests.CopyAlpineWithNonQEMUPermissions()
+							targetImagePath, nodeName = copyAlpineWithNonQEMUPermissions()
 						}
 						nfsPod = storageframework.InitNFS(targetImagePath, nodeName)
 						pvName = createNFSPvAndPvc(family, nfsPod)
@@ -1450,4 +1450,24 @@ func deletePvAndPvc(name string) {
 	if !errors.IsNotFound(err) {
 		util.PanicOnError(err)
 	}
+}
+
+func copyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
+	dstPath = testsuite.HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
+
+	By("creating an image with without qemu permissions")
+	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+	nodeName = tests.RunPodAndExpectCompletion(pod).Spec.NodeName
+	return
+}
+
+func deleteAlpineWithNonQEMUPermissions() {
+	nonQemuAlpinePath := testsuite.HostPathAlpine + "-nopriv"
+	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
+
+	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+
+	tests.RunPodAndExpectCompletion(pod)
 }
