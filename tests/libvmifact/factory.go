@@ -55,7 +55,7 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	cirrosOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 		withNonEmptyUserData,
-		libvmi.WithResourceMemory(cirrosMemory()),
+		WithSmallOSResourceMemory(),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return libvmi.New(cirrosOpts...)
@@ -63,10 +63,9 @@ func NewCirros(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 
 // NewAlpine instantiates a new Alpine based VMI configuration
 func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
-		libvmi.WithResourceMemory(alpineMemory()),
+		WithSmallOSResourceMemory(),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -76,11 +75,10 @@ func NewAlpine(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	// Supplied with no user data, AlpimeWithTestTooling image takes more than 200s to allow login
 	withNonEmptyUserData := libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho hello\n")
-	alpineMemory := cirrosMemory
 	alpineOpts := []libvmi.Option{
 		libvmi.WithContainerDisk("disk0", cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)),
 		withNonEmptyUserData,
-		libvmi.WithResourceMemory(alpineMemory()),
+		WithSmallOSResourceMemory(),
 		libvmi.WithRng(),
 	}
 	alpineOpts = append(alpineOpts, opts...)
@@ -104,11 +102,15 @@ func qemuMinimumMemory() string {
 	return "1Mi"
 }
 
-func cirrosMemory() string {
+func WithSmallOSResourceMemory() {
+	// Cirros image need 256M to boot on ARM64,
+	// this issue is traced in https://github.com/kubevirt/kubevirt/issues/6363
+
+	mem := "128Mi"
 	if isARM64() {
-		return "256Mi"
+		mem = "256Mi"
 	}
-	return "128Mi"
+	return libvmi.WithResourceMemory(mem)
 }
 
 func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
