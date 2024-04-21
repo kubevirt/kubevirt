@@ -239,15 +239,15 @@ func AddAnnotationToNode(nodeName, key, value string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, value, annotation, add)
 }
 
-func RemoveLabelFromNode(nodeName string, key string) *k8sv1.Node {
+func RemoveLabelFromNode(nodeName, key string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, "", label, remove)
 }
 
-func RemoveAnnotationFromNode(nodeName string, key string) *k8sv1.Node {
+func RemoveAnnotationFromNode(nodeName, key string) *k8sv1.Node {
 	return addRemoveLabelAnnotationHelper(nodeName, key, "", annotation, remove)
 }
 
-func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
+func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
 	virtCli := kubevirt.Client()
 	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -390,7 +390,7 @@ func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8
 }
 
 func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
-	var featureDenyList = map[string]bool{
+	featureDenyList := map[string]bool{
 		"svm": true,
 	}
 	featuresMap := make(map[string]bool)
@@ -413,7 +413,7 @@ func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
 }
 
 func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
-	var cpuDenyList = map[string]bool{
+	cpuDenyList := map[string]bool{
 		"qemu64":     true,
 		"Opteron_G2": true,
 	}
@@ -446,7 +446,7 @@ func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
 	return hostModel
 }
 
-func ExecuteCommandOnNodeThroughVirtHandler(nodeName string, command []string) (stdout string, stderr string, err error) {
+func ExecuteCommandOnNodeThroughVirtHandler(nodeName string, command []string) (stdout, stderr string, err error) {
 	virtHandlerPod, err := GetVirtHandlerPod(kubevirt.Client(), nodeName)
 	if err != nil {
 		return "", "", err

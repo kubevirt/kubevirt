@@ -60,7 +60,6 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 		loginTimeout = timeout[0]
 	}
 	resp, err := expecter.ExpectBatch(b, loginTimeout)
-
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
 		return err

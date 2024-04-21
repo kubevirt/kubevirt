@@ -34,7 +34,6 @@ import (
 )
 
 var _ = Describe("Validating network binding combinations", func() {
-
 	It("network interface has both binding plugin and interface binding method", func() {
 		vm := api.NewMinimalVMI("testvm")
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{

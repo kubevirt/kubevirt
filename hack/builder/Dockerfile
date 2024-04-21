@@ -113,6 +113,7 @@ RUN set -x && \
 
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
+    go install -v mvdan.cc/gofumpt@v0.6.0 && \
     curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
 
 RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}

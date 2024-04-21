@@ -303,7 +303,7 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 	return nil
 }
 
-func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
+func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
 	if err := decodeControllerRevision(revisionA, isPreference); err != nil {
 		return false, err
 	}

@@ -158,7 +158,8 @@ func WithDownwardMetricsVolume(volumeName string) Option {
 			Name: volumeName,
 			VolumeSource: v1.VolumeSource{
 				DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
-			}})
+			},
+		})
 
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: volumeName,

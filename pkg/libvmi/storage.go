@@ -237,7 +237,8 @@ func newPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: claimName,
-				}},
+				},
+			},
 		},
 	}
 }

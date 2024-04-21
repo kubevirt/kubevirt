@@ -45,7 +45,7 @@ import (
 )
 
 // GetCertsForPods returns the used certificates for all pods matching  the label selector
-func GetCertsForPods(labelSelector string, namespace string, port string) ([][]byte, error) {
+func GetCertsForPods(labelSelector, namespace, port string) ([][]byte, error) {
 	cli := kubevirt.Client()
 	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred())

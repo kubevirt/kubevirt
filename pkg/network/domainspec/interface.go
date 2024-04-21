@@ -58,7 +58,8 @@ func DomainAttachmentByInterfaceName(vmiSpecIfaces []v1.Interface, networkBindin
 }
 
 func BindingMigrationByInterfaceName(vmiSpecIfaces []v1.Interface,
-	networkBindings map[string]v1.InterfaceBindingPlugin) map[string]*cmdv1.InterfaceBindingMigration {
+	networkBindings map[string]v1.InterfaceBindingPlugin,
+) map[string]*cmdv1.InterfaceBindingMigration {
 	bindingMigrationByPluginName := map[string]*cmdv1.InterfaceBindingMigration{}
 	for name, binding := range networkBindings {
 		if binding.Migration != nil {

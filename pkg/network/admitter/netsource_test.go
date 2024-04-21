@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("Validate network source", func() {
-
 	It("support only a single pod network", func() {
 		const net1Name = "default"
 		const net2Name = "default2"

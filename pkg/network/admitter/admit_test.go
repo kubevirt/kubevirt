@@ -34,13 +34,14 @@ import (
 )
 
 var _ = Describe("Validating VMI network spec", func() {
-
 	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
 		vm := api.NewMinimalVMI("testvm")
-		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   "foo",
-			State:                  value,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+			{
+				Name:                   "foo",
+				State:                  value,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			},
 		}
 		vm.Spec.Networks = []v1.Network{
 			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},

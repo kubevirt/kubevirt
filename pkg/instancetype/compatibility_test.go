@@ -19,7 +19,6 @@ import (
 )
 
 var _ = Describe("compatibility", func() {
-
 	generateUnknownObjectControllerRevision := func() *appsv1.ControllerRevision {
 		unknownObject := snapshotv1alpha1.VirtualMachineSnapshot{
 			TypeMeta: metav1.TypeMeta{

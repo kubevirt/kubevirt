@@ -32,7 +32,8 @@ import (
 )
 
 func validateInterfaceBinding(
-	fieldPath *field.Path, spec *v1.VirtualMachineInstanceSpec, config clusterConfigChecker) []metav1.StatusCause {
+	fieldPath *field.Path, spec *v1.VirtualMachineInstanceSpec, config clusterConfigChecker,
+) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	networksByName := vmispec.IndexNetworkSpecByName(spec.Networks)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
@@ -86,7 +87,8 @@ func validateMasqueradeBinding(fieldPath *field.Path, idx int, iface v1.Interfac
 }
 
 func validateBridgeBinding(
-	fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network, config clusterConfigChecker) []metav1.StatusCause {
+	fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network, config clusterConfigChecker,
+) []metav1.StatusCause {
 	if iface.InterfaceBindingMethod.Bridge != nil && net.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
