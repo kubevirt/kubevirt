@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "api.go",
         "nodes.go",
+        "operator.go",
         "recordingrules.go",
         "virt.go",
         "vm.go",
