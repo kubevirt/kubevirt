@@ -17,7 +17,7 @@
  *
  */
 
-package storage
+package libstorage
 
 import (
 	"fmt"

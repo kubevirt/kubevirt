@@ -8,7 +8,6 @@ go_library(
         "export.go",
         "framework.go",
         "guestfs.go",
-        "hostdisk.go",
         "hotplug.go",
         "imageupload.go",
         "memorydump.go",

@@ -688,7 +688,7 @@ var _ = SIGDescribe("Storage", func() {
 						diskName = fmt.Sprintf("disk-%s.img", uuid.NewString())
 						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
-						job := CreateDiskOnHost(diskPath)
+						job := libstorage.CreateDiskOnHost(diskPath)
 						job, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), job, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
