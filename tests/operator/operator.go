@@ -158,7 +158,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		generateNonMigratableVMIs              func(int) []*v1.VirtualMachineInstance
 		startAllVMIs                           func([]*v1.VirtualMachineInstance)
 		deleteAllVMIs                          func([]*v1.VirtualMachineInstance)
 		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance, string)
@@ -765,21 +764,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			return vmis
 		}
 
-		generateNonMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
-
-			vmis := []*v1.VirtualMachineInstance{}
-			for i := 0; i < num; i++ {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				// Remove the masquerade interface to use the default bridge one
-				// bridge interface isn't allowed to migrate
-				vmi.Spec.Domain.Devices.Interfaces = nil
-				vmi.Spec.Networks = nil
-				vmis = append(vmis, vmi)
-			}
-
-			return vmis
-		}
-
 		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1361,7 +1345,7 @@ spec:
 			}
 
 			By("starting a VM")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi := libvmifact.NewCirros()
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -1985,7 +1969,8 @@ spec:
 				}, 60*time.Second, time.Second).ShouldNot(HaveOccurred())
 
 				By("creating a simple VMI")
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)), metav1.CreateOptions{})
+				vmi := libvmifact.NewCirros()
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting KubeVirt object")
@@ -2070,7 +2055,7 @@ spec:
 			Expect(handlerImageName).To(ContainSubstring(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := libvmifact.NewCirros()
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -2112,7 +2097,7 @@ spec:
 			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
 			}
-			vmisNonMigratable := generateNonMigratableVMIs(2)
+			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
 
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
@@ -2344,7 +2329,7 @@ spec:
 				)
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				vmi := libvmifact.NewCirros()
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
