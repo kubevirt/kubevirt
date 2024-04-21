@@ -149,9 +149,9 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
+			newAPICert, err := getPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 			Expect(err).ToNot(HaveOccurred())
-			newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
+			newHandlerCert, err := getPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 			Expect(err).ToNot(HaveOccurred())
 			return !reflect.DeepEqual(oldHandlerCert, newHandlerCert) && !reflect.DeepEqual(oldAPICert, newAPICert)
 		}, 120*time.Second).Should(BeTrue())
@@ -195,4 +195,21 @@ func getCertFromSecret(secretName string) []byte {
 		return rawBundle
 	}
 	return nil
+}
+
+// getPodsCertIfSynced returns the certificate for all matching pods once all of them use the same certificate
+func getPodsCertIfSynced(labelSelector string, namespace string, port string) (cert []byte, err error) {
+	certs, err := tests.GetCertsForPods(labelSelector, namespace, port)
+	if err != nil {
+		return nil, err
+	}
+	if len(certs) == 0 {
+		return nil, nil
+	}
+	for _, crt := range certs {
+		if !reflect.DeepEqual(certs[0], crt) {
+			return nil, nil
+		}
+	}
+	return certs[0], nil
 }
