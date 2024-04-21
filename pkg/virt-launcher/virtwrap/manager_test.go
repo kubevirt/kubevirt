@@ -2643,15 +2643,8 @@ var _ = Describe("Manager helper functions", func() {
 		var zeroQuantity resource.Quantity
 
 		BeforeEach(func() {
-			var err error
-			tmpDir, err = os.MkdirTemp("", "tempdir")
-			Expect(err).ToNot(HaveOccurred())
-
+			tmpDir = GinkgoT().TempDir()
 			zeroQuantity = *resource.NewScaledQuantity(0, 0)
-		})
-
-		AfterEach(func() {
-			_ = os.RemoveAll(tmpDir)
 		})
 
 		expectNonZeroQuantity := func(ephemeralDiskDir string) {

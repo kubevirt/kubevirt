@@ -15,19 +15,13 @@ var _ = Describe("selinux", func() {
 	var selinux *SELinuxImpl
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "kubevirt")
-		Expect(err).ToNot(HaveOccurred())
+		tempDir = GinkgoT().TempDir()
 		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/sbin"), 0777)).ToNot(HaveOccurred())
 		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/bin"), 0777)).ToNot(HaveOccurred())
 		selinux = &SELinuxImpl{
 			Paths:         []string{"/usr/bin", "/usr/sbin"},
 			procOnePrefix: tempDir,
 		}
-	})
-
-	AfterEach(func() {
-		os.RemoveAll(tempDir)
 	})
 
 	Context("detecting if selinux is present", func() {
