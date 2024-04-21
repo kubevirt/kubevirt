@@ -274,7 +274,7 @@ export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
 build_images
 
-trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
+trap '{ collect_debug_logs; }' ERR
 make cluster-up
 trap - ERR
 
