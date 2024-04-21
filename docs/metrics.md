@@ -24,6 +24,9 @@ Indicates whether the Software Emulation is enabled in the configuration. Type: 
 ### kubevirt_console_active_connections
 Amount of active Console connections, broken down by namespace and vmi name. Type: Gauge.
 
+### kubevirt_memory_delta_from_requested_bytes
+The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator. Type: Gauge.
+
 ### kubevirt_nodes_with_kvm
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 
@@ -32,6 +35,15 @@ The number of VMs in the cluster by namespace. Type: Gauge.
 
 ### kubevirt_portforward_active_tunnels
 Amount of active portforward tunnels, broken down by namespace and vmi name. Type: Gauge.
+
+### kubevirt_rest_client_rate_limiter_duration_seconds
+Client side rate limiter latency in seconds. Broken down by verb and URL. Type: Histogram.
+
+### kubevirt_rest_client_request_latency_seconds
+Request latency in seconds. Broken down by verb and URL. Type: Histogram.
+
+### kubevirt_rest_client_requests_total
+Number of HTTP requests, partitioned by status code, method, and host. Type: Counter.
 
 ### kubevirt_usbredir_active_connections
 Amount of active USB redirection connections, broken down by namespace and vmi name. Type: Gauge.
@@ -269,15 +281,6 @@ Returns the labels of the persistent volume claims that are used for restoring v
 
 ### kubevirt_vnc_active_connections
 Amount of active VNC connections, broken down by namespace and vmi name. Type: Gauge.
-
-### rest_client_rate_limiter_duration_seconds
-Client side rate limiter latency in seconds. Broken down by verb and URL. Type: Histogram.
-
-### rest_client_request_latency_seconds
-Request latency in seconds. Broken down by verb and URL. Type: Histogram.
-
-### rest_client_requests_total
-Number of HTTP requests, partitioned by status code, method, and host. Type: Counter.
 
 ## Developing new metrics
 After developing new metrics or changing old ones, please run `make generate` to regenerate this document.

@@ -20,7 +20,12 @@
 package virtiofs
 
 import (
+	"context"
 	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -39,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
@@ -64,7 +70,9 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				"option2": "value2",
 				"option3": "value3",
 			}
-			tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
+			cm := libconfigmap.New(configMapName, data)
+			cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {

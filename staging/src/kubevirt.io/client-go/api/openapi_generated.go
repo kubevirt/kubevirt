@@ -18765,6 +18765,13 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCa
 							Ref:         ref("kubevirt.io/api/core/v1.InterfaceBindingMigration"),
 						},
 					},
+					"downwardAPI": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar. Supported values: \"device-info\" version: v1alphav1",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

@@ -23,7 +23,6 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -225,11 +224,11 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
 
 			for key := range node.Labels {
-				if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+				if strings.Contains(key, v1.HypervLabel) &&
 					!strings.Contains(key, "tlbflush") &&
 					!strings.Contains(key, "ipi") &&
 					!strings.Contains(key, "synictimer") {
-					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
 				}
 			}
 

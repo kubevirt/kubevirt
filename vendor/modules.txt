@@ -241,7 +241,7 @@ github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1
 # github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230627123556-81a891d4462a
 ## explicit; go 1.20
 github.com/kubevirt/monitoring/pkg/metrics/parser
-# github.com/machadovilaca/operator-observability v0.0.14
+# github.com/machadovilaca/operator-observability v0.0.20
 ## explicit; go 1.21
 github.com/machadovilaca/operator-observability/pkg/operatormetrics
 github.com/machadovilaca/operator-observability/pkg/operatorrules
@@ -364,10 +364,10 @@ github.com/opencontainers/runc/libcontainer/utils
 # github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/opencontainers/selinux v1.10.2 => github.com/opencontainers/selinux v1.6.0
-## explicit; go 1.13
+# github.com/opencontainers/selinux v1.11.0
+## explicit; go 1.19
 github.com/opencontainers/selinux/go-selinux
-github.com/opencontainers/selinux/pkg/pwalk
+github.com/opencontainers/selinux/pkg/pwalkdir
 # github.com/openshift/api v0.0.0 => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 ## explicit
 github.com/openshift/api/config/v1
@@ -462,9 +462,6 @@ github.com/vishvananda/netns
 # github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
 ## explicit
 github.com/wadey/gocovmerge
-# github.com/willf/bitset v1.1.11
-## explicit; go 1.14
-github.com/willf/bitset
 # go.mongodb.org/mongo-driver v1.8.4
 ## explicit; go 1.10
 go.mongodb.org/mongo-driver/bson
@@ -474,7 +471,7 @@ go.mongodb.org/mongo-driver/bson/bsonrw
 go.mongodb.org/mongo-driver/bson/bsontype
 go.mongodb.org/mongo-driver/bson/primitive
 go.mongodb.org/mongo-driver/x/bsonx/bsoncore
-# golang.org/x/crypto v0.16.0
+# golang.org/x/crypto v0.21.0
 ## explicit; go 1.18
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -499,7 +496,7 @@ golang.org/x/exp/typeparams
 # golang.org/x/mod v0.14.0
 ## explicit; go 1.18
 golang.org/x/mod/semver
-# golang.org/x/net v0.19.0
+# golang.org/x/net v0.23.0
 ## explicit; go 1.18
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -525,13 +522,13 @@ golang.org/x/oauth2/internal
 # golang.org/x/sync v0.5.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.15.0
+# golang.org/x/sys v0.18.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.15.0
+# golang.org/x/term v0.18.0
 ## explicit; go 1.18
 golang.org/x/term
 # golang.org/x/text v0.14.0
@@ -1193,7 +1190,7 @@ kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
 # kubevirt.io/client-go v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/client-go
-## explicit; go 1.17
+## explicit; go 1.21
 kubevirt.io/client-go/api
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake
@@ -1239,6 +1236,7 @@ kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme
 kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1
 kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1/fake
 kubevirt.io/client-go/kubecli
+kubevirt.io/client-go/kubecli/fake
 kubevirt.io/client-go/log
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/reporter
@@ -1288,7 +1286,6 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 # github.com/golang/glog => ./staging/src/github.com/golang/glog
 # github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
-# github.com/opencontainers/selinux => github.com/opencontainers/selinux v1.6.0
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 # github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/term"
 
 	"k8s.io/client-go/tools/clientcmd"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -203,13 +204,13 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 	return nil
 }
 
-func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (kubecli.StreamInterface, error) {
+func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (kvcorev1.StreamInterface, error) {
 	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.ClientConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	var stream kubecli.StreamInterface
+	var stream kvcorev1.StreamInterface
 	if kind == "vmi" {
 		stream, err = virtCli.VirtualMachineInstance(namespace).PortForward(name, o.Options.SSHPort, "tcp")
 		if err != nil {

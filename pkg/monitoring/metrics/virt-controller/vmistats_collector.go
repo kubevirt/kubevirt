@@ -61,7 +61,7 @@ var (
 			Name: "kubevirt_vmi_phase_count",
 			Help: "Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
 		},
-		[]string{"node", "phase", "os", "workload", "flavor", "instance_type", "preference"},
+		[]string{"node", "phase", "os", "workload", "flavor", "instance_type", "preference", "guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id"},
 	)
 
 	vmiEvictionBlocker = operatormetrics.NewGaugeVec(
@@ -74,13 +74,17 @@ var (
 )
 
 type vmiCountMetric struct {
-	Phase        string
-	OS           string
-	Workload     string
-	Flavor       string
-	InstanceType string
-	Preference   string
-	NodeName     string
+	Phase                string
+	OS                   string
+	Workload             string
+	Flavor               string
+	InstanceType         string
+	Preference           string
+	NodeName             string
+	GuestOSKernelRelease string
+	GuestOSMachine       string
+	GuestOSName          string
+	GuestOSVersionID     string
 }
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -117,8 +121,9 @@ func getVmisPhase(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Collec
 	for vmc, count := range countMap {
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiCount,
-			Labels: []string{vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor, vmc.InstanceType, vmc.Preference},
-			Value:  float64(count),
+			Labels: []string{vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor, vmc.InstanceType, vmc.Preference,
+				vmc.GuestOSKernelRelease, vmc.GuestOSMachine, vmc.GuestOSName, vmc.GuestOSVersionID},
+			Value: float64(count),
 		})
 	}
 
@@ -137,16 +142,21 @@ func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMet
 
 func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
 	vmc := vmiCountMetric{
-		Phase:        strings.ToLower(string(vmi.Status.Phase)),
-		OS:           none,
-		Workload:     none,
-		Flavor:       none,
-		InstanceType: none,
-		Preference:   none,
-		NodeName:     vmi.Status.NodeName,
+		Phase:                strings.ToLower(string(vmi.Status.Phase)),
+		OS:                   none,
+		Workload:             none,
+		Flavor:               none,
+		InstanceType:         none,
+		Preference:           none,
+		GuestOSKernelRelease: none,
+		GuestOSMachine:       none,
+		GuestOSName:          none,
+		GuestOSVersionID:     none,
+		NodeName:             vmi.Status.NodeName,
 	}
 
 	updateFromAnnotations(&vmc, vmi.Annotations)
+	updateFromGuestOSInfo(&vmc, vmi.Status.GuestOSInfo)
 
 	return vmc
 }
@@ -225,6 +235,28 @@ func setPreferenceFromAnnotations(vmc *vmiCountMetric, annotations map[string]st
 		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
 			vmc.Preference = instancetypeName
 		}
+	}
+}
+
+func updateFromGuestOSInfo(vmc *vmiCountMetric, guestOSInfo k6tv1.VirtualMachineInstanceGuestOSInfo) {
+	if guestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
+		return
+	}
+
+	if guestOSInfo.KernelRelease != "" {
+		vmc.GuestOSKernelRelease = guestOSInfo.KernelRelease
+	}
+
+	if guestOSInfo.Machine != "" {
+		vmc.GuestOSMachine = guestOSInfo.Machine
+	}
+
+	if guestOSInfo.Name != "" {
+		vmc.GuestOSName = guestOSInfo.Name
+	}
+
+	if guestOSInfo.VersionID != "" {
+		vmc.GuestOSVersionID = guestOSInfo.VersionID
 	}
 }
 

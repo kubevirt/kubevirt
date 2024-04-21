@@ -42,7 +42,7 @@ var _ = Describe("Status", func() {
 			It("should continuously use the /status subresource if no errors occur", func() {
 				updater := NewKubeVirtStatusUpdater(virtClient)
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, nil).Times(2)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 			})
@@ -50,8 +50,8 @@ var _ = Describe("Status", func() {
 			It("should fall back on a 404 error on the /status subresource to an ordinary update", func() {
 				updater := NewKubeVirtStatusUpdater(virtClient)
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				kvInterface.EXPECT().Update(kv).Return(kv, nil).Times(2)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
+				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 			})
@@ -59,10 +59,10 @@ var _ = Describe("Status", func() {
 			It("should fall back on a 404 error on the /status subresource to an ordinary update but keep in mind that objects may have disappeared", func() {
 				updater := NewKubeVirtStatusUpdater(virtClient)
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				kvInterface.EXPECT().Update(kv).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
+				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
 				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, nil).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 			})
 
@@ -71,18 +71,18 @@ var _ = Describe("Status", func() {
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
 				newKV := kv.DeepCopy()
 				newKV.Status.Phase = v1.KubeVirtPhaseDeleted
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				kvInterface.EXPECT().Update(kv).Return(newKV, nil).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
+				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(newKV, nil).Times(1)
 				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, nil).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 			})
 
 			It("should stick with /status if an arbitrary error occurs", func() {
 				updater := NewKubeVirtStatusUpdater(virtClient)
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, fmt.Errorf("I am not 404")).Times(1)
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, nil).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, fmt.Errorf("I am not 404")).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
 				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 			})
@@ -152,7 +152,7 @@ var _ = Describe("Status", func() {
 				updater := NewKubeVirtStatusUpdater(virtClient)
 				updater.updater.subresource = false
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().Update(kv).Return(kv, nil).Times(2)
+				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 			})
@@ -161,7 +161,7 @@ var _ = Describe("Status", func() {
 				updater := NewKubeVirtStatusUpdater(virtClient)
 				updater.updater.subresource = false
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().Update(kv).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(2)
+				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, errors.NewNotFound(schema.GroupResource{}, "something")).Times(2)
 				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
 				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
 			})
@@ -170,7 +170,7 @@ var _ = Describe("Status", func() {
 				updater := NewKubeVirtStatusUpdater(virtClient)
 				updater.updater.subresource = false
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-				kvInterface.EXPECT().Update(kv).Return(kv, fmt.Errorf("I am not 404")).Times(2)
+				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, fmt.Errorf("I am not 404")).Times(2)
 				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
 				Expect(updater.UpdateStatus(kv)).ToNot(Succeed())
 			})
@@ -181,10 +181,10 @@ var _ = Describe("Status", func() {
 				kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
 				oldKV := kv.DeepCopy()
 				oldKV.Status.Phase = v1.KubeVirtPhaseDeploying
-				kvInterface.EXPECT().Update(kv).Return(oldKV, nil).Times(1)
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, nil).Times(1)
+				kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(oldKV, nil).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
-				kvInterface.EXPECT().UpdateStatus(kv).Return(kv, nil).Times(1)
+				kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(1)
 				Expect(updater.UpdateStatus(kv)).To(Succeed())
 			})
 		})
@@ -246,7 +246,7 @@ var _ = Describe("Status", func() {
 			By("checking the KubeVirt resource")
 			kvUpdater := NewKubeVirtStatusUpdater(virtClient)
 			kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-			kvInterface.EXPECT().UpdateStatus(kv).Return(kv, nil).Times(2)
+			kvInterface.EXPECT().UpdateStatus(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
 			Expect(kvUpdater.UpdateStatus(kv)).To(Succeed())
 			Expect(kvUpdater.UpdateStatus(kv)).To(Succeed())
 
@@ -259,7 +259,7 @@ var _ = Describe("Status", func() {
 			By("checking the VirtualMachineInstanceReplicaSet resource")
 			vmirsUpdater := NewVMIRSStatusUpdater(virtClient)
 			vmirs := &v1.VirtualMachineInstanceReplicaSet{Status: v1.VirtualMachineInstanceReplicaSetStatus{Replicas: 2}}
-			vmirsInterface.EXPECT().UpdateStatus(vmirs).Return(vmirs, nil).Times(1)
+			vmirsInterface.EXPECT().UpdateStatus(context.Background(), vmirs, metav1.UpdateOptions{}).Return(vmirs, nil).Times(1)
 			Expect(vmirsUpdater.UpdateStatus(vmirs)).To(Succeed())
 
 			By("checking the VirtualMachineInstanceMigration resource")
@@ -275,7 +275,7 @@ var _ = Describe("Status", func() {
 			kvUpdater := NewKubeVirtStatusUpdater(virtClient)
 			kvUpdater.updater.subresource = false
 			kv := &v1.KubeVirt{Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed}}
-			kvInterface.EXPECT().Update(kv).Return(kv, nil).Times(2)
+			kvInterface.EXPECT().Update(context.Background(), kv, metav1.UpdateOptions{}).Return(kv, nil).Times(2)
 			Expect(kvUpdater.UpdateStatus(kv)).To(Succeed())
 			Expect(kvUpdater.UpdateStatus(kv)).To(Succeed())
 
@@ -290,7 +290,7 @@ var _ = Describe("Status", func() {
 			vmirsUpdater := NewVMIRSStatusUpdater(virtClient)
 			vmirsUpdater.updater.subresource = false
 			vmirs := &v1.VirtualMachineInstanceReplicaSet{Status: v1.VirtualMachineInstanceReplicaSetStatus{Replicas: 2}}
-			vmirsInterface.EXPECT().Update(vmirs).Return(vmirs, nil).Times(1)
+			vmirsInterface.EXPECT().Update(context.Background(), vmirs, metav1.UpdateOptions{}).Return(vmirs, nil).Times(1)
 			Expect(vmirsUpdater.UpdateStatus(vmirs)).To(Succeed())
 
 			By("checking the VirtualMachineInstanceMigration resource")

@@ -472,7 +472,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:726] Should match multiple VMs via MatchExpression", func() {
 			By("Creating preset with MatchExpression")
-			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(preset)
+			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
@@ -534,7 +534,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:672] Should match multiple VMs via MatchLabel", func() {
 			By("Creating preset with MatchExpression")
-			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(preset)
+			_, err := virtClient.VirtualMachineInstancePreset(testsuite.GetTestNamespace(nil)).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding

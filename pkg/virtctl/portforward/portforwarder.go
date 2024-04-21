@@ -7,6 +7,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
 type portForwarder struct {
@@ -15,7 +17,7 @@ type portForwarder struct {
 }
 
 type portforwardableResource interface {
-	PortForward(name string, port int, protocol string) (kubecli.StreamInterface, error)
+	PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error)
 }
 
 func (p *portForwarder) startForwarding(address *net.IPAddr, port forwardedPort) error {

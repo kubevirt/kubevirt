@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -317,7 +318,10 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 		answerFileWithKey := insertProductKeyToAnswerFileTemplate(answerFileTemplate)
 		windowsVMI = libvmi.New()
 		windowsVMI.Spec = getWindowsSysprepVMISpec()
-		tests.CreateConfigMap("sysprepautounattend", windowsVMI.Namespace, map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
+		windowsVMI.ObjectMeta.Namespace = testsuite.GetTestNamespace(windowsVMI)
+		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": answerFileWithKey, "Unattend.xml": answerFileWithKey})
+		cm, err := virtClient.CoreV1().ConfigMaps(windowsVMI.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 		addExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})

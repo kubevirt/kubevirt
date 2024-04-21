@@ -45,6 +45,7 @@ import (
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -92,11 +93,6 @@ const (
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-// These perfixes for node feature discovery, are used in a NodeSelector on the pod
-// to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
-const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
-const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
-const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
 const IntelVendorName = "Intel"
 
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
@@ -184,7 +180,7 @@ func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *
 
 	for _, feature := range vmi.Spec.Domain.CPU.Features {
 		if feature.Policy == "forbid" {
-			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, NFD_CPU_FEATURE_PREFIX+feature.Name)
+			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.CPUFeatureLabel+feature.Name)
 		}
 	}
 }
@@ -679,6 +675,9 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 
 	var mounts []k8sv1.VolumeMount
 	mounts = append(mounts, sidecarVolumeMount())
+	if requestedHookSidecar.DownwardAPI == v1.DeviceInfo {
+		mounts = append(mounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
+	}
 	if requestedHookSidecar.ConfigMap != nil {
 		mounts = append(mounts, configMapVolumeMount(*requestedHookSidecar.ConfigMap))
 	}
@@ -770,6 +769,9 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 
 	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
 		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
+	}
+	if vmispec.BindingPluginNetworkWithDeviceInfoExist(vmi.Spec.Domain.Devices.Interfaces, t.clusterConfig.GetNetworkBindings()) {
+		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
 	}
 
 	if util.IsVMIVirtiofsEnabled(vmi) {

@@ -74,6 +74,10 @@ container_image(
 container_image(
     name = "conformance_image",
     testonly = True,
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
     base = ":conformance_image_base",
     directory = "/usr/bin",
     entrypoint = ["/usr/bin/conformance"],
@@ -180,6 +184,7 @@ go_test(
         "//staging/src/kubevirt.io/api/pool/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/reporter:go_default_library",
@@ -199,6 +204,7 @@ go_test(
         "//tests/hotplug:go_default_library",
         "//tests/infrastructure:go_default_library",
         "//tests/launchsecurity:go_default_library",
+        "//tests/libconfigmap:go_default_library",
         "//tests/libdv:go_default_library",
         "//tests/libinfra:go_default_library",
         "//tests/libinstancetype:go_default_library",

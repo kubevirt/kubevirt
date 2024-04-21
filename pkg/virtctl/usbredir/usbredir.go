@@ -31,6 +31,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -92,7 +93,7 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 	k8ResChan := make(chan error)
 	go func() {
 		defer pipeOutWriter.Close()
-		k8ResChan <- usbredirVMI.Stream(kubecli.StreamOptions{
+		k8ResChan <- usbredirVMI.Stream(kvcorev1.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})

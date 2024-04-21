@@ -711,7 +711,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 						},
 					},
 				}
-				_, err = kubevirt.Client().KubeVirt(kv.Namespace).Update(kv)
+				_, err = kubevirt.Client().KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
 
 				Eventually(func() error {
@@ -1016,11 +1016,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(len(supportedFeatures)).To(BeNumerically(">=", 2), "There should be at least 2 supported cpu features")
 
 				for key := range node.Labels {
-					if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+					if strings.Contains(key, v1.HypervLabel) &&
 						!strings.Contains(key, "tlbflush") &&
 						!strings.Contains(key, "ipi") &&
 						!strings.Contains(key, "synictimer") {
-						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
 					}
 
 				}
@@ -1104,8 +1104,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					"svm": {},
 				}
 				appendFeatureFromFeatureLabel := func(supportedFeatures []string, label string) []string {
-					if strings.Contains(label, services.NFD_CPU_FEATURE_PREFIX) {
-						feature := strings.TrimPrefix(label, services.NFD_CPU_FEATURE_PREFIX)
+					if strings.Contains(label, v1.CPUFeatureLabel) {
+						feature := strings.TrimPrefix(label, v1.CPUFeatureLabel)
 						if _, exist := featureDenyList[feature]; !exist {
 							return append(supportedFeatures, feature)
 						}
@@ -1737,12 +1737,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				},
 			}
-			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(rs)
+			createdRs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Create(context.Background(), rs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should create replicaset")
 
 			By("Ensuring that all VMIs are ready")
 			Eventually(func() int32 {
-				rs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Get(createdRs.ObjectMeta.Name, metav1.GetOptions{})
+				rs, err := kubevirt.Client().ReplicaSet(vmi.Namespace).Get(context.Background(), createdRs.ObjectMeta.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return rs.Status.ReadyReplicas
 			}, 120*time.Second, 1*time.Second).Should(Equal(replicas))

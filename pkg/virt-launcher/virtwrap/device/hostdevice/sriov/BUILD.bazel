@@ -10,7 +10,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/network/sriov:go_default_library",
+        "//pkg/network/deviceinfo:go_default_library",
+        "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
@@ -31,7 +32,7 @@ go_test(
     ],
     deps = [
         ":go_default_library",
-        "//pkg/network/sriov:go_default_library",
+        "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",

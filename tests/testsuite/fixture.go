@@ -162,7 +162,7 @@ func EnsureKubevirtReadyWithTimeout(timeout time.Duration) {
 			"virt-operator deployment is not ready")
 
 	Eventually(func() *v1.KubeVirt {
-		kv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+		kv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return kv
 	}, timeout, 1*time.Second).Should(

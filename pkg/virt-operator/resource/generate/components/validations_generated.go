@@ -1231,6 +1231,11 @@ var CRDsValidation map[string]string = map[string]string{
                           The standard domain attachment can be used instead or in
                           addition to the sidecarImage. version: 1alphav1'
                         type: string
+                      downwardAPI:
+                        description: 'DownwardAPI specifies what kind of data should
+                          be exposed to the binding plugin sidecar. Supported values:
+                          "device-info" version: v1alphav1'
+                        type: string
                       migration:
                         description: 'Migration means the VM using the plugin can
                           be safely migrated version: 1alphav1'

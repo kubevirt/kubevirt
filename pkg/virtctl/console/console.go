@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -93,14 +94,14 @@ func (c *Console) Run(args []string) error {
 	signal.Notify(waitInterrupt, os.Interrupt)
 
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, &kubecli.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
 		runningChan <- err
 
 		if err != nil {
 			return
 		}
 
-		resChan <- con.Stream(kubecli.StreamOptions{
+		resChan <- con.Stream(kvcorev1.StreamOptions{
 			In:  stdinReader,
 			Out: stdoutWriter,
 		})

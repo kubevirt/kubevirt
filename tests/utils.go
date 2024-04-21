@@ -94,18 +94,6 @@ const (
 	DiskCustomHostPath     = "disk-custom-host-path"
 )
 
-func CreateConfigMap(name, namespace string, data map[string]string) {
-	virtCli := kubevirt.Client()
-	_, err := virtCli.CoreV1().ConfigMaps(namespace).Create(context.Background(), &k8sv1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Data:       data,
-	}, metav1.CreateOptions{})
-
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
 func CreateSecret(name, namespace string, data map[string]string) {
 	virtCli := kubevirt.Client()
 
@@ -564,15 +552,6 @@ func NotDeletedVMs(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) 
 	for _, vm := range vms.Items {
 		if vm.DeletionTimestamp == nil {
 			notDeleted = append(notDeleted, vm)
-		}
-	}
-	return
-}
-
-func Running(vmis *v1.VirtualMachineInstanceList) (running []v1.VirtualMachineInstance) {
-	for _, vmi := range vmis.Items {
-		if vmi.DeletionTimestamp == nil && vmi.Status.Phase == v1.Running {
-			running = append(running, vmi)
 		}
 	}
 	return

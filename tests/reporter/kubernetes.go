@@ -686,7 +686,7 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 }
 
 func (r *KubernetesReporter) logKubeVirtCR(virtCli kubecli.KubevirtClient) {
-	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
+	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch kubevirts: %v\n", err)
 		return

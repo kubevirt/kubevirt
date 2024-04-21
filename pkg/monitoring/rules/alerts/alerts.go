@@ -79,7 +79,7 @@ func getRunbookURLTemplate() string {
 }
 
 func getErrorRatio(ns string, podName string, errorCodeRegex string, durationInMinutes int) string {
-	errorRatioQuery := "sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  /  sum ( rate ( rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
+	errorRatioQuery := "sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  /  sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
 	return fmt.Sprintf(errorRatioQuery, ns, podName, errorCodeRegex, durationInMinutes, ns, podName, durationInMinutes)
 }
 

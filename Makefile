@@ -213,10 +213,11 @@ lint:
 	  pkg/network/admitter/... \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
-	  pkg/network/sriov/... \
+	  pkg/network/deviceinfo/... \
 	  tests/console/... \
 	  tests/libnet/... \
 	  tests/libnode/... \
+	  tests/libconfigmap/... \
 	  tests/libpod/... \
 	  tests/libvmifact/... \
 	  tests/libsecret/... \

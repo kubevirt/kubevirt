@@ -1,6 +1,7 @@
 package logverbosity
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -180,7 +181,7 @@ func getJSONNameByComponentName(componentName string) string {
 }
 
 func detectInstallNamespaceAndName(virtClient kubecli.KubevirtClient) (string, string, error) {
-	kvs, err := virtClient.KubeVirt(k8smetav1.NamespaceAll).List(&k8smetav1.ListOptions{})
+	kvs, err := virtClient.KubeVirt(k8smetav1.NamespaceAll).List(context.Background(), k8smetav1.ListOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("could not list KubeVirt CRs across all namespaces: %v", err)
 	}
@@ -369,7 +370,7 @@ func (c *Command) RunE(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	kv, err := virtClient.KubeVirt(namespace).Get(name, &k8smetav1.GetOptions{})
+	kv, err := virtClient.KubeVirt(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -409,7 +410,7 @@ func (c *Command) RunE(cmd *cobra.Command) error {
 		if err != nil {
 			return err
 		}
-		_, err = virtClient.KubeVirt(namespace).Patch(name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+		_, err = virtClient.KubeVirt(namespace).Patch(context.Background(), name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 		if err != nil {
 			return err
 		}

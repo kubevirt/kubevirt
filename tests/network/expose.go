@@ -521,12 +521,12 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
 			By("Start the replica set")
-			vmrs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(vmrs)
+			vmrs, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmrs, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking the number of ready replicas")
 			Eventually(func() int {
-				rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Get(vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
+				rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmrs.ObjectMeta.Name, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return int(rs.Status.ReadyReplicas)
 			}, 120*time.Second, 1*time.Second).Should(Equal(numberOfVMs))

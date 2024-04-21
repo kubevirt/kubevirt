@@ -34,7 +34,7 @@ var (
 	// "verb" and "url" labels. It is used for the rest client latency metrics.
 	requestLatency = operatormetrics.NewHistogramVec(
 		operatormetrics.MetricOpts{
-			Name: "rest_client_request_latency_seconds",
+			Name: "kubevirt_rest_client_request_latency_seconds",
 			Help: "Request latency in seconds. Broken down by verb and URL.",
 		},
 		prometheus.HistogramOpts{
@@ -50,7 +50,7 @@ var (
 
 	rateLimiterLatency = operatormetrics.NewHistogramVec(
 		operatormetrics.MetricOpts{
-			Name: "rest_client_rate_limiter_duration_seconds",
+			Name: "kubevirt_rest_client_rate_limiter_duration_seconds",
 			Help: "Client side rate limiter latency in seconds. Broken down by verb and URL.",
 		},
 		prometheus.HistogramOpts{
@@ -61,7 +61,7 @@ var (
 
 	requestResult = operatormetrics.NewCounterVec(
 		operatormetrics.MetricOpts{
-			Name: "rest_client_requests_total",
+			Name: "kubevirt_rest_client_requests_total",
 			Help: "Number of HTTP requests, partitioned by status code, method, and host.",
 		},
 		[]string{"code", "method", "host", "resource", "verb"},
