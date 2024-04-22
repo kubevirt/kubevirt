@@ -275,3 +275,19 @@ func IsHotplugVolume(vol *virtv1.Volume) bool {
 
 	return false
 }
+
+func GetVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {
+	volumes := map[string]*virtv1.Volume{}
+	for _, vol := range vmiSpec.Volumes {
+		volumes[vol.Name] = vol.DeepCopy()
+	}
+	return volumes
+}
+
+func GetDisksByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Disk {
+	disks := map[string]*virtv1.Disk{}
+	for _, disk := range vmiSpec.Domain.Devices.Disks {
+		disks[disk.Name] = disk.DeepCopy()
+	}
+	return disks
+}
