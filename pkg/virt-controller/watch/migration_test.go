@@ -82,11 +82,11 @@ var _ = Describe("Migration watcher", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var podFeeder *testutils.PodFeeder
 	var virtClient *kubecli.MockKubevirtClient
+	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
 	var qemuGid int64 = 107
-	var migrationsClient *kubevirtfake.Clientset
 	var namespace k8sv1.Namespace
 
 	shouldExpectMigrationFinalizerRemoval := func(migration *virtv1.VirtualMachineInstanceMigration) {
@@ -311,6 +311,7 @@ var _ = Describe("Migration watcher", func() {
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		virtClientset = kubevirtfake.NewSimpleClientset()
 		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
@@ -331,29 +332,18 @@ var _ = Describe("Migration watcher", func() {
 
 		// Set up mock client
 		kubeClient = fake.NewSimpleClientset()
-		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
 		networkClient = fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
-		migrationsClient = kubevirtfake.NewSimpleClientset()
-		virtClient.EXPECT().MigrationPolicy().Return(migrationsClient.MigrationsV1alpha1().MigrationPolicies()).AnyTimes()
+		virtClient.EXPECT().MigrationPolicy().Return(virtClientset.MigrationsV1alpha1().MigrationPolicies()).AnyTimes()
 
 		namespace = k8sv1.Namespace{
 			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
 			ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
 		}
-
-		// Make sure that all unexpected calls to kubeClient will fail
-		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			if action.GetVerb() == "get" && action.GetResource().Resource == "namespaces" {
-				return true, &namespace, nil
-			}
-
-			Expect(action).To(BeNil())
-			return true, nil, nil
-		})
 
 		syncCaches(stop)
 	})
