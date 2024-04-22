@@ -877,7 +877,6 @@ rules:
   resources:
   - deployments
   - replicasets
-  - daemonsets
   verbs:
   - get
   - list
@@ -1056,22 +1055,6 @@ rules:
   - list
   - watch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    name: wasp-agent
-  name: wasp-agent
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -164,7 +164,6 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 | autoResourceLimits | Enable KubeVirt to set automatic limits when they are needed. If ResourceQuota with set memory limits is associated with a namespace, each pod in that namespace must have memory limits set. By default, KubeVirt does not set such limits to the virt-launcher pod. When this feature gate is enabled, KubeVirt will set limits to the virt-launcher pod if they are not set manually and if a resource quota with memory limits is associated with the creation namespace. Note: this feature is in Developer Preview. | *bool | false | false |
 | alignCPUs | Enable KubeVirt to request up to two additional dedicated CPUs in order to complete the total CPU count to an even parity when using emulator thread isolation. Note: this feature is in Developer Preview. | *bool | false | false |
 | enableApplicationAwareQuota | EnableApplicationAwareQuota if true, enables the Application Aware Quota feature | *bool | false | false |
-| enableHigherDensityWithSwap | EnableHigherDensityWithSwap if true, configures the VM workloads to use swap for higher density. | *bool | false | false |
 
 [Back to TOC](#table-of-contents)
 

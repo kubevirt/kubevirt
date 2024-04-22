@@ -69,7 +69,6 @@ type DeploymentOperatorParams struct {
 	CliDownloadsImage   string
 	KVUIPluginImage     string
 	KVUIProxyImage      string
-	WaspImage           string
 	ImagePullPolicy     string
 	ConversionContainer string
 	VmwareContainer     string
@@ -277,10 +276,6 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 							{
 								Name:  util.KVUIProxyImageEnvV,
 								Value: params.KVUIProxyImage,
-							},
-							{
-								Name:  util.WaspImageEnvV,
-								Value: params.WaspImage,
 							},
 						}, params.Env...),
 						Resources: v1.ResourceRequirements{
@@ -520,7 +515,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		},
 		{
 			APIGroups: stringListToSlice("apps"),
-			Resources: stringListToSlice("deployments", "replicasets", "daemonsets"),
+			Resources: stringListToSlice("deployments", "replicasets"),
 			Verbs:     stringListToSlice("get", "list", "watch", "create", "update", "delete"),
 		},
 		roleWithAllPermissions("rbac.authorization.k8s.io", stringListToSlice("roles", "rolebindings")),
@@ -634,71 +629,6 @@ func GetClusterRoleBinding(namespace string) rbacv1.ClusterRoleBinding {
 	}
 }
 
-func GetWaspClusterRole() rbacv1.ClusterRole {
-	return rbacv1.ClusterRole{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: rbacVersionV1,
-			Kind:       "ClusterRole",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: string(hcoutil.AppComponentWasp),
-			Labels: map[string]string{
-				"name": string(hcoutil.AppComponentWasp),
-			},
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "list", "watch"},
-			},
-		},
-	}
-}
-
-func GetWaspServiceAccount(namespace string) v1.ServiceAccount {
-	return v1.ServiceAccount{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ServiceAccount",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      string(hcoutil.AppComponentWasp),
-			Namespace: namespace,
-			Labels: map[string]string{
-				"name": string(hcoutil.AppComponentWasp),
-			},
-		},
-	}
-}
-
-func GetWaspClusterRoleBinding(namespace string) rbacv1.ClusterRoleBinding {
-	return rbacv1.ClusterRoleBinding{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: rbacVersionV1,
-			Kind:       "ClusterRoleBinding",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: string(hcoutil.AppComponentWasp),
-			Labels: map[string]string{
-				"name": string(hcoutil.AppComponentWasp),
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     string(hcoutil.AppComponentWasp),
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      string(hcoutil.AppComponentWasp),
-				Namespace: namespace,
-			},
-		},
-	}
-}
-
 func packageErrors(pkg *loader.Package, filterKinds ...packages.ErrorKind) error {
 	toSkip := make(map[packages.ErrorKind]struct{})
 	for _, errKind := range filterKinds {
@@ -805,22 +735,6 @@ func GetInstallStrategyBase(params *DeploymentOperatorParams) *csvv1alpha1.Strat
 			{
 				ServiceAccountName: hcoName,
 				Rules:              GetClusterPermissions(),
-			},
-			{
-				ServiceAccountName: string(util.AppComponentWasp),
-				Rules: []rbacv1.PolicyRule{
-					{
-						APIGroups: []string{""},
-						Resources: []string{"pods"},
-						Verbs:     []string{"get", "list", "watch"},
-					},
-					{
-						APIGroups:     []string{"security.openshift.io"},
-						Resources:     []string{"securitycontextconstraints"},
-						ResourceNames: []string{"privileged"},
-						Verbs:         []string{"use"},
-					},
-				},
 			},
 		},
 	}

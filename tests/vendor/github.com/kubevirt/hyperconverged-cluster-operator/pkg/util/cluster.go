@@ -33,7 +33,6 @@ type ClusterInfo interface {
 	IsControlPlaneHighlyAvailable() bool
 	IsInfrastructureHighlyAvailable() bool
 	IsConsolePluginImageProvided() bool
-	IsWaspImageProvided() bool
 	IsMonitoringAvailable() bool
 	IsSingleStackIPv6() bool
 	GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile
@@ -50,7 +49,6 @@ type ClusterInfoImp struct {
 	controlPlaneHighlyAvailable   bool
 	infrastructureHighlyAvailable bool
 	consolePluginImageProvided    bool
-	waspImageProvided             bool
 	monitoringAvailable           bool
 	singlestackipv6               bool
 	domain                        string
@@ -96,8 +94,6 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	uiProxyVarValue, uiProxyVarExists := os.LookupEnv(KVUIProxyImageEnvV)
 	c.consolePluginImageProvided = uiPluginVarExists && len(uiPluginVarValue) > 0 && uiProxyVarExists && len(uiProxyVarValue) > 0
 
-	waspImageValue, waspImageExists := os.LookupEnv(WaspImageEnvV)
-	c.waspImageProvided = waspImageExists && len(waspImageValue) > 0
 	c.monitoringAvailable = isPrometheusExists(ctx, cl)
 
 	err = c.RefreshAPIServerCR(ctx, cl)
@@ -189,10 +185,6 @@ func (c *ClusterInfoImp) IsOpenshift() bool {
 
 func (c *ClusterInfoImp) IsConsolePluginImageProvided() bool {
 	return c.consolePluginImageProvided
-}
-
-func (c *ClusterInfoImp) IsWaspImageProvided() bool {
-	return c.waspImageProvided
 }
 
 func (c *ClusterInfoImp) IsMonitoringAvailable() bool {

@@ -70,7 +70,6 @@ spec:
           value: v1.1.9
         - name: KV_CONSOLE_PLUGIN_IMAGE
         - name: KV_CONSOLE_PROXY_IMAGE
-        - name: WASP_AGENT_IMAGE
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.12.0-unstable
         imagePullPolicy: Always
         livenessProbe:

@@ -318,11 +318,6 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
-	if in.EnableHigherDensityWithSwap != nil {
-		in, out := &in.EnableHigherDensityWithSwap, &out.EnableHigherDensityWithSwap
-		*out = new(bool)
-		**out = **in
-	}
 	return
 }
 

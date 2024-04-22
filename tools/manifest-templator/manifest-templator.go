@@ -137,17 +137,14 @@ func main() {
 
 	serviceAccounts := map[string]v1.ServiceAccount{
 		"hyperconverged-cluster-operator": components.GetServiceAccount(*operatorNamespace),
-		"wasp-agent":                      components.GetWaspServiceAccount(*operatorNamespace),
 	}
 	permissions := make([]rbacv1.Role, 0)
 	roleBindings := make([]rbacv1.RoleBinding, 0)
 	clusterPermissions := []rbacv1.ClusterRole{
 		components.GetClusterRole(),
-		components.GetWaspClusterRole(),
 	}
 	clusterRoleBindings := []rbacv1.ClusterRoleBinding{
 		components.GetClusterRoleBinding(*operatorNamespace),
-		components.GetWaspClusterRoleBinding(*operatorNamespace),
 	}
 
 	for _, csvStr := range componentsWithCSVs {

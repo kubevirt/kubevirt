@@ -361,7 +361,6 @@ spec:
           resources:
           - deployments
           - replicasets
-          - daemonsets
           verbs:
           - get
           - list
@@ -541,24 +540,6 @@ spec:
           - watch
           - update
         serviceAccountName: hyperconverged-cluster-operator
-      - rules:
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - security.openshift.io
-          resourceNames:
-          - privileged
-          resources:
-          - securitycontextconstraints
-          verbs:
-          - use
-        serviceAccountName: wasp-agent
       - rules:
         - apiGroups:
           - operator.openshift.io
@@ -3356,8 +3337,6 @@ spec:
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:4ed1f37116cbaf883edd8783201d091fbbe121fcb84e7184ee531d3b1abd77ab
                 - name: KV_CONSOLE_PROXY_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:935475c2850466aa5ac57e4de627fb177515cb2c402a95842ead095d82b6df5f
-                - name: WASP_AGENT_IMAGE
-                  value: quay.io/openshift-virtualization/wasp-agent@sha256:6cc4a34441f78198999bcb168eb33ebe210a945cc3d031c7a5323e82f51cbd94
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -4957,8 +4936,6 @@ spec:
     name: virt-operator
   - image: quay.io/kubevirt/virtio-container-disk@sha256:f8e71a3a930ce95d646d80862d5ff6f9d3ed7ef2541dd2e2acec0bce26274734
     name: virtio-container-disk
-  - image: quay.io/openshift-virtualization/wasp-agent@sha256:6cc4a34441f78198999bcb168eb33ebe210a945cc3d031c7a5323e82f51cbd94
-    name: wasp-agent
   replaces: kubevirt-hyperconverged-operator.v1.11.0
   selector:
     matchLabels:

@@ -95,7 +95,6 @@ var (
 	cliDownloadsImage   = flag.String("cli-downloads-image-name", "", "Downloads Server image")
 	kvUIPluginImage     = flag.String("kubevirt-consoleplugin-image-name", "", "KubeVirt Console Plugin image")
 	kvUIProxyImage      = flag.String("kubevirt-consoleproxy-image-name", "", "KubeVirt Console Proxy image")
-	waspImage           = flag.String("wasp-image-name", "", "Swap configuration agent image")
 	kvVirtIOWinImage    = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
 	smbios              = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
 	machinetype         = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
@@ -531,7 +530,6 @@ func getDeploymentParams() *components.DeploymentOperatorParams {
 		CliDownloadsImage:  *cliDownloadsImage,
 		KVUIPluginImage:    *kvUIPluginImage,
 		KVUIProxyImage:     *kvUIProxyImage,
-		WaspImage:          *waspImage,
 		ImagePullPolicy:    "IfNotPresent",
 		VirtIOWinContainer: *kvVirtIOWinImage,
 		Smbios:             *smbios,
