@@ -330,8 +330,13 @@ var _ = Describe("Migration watcher", func() {
 
 		initController(&virtv1.KubeVirtConfiguration{})
 
+		namespace = k8sv1.Namespace{
+			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
+		}
+
 		// Set up mock client
-		kubeClient = fake.NewSimpleClientset()
+		kubeClient = fake.NewSimpleClientset(&namespace)
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
@@ -339,11 +344,6 @@ var _ = Describe("Migration watcher", func() {
 		networkClient = fakenetworkclient.NewSimpleClientset()
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 		virtClient.EXPECT().MigrationPolicy().Return(virtClientset.MigrationsV1alpha1().MigrationPolicies()).AnyTimes()
-
-		namespace = k8sv1.Namespace{
-			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
-			ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
-		}
 
 		syncCaches(stop)
 	})
@@ -354,38 +354,63 @@ var _ = Describe("Migration watcher", func() {
 		Expect(recorder.Events).To(BeEmpty())
 	})
 
+	addPod := func(pod *k8sv1.Pod) {
+		ExpectWithOffset(1, podInformer.GetStore().Add(pod)).To(Succeed())
+		_, err := kubeClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	addVirtualMachineInstance := func(vmi *virtv1.VirtualMachineInstance) {
+		// Annotations and Labels are defined as `omitempty`
+		// This means that, if empty, they will be stored as nil in the fakeclient (as real clusters do).
+		// Since we are storing the passed vmi resource in the vmiSource Store we need to clean
+		// the annotations and the labels in case they are empty to reflect the reality.
+		// Otherwise, we are going to create an inconsistency (unreal case) between the Store and
+		// the resource in the fakeclient.
+		// The latter could lead to failures composing the patch operations.
+		if len(vmi.Annotations) == 0 {
+			vmi.Annotations = nil
+		}
+		if len(vmi.Labels) == 0 {
+			vmi.Labels = nil
+		}
 		sourcePod := newSourcePodForVirtualMachine(vmi)
-		ExpectWithOffset(1, podInformer.GetStore().Add(sourcePod)).To(Succeed())
+		addPod(sourcePod)
 		mockQueue.ExpectAdds(1)
 		vmiSource.Add(vmi)
 		mockQueue.Wait()
+		_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigration := func(migration *virtv1.VirtualMachineInstanceMigration) {
 		mockQueue.ExpectAdds(1)
 		migrationSource.Add(migration)
 		mockQueue.Wait()
+		_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addNode := func(node *k8sv1.Node) {
 		err := nodeInformer.GetIndexer().Add(node)
 		Expect(err).ShouldNot(HaveOccurred())
+		_, err = kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addPDB := func(pdb *policyv1.PodDisruptionBudget) {
 		err := pdbInformer.GetIndexer().Add(pdb)
 		Expect(err).ShouldNot(HaveOccurred())
-	}
-
-	addMigrationPolicy := func(policy *migrationsv1.MigrationPolicy) {
-		err := migrationPolicyInformer.GetIndexer().Add(policy)
-		Expect(err).ShouldNot(HaveOccurred())
+		_, err = kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
 		for _, policy := range policies {
-			addMigrationPolicy(&policy)
+			err := migrationPolicyInformer.GetIndexer().Add(&policy)
+			Expect(err).ShouldNot(HaveOccurred())
+			_, err = virtClientset.MigrationsV1alpha1().MigrationPolicies().Create(context.Background(), &policy, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
 	}
 
