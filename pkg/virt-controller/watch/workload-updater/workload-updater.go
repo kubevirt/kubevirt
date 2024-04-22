@@ -25,6 +25,7 @@ import (
 
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -313,7 +314,9 @@ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachi
 	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
 		return false
 	}
-
+	if metav1.HasAnnotation(vmi.ObjectMeta, v1.WorkloadUpdateMigrationAbortionAnnotation) {
+		return false
+	}
 	if isHotplugInProgress(vmi) {
 		return true
 	}
