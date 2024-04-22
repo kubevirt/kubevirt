@@ -45,7 +45,6 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/api"
@@ -53,7 +52,6 @@ import (
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -169,7 +167,7 @@ var _ = Describe("Migration watcher", func() {
 			Expect(ok).To(BeTrue())
 			Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
 
-			key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
+			key := apimachpatch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
 			expectedPatch := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`, key, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
 
 			Expect(string(patchAction.GetPatch())).To(Equal(expectedPatch))
@@ -513,7 +511,7 @@ var _ = Describe("Migration watcher", func() {
 			It("should annotate VMI with dedicated CPU limits", func() {
 
 				vmi.Spec.Domain = virtv1.DomainSpec{
-					CPU: &v1.CPU{
+					CPU: &virtv1.CPU{
 						DedicatedCPUPlacement: true,
 						Cores:                 2,
 						Sockets:               1,
@@ -545,7 +543,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				podFeeder.Add(targetPod)
 
-				patchCPULimitsLabelValue := fmt.Sprintf(`"%s":"4"`, v1.VirtualMachinePodCPULimitsLabel)
+				patchCPULimitsLabelValue := fmt.Sprintf(`"%s":"4"`, virtv1.VirtualMachinePodCPULimitsLabel)
 				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
 					`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
 					`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
@@ -562,7 +560,7 @@ var _ = Describe("Migration watcher", func() {
 			It("should label VMI with target pod memory requests", func() {
 				guestMemory := resource.MustParse("128Mi")
 				vmi.Spec.Domain = virtv1.DomainSpec{
-					Memory: &v1.Memory{
+					Memory: &virtv1.Memory{
 						Guest: &guestMemory,
 					},
 				}
@@ -589,7 +587,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				podFeeder.Add(targetPod)
 
-				patchMemoryRequestLabelValue := fmt.Sprintf(`"%s":"150Mi"`, v1.VirtualMachinePodMemoryRequestsLabel)
+				patchMemoryRequestLabelValue := fmt.Sprintf(`"%s":"150Mi"`, virtv1.VirtualMachinePodMemoryRequestsLabel)
 				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
 					`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
 					`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
@@ -615,7 +613,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 
 			vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) (result *v1.VirtualMachineInstance, err error) {
+				DoAndReturn(func(ctx context.Context, arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) (result *virtv1.VirtualMachineInstance, err error) {
 					Expect(arg0).To(Equal(vmi.Name))
 					bytes := arg2.([]byte)
 					patch := string(bytes)
@@ -1916,14 +1914,14 @@ var _ = Describe("Migration watcher", func() {
 	Context("Migration backoff", func() {
 		var vmi *virtv1.VirtualMachineInstance
 
-		setEvacuationAnnotation := func(migrations ...*v1.VirtualMachineInstanceMigration) {
+		setEvacuationAnnotation := func(migrations ...*virtv1.VirtualMachineInstanceMigration) {
 			for _, m := range migrations {
 				if m.Annotations == nil {
 					m.Annotations = map[string]string{
-						v1.EvacuationMigrationAnnotation: m.Name,
+						virtv1.EvacuationMigrationAnnotation: m.Name,
 					}
 				} else {
-					m.Annotations[v1.EvacuationMigrationAnnotation] = m.Name
+					m.Annotations[virtv1.EvacuationMigrationAnnotation] = m.Name
 				}
 			}
 		}
@@ -2245,7 +2243,7 @@ func getDefaultMigrationConfiguration() *virtv1.MigrationConfiguration {
 	}
 }
 
-func preparePolicyAndVMIWithNSAndVMILabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
+func preparePolicyAndVMIWithNSAndVMILabels(vmi *virtv1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
 	ExpectWithOffset(1, vmi).ToNot(BeNil())
 	if matchingNSLabels > 0 {
 		ExpectWithOffset(1, namespace).ToNot(BeNil())
@@ -2306,6 +2304,6 @@ func preparePolicyAndVMIWithNSAndVMILabels(vmi *v1.VirtualMachineInstance, names
 	return policy
 }
 
-func generatePolicyAndAlignVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+func generatePolicyAndAlignVMI(vmi *virtv1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
 	return preparePolicyAndVMIWithNSAndVMILabels(vmi, nil, 1, 0)
 }
