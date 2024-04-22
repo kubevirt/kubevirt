@@ -26,23 +26,13 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -55,14 +45,20 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+	"kubevirt.io/client-go/api"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
