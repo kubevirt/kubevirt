@@ -62,11 +62,8 @@ import (
 var _ = Describe("Migration watcher", func() {
 
 	var ctrl *gomock.Controller
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var migrationSource *framework.FakeControllerSource
 	var vmiSource *framework.FakeControllerSource
-	var podSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
@@ -79,7 +76,6 @@ var _ = Describe("Migration watcher", func() {
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
-	var podFeeder *testutils.PodFeeder
 	var virtClient *kubecli.MockKubevirtClient
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
@@ -281,7 +277,6 @@ var _ = Describe("Migration watcher", func() {
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
-		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
 	}
 
 	BeforeEach(func() {
@@ -289,12 +284,10 @@ var _ = Describe("Migration watcher", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClientset = kubevirtfake.NewSimpleClientset()
-		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
-		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		namespaceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
