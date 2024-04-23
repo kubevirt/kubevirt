@@ -2891,6 +2891,68 @@ func (c *VMController) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 	vm.Status.VolumeRequests = tmpVolRequests
 }
 
+func validLiveUpdateVolumes(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
+	oldVols := storagetypes.GetVolumesByName(&oldVMSpec.Template.Spec)
+	// Evaluate if any volume has changed or has been added
+	for _, v := range vm.Spec.Template.Spec.Volumes {
+		oldVol, okOld := oldVols[v.Name]
+		switch {
+		// Changes for hotlpugged volumes are valid
+		case storagetypes.IsHotplugVolume(&v):
+			delete(oldVols, v.Name)
+		// The volume has been freshly added
+		case !okOld:
+			return false
+		// The volume has changed
+		case !equality.Semantic.DeepEqual(*oldVol, v):
+			return false
+		default:
+			delete(oldVols, v.Name)
+		}
+	}
+	// Evaluate if any volumes were removed and they were hotplugged volumes
+	for _, v := range oldVols {
+		if !storagetypes.IsHotplugVolume(v) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
+	oldDisks := storagetypes.GetDisksByName(&oldVMSpec.Template.Spec)
+	oldVols := storagetypes.GetVolumesByName(&oldVMSpec.Template.Spec)
+	vols := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
+	// Evaluate if any disk has changed or has been added
+	for _, newDisk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
+		v := vols[newDisk.Name]
+		oldDisk, okOld := oldDisks[newDisk.Name]
+		switch {
+		// Changes for disks associated to a hotpluggable volume are valid
+		case storagetypes.IsHotplugVolume(v):
+			delete(oldDisks, v.Name)
+		// The disk has been freshly added
+		case !okOld:
+			return false
+		// The disk has changed
+		case !equality.Semantic.DeepEqual(*oldDisk, newDisk):
+			return false
+		default:
+			delete(oldDisks, v.Name)
+		}
+	}
+	// Evaluate if any disks were removed and they were hotplugged volumes
+	for _, d := range oldDisks {
+		v := oldVols[d.Name]
+		if !storagetypes.IsHotplugVolume(v) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
 func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, bool) {
 	if lastSeenVMSpec == nil {
@@ -2900,8 +2962,12 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 	// Note: this list needs to stay up-to-date with everything that can be live-updated
 	// Note2: destroying lastSeenVMSpec here is fine, we don't need it later
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		lastSeenVMSpec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
-		lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+		if validLiveUpdateVolumes(lastSeenVMSpec, vm) {
+			lastSeenVMSpec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+		}
+		if validLiveUpdateDisks(lastSeenVMSpec, vm) {
+			lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+		}
 		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && vm.Spec.Template.Spec.Domain.CPU != nil {
 			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets
 		}
