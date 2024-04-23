@@ -281,7 +281,6 @@ var _ = Describe("Migration watcher", func() {
 			resourceQuotaInformer.HasSynced,
 			namespaceInformer.HasSynced,
 			migrationPolicyInformer.HasSynced)).To(BeTrue())
-
 	}
 
 	initController := func(kvConfig *virtv1.KubeVirtConfiguration) {
@@ -451,7 +450,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(targetPod)
+			addPod(targetPod)
 			shouldExpectGenericMigrationUpdate()
 			shouldExpectAttachmentPodCreation(vmi.UID, migration.UID)
 
@@ -463,8 +462,8 @@ var _ = Describe("Migration watcher", func() {
 		It("should set migration state to scheduling if attachment pod exists", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(targetPod)
-			podFeeder.Add(attachmentPod)
+			addPod(targetPod)
+			addPod(attachmentPod)
 
 			shouldExpectMigrationSchedulingState(migration)
 			controller.Execute()
@@ -480,8 +479,8 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(targetPod)
-			podFeeder.Add(attachmentPod)
+			addPod(targetPod)
+			addPod(attachmentPod)
 
 			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","targetAttachmentPodUID":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, targetPod.Name, attachmentPod.UID, getMigrationConfigPatch())
 
@@ -496,8 +495,8 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(targetPod)
-			podFeeder.Add(attachmentPod)
+			addPod(targetPod)
+			addPod(attachmentPod)
 
 			shouldExpectMigrationFailedState(migration)
 
@@ -524,7 +523,6 @@ var _ = Describe("Migration watcher", func() {
 
 		Context("CPU", func() {
 			It("should annotate VMI with dedicated CPU limits", func() {
-
 				vmi.Spec.Domain = virtv1.DomainSpec{
 					CPU: &virtv1.CPU{
 						DedicatedCPUPlacement: true,
@@ -556,7 +554,7 @@ var _ = Describe("Migration watcher", func() {
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
-				podFeeder.Add(targetPod)
+				addPod(targetPod)
 
 				patchCPULimitsLabelValue := fmt.Sprintf(`"%s":"4"`, virtv1.VirtualMachinePodCPULimitsLabel)
 				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
@@ -600,7 +598,7 @@ var _ = Describe("Migration watcher", func() {
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
-				podFeeder.Add(targetPod)
+				addPod(targetPod)
 
 				patchMemoryRequestLabelValue := fmt.Sprintf(`"%s":"150Mi"`, virtv1.VirtualMachinePodMemoryRequestsLabel)
 				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
@@ -617,7 +615,6 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Migration object in pending state", func() {
-
 		It("should patch VMI with nonroot user", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			delete(vmi.Annotations, virtv1.DeprecatedNonRootVMIAnnotation)
@@ -667,9 +664,8 @@ var _ = Describe("Migration watcher", func() {
 			pod1.Labels[virtv1.MigrationJobLabel] = "some other job"
 			pod2 := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			pod2.Labels[virtv1.MigrationJobLabel] = "some other job"
-			Expect(podInformer.GetStore().Add(pod1)).To(Succeed())
-			Expect(podInformer.GetStore().Add(pod2)).To(Succeed())
-
+			addPod(pod1)
+			addPod(pod2)
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			shouldExpectGenericMigrationUpdate()
@@ -761,7 +757,7 @@ var _ = Describe("Migration watcher", func() {
 
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
-				Expect(podInformer.GetStore().Add(pod)).To(Succeed())
+				addPod(pod)
 			}
 
 			shouldExpectGenericMigrationUpdate()
@@ -879,7 +875,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationSchedulingState(migration)
 			controller.Execute()
@@ -905,7 +901,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			if shouldTimeout {
 				shouldExpectPodDeletion()
@@ -947,7 +943,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			if shouldTimeout {
 				shouldExpectPodDeletion()
@@ -1059,7 +1055,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationFailedState(migration)
 
@@ -1074,6 +1070,7 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in scheduling state", virtv1.MigrationScheduling),
 			Entry("in target ready state", virtv1.MigrationTargetReady),
 		)
+
 		DescribeTable("Pod moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, phase)
@@ -1088,7 +1085,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationFailedState(migration)
 
@@ -1118,7 +1115,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationFailedState(migration)
 
@@ -1134,8 +1131,8 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in target ready state", virtv1.MigrationTargetReady),
 		)
 	})
-	Context("Migration object ", func() {
 
+	Context("Migration object ", func() {
 		DescribeTable("should hand pod over to target virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
@@ -1146,7 +1143,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
 
@@ -1177,7 +1174,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			controller.Execute()
 		},
@@ -1202,12 +1199,13 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		})
 
@@ -1226,13 +1224,14 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/migrationState", "value": {"migrationUid":"1111-2222-3333-4444"} }, { "op": "replace", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, pod.Name, getMigrationConfigPatch())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		})
 
@@ -1248,7 +1247,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			controller.Execute()
 
@@ -1268,15 +1267,17 @@ var _ = Describe("Migration watcher", func() {
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/migrationState", "value": {"migrationUid":"%s"} }, { "op": "replace", "path": "/status/migrationState", "value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, { "op": "test", "path": "/metadata/labels", "value": {} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01"} }]`, oldMigrationUID, pod.Name, getMigrationConfigPatch())
 
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		})
+
 		It("should transition to preparing target phase", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
@@ -1293,12 +1294,13 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Labels[virtv1.MigrationTargetNodeNameLabel] = "node01"
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationPreparingTargetState(migration)
 
 			controller.Execute()
 		})
+
 		It("should transition to target prepared phase", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
@@ -1314,12 +1316,13 @@ var _ = Describe("Migration watcher", func() {
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationTargetReadyState(migration)
 
 			controller.Execute()
 		})
+
 		It("should transition to running phase", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
@@ -1336,12 +1339,13 @@ var _ = Describe("Migration watcher", func() {
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationRunningState(migration)
 
 			controller.Execute()
 		})
+
 		It("should transition to completed phase", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
@@ -1362,7 +1366,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectPodAnnotationTimestamp(vmi)
 			shouldExpectMigrationCompletedState(migration)
@@ -1400,7 +1404,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectPodAnnotationTimestamp(vmi)
 			controller.Execute()
@@ -1429,12 +1433,13 @@ var _ = Describe("Migration watcher", func() {
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			shouldExpectMigrationStateUpdatedAndFinalizerRemoved(migration, vmi.Status.MigrationState)
 
 			controller.Execute()
 		})
+
 		It("should delete itself if VMI no longer exists", func() {
 			migration := newMigration("testmigration", "somevmi", virtv1.MigrationRunning)
 			addMigration(migration)
@@ -1443,6 +1448,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 		})
+
 		It("should abort the migration", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
@@ -1466,7 +1472,7 @@ var _ = Describe("Migration watcher", func() {
 			controller.addHandOffKey(virtcontroller.MigrationKey(migration))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
+			addPod(pod)
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
@@ -1490,7 +1496,7 @@ var _ = Describe("Migration watcher", func() {
 			if hasPod {
 				pod := newTargetPodForVirtualMachine(vmi, migration, podPhase)
 				pod.Spec.NodeName = "node01"
-				podFeeder.Add(pod)
+				addPod(pod)
 			}
 
 			if phase == virtv1.MigrationFailed {
@@ -1546,6 +1552,7 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in failed state before pod is created", virtv1.MigrationFailed, false, k8sv1.PodFailed, false),
 			Entry("in failed state and pod does not exist", virtv1.MigrationFailed, false, k8sv1.PodFailed, false),
 		)
+
 		DescribeTable("with CPU mode which is", func(toDefineHostModelCPU bool) {
 			const nodeName = "testNode"
 
@@ -1616,6 +1623,7 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
 		})
+
 		It("should create the target Pod after the k8s PDB controller processed the PDB mutation", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Spec.EvictionStrategy = pointer.P(virtv1.EvictionStrategyLiveMigrate)
@@ -1844,11 +1852,9 @@ var _ = Describe("Migration watcher", func() {
 				false,
 			),
 		)
-
 	})
 
 	Context("Migration of host-model VMI", func() {
-
 		It("should trigger alert when no node supports host-model", func() {
 			const nodeName = "testNode"
 
@@ -1885,7 +1891,7 @@ var _ = Describe("Migration watcher", func() {
 			addNode(node)
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			podFeeder.Add(targetPod)
+			addPod(targetPod)
 
 			By("Running controller and setting expectations")
 			shouldExpectPodDeletion()
@@ -1894,11 +1900,9 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, MigrationTargetPodUnschedulable)
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		})
-
 	})
 
 	Context("Migration abortion before hand-off to virt-handler", func() {
-
 		var vmi *virtv1.VirtualMachineInstance
 		var migration *virtv1.VirtualMachineInstanceMigration
 
@@ -1955,9 +1959,9 @@ var _ = Describe("Migration watcher", func() {
 			}
 			pendingMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
 
-			_ = migrationInformer.GetStore().Add(failedMigration)
-			_ = vmiInformer.GetStore().Add(vmi)
 			addMigration(pendingMigration)
+			addVirtualMachineInstance(vmi)
+			addMigration(failedMigration)
 
 			controller.Execute()
 			Expect(pendingMigration.Status.Phase).To(Equal(virtv1.MigrationPending))
@@ -1978,9 +1982,9 @@ var _ = Describe("Migration watcher", func() {
 			}
 			pendingMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
 
-			_ = migrationInformer.GetStore().Add(failedMigration)
-			_ = vmiInformer.GetStore().Add(vmi)
 			addMigration(pendingMigration)
+			addVirtualMachineInstance(vmi)
+			addMigration(failedMigration)
 
 			controller.Execute()
 			shouldExpectPodCreation(vmi.UID, pendingMigration.UID, 1, 0, 0)
@@ -2002,10 +2006,10 @@ var _ = Describe("Migration watcher", func() {
 			successfulMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
 			pendingMigration.CreationTimestamp = metav1.NewTime(successfulMigration.CreationTimestamp.Add(time.Second * 1))
 
-			_ = migrationInformer.GetStore().Add(failedMigration)
-			_ = migrationInformer.GetStore().Add(successfulMigration)
-			_ = vmiInformer.GetStore().Add(vmi)
 			addMigration(pendingMigration)
+			addVirtualMachineInstance(vmi)
+			addMigration(failedMigration)
+			addMigration(successfulMigration)
 
 			controller.Execute()
 			shouldExpectPodCreation(vmi.UID, pendingMigration.UID, 1, 0, 0)
