@@ -96,51 +96,41 @@ var _ = Describe("Migration watcher", func() {
 		})
 	}
 
-	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID, expectedAntiAffinityCount int, expectedAffinityCount int, expectedNodeAffinityCount int) {
-		// Expect pod creation
-		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			update, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Pod).Labels[virtv1.CreatedByLabel]).To(Equal(string(uid)))
-			Expect(update.GetObject().(*k8sv1.Pod).Labels[virtv1.MigrationJobLabel]).To(Equal(string(migrationUid)))
-
-			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity).ToNot(BeNil())
-			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
-			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAntiAffinityCount))
-
-			if expectedAffinityCount > 0 {
-				Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAffinityCount))
-			}
-			if expectedNodeAffinityCount > 0 {
-				Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(expectedNodeAffinityCount))
-			}
-
-			return true, update.GetObject(), nil
+	expectPodCreation := func(namespace string, uid types.UID, migrationUid types.UID, expectedAntiAffinityCount int, expectedAffinityCount int, expectedNodeAffinityCount int) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migrationUid), virtv1.CreatedByLabel, string(uid)),
 		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pods.Items).To(HaveLen(1))
+		Expect(pods.Items[0].Spec.Affinity).ToNot(BeNil())
+		Expect(pods.Items[0].Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+		Expect(pods.Items[0].Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAntiAffinityCount))
+		if expectedAffinityCount > 0 {
+			Expect(pods.Items[0].Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAffinityCount))
+		}
+		if expectedNodeAffinityCount > 0 {
+			Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(expectedNodeAffinityCount))
+		}
 	}
 
-	shouldExpectPodDeletion := func() {
-		// Expect pod deletion
-		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			_, ok := action.(testing.DeleteAction)
-			Expect(ok).To(BeTrue())
-			return true, nil, nil
+	expectPodDoesNotExist := func(namespace, uid, migrationUid string) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, migrationUid, virtv1.CreatedByLabel, uid),
 		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pods.Items).To(BeEmpty())
 	}
 
-	shouldExpectAttachmentPodCreation := func(uid types.UID, migrationUid types.UID) {
-		// Expect pod creation
-		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			update, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Pod).Labels[virtv1.MigrationJobLabel]).To(Equal(string(migrationUid)))
-
-			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity).ToNot(BeNil())
-			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
-
-			return true, update.GetObject(), nil
+	expectAttachmentPodCreation := func(namespace, migrationUid string) {
+		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, migrationUid, virtv1.AppLabel, "hotplug-disk"),
 		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pods.Items).To(HaveLen(1))
+		Expect(pods.Items[0].Labels[virtv1.MigrationJobLabel]).To(Equal(migrationUid))
+		Expect(pods.Items[0].Spec.Affinity).ToNot(BeNil())
+		Expect(pods.Items[0].Spec.Affinity.NodeAffinity).ToNot(BeNil())
+		Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
 	}
 
 	shouldExpectPDBPatch := func(vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) {
@@ -161,19 +151,11 @@ var _ = Describe("Migration watcher", func() {
 		})
 	}
 
-	shouldExpectPodAnnotationTimestamp := func(vmi *virtv1.VirtualMachineInstance) {
-		kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			patchAction, ok := action.(testing.PatchAction)
-			Expect(ok).To(BeTrue())
-			Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
-
-			key := apimachpatch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
-			expectedPatch := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`, key, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
-
-			Expect(string(patchAction.GetPatch())).To(Equal(expectedPatch))
-
-			return true, nil, nil
-		})
+	expectPodAnnotationTimestamp := func(namespace, name, expectedTimestamp string) {
+		updatedPod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(updatedPod).ToNot(BeNil())
+		Expect(updatedPod.Annotations).To(HaveKeyWithValue(virtv1.MigrationTargetReadyTimestamp, expectedTimestamp))
 	}
 
 	shouldExpectGenericMigrationUpdate := func() {
@@ -452,11 +434,11 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(targetPod)
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectAttachmentPodCreation(vmi.UID, migration.UID)
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			expectAttachmentPodCreation(migration.Namespace, string(migration.UID))
 		})
 
 		It("should set migration state to scheduling if attachment pod exists", func() {
@@ -640,9 +622,10 @@ var _ = Describe("Migration watcher", func() {
 				})
 
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
+
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 		})
 		It("should create target pod", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -651,11 +634,13 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
+
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 		})
+
 		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
@@ -671,6 +656,10 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectGenericMigrationUpdate()
 
 			controller.Execute()
+
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(3))
 		})
 
 		It("should create another target pods if only 4 migrations are in progress", func() {
@@ -702,9 +691,12 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
+			for i := 0; i < 2; i++ {
+				expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("xtestvmi%v", i), fmt.Sprintf("xtestmigration%v", i))
+			}
 		})
 
 		It("should not overload the cluster and only run 5 migrations in parallel", func() {
@@ -728,6 +720,8 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectGenericMigrationUpdate()
 
 			controller.Execute()
+
+			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
 		})
 
 		It("should not overload the cluster and detect pending migrations as running if they have a target pod", func() {
@@ -763,6 +757,8 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectGenericMigrationUpdate()
 
 			controller.Execute()
+
+			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
 		})
 
 		It("should create another target pods if there is only one outbound migration on the node", func() {
@@ -783,9 +779,10 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 		})
 
 		It("should not overload the node and only run 2 outbound migrations in parallel", func() {
@@ -807,6 +804,8 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectGenericMigrationUpdate()
 			controller.Execute()
+
+			expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("testvmi"), "testmigration")
 		})
 
 		It("should create target pod and not override existing affinity rules", func() {
@@ -861,11 +860,11 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectPodCreation(vmi.UID, migration.UID, 2, 1, 1)
 
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 2, 1, 1)
 		})
 
 		It("should place migration in scheduling state if pod exists", func() {
@@ -903,10 +902,6 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(pod)
 
-			if shouldTimeout {
-				shouldExpectPodDeletion()
-			}
-
 			if phase == virtv1.MigrationPending {
 				shouldExpectGenericMigrationUpdate()
 			}
@@ -918,6 +913,7 @@ var _ = Describe("Migration watcher", func() {
 
 			if shouldTimeout {
 				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+				expectPodDoesNotExist(vmi.Namespace, string(vmi.UID), string(migration.UID))
 			}
 		},
 			Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulablePendingTimeoutSeconds, ""),
@@ -945,10 +941,6 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(pod)
 
-			if shouldTimeout {
-				shouldExpectPodDeletion()
-			}
-
 			if phase == virtv1.MigrationPending {
 				shouldExpectGenericMigrationUpdate()
 			}
@@ -956,6 +948,7 @@ var _ = Describe("Migration watcher", func() {
 
 			if shouldTimeout {
 				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+				expectPodDoesNotExist(vmi.Namespace, string(vmi.UID), string(migration.UID))
 			}
 		},
 			Entry("in pending state", virtv1.MigrationPending, true, defaultCatchAllPendingTimeoutSeconds, ""),
@@ -1039,11 +1032,9 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in target ready phase", virtv1.MigrationTargetReady),
 			Entry("in running phase", virtv1.MigrationRunning),
 		)
-
 	})
 
 	Context("Migration should immediately fail if", func() {
-
 		DescribeTable("vmi moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Succeeded)
 			vmi.DeletionTimestamp = now()
@@ -1100,6 +1091,7 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in scheduling state", virtv1.MigrationScheduling),
 			Entry("in target ready state", virtv1.MigrationTargetReady),
 		)
+
 		DescribeTable("VMI's migrate state moves to final state", func(phase virtv1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, phase)
@@ -1368,11 +1360,11 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(pod)
 
-			shouldExpectPodAnnotationTimestamp(vmi)
 			shouldExpectMigrationCompletedState(migration)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
+			expectPodAnnotationTimestamp(pod.Namespace, pod.Name, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
 		})
 
 		DescribeTable("should not transit to succeeded phase when VMI status has", func(conditions []virtv1.VirtualMachineInstanceConditionType) {
@@ -1406,8 +1398,9 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(pod)
 
-			shouldExpectPodAnnotationTimestamp(vmi)
 			controller.Execute()
+
+			expectPodAnnotationTimestamp(pod.Namespace, pod.Name, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
 		},
 			Entry("CPU change condition", []virtv1.VirtualMachineInstanceConditionType{virtv1.VirtualMachineInstanceVCPUChange}),
 			Entry("Memory change condition", []virtv1.VirtualMachineInstanceConditionType{virtv1.VirtualMachineInstanceMemoryChange}),
@@ -1579,28 +1572,23 @@ var _ = Describe("Migration watcher", func() {
 			addNode(node)
 
 			shouldExpectGenericMigrationUpdate()
-
-			expectPodToHaveProperNodeSelector := func(pod *k8sv1.Pod) {
-				podHasCpuModeLabelSelector := false
-				for key, _ := range pod.Spec.NodeSelector {
-					if strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
-						podHasCpuModeLabelSelector = true
-						break
-					}
-				}
-
-				Expect(podHasCpuModeLabelSelector).To(Equal(toDefineHostModelCPU))
-			}
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-				creation, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				pod := creation.GetObject().(*k8sv1.Pod)
-				expectPodToHaveProperNodeSelector(pod)
-				return true, creation.GetObject(), nil
-			})
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 1)
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migration.UID), virtv1.CreatedByLabel, string(vmi.UID)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			podHasCpuModeLabelSelector := false
+			for key, _ := range pods.Items[0].Spec.NodeSelector {
+				if strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
+					podHasCpuModeLabelSelector = true
+					break
+				}
+			}
+			Expect(podHasCpuModeLabelSelector).To(Equal(toDefineHostModelCPU))
 		},
 			Entry("host-model should be targeted only to nodes which support the model", true),
 			Entry("non-host-model should not be targeted to nodes which support the model", false),
@@ -1642,11 +1630,11 @@ var _ = Describe("Migration watcher", func() {
 			addPDB(pdb)
 
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
 
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 		})
 
 		Context("when cluster EvictionStrategy is set to 'LiveMigrate'", func() {
@@ -1673,7 +1661,6 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Migration policy", func() {
-
 		var vmi *virtv1.VirtualMachineInstance
 		var stubNumber int64
 		var stubResourceQuantity resource.Quantity
@@ -1894,12 +1881,12 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(targetPod)
 
-			By("Running controller and setting expectations")
-			shouldExpectPodDeletion()
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, NoSuitableNodesForHostModelMigration)
 			testutils.ExpectEvent(recorder, MigrationTargetPodUnschedulable)
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+			expectPodDoesNotExist(vmi.Namespace, string(vmi.UID), string(migration.UID))
 		})
 	})
 
@@ -1988,7 +1975,9 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(failedMigration)
 
 			controller.Execute()
-			shouldExpectPodCreation(vmi.UID, pendingMigration.UID, 1, 0, 0)
+
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, pendingMigration.UID, 1, 0, 0)
 		})
 
 		It("should be cleared when a migration succeeds", func() {
@@ -2013,27 +2002,28 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(successfulMigration)
 
 			controller.Execute()
-			shouldExpectPodCreation(vmi.UID, pendingMigration.UID, 1, 0, 0)
+
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, pendingMigration.UID, 1, 0, 0)
 		})
 	})
 
 	Context("Migration target SELinux level", func() {
-		shouldExpectTargetPodWithSELinuxLevel := func(level string) {
-			// Expect pod creation
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-				update, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				pod := update.GetObject().(*k8sv1.Pod)
-				if level != "" {
-					Expect(pod.Spec.SecurityContext.SELinuxOptions.Level).To(Equal(level))
-				} else {
-					if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.SELinuxOptions != nil {
-						Expect(pod.Spec.SecurityContext.SELinuxOptions.Level).To(BeEmpty())
-					}
-				}
-
-				return true, update.GetObject(), nil
+		expectTargetPodWithSELinuxLevel := func(namespace string, uid types.UID, migrationUid types.UID, level string) {
+			pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migrationUid), virtv1.CreatedByLabel, string(uid)),
 			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			Expect(pods.Items[0].Spec.Affinity).ToNot(BeNil())
+
+			if level != "" {
+				Expect(pods.Items[0].Spec.SecurityContext.SELinuxOptions.Level).To(Equal(level))
+			} else {
+				if pods.Items[0].Spec.SecurityContext != nil && pods.Items[0].Spec.SecurityContext.SELinuxOptions != nil {
+					Expect(pods.Items[0].Spec.SecurityContext.SELinuxOptions.Level).To(BeEmpty())
+				}
+			}
 		}
 
 		It("should be forced to the SELinux level of the source by default", func() {
@@ -2044,10 +2034,12 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectTargetPodWithSELinuxLevel("s0:c1,c2")
 
 			controller.Execute()
+
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
+			expectTargetPodWithSELinuxLevel(vmi.Namespace, vmi.UID, migration.UID, "s0:c1,c2")
 		})
 
 		It("should not be forced to the SELinux level of the source if the CR option is set to false", func() {
@@ -2063,10 +2055,12 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			shouldExpectGenericMigrationUpdate()
-			shouldExpectTargetPodWithSELinuxLevel("")
 
 			controller.Execute()
+
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
+			expectTargetPodWithSELinuxLevel(vmi.Namespace, vmi.UID, migration.UID, "")
 		})
 	})
 })
