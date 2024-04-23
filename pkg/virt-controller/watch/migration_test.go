@@ -659,25 +659,26 @@ var _ = Describe("Migration watcher", func() {
 
 			// Ensure that 4 migrations are there which are in non-final state
 			for i := 0; i < 4; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), virtv1.Running)
-				addNodeNameToVMI(vmi, fmt.Sprintf("node%v", i))
-				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, virtv1.MigrationScheduling)
+				newVMI := newVirtualMachine(fmt.Sprintf("testvmi%v", i), virtv1.Running)
+				addNodeNameToVMI(newVMI, fmt.Sprintf("node%v", i))
+				migration := newMigration(fmt.Sprintf("testmigration%v", i), newVMI.Name, virtv1.MigrationScheduling)
 
 				addMigration(migration)
-				addVirtualMachineInstance(vmi)
+				addVirtualMachineInstance(newVMI)
 			}
 
 			// Add two pending migrations without a target pod to see that tye get ignored
 			for i := 0; i < 2; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("xtestvmi%v", i), virtv1.Running)
-				migration := newMigration(fmt.Sprintf("xtestmigration%v", i), vmi.Name, virtv1.MigrationPending)
-				addNodeNameToVMI(vmi, fmt.Sprintf("node%v", i))
+				newVMI := newVirtualMachine(fmt.Sprintf("xtestvmi%v", i), virtv1.Running)
+				migration := newMigration(fmt.Sprintf("xtestmigration%v", i), newVMI.Name, virtv1.MigrationPending)
+				addNodeNameToVMI(newVMI, fmt.Sprintf("node%v", i))
 
 				addMigration(migration)
-				addVirtualMachineInstance(vmi)
+				addVirtualMachineInstance(newVMI)
 			}
 
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 			for i := 0; i < 2; i++ {
