@@ -370,10 +370,14 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(Succeed())
 			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 			Expect(cond).To(Not(BeNil()))
-			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-			Expect(cond.Reason).To(Equal("FailedCreate"))
-			Expect(cond.Message).To(ContainSubstring("Error encountered while creating DataVolumes: failed to create DataVolume"))
-			Expect(cond.Message).To(ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":   Equal(v1.VirtualMachineFailure),
+				"Reason": Equal("FailedCreate"),
+				"Message": And(
+					ContainSubstring("Error encountered while creating DataVolumes: failed to create DataVolume"),
+					ContainSubstring("the server could not find the requested resource (post datavolumes.cdi.kubevirt.io)"),
+				),
+			}))
 		})
 
 		It("should create missing DataVolume for VirtualMachineInstance", func() {
@@ -2686,10 +2690,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 			Expect(cond).To(Not(BeNil()))
-			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-			Expect(cond.Reason).To(Equal("FailedCreate"))
-			Expect(cond.Message).To(ContainSubstring("some random failure"))
-			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":    Equal(v1.VirtualMachineFailure),
+				"Reason":  Equal("FailedCreate"),
+				"Message": ContainSubstring("some random failure"),
+				"Status":  Equal(k8sv1.ConditionTrue),
+			}))
 
 			testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 		})
@@ -2711,10 +2717,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 			Expect(cond).To(Not(BeNil()))
-			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-			Expect(cond.Reason).To(Equal("FailedDelete"))
-			Expect(cond.Message).To(ContainSubstring("some random failure"))
-			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":    Equal(v1.VirtualMachineFailure),
+				"Reason":  Equal("FailedDelete"),
+				"Message": ContainSubstring("some random failure"),
+				"Status":  Equal(k8sv1.ConditionTrue),
+			}))
 
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
@@ -2737,8 +2745,11 @@ var _ = Describe("VirtualMachine", func() {
 
 			cond := virtcontroller.NewVirtualMachineConditionManager().
 				GetCondition(vm, v1.VirtualMachineReady)
-			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(status))
+			Expect(cond).To(Not(BeNil()))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Status": Equal(status),
+			}))
+
 		},
 			Entry("VMI Ready condition is True", markAsReady, k8sv1.ConditionTrue),
 			Entry("VMI Ready condition is False", markAsNonReady, k8sv1.ConditionFalse),
@@ -2826,8 +2837,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			for _, condName := range addCondList {
 				cond := cmVM.GetCondition(vm, v1.VirtualMachineConditionType(condName))
-				Expect(cond).ToNot(BeNil())
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(cond).To(Not(BeNil()))
+				Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Status": Equal(k8sv1.ConditionTrue),
+				}))
 			}
 			// these conditions shouldn't exist anymore
 			for _, condName := range removeCondList {
@@ -2837,8 +2850,10 @@ var _ = Describe("VirtualMachine", func() {
 			// these conditsion should be updated
 			for _, condName := range updateCondList {
 				cond := cmVM.GetCondition(vm, v1.VirtualMachineConditionType(condName))
-				Expect(cond).ToNot(BeNil())
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(cond).To(Not(BeNil()))
+				Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Status": Equal(k8sv1.ConditionTrue),
+				}))
 			}
 		})
 
@@ -2860,8 +2875,13 @@ var _ = Describe("VirtualMachine", func() {
 
 			cond := virtcontroller.NewVirtualMachineConditionManager().
 				GetCondition(vm, v1.VirtualMachineReady)
-			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(cond).To(Not(BeNil()))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Status": Equal(k8sv1.ConditionFalse),
+			}))
+
+			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
 
 		})
 
@@ -2885,8 +2905,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			cond := virtcontroller.NewVirtualMachineConditionManager().
 				GetCondition(vm, v1.VirtualMachinePaused)
-			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(cond).To(Not(BeNil()))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Status": Equal(k8sv1.ConditionTrue),
+			}))
 
 		})
 
@@ -2930,10 +2952,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 			Expect(cond).To(Not(BeNil()))
-			Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-			Expect(cond.Reason).To(Equal("FailedDelete"))
-			Expect(cond.Message).To(ContainSubstring("some random failure"))
-			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":    Equal(v1.VirtualMachineFailure),
+				"Reason":  Equal("FailedDelete"),
+				"Message": ContainSubstring("some random failure"),
+				"Status":  Equal(k8sv1.ConditionTrue),
+			}))
 
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
@@ -4464,9 +4488,12 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineFailure),
+						"Reason":  Equal("FailedCreate"),
+						"Message": ContainSubstring("got unexpected kind in InstancetypeMatcher"),
+						"Status":  Equal(k8sv1.ConditionTrue),
+					}))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4489,8 +4516,10 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(v1.VirtualMachineFailure),
+						"Reason": Equal("FailedCreate"),
+					}))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4513,8 +4542,10 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(v1.VirtualMachineFailure),
+						"Reason": Equal("FailedCreate"),
+					}))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -4543,10 +4574,14 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("Error encountered while storing Instancetype ControllerRevisions: VM field conflicts with selected Instancetype"))
-					Expect(cond.Message).To(ContainSubstring("spec.template.spec.domain.cpu"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(v1.VirtualMachineFailure),
+						"Reason": Equal("FailedCreate"),
+						"Message": And(
+							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions: VM field conflicts with selected Instancetype"),
+							ContainSubstring("spec.template.spec.domain.cpu"),
+						),
+					}))
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 				})
 
@@ -4574,10 +4609,11 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
-					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineFailure),
+						"Reason":  Equal("FailedCreate"),
+						"Message": ContainSubstring("found existing ControllerRevision with unexpected data"),
+					}))
 
 				})
 			})
@@ -4974,12 +5010,13 @@ var _ = Describe("VirtualMachine", func() {
 
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineFailure),
+						"Reason":  Equal("FailedCreate"),
+						"Message": ContainSubstring("got unexpected kind in PreferenceMatcher"),
+					}))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
 				})
 
 				It("should reject the request if a VirtualMachinePreference cannot be found", func() {
@@ -4999,11 +5036,12 @@ var _ = Describe("VirtualMachine", func() {
 
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(v1.VirtualMachineFailure),
+						"Reason": Equal("FailedCreate"),
+					}))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
 				})
 
 				It("should reject the request if a VirtualMachineClusterPreference cannot be found", func() {
@@ -5024,8 +5062,10 @@ var _ = Describe("VirtualMachine", func() {
 
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(v1.VirtualMachineFailure),
+						"Reason": Equal("FailedCreate"),
+					}))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
 
@@ -5059,12 +5099,13 @@ var _ = Describe("VirtualMachine", func() {
 
 					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
 					Expect(cond).To(Not(BeNil()))
-					Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-					Expect(cond.Reason).To(Equal("FailedCreate"))
-					Expect(cond.Message).To(ContainSubstring("found existing ControllerRevision with unexpected data"))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":    Equal(v1.VirtualMachineFailure),
+						"Reason":  Equal("FailedCreate"),
+						"Message": ContainSubstring("found existing ControllerRevision with unexpected data"),
+					}))
 
 					testutils.ExpectEvents(recorder, FailedCreateVirtualMachineReason)
-
 				})
 
 				It("should apply preferences to default network interface", func() {
