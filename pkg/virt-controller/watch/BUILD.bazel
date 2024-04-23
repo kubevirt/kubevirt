@@ -121,7 +121,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
