@@ -35,13 +35,11 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
@@ -133,22 +131,15 @@ var _ = Describe("Migration watcher", func() {
 		Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
 	}
 
-	shouldExpectPDBPatch := func(vmi *virtv1.VirtualMachineInstance, vmim *virtv1.VirtualMachineInstanceMigration) {
-		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			patchAction, ok := action.(testing.PatchAction)
-			Expect(ok).To(BeTrue())
-			Expect(patchAction.GetPatchType()).To(Equal(types.StrategicMergePatchType))
-
-			expectedPatch := fmt.Sprintf(`{"spec":{"minAvailable": 2},"metadata":{"labels":{"%s": "%s"}}}`, virtv1.MigrationNameLabel, vmim.Name)
-			Expect(string(patchAction.GetPatch())).To(Equal(expectedPatch))
-
-			pdb := newPDB(patchAction.GetName(), vmi, 2)
-			pdb.Labels = map[string]string{
-				virtv1.MigrationNameLabel: vmim.Name,
-			}
-
-			return true, pdb, nil
+	expectPDB := func(namespace, migrationName, vmiUID string) {
+		pdbList, err := kubeClient.PolicyV1().PodDisruptionBudgets(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", virtv1.MigrationNameLabel, migrationName),
 		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pdbList.Items).To(HaveLen(1))
+		Expect(pdbList.Items[0].Spec.MinAvailable.String()).To(Equal("2"))
+		Expect(pdbList.Items[0].Spec.Selector).ToNot(BeNil())
+		Expect(pdbList.Items[0].Spec.Selector.MatchLabels).To(HaveKeyWithValue(virtv1.CreatedByLabel, vmiUID))
 	}
 
 	expectPodAnnotationTimestamp := func(namespace, name, expectedTimestamp string) {
@@ -1562,10 +1553,10 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPDB(pdb)
 
-			shouldExpectPDBPatch(vmi, migration)
 			controller.Execute()
 
 			testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
+			expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
 		})
 
 		It("should create the target Pod after the k8s PDB controller processed the PDB mutation", func() {
@@ -1604,10 +1595,10 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				addPDB(pdb)
 
-				shouldExpectPDBPatch(vmi, migration)
 				controller.Execute()
 
 				testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
+				expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
 			})
 		})
 	})
