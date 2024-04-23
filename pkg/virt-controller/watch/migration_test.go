@@ -1649,46 +1649,16 @@ var _ = Describe("Migration watcher", func() {
 		var stubResourceQuantity resource.Quantity
 		var pod *k8sv1.Pod
 
-		getExpectedVmiPatch := func(expectConfigUpdate bool, expectedConfigs *virtv1.MigrationConfiguration, migrationPolicy *migrationsv1.MigrationPolicy) string {
-			var migrationPolicyNamePatch string
-
-			if expectConfigUpdate {
-				migrationPolicyNamePatch = fmt.Sprintf(`,"migrationPolicyName":"%s"`, migrationPolicy.Name)
-			}
-
-			policyKey := fmt.Sprintf("%s-key-0", migrationPolicy.Name)
-			policyVal := fmt.Sprintf("%s-value-0", migrationPolicy.Name)
-			patchKeyValue := fmt.Sprintf(`"%s":"%s"`, policyKey, policyVal)
-
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
-				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"tefwegwrerg","migrationUid":"testmigration"%s,%s} }, `+
-				`{ "op": "test", "path": "/metadata/labels", "value": {%s} }, `+
-				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
-				pod.Name, migrationPolicyNamePatch, getMigrationConfigPatch(expectedConfigs), patchKeyValue, patchKeyValue)
-
-			return patch
-		}
-
 		BeforeEach(func() {
 			stubNumber = 33425
 			stubResourceQuantity = resource.MustParse("25Mi")
-
-			By("Initialize VMI and migration")
-			vmi = newVirtualMachine("testvmi", virtv1.Running)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
-
-			pod = newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
-			pod.Spec.NodeName = "node01"
-			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
-				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
-			}}
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			podFeeder.Add(pod)
 		})
 
 		Context("matching and precedence", func() {
+
+			BeforeEach(func() {
+				vmi = newVirtualMachine("testvmi", virtv1.Running)
+			})
 
 			type policyInfo struct {
 				name                    string
@@ -1757,10 +1727,24 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
+			By("Initialize VMI and migration")
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+
+			pod = newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod.Spec.NodeName = "node01"
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
+
 			By("Defining migration policy, matching it to vmi to posting it into the cluster")
 			migrationPolicy := generatePolicyAndAlignVMI(vmi)
 			defineMigrationPolicy(&migrationPolicy.Spec)
+
 			addMigrationPolicies(*migrationPolicy)
+			addMigration(migration)
+			addPod(pod)
+			addVirtualMachineInstance(vmi)
 
 			By("Calculating new migration config and validating it")
 			expectedConfigs := getDefaultMigrationConfiguration()
@@ -1769,13 +1753,26 @@ var _ = Describe("Migration watcher", func() {
 			Expect(isConfigUpdated).To(Equal(expectConfigUpdate))
 			testMigrationConfigs(expectedConfigs)
 
-			By("Expecting right patch to occur")
-			patch := getExpectedVmiPatch(expectConfigUpdate, expectedConfigs, migrationPolicy)
-			shouldExpectVirtualMachineInstancePatch(vmi, patch)
-
 			By("Running the controller")
 			controller.Execute()
+
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			fields := Fields{
+				"TargetNode":          Equal("node01"),
+				"TargetPod":           Equal(pod.Name),
+				"SourceNode":          Equal("tefwegwrerg"),
+				"MigrationUID":        Equal(types.UID("testmigration")),
+				"MigrationPolicyName": BeNil(),
+			}
+			if expectConfigUpdate {
+				fields["MigrationPolicyName"] = Equal(pointer.P(migrationPolicy.Name))
+			}
+			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, fields)))
+			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig(expectedConfigs))
+			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name,
+				HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"),
+				HaveKeyWithValue(fmt.Sprintf("%s-key-0", migrationPolicy.Name), fmt.Sprintf("%s-value-0", migrationPolicy.Name)),
+			)
 		},
 			Entry("allow auto coverage",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.P(true) },
