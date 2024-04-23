@@ -82,10 +82,6 @@ const (
 )
 
 const (
-	vhostNetPath = "/dev/vhost-net"
-)
-
-const (
 	// must be a power of 2 and at least equal
 	// to the size of a transparent hugepage (2MiB on x84_64).
 	// Recommended value by QEMU is 2MiB
@@ -693,16 +689,12 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType
 	switch configType {
 	case config.ConfigMap:
 		disk.Source.File = config.GetConfigMapDiskPath(volumeName)
-		break
 	case config.Secret:
 		disk.Source.File = config.GetSecretDiskPath(volumeName)
-		break
 	case config.DownwardAPI:
 		disk.Source.File = config.GetDownwardAPIDiskPath(volumeName)
-		break
 	case config.ServiceAccount:
 		disk.Source.File = config.GetServiceAccountDiskPath()
-		break
 	default:
 		return fmt.Errorf("Cannot convert config '%s' to disk, unrecognized type", configType)
 	}
@@ -890,7 +882,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	}
 
 	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
-	if info, _ := c.DisksInfo[volumeName]; info != nil {
+	if info := c.DisksInfo[volumeName]; info != nil {
 		disk.BackingStore.Format.Type = info.Format
 	} else {
 		return fmt.Errorf("no disk info provided for volume %s", volumeName)
@@ -1008,7 +1000,6 @@ func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices
 	}
 
 	domainDevices.SoundCards = soundCards
-	return
 }
 
 func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
@@ -1178,7 +1169,7 @@ func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
 }
 
 func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *ConverterContext) {
-	if source != nil && source.AutoattachMemBalloon != nil && *source.AutoattachMemBalloon == false {
+	if source != nil && source.AutoattachMemBalloon != nil && !*source.AutoattachMemBalloon {
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
@@ -1887,7 +1878,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
 
-	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole == true {
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
 		// Add mandatory console device
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
@@ -1931,7 +1922,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	}
 
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == true {
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
 		var heads uint = 1
 		var vram uint = 16384
 		// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
@@ -2003,7 +1994,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
 
 	// Add Ignition Command Line if present
-	ignitiondata, _ := vmi.Annotations[v1.IgnitionAnnotation]
+	ignitiondata := vmi.Annotations[v1.IgnitionAnnotation]
 	if ignitiondata != "" && strings.Contains(ignitiondata, "ignition") {
 		initializeQEMUCmdAndQEMUArg(domain)
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-fw_cfg"})

@@ -56,7 +56,6 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -1016,7 +1015,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			vmi.Spec.Domain.IOThreadsPolicy = nil
-			for i, _ := range vmi.Spec.Domain.Devices.Disks {
+			for i := range vmi.Spec.Domain.Devices.Disks {
 				vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread = nil
 			}
 			dom := &api.Domain{}
@@ -1744,7 +1743,7 @@ var _ = Describe("Converter", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Features: &v1.Features{
-							HypervPassthrough: &v1.HyperVPassthrough{Enabled: virtpointer.P(true)},
+							HypervPassthrough: &v1.HyperVPassthrough{Enabled: kubevirtpointer.P(true)},
 						},
 					},
 				},
@@ -2571,7 +2570,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.BoolPtr(false),
+						SecureBoot: kubevirtpointer.P(false),
 					},
 				},
 			}
@@ -2846,7 +2845,7 @@ var _ = Describe("Converter", func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(true)
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = kubevirtpointer.P(true)
 			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
 			secondaryNetwork := v1.Network{Name: "red"}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -2860,13 +2859,13 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				SMM: &v1.FeatureState{
-					Enabled: pointer.BoolPtr(false),
+					Enabled: kubevirtpointer.P(false),
 				},
 			}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
-						SecureBoot: pointer.BoolPtr(false),
+						SecureBoot: kubevirtpointer.P(false),
 					},
 				},
 			}
