@@ -299,6 +299,11 @@ type VirtualMachineInstanceStatus struct {
 	// +listType=atomic
 	// +optional
 	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
+
+	// Clientpassthrough indicates a list of devices that are currently being redirected from remote
+	// devices to the running VMI
+	// +optional
+	ClientPassthrough *ClientPassthroughStatus `json:"clientPassthrough,omitempty"`
 }
 
 // StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration
@@ -1707,6 +1712,18 @@ type VirtualMachineCondition struct {
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 	Reason             string      `json:"reason,omitempty"`
 	Message            string      `json:"message,omitempty"`
+}
+
+type ClientPassthroughStatus struct {
+	// Redirected USB devices
+	// +optional
+	// +listType=atomic
+	USB []USBDeviceInfo `json:"usb,omitempty"`
+}
+
+type USBDeviceInfo struct {
+	Vendor  string `json:"vendor"`
+	Product string `json:"product"`
 }
 
 type VirtualMachineConditionType string

@@ -12807,6 +12807,20 @@
     "description": "Represent a subset of client devices that can be accessed by VMI. At the moment only, USB devices using Usbredir's library and tooling. Another fit would be a smartcard with libcacard.\n\nThe struct is currently empty as there is no immediate request for user-facing APIs. This structure simply turns on USB redirection of UsbClientPassthroughMaxNumberOf devices.",
     "type": "object"
    },
+   "v1.ClientPassthroughStatus": {
+    "type": "object",
+    "properties": {
+     "usb": {
+      "description": "Redirected USB devices",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.USBDeviceInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
    "v1.Clock": {
     "description": "Represents the clock and timers of a vmi.",
     "type": "object",
@@ -16082,6 +16096,23 @@
      }
     }
    },
+   "v1.USBDeviceInfo": {
+    "type": "object",
+    "required": [
+     "vendor",
+     "product"
+    ],
+    "properties": {
+     "product": {
+      "type": "string",
+      "default": ""
+     },
+     "vendor": {
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.USBHostDevice": {
     "type": "object",
     "required": [
@@ -17293,6 +17324,10 @@
        "type": "string",
        "default": ""
       }
+     },
+     "clientPassthrough": {
+      "description": "Clientpassthrough indicates a list of devices that are currently being redirected from remote devices to the running VMI",
+      "$ref": "#/definitions/v1.ClientPassthroughStatus"
      },
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",

@@ -1061,6 +1061,14 @@
           "filesystemOverhead": "filesystemOverheadValue"
         }
       }
-    ]
+    ],
+    "clientPassthrough": {
+      "usb": [
+        {
+          "vendor": "vendorValue",
+          "product": "productValue"
+        }
+      ]
+    }
   }
 }

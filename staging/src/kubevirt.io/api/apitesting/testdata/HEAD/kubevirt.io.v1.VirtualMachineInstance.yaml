@@ -579,6 +579,10 @@ status:
   VSOCKCID: 4294967288
   activePods:
     activePodsKey: activePodsValue
+  clientPassthrough:
+    usb:
+    - product: productValue
+      vendor: vendorValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
     lastTransitionTime: "1982-01-01T01:01:01Z"
