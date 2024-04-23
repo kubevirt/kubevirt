@@ -266,7 +266,20 @@ http {
 			ssl_certificate     /var/serving-cert/tls.crt;
 			ssl_certificate_key /var/serving-cert/tls.key;
 			root                /usr/share/nginx/html;
-		}
+
+			# Prevent caching for plugin-manifest.json and plugin-entry.js
+			# to avoid "Unexpected end of JSON input" error
+			location = /plugin-manifest.json {
+			  add_header Cache-Control 'no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0';
+			  add_header Pragma 'no-cache';
+			  add_header Expires '0';
+			}
+			location = /plugin-entry.js {
+			  add_header Cache-Control 'no-cache, no-store, must-revalidate, proxy-revalidate, max-age=0';
+			  add_header Pragma 'no-cache';
+			  add_header Expires '0';
+			}
+        }
 	}
 `, hcoutil.UIPluginServerPort)
 
