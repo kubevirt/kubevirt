@@ -957,26 +957,32 @@ var _ = Describe("Migration watcher", func() {
 				for i := 0; i < 100; i++ {
 					mCopy := newMigration(fmt.Sprintf("should-keep-%s-%d", curPhase, i), vmi.Name, curPhase)
 					mCopy.Finalizers = []string{}
+					mCopy.Labels = map[string]string{"should-delete": "no"}
 
 					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
 
 					Expect(migrationInformer.GetStore().Add(mCopy)).To(Succeed())
+					_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(mCopy.Namespace).Create(context.Background(), mCopy, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 				}
 			}
 
-			finalizedMigrations := 0
 			for _, curPhase := range phasesToGarbageCollect {
 				for i := 0; i < 100; i++ {
 					mCopy := newMigration(fmt.Sprintf("should-delete-%s-%d", curPhase, i), vmi.Name, curPhase)
-
+					mCopy.Labels = map[string]string{"should-delete": "yes"}
 					mCopy.CreationTimestamp = metav1.Unix(int64(rand.Intn(100)), int64(0))
 
 					Expect(migrationInformer.GetStore().Add(mCopy)).To(Succeed())
-					finalizedMigrations++
+					_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(mCopy.Namespace).Create(context.Background(), mCopy, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 				}
 			}
 
 			keyMigration := newMigration("should-keep-key-migration", vmi.Name, phase)
+			if keyMigration.IsFinal() {
+				keyMigration.Labels = map[string]string{"should-delete": "yes"}
+			}
 			keyMigration.Finalizers = []string{}
 			keyMigration.CreationTimestamp = metav1.Unix(int64(101), int64(0))
 			addMigration(keyMigration)
@@ -985,17 +991,18 @@ var _ = Describe("Migration watcher", func() {
 			Expect(podInformer.GetStore().Add(sourcePod)).To(Succeed())
 			Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
 
-			if keyMigration.IsFinal() {
-				finalizedMigrations++
-				shouldExpectMigrationDeletion("should-delete", finalizedMigrations-defaultFinalizedMigrationGarbageCollectionBuffer)
-			} else {
-				migrationInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).AnyTimes().DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.UpdateOptions) (interface{}, interface{}) {
-					return arg, nil
-				})
-			}
-
 			controller.Execute()
+
 			testutils.IgnoreEvents(recorder)
+			migrationsStored, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "should-delete=yes",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			if keyMigration.IsFinal() {
+				Expect(migrationsStored.Items).To(HaveLen(defaultFinalizedMigrationGarbageCollectionBuffer))
+			} else {
+				Expect(migrationsStored.Items).To(HaveLen(len(phasesToGarbageCollect) * 100))
+			}
 		},
 			Entry("in failed phase", virtv1.MigrationFailed),
 			Entry("in succeeded phase", virtv1.MigrationSucceeded),
