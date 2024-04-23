@@ -5,7 +5,6 @@ import (
 	"net"
 	"strings"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
