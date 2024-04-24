@@ -4127,20 +4127,21 @@ spec:
                       defaults to true.
                     type: boolean
                   deployTektonTaskResources:
+                    description: 'Deprecated: This field is ignored.'
                     type: boolean
                   deployVmConsoleProxy:
                     type: boolean
                 type: object
               tektonPipelines:
-                description: TektonPipelines is the configuration of the tekton-pipelines
-                  operand
+                description: 'TektonPipelines is the configuration of the tekton-pipelines
+                  operand Deprecated: This field is ignored.'
                 properties:
                   namespace:
                     type: string
                 type: object
               tektonTasks:
-                description: TektonTasks is the configuration of the tekton-tasks
-                  operand
+                description: 'TektonTasks is the configuration of the tekton-tasks
+                  operand Deprecated: This field is ignored.'
                 properties:
                   namespace:
                     type: string

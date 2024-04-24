@@ -85,9 +85,13 @@ type SSPSpec struct {
 	CommonInstancetypes *CommonInstancetypes `json:"commonInstancetypes,omitempty"`
 
 	// TektonPipelines is the configuration of the tekton-pipelines operand
+	// +kubebuilder:deprecatedversion:warning="tektonPipelines filed is ignored"
+	// Deprecated: This field is ignored.
 	TektonPipelines *TektonPipelines `json:"tektonPipelines,omitempty"`
 
 	// TektonTasks is the configuration of the tekton-tasks operand
+	// +kubebuilder:deprecatedversion:warning="tektonTasks filed is ignored"
+	// Deprecated: This field is ignored.
 	TektonTasks *TektonTasks `json:"tektonTasks,omitempty"`
 
 	// FeatureGates for SSP
@@ -106,6 +110,8 @@ type TektonTasks struct {
 
 // FeatureGates for SSP
 type FeatureGates struct {
+	// +kubebuilder:deprecatedversion:warning="tekton task resources are no longer deployed by SSP"
+	// Deprecated: This field is ignored.
 	DeployTektonTaskResources bool `json:"deployTektonTaskResources,omitempty"`
 
 	DeployVmConsoleProxy bool `json:"deployVmConsoleProxy,omitempty"`
