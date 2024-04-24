@@ -20,9 +20,13 @@
 package libvmi
 
 import (
+	"context"
+	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"time"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -72,5 +76,38 @@ func WithDataVolumeTemplate(datavolume *v1beta1.DataVolume) VMOption {
 				Spec:       datavolume.Spec,
 			},
 		)
+	}
+}
+
+func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.RunStrategy = &strategy
+	}
+}
+
+type VMUpdaterOption func(vm *v1.VirtualMachine)
+
+func NewVirtualMachineUpdater(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, opts ...VMOption) (*v1.VirtualMachine, error) {
+	timeoutCh := time.After(300 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutCh:
+			return nil, fmt.Errorf("Timeout reached")
+		case <-ticker.C:
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+			for _, f := range opts {
+				f(vm)
+			}
+			updatedVm, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
+			if err == nil {
+				return updatedVm, err
+			}
+		}
 	}
 }
