@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
@@ -56,6 +57,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -637,6 +639,25 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 		})
 	})
 
+	Context("VM metrics that are based on the guest agent", func() {
+		It("should have kubevirt_vmi_phase_count correctly configured with guest OS labels", func() {
+			agentVMI := createAgentVMI()
+			Expect(agentVMI.Status.GuestOSInfo.KernelRelease).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.Name).ToNot(BeEmpty())
+			Expect(agentVMI.Status.GuestOSInfo.VersionID).ToNot(BeEmpty())
+
+			labels := map[string]string{
+				"guest_os_kernel_release": agentVMI.Status.GuestOSInfo.KernelRelease,
+				"guest_os_machine":        agentVMI.Status.GuestOSInfo.Machine,
+				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
+				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
+			}
+
+			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_phase_count", 1, labels)
+		})
+	})
+
 	Context("Migration Alerts", decorators.SigComputeMigrations, func() {
 		It("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
 			By("Starting the VirtualMachineInstance")
@@ -680,4 +701,22 @@ func checkRequiredLabels(rule promv1.Rule) {
 		fmt.Sprintf("%s kubernetes_operator_part_of label is missing or not valid", rule.Alert))
 	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "kubevirt"),
 		fmt.Sprintf("%s kubernetes_operator_component label is missing or not valid", rule.Alert))
+}
+
+func createAgentVMI() *v1.VirtualMachineInstance {
+	virtClient := kubevirt.Client()
+	vmiAgentConnectedConditionMatcher := MatchFields(IgnoreExtras, Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})
+	vmi := tests.RunVMIAndExpectLaunch(libvmi.NewFedora(libvmi.WithMasqueradeNetworking()...), 180)
+
+	var err error
+	var agentVMI *v1.VirtualMachineInstance
+
+	By("VMI has the guest agent connected condition")
+	Eventually(func() []v1.VirtualMachineInstanceCondition {
+		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return agentVMI.Status.Conditions
+	}, 240*time.Second, 1*time.Second).Should(ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition")
+
+	return agentVMI
 }
