@@ -36,6 +36,7 @@
 | Vendor | Spectro Cloud | 2022 | [link](https://www.spectrocloud.com/solutions/vms-on-kubernetes) | Spectro Cloud Palette's Virtual Machine Orchestrator (VMO) feature builds on KubeVirt. It gives enterprises an easy yet powerful way to bring their VM workloads into their Kubernetes clusters, on bare metal and at the edge — with full lifecycle management and unified policies and governance. |
 | Vendor | SUSE | 2020 | [link](https://www.suse.com/) | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |
 | Vendor | Puzl | 2022 | [link](https://puzl.ee/) | As a cloud-native computing platform we want to provide users with seamless experience. Many users are familiar with cloud VMs, but not yet with Kubernetes, and with Kubevirt we are giving them a bridge to a cloud-native world to make their migration easier. |
+| Vendor | NCR Voyix | 2024 | [link](https://www.ncrvoyix.com/) | NCR Voyix is leveraging KubeVirt to unify management of virtualized and containerized applications at the edge. |
 
 ### Adopter Types
 
