@@ -32,10 +32,7 @@ import (
 
 var _ = Describe("DeviceInfo", func() {
 
-	const (
-		deviceInfoPlugin    = "deviceinfo"
-		nonDeviceInfoPlugin = "non_deviceinfo"
-	)
+	const deviceInfoPlugin = "deviceinfo"
 
 	networkStatusWithMixedNetworks := `[
 		{
@@ -81,50 +78,26 @@ var _ = Describe("DeviceInfo", func() {
 	    }
     ]`
 
-	bindingPlugins := map[string]v1.InterfaceBindingPlugin{
-		deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
-		nonDeviceInfoPlugin: {},
-	}
-
 	DescribeTable("should return an error",
 		func(networkStatusAnnotationValue string) {
 			networks := []v1.Network{*libvmi.MultusNetwork("foo", "default/nad1")}
 			interfaces := []v1.Interface{newBindingPluginInterface("foo", deviceInfoPlugin)}
-			_, err := deviceinfo.MapBindingPluginNetworkNameToDeviceInfo(networks, interfaces, networkStatusAnnotationValue, bindingPlugins)
+			_, err := deviceinfo.MapNetworkNameToDeviceInfo(networks, networkStatusAnnotationValue, interfaces)
 			Expect(err).To(HaveOccurred())
 		},
 		Entry("when networkStatus annotation is empty", ""),
 		Entry("when networkStatus annotation has invalid format", "invalid"),
 	)
 
-	DescribeTable("should prepare empty network device info annotation",
-		func(networkList []v1.Network, interfaceList []v1.Interface, networkStatusAnnotationValue string) {
-			Expect(deviceinfo.MapBindingPluginNetworkNameToDeviceInfo(
-				networkList,
-				interfaceList,
-				networkStatusAnnotationValue,
-				bindingPlugins,
-			)).To(BeEmpty())
-		},
-		Entry("when there is no interface with device info binding plugin",
-			[]v1.Network{
-				*v1.DefaultPodNetwork(),
-				*libvmi.MultusNetwork("foo", "default/nad1"),
-			},
-			[]v1.Interface{
-				libvmi.InterfaceDeviceWithMasqueradeBinding(),
-				newBindingPluginInterface("foo", nonDeviceInfoPlugin),
-			},
-			networkStatusWithMixedNetworks,
-		),
-		Entry("when the interface is not in the multus status",
-			[]v1.Network{*libvmi.MultusNetwork("notfoo", "default/nad1")},
-			[]v1.Interface{newBindingPluginInterface("notfoo", deviceInfoPlugin)},
-			networkStatusWithPrimaryInterfaceOnly,
-		),
-	)
+	It("should return empty map when the interface is not in the multus status", func() {
+		networkList := []v1.Network{*libvmi.MultusNetwork("notfoo", "default/nad1")}
+		interfaceList := []v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding("notfoo")}
+		Expect(deviceinfo.MapNetworkNameToDeviceInfo(
+			networkList, networkStatusWithPrimaryInterfaceOnly, interfaceList,
+		)).To(BeEmpty())
+	})
 
-	It("should prepare network device info annotation with multiple networks", func() {
+	It("should return network device info mapping with multiple networks", func() {
 		networks := []v1.Network{
 			*v1.DefaultPodNetwork(),
 			*libvmi.MultusNetwork("boo", "default/nad1"),
@@ -138,9 +111,10 @@ var _ = Describe("DeviceInfo", func() {
 			newBindingPluginInterface("doo", deviceInfoPlugin),
 		}
 		expectedMap := map[string]*networkv1.DeviceInfo{
-			"foo": {Type: "pci", Version: "1.0.0", Pci: &networkv1.PciDevice{PciAddress: "0000:65:00.2"}}}
-		Expect(deviceinfo.MapBindingPluginNetworkNameToDeviceInfo(
-			networks, interfaces, networkStatusWithMixedNetworks, bindingPlugins,
+			"foo": {Type: "pci", Version: "1.0.0", Pci: &networkv1.PciDevice{PciAddress: "0000:65:00.2"}},
+		}
+		Expect(deviceinfo.MapNetworkNameToDeviceInfo(
+			networks, networkStatusWithMixedNetworks, interfaces,
 		)).To(Equal(expectedMap))
 	})
 })

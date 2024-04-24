@@ -24,32 +24,13 @@ import (
 	"fmt"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func MapBindingPluginNetworkNameToDeviceInfo(networks []v1.Network,
-	interfaces []v1.Interface,
-	networkStatusAnnotationValue string,
-	bindingPlugins map[string]v1.InterfaceBindingPlugin,
-) (map[string]*networkv1.DeviceInfo, error) {
-	return mapNetworkNameToDeviceInfo(
-		networks,
-		networkStatusAnnotationValue,
-		vmispec.FilterInterfacesSpec(interfaces, func(iface v1.Interface) bool {
-			if iface.Binding != nil {
-				if binding, exist := bindingPlugins[iface.Binding.Name]; exist && binding.DownwardAPI == v1.DeviceInfo {
-					return true
-				}
-			}
-			return false
-		}),
-	)
-}
-
-func mapNetworkNameToDeviceInfo(networks []v1.Network,
+func MapNetworkNameToDeviceInfo(networks []v1.Network,
 	networkStatusAnnotationValue string,
 	interfaces []v1.Interface,
 ) (map[string]*networkv1.DeviceInfo, error) {
@@ -62,7 +43,8 @@ func mapNetworkNameToDeviceInfo(networks []v1.Network,
 	networkDeviceInfo := map[string]*networkv1.DeviceInfo{}
 	for _, iface := range interfaces {
 		multusInterfaceName := networkNameScheme[iface.Name]
-		if networkStatusEntry, exist := multusInterfaceNameToNetworkStatus[multusInterfaceName]; exist {
+		networkStatusEntry, exist := multusInterfaceNameToNetworkStatus[multusInterfaceName]
+		if exist && networkStatusEntry.DeviceInfo != nil {
 			networkDeviceInfo[iface.Name] = networkStatusEntry.DeviceInfo
 			// Note: there is no need to return an error in case the interface doesn't exist,
 			// it may mean the interface is not plugged yet
