@@ -166,6 +166,27 @@ function configure_prometheus() {
     fi
 }
 
+function deploy_aaq() {
+    if [ "$KUBEVIRT_DEPLOY_AAQ" == "true" ]; then
+        if [ -n "${KUBEVIRT_CUSTOM_AAQ_VERSION}" ]; then
+            $ssh node01 -- 'sudo sed --regexp-extended -i s/v[0-9]+\.[0-9]+\.[0-9]+\(.*\)?$/'"$KUBEVIRT_CUSTOM_AAQ_VERSION"'/g /opt/aaq/aaq-*-operator.yaml'
+        fi
+
+        $kubectl create -f /opt/aaq/aaq-*-operator.yaml
+        $kubectl create -f /opt/aaq/aaq-*-cr.yaml
+    fi
+}
+
+function wait_for_aaq_ready() {
+    if [ "$KUBEVIRT_DEPLOY_AAQ" == "true" ]; then
+        while [ "$($kubectl get pods --namespace aaq | grep -c 'aaq-')" -lt 4 ]; do
+            $kubectl get pods --namespace aaq
+            sleep 10
+        done
+        $kubectl wait --for=condition=Ready pod --timeout=180s --all --namespace aaq
+    fi
+}
+
 function up() {
     params=$(_add_common_params)
     if echo "$params" | grep -q ERROR; then
@@ -212,8 +233,9 @@ function up() {
     deploy_multus
     deploy_istio
     deploy_cdi
+    deploy_aaq
 
-    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready && wait_for_multus_ready; do
+    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready && wait_for_multus_ready && wait_for_aaq_ready; do
         echo "Waiting for cluster components..."
         sleep 5
     done
