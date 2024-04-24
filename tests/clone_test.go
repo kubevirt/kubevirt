@@ -699,7 +699,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 						if toRunSourceVM {
 							By("Starting the VM and expecting it to run")
-							sourceVM = RunVMAndExpectLaunchWithRunStrategy(virtClient, sourceVM, virtv1.RunStrategyAlways)
+							sourceVM, err = libvmi.NewVirtualMachineUpdater(virtClient, sourceVM, libvmi.WithRunStrategy(virtv1.RunStrategyAlways))
+							Expect(err).ToNot(HaveOccurred(), "Couldn't update vm")
 						}
 
 						vmClone = generateCloneFromVM()
