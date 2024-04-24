@@ -64,6 +64,7 @@ go_library(
         "//tests/libnode:go_default_library",
         "//tests/libpod:go_default_library",
         "//tests/libregistry:go_default_library",
+        "//tests/libsecret:go_default_library",
         "//tests/libstorage:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",

@@ -74,6 +74,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
@@ -232,15 +233,7 @@ var _ = SIGDescribe("Export", func() {
 
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
 		var err error
-		secret := &k8sv1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      fmt.Sprintf("export-token-%s", name),
-			},
-			StringData: map[string]string{
-				"token": name,
-			},
-		}
+		secret := libsecret.New(fmt.Sprintf("export-token-%s", name), libsecret.DataString{"token": name})
 		token, err = virtClient.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return token
@@ -978,16 +971,7 @@ var _ = SIGDescribe("Export", func() {
 			if err != nil {
 				return "", err
 			}
-			secret := &k8sv1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: flags.KubeVirtInstallNamespace,
-				},
-				StringData: map[string]string{
-					tlsKey:  testKey,
-					tlsCert: testCert,
-				},
-			}
+			secret := libsecret.New(name, libsecret.DataString{tlsKey: testKey, tlsCert: testCert})
 			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
 			if err != nil {
 				return "", err
