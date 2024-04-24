@@ -207,15 +207,32 @@ var _ = Describe("VirtualMachine", func() {
 			close(stop)
 		})
 
-		shouldExpectGracePeriodPatched := func(expectedGracePeriod int64, vmi *v1.VirtualMachineInstance) {
+		// TODO: We need to make sure the action was triggered
+		shouldExpectGracePeriodPatched := func(expectedGracePeriod int64) {
 			patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, expectedGracePeriod)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
+			virtFakeClient.PrependReactor("update", "virtualmachineinstance", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				switch action := action.(type) {
+				case testing.PatchActionImpl:
+					Expect(action.Patch).To(Equal([]byte(patch)))
+				default:
+					Fail("Expected to see patch")
+				}
+				return false, nil, nil
+			})
 		}
-
-		shouldExpectVMIFinalizerRemoval := func(vmi *v1.VirtualMachineInstance) {
+		// TODO: We need to make sure the action was triggered
+		shouldExpectVMIFinalizerRemoval := func() {
+			virtFakeClient.PrependReactor("update", "virtualmachineinstance", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				switch action := action.(type) {
+				case testing.PatchActionImpl:
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, v1.VirtualMachineControllerFinalizer)
+					Expect(action.Patch).To(Equal([]byte(patch)))
+				default:
+					Fail("Expected to see patch")
+				}
+				return false, nil, nil
+			})
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -1453,7 +1470,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-				shouldExpectVMIFinalizerRemoval(vmi)
+				shouldExpectVMIFinalizerRemoval()
 
 				sanityExecute(vm)
 
@@ -1488,7 +1505,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-				shouldExpectVMIFinalizerRemoval(vmi)
+				shouldExpectVMIFinalizerRemoval()
 
 				sanityExecute(vm)
 
@@ -1558,9 +1575,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-
-				shouldExpectVMIFinalizerRemoval(vmi)
+				shouldExpectVMIFinalizerRemoval()
 
 				sanityExecute(vm)
 
@@ -2640,7 +2655,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-			shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds, vmi)
+			shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds)
 
 			sanityExecute(vm)
 
@@ -2676,7 +2691,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			shouldExpectVMIFinalizerRemoval(vmi)
+			shouldExpectVMIFinalizerRemoval()
 
 			sanityExecute(vm)
 
@@ -3514,8 +3529,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).AnyTimes()
-				shouldExpectVMIFinalizerRemoval(vmi)
+				shouldExpectVMIFinalizerRemoval()
 
 				sanityExecute(vm)
 
@@ -3998,7 +4012,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
-					shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds, vmi)
+					shouldExpectGracePeriodPatched(v1.DefaultGracePeriodSeconds)
 					vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).AnyTimes()
 
 					sanityExecute(vm)
