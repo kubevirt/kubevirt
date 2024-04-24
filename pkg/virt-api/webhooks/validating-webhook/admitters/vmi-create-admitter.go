@@ -1391,7 +1391,7 @@ func validateArchitecture(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	if spec.Architecture != "" && spec.Architecture != runtime.GOARCH && !config.MultiArchitectureEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("multi-architecture feature gate is not enabled in kubevirt-config, invalid entry %s",
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config, invalid entry %s", virtconfig.MultiArchitecture,
 				field.Child("architecture").String()),
 			Field: field.Child("architecture").String(),
 		})
