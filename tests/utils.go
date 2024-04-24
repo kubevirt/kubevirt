@@ -914,12 +914,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
-func RetryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
-	return RetryIfModified(func() error {
-		return do(objectMeta)
-	})
-}
-
 func RetryIfModified(do func() error) (err error) {
 	retries := 0
 	for err = do(); errors.IsConflict(err); err = do() {

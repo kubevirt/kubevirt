@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -248,21 +249,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		It("[test_id:3161]should carry annotations to VMI", func() {
-			annotations := map[string]string{
-				"testannotation": "test",
-			}
-
-			vm := createVM(virtClient, libvmifact.NewCirros())
-
-			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vm.Spec.Template.ObjectMeta.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-				return err
-			})
-			Expect(err).ToNot(HaveOccurred())
-
+			vm := createVM(virtClient, libvmifact.NewCirros(libvmi.WithAnnotation("testannotation", "test")))
 			vm = startVM(virtClient, vm)
 
 			By("checking for annotations to be present")
@@ -272,22 +259,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:3162]should ignore kubernetes and kubevirt annotations to VMI", func() {
-			annotations := map[string]string{
-				"kubevirt.io/test":   "test",
-				"kubernetes.io/test": "test",
-			}
-
-			vm := createVM(virtClient, libvmifact.NewCirros())
-
-			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vm.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-				return err
-			})
-			Expect(err).ToNot(HaveOccurred())
-
+			vm := createVM(virtClient, libvmifact.NewCirros(
+				libvmi.WithAnnotation("kubevirt.io/test", "test"),
+				libvmi.WithAnnotation("kubernetes.io/test", "test"),
+			))
 			vm = startVM(virtClient, vm)
 
 			By("checking for annotations to not be present")
@@ -2062,15 +2037,7 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 
 func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
-	err := tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vm.Spec.Running = nil
-		runStrategyAlways := v1.RunStrategyAlways
-		vm.Spec.RunStrategy = &runStrategyAlways
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-		return err
-	})
+	err := patchVmRunStrategy(vm, v1.RunStrategyAlways)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Waiting for VMI to be running")
@@ -2087,15 +2054,7 @@ func startVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtu
 
 func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Stopping the VirtualMachine")
-	err := tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta k8smetav1.ObjectMeta) error {
-		vm, err := virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vm.Spec.Running = nil
-		runStrategyHalted := v1.RunStrategyHalted
-		vm.Spec.RunStrategy = &runStrategyHalted
-		_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-		return err
-	})
+	err := patchVmRunStrategy(vm, v1.RunStrategyHalted)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Waiting for VMI to not exist")
@@ -2108,4 +2067,20 @@ func stopVM(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *v1.Virtua
 	Expect(err).ToNot(HaveOccurred())
 
 	return vm
+}
+
+func patchVmRunStrategy(vm *v1.VirtualMachine, strategy v1.VirtualMachineRunStrategy) error {
+	vm, err := kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	oldSpec := vm.Spec
+	newSpec := oldSpec.DeepCopy()
+	newSpec.Running = nil
+	newSpec.RunStrategy = &strategy
+
+	patchData, err := patch.GenerateTestReplacePatch("/spec", oldSpec, newSpec)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+	return err
 }
