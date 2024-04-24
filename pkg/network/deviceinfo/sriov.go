@@ -32,7 +32,6 @@ import (
 const (
 	SRIOVAliasPrefix        = "sriov-"
 	NetworkPCIMapAnnot      = "kubevirt.io/network-pci-map"
-	NetwrokPCIMapVolumeName = "network-pci-map-annotation"
 	NetworkPCIMapVolumePath = "network-pci-map"
 )
 
