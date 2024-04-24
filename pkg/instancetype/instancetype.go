@@ -170,7 +170,7 @@ func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachi
 }
 
 func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Instancetype == nil || len(vm.Spec.Instancetype.RevisionName) > 0 {
+	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName != "" {
 		return nil, nil
 	}
 
@@ -208,7 +208,7 @@ func (m *InstancetypeMethods) createPreferenceRevision(vm *virtv1.VirtualMachine
 }
 
 func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Preference == nil || len(vm.Spec.Preference.RevisionName) > 0 {
+	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName != "" {
 		return nil, nil
 	}
 
@@ -455,7 +455,7 @@ func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*in
 		return nil, nil
 	}
 
-	if len(vm.Spec.Preference.RevisionName) > 0 {
+	if vm.Spec.Preference.RevisionName != "" {
 		return m.findPreferenceSpecRevision(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Spec.Preference.RevisionName,
@@ -599,7 +599,7 @@ func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*
 		return nil, nil
 	}
 
-	if len(vm.Spec.Instancetype.RevisionName) > 0 {
+	if vm.Spec.Instancetype.RevisionName != "" {
 		return m.findInstancetypeSpecRevision(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Spec.Instancetype.RevisionName,
