@@ -1259,6 +1259,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}
 			storageClass, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), storageClass, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() error {
+				return virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
+			})
 
 			virtualMachinePreference = &instanceType.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
