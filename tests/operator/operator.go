@@ -158,9 +158,9 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		startAllVMIs                           func([]*v1.VirtualMachineInstance)
+		startAllVMIs                           func([]*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance
 		deleteAllVMIs                          func([]*v1.VirtualMachineInstance)
-		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance, string)
+		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
 		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
 		fetchVirtHandlerCommand                func() string
 	)
@@ -764,17 +764,24 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			return vmis
 		}
 
-		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
-			for _, vmi := range vmis {
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance {
+			newVMIs := make([]*v1.VirtualMachineInstance, len(vmis))
+			for i, vmi := range vmis {
+				var err error
+				newVMIs[i], err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
-				libwait.WaitForSuccessfulVMIStart(vmi)
 			}
+
+			for i, vmi := range newVMIs {
+				newVMIs[i] = libwait.WaitForSuccessfulVMIStart(vmi)
+			}
+
+			return newVMIs
 		}
 
 		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
-				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+				err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
 			}
 		}
@@ -783,70 +790,70 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 			Eventually(func() error {
 				for _, vmi := range vmis {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err == nil && !vmi.IsFinal() {
-						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", vmi.Namespace, vmi.Name)
+					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					if err == nil && !foundVMI.IsFinal() {
+						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", foundVMI.Namespace, foundVMI.Name)
 					} else if !errors.IsNotFound(err) {
 						return err
 					}
 				}
 				return nil
-			}, 320, 1).Should(BeNil(), "All VMIs should delete automatically")
+			}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
 
 		}
 
-		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance, imageTag string) {
+		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
 
 			Eventually(func() error {
 				for _, vmi := range vmis {
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 
-					if vmi.Status.MigrationState == nil {
-						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", vmi.Namespace, vmi.Name)
-					} else if !vmi.Status.MigrationState.Completed {
+					if foundVMI.Status.MigrationState == nil {
+						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
+					} else if !foundVMI.Status.MigrationState.Completed {
 
 						var startTime time.Time
 						var endTime time.Time
 						now := time.Now()
 
-						if vmi.Status.MigrationState.StartTimestamp != nil {
-							startTime = vmi.Status.MigrationState.StartTimestamp.Time
+						if foundVMI.Status.MigrationState.StartTimestamp != nil {
+							startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
 						}
-						if vmi.Status.MigrationState.EndTimestamp != nil {
-							endTime = vmi.Status.MigrationState.EndTimestamp.Time
+						if foundVMI.Status.MigrationState.EndTimestamp != nil {
+							endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
 						}
 
 						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
-							string(vmi.Status.MigrationState.MigrationUID),
-							vmi.Namespace,
-							vmi.Name,
-							vmi.Status.MigrationState.SourceNode,
-							vmi.Status.MigrationState.TargetNode,
+							string(foundVMI.Status.MigrationState.MigrationUID),
+							foundVMI.Namespace,
+							foundVMI.Name,
+							foundVMI.Status.MigrationState.SourceNode,
+							foundVMI.Status.MigrationState.TargetNode,
 							startTime.String(),
 							endTime.String(),
 							now.String(),
-							vmi.Status.MigrationState.Failed,
+							foundVMI.Status.MigrationState.Failed,
 						)
 					}
 
-					_, hasOutdatedLabel := vmi.Labels[v1.OutdatedLauncherImageLabel]
+					_, hasOutdatedLabel := foundVMI.Labels[v1.OutdatedLauncherImageLabel]
 					if hasOutdatedLabel {
-						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", vmi.Namespace, vmi.Name)
+						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
 					}
 				}
 				return nil
-			}, 500, 1).Should(BeNil(), "All VMIs should update via live migration")
+			}, 500, 1).Should(Succeed(), "All VMIs should update via live migration")
 
 			// this is put in an eventually loop because it's possible for the VMI to complete
 			// migrating and for the migration object to briefly lag behind in reporting
 			// the results
-			Eventually(func() error {
+			Eventually(func(g Gomega) error {
 				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
+				migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+				g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
 				for _, vmi := range vmis {
 					count := 0
 					for _, migration := range migrationList.Items {
@@ -859,7 +866,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					}
 				}
 				return nil
-			}, 10, 1).Should(BeNil(), "Expects only a single successful migration per workload update")
+			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
 		}
 
 		getVirtLauncherSha = func() string {
@@ -1743,7 +1750,7 @@ spec:
 			}
 
 			By("Starting multiple migratable VMIs before performing update")
-			startAllVMIs(migratableVMIs)
+			migratableVMIs = startAllVMIs(migratableVMIs)
 
 			// Update KubeVirt from the previous release to the testing target release.
 			if updateOperator {
@@ -1888,7 +1895,7 @@ spec:
 			}
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
-			verifyVMIsUpdated(migratableVMIs, launcherSha)
+			verifyVMIsUpdated(migratableVMIs)
 
 			if len(migratableVMIs) > 0 {
 				By("Verifying that a once migrated VMI after an update can be migrated again")
@@ -1919,7 +1926,7 @@ spec:
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
-				startAllVMIs(vmis)
+				vmis = startAllVMIs(vmis)
 			}
 
 			By("Deleting KubeVirt object")
@@ -2055,7 +2062,7 @@ spec:
 			Expect(handlerImageName).To(ContainSubstring(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpine()
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -2129,8 +2136,8 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Starting multiple migratable VMIs before performing update")
-			startAllVMIs(vmis)
-			startAllVMIs(vmisNonMigratable)
+			vmis = startAllVMIs(vmis)
+			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
 			patchKvVersion(kv.Name, flags.KubeVirtVersionTagAlt)
@@ -2148,7 +2155,7 @@ spec:
 			verifyVMIsEvicted(vmisNonMigratable)
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
-			verifyVMIsUpdated(vmis, flags.KubeVirtVersionTagAlt)
+			verifyVMIsUpdated(vmis)
 
 			By("Deleting VMIs")
 			deleteAllVMIs(vmis)
@@ -2156,7 +2163,6 @@ spec:
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
-
 		})
 
 		// NOTE - this test verifies new operators can grab the leader election lease
