@@ -324,34 +324,34 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInte
 	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }
 
-func (v *vmis) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
+func (v *vmis) SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error) {
 	sevPlatformInfo := v1.SEVPlatformInfo{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/fetchcertchain")
-	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevPlatformInfo)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&sevPlatformInfo)
 	return sevPlatformInfo, err
 }
 
-func (v *vmis) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+func (v *vmis) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error) {
 	sevMeasurementInfo := v1.SEVMeasurementInfo{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/querylaunchmeasurement")
-	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevMeasurementInfo)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&sevMeasurementInfo)
 	return sevMeasurementInfo, err
 }
 
-func (v *vmis) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+func (v *vmis) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error {
 	body, err := json.Marshal(sevSessionOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/setupsession")
-	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vmis) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {
+func (v *vmis) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error {
 	body, err := json.Marshal(sevSecretOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/injectlaunchsecret")
-	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }

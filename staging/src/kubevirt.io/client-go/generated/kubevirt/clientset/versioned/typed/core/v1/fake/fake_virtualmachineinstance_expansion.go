@@ -125,28 +125,28 @@ func (c *FakeVirtualMachineInstances) VSOCK(name string, options *v1.VSOCKOption
 	return nil, nil
 }
 
-func (c *FakeVirtualMachineInstances) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
+func (c *FakeVirtualMachineInstances) SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error) {
 	_, err := c.Fake.
 		Invokes(testing.NewGetSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/fetchcertchain", name), &v1.SEVPlatformInfo{})
 
 	return v1.SEVPlatformInfo{}, err
 }
 
-func (c *FakeVirtualMachineInstances) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+func (c *FakeVirtualMachineInstances) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error) {
 	_, err := c.Fake.
 		Invokes(testing.NewGetSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/querylaunchmeasurement", name), &v1.SEVMeasurementInfo{})
 
 	return v1.SEVMeasurementInfo{}, err
 }
 
-func (c *FakeVirtualMachineInstances) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+func (c *FakeVirtualMachineInstances) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/setupsession", name, sevSessionOptions), nil)
 
 	return err
 }
 
-func (c *FakeVirtualMachineInstances) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {
+func (c *FakeVirtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancesResource, c.ns, "sev/injectlaunchsecret", name, sevSecretOptions), nil)
 
