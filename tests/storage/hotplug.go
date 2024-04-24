@@ -2181,5 +2181,9 @@ func renameImgFile(pvc *corev1.PersistentVolumeClaim, newName string) {
 
 	By("renaming disk.img")
 	pod := libstorage.RenderPodWithPVC("rename-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
-	tests.RunPodAndExpectCompletion(pod)
+
+	virtClient := kubevirt.Client()
+	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(matcher.ThisPod(pod), 120).Should(matcher.BeInPhase(corev1.PodSucceeded))
 }

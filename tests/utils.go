@@ -442,19 +442,6 @@ func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
 	return RunPodInNamespace(pod, testsuite.GetTestNamespace(pod))
 }
 
-func RunPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
-	virtClient := kubevirt.Client()
-
-	var err error
-	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
-
-	pod, err = ThisPod(pod)()
-	Expect(err).ToNot(HaveOccurred())
-	return pod
-}
-
 func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"))}
 
@@ -472,7 +459,10 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 		RunAsNonRoot: pointer.P(false),
 	}
 
-	RunPodAndExpectCompletion(pod)
+	virtClient := kubevirt.Client()
+	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
