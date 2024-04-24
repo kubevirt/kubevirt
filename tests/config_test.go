@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -195,11 +196,11 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
-				data := map[string]string{
-					"user":     "admin",
-					"password": "redhat",
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
+				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 			})
 
 			AfterEach(func() {
@@ -254,7 +255,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			BeforeEach(func() {
 				for i := 0; i < secretsCnt; i++ {
 					name := "secret-" + uuid.NewString()
-					tests.CreateSecret(name, testsuite.GetTestNamespace(nil), map[string]string{"option": "value"})
+					secret := libsecret.New(name, libsecret.DataString{"option": "value"})
+					_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+					if !errors.IsAlreadyExists(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+
 					secrets = append(secrets, name)
 				}
 			})
@@ -356,16 +362,15 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"config3": "value3",
 				}
 
-				secretData := map[string]string{
-					"user":     "admin",
-					"password": "redhat",
-				}
-
 				cm := libconfigmap.New(configMapName, configData)
 				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secretData)
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
+				_, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
 			})
 
 			AfterEach(func() {
@@ -486,11 +491,11 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretName = "secret-" + uuid.NewString()
 				secretPath = config.GetSecretSourcePath(secretName)
 
-				data := map[string]string{
-					"ssh-privatekey": string(privateKeyBytes),
-					"ssh-publickey":  string(publicKeyBytes),
+				secret := libsecret.New(secretName, libsecret.DataBytes{"ssh-privatekey": privateKeyBytes, "ssh-publickey": publicKeyBytes})
+				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 			})
 
 			AfterEach(func() {

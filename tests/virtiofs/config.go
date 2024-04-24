@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -46,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
@@ -126,11 +128,11 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			secretName = "secret-" + uuid.NewString()[:6]
 			secretPath = config.GetSecretSourcePath(secretName)
 
-			data := map[string]string{
-				"user":     "admin",
-				"password": "redhat",
+			secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
+			secret, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+			if !errors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
 			}
-			tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 		})
 
 		It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {

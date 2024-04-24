@@ -91,18 +91,6 @@ const (
 	DiskCustomHostPath     = "disk-custom-host-path"
 )
 
-func CreateSecret(name, namespace string, data map[string]string) {
-	virtCli := kubevirt.Client()
-
-	_, err := virtCli.CoreV1().Secrets(namespace).Create(context.Background(), &k8sv1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		StringData: data,
-	}, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util2.PanicOnError(err)
-	}
-}
-
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
