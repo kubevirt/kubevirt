@@ -50,7 +50,7 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 	if len(SRIOVInterfaces) == 0 {
 		return []api.HostDevice{}, nil
 	}
-	netStatusPath := path.Join(downwardapi.MountPath, deviceinfo.NetworkPCIMapVolumePath)
+	netStatusPath := path.Join(downwardapi.MountPath, downwardapi.NetworkInfoVolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
 		return nil, err
@@ -70,15 +70,15 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 // - file empty post-polling (timeout) - return err to fail SyncVMI.
 // - other error reading file (i.e. file not exist) - return no error but PCIAddressWithNetworkStatusPool.Len() will return 0.
 func newPCIAddressPoolWithNetworkStatusFromFile(path string) (*PCIAddressWithNetworkStatusPool, error) {
-	networkPCIMapBytes, err := readFileUntilNotEmpty(path)
+	networkDeviceInfoBytes, err := readFileUntilNotEmpty(path)
 	if err != nil {
-		if isFileEmptyAfterTimeout(err, networkPCIMapBytes) {
+		if isFileEmptyAfterTimeout(err, networkDeviceInfoBytes) {
 			return nil, err
 		}
 		return nil, nil
 	}
 
-	return NewPCIAddressPoolWithNetworkStatus(networkPCIMapBytes)
+	return NewPCIAddressPoolWithNetworkStatus(networkDeviceInfoBytes)
 }
 
 func readFileUntilNotEmpty(networkPCIMapPath string) ([]byte, error) {

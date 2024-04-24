@@ -19,7 +19,4 @@
 
 package deviceinfo
 
-const (
-	SRIOVAliasPrefix        = "sriov-"
-	NetworkPCIMapVolumePath = "network-pci-map"
-)
+const SRIOVAliasPrefix = "sriov-"
