@@ -1062,7 +1062,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with hugepages", func() {
 			var hugepagesVmi *v1.VirtualMachineInstance
 
-			verifyHugepagesConsumption := func() bool {
+			verifyHugepagesConsumption := func() {
 				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
 				// https://github.com/kubernetes/kubernetes/issues/64691
 				pods, err := virtClient.CoreV1().Pods(hugepagesVmi.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(hugepagesVmi))
@@ -1110,10 +1110,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					vmMemory = *hugepagesVmi.Spec.Domain.Memory.Guest
 				}
 
-				if vmHugepagesConsumption == vmMemory.Value() {
-					return true
-				}
-				return false
+				Expect(vmHugepagesConsumption).To(Equal(vmMemory.Value()),
+					fmt.Sprintf("%d total HP, %d free HP, %d resv HP, %d size", totalHugepages, freeHugepages, resvHugepages, hugepagesSize.Value()),
+				)
+
 			}
 			BeforeEach(func() {
 				hugepagesVmi = libvmifact.NewCirros()
@@ -1164,7 +1164,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libwait.WaitForSuccessfulVMIStart(hugepagesVmi)
 
 				By("Checking that the VM memory equals to a number of consumed hugepages")
-				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
+				verifyHugepagesConsumption()
 			},
 				Entry("[Serial][test_id:1671]hugepages-2Mi", Serial, "2Mi", "64Mi", "None"),
 				Entry("[Serial][test_id:1672]hugepages-1Gi", Serial, "1Gi", "1Gi", "None"),
