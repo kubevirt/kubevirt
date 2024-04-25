@@ -131,8 +131,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		waitForKvWithTimeout                   func(*v1.KubeVirt, int)
-		waitForKv                              func(*v1.KubeVirt)
 		patchKvProductNameVersionAndComponent  func(string, string, string, string)
 		patchKvVersionAndRegistry              func(string, string, string)
 		patchKvVersion                         func(string, string)
@@ -171,56 +169,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		waitForKvWithTimeout = func(newKv *v1.KubeVirt, timeoutSeconds int) {
-			Eventually(func() error {
-				kv, err := virtClient.KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-
-				if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
-					return fmt.Errorf("Waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
-				}
-
-				available := false
-				progressing := true
-				degraded := true
-				created := false
-				for _, condition := range kv.Status.Conditions {
-					if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
-						available = true
-					} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
-						progressing = false
-					} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
-						degraded = false
-					} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
-						created = true
-					}
-				}
-
-				if !available || progressing || degraded || !created {
-					if kv.Status.ObservedGeneration != nil {
-						if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
-							return fmt.Errorf("observed generation must not match the current configuration")
-						}
-					}
-					return fmt.Errorf("Waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
-				}
-
-				if kv.Status.ObservedGeneration != nil {
-					if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
-						return fmt.Errorf("the observed generation must match the current generation")
-					}
-				}
-
-				return nil
-			}, time.Duration(timeoutSeconds)*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		waitForKv = func(newKv *v1.KubeVirt) {
-			waitForKvWithTimeout(newKv, 300)
-		}
 
 		patchKvProductNameVersionAndComponent = func(name, productName string, productVersion string, productComponent string) {
 
@@ -3424,4 +3372,54 @@ func waitForUpdateCondition(kv *v1.KubeVirt) {
 			matcher.HaveConditionTrue(v1.KubeVirtConditionDegraded),
 		),
 	)
+}
+
+func waitForKvWithTimeout(newKv *v1.KubeVirt, timeoutSeconds int) {
+	Eventually(func() error {
+		kv, err := kubevirt.Client().KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
+			return fmt.Errorf("waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
+		}
+
+		available := false
+		progressing := true
+		degraded := true
+		created := false
+		for _, condition := range kv.Status.Conditions {
+			if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
+				available = true
+			} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
+				progressing = false
+			} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
+				degraded = false
+			} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
+				created = true
+			}
+		}
+
+		if !available || progressing || degraded || !created {
+			if kv.Status.ObservedGeneration != nil {
+				if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
+					return fmt.Errorf("observed generation must not match the current configuration")
+				}
+			}
+			return fmt.Errorf("waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
+		}
+
+		if kv.Status.ObservedGeneration != nil {
+			if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
+				return fmt.Errorf("the observed generation must match the current generation")
+			}
+		}
+
+		return nil
+	}).WithTimeout(time.Duration(timeoutSeconds) * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func waitForKv(newKv *v1.KubeVirt) {
+	waitForKvWithTimeout(newKv, 300)
 }
