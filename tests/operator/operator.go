@@ -125,7 +125,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		copyOriginalKv                         func() *v1.KubeVirt
 		createKv                               func(*v1.KubeVirt)
 		createCdi                              func()
 		sanityCheckDeploymentsDeleted          func()
@@ -172,19 +171,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		copyOriginalKv = func() *v1.KubeVirt {
-			newKv := &v1.KubeVirt{
-				Spec: *originalKv.Spec.DeepCopy(),
-			}
-			newKv.Name = originalKv.Name
-			newKv.Namespace = originalKv.Namespace
-			newKv.ObjectMeta.Labels = originalKv.ObjectMeta.Labels
-			newKv.ObjectMeta.Annotations = originalKv.ObjectMeta.Annotations
-
-			return newKv
-
-		}
 
 		createKv = func(newKv *v1.KubeVirt) {
 			Eventually(func() error {
@@ -432,7 +418,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		}
 
 		patchKvInfra = func(infra *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			verb := "add"
 
 			if kv.Spec.Infra != nil {
@@ -450,7 +436,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		}
 
 		patchKvWorkloads = func(workloads *v1.ComponentConfig, expectError bool, errMsg string) {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			verb := "add"
 
 			if kv.Spec.Workloads != nil {
@@ -1050,7 +1036,7 @@ spec:
 		kvs := util2.GetKvList(virtClient)
 		if len(kvs) == 0 {
 			By("Re-creating the original KV to stabilize")
-			createKv(copyOriginalKv())
+			createKv(copyOriginalKv(originalKv))
 		}
 
 		modified := patchOperator(nil, &originalOperatorVersion)
@@ -1668,7 +1654,7 @@ spec:
 
 			// Install previous release of KubeVirt
 			By("Creating KubeVirt object")
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-release-install"
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
 
@@ -1946,7 +1932,7 @@ spec:
 			}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 			By("Creating KubeVirt Object")
-			createKv(copyOriginalKv())
+			createKv(copyOriginalKv(originalKv))
 
 			By("Creating KubeVirt Object Created and Ready Condition")
 			waitForKv(originalKv)
@@ -2001,7 +1987,7 @@ spec:
 			sanityCheckDeploymentsDeleted()
 
 			By("Creating KubeVirt Object")
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec = v1.KubeVirtSpec{
 				ImageTag:      flags.KubeVirtVersionTagAlt,
@@ -2029,7 +2015,7 @@ spec:
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
 			}
 
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
@@ -2114,7 +2100,7 @@ spec:
 			sanityCheckDeploymentsDeleted()
 
 			By("Creating KubeVirt Object")
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			kv.Name = "kubevirt-alt-install"
 			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
 				PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(true),
@@ -2171,7 +2157,7 @@ spec:
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
@@ -2206,7 +2192,7 @@ spec:
 		// TODO: not Serial
 		It("[test_id:3152]should fail if KV object already exists", func() {
 
-			newKv := copyOriginalKv()
+			newKv := copyOriginalKv(originalKv)
 			newKv.Name = "someother-kubevirt"
 
 			By("Creating another KubeVirt object")
@@ -2269,7 +2255,7 @@ spec:
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 
 			By("Patching kubevirt resource with productName , productVersion  and productComponent")
 			patchKvProductNameVersionAndComponent(kv.Name, productName, productVersion, productComponent)
@@ -2686,8 +2672,8 @@ spec:
 		})
 		It("should update new single-replica CRs with a finalizer and be stable", func() {
 			By("copying the original kv CR")
-			kvOrig := copyOriginalKv()
-			kv := copyOriginalKv()
+			kvOrig := copyOriginalKv(originalKv)
+			kv := copyOriginalKv(originalKv)
 
 			By("storing the actual replica counts for the cluster")
 			originalReplicaCounts := make(map[string]int)
@@ -2776,30 +2762,30 @@ spec:
 		})
 
 		It("[test_id:6257]should accept valid cert rotation parameters", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			patchKvCertConfig(kv.Name, certConfig)
 		})
 
 		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
 		It("[test_id:6259]should reject CA expires before rotation", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
 		It("[test_id:6260]should reject Cert expires before rotation", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 
 		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
-			kv := copyOriginalKv()
+			kv := copyOriginalKv(originalKv)
 			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
 			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
@@ -3446,4 +3432,18 @@ func deprecatedBeforeAll(fn func()) {
 
 func usesSha(image string) bool {
 	return strings.Contains(image, "@sha256:")
+}
+
+func copyOriginalKv(originalKv *v1.KubeVirt) *v1.KubeVirt {
+	newKv := &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        originalKv.Name,
+			Namespace:   originalKv.Namespace,
+			Labels:      originalKv.ObjectMeta.Labels,
+			Annotations: originalKv.ObjectMeta.Annotations,
+		},
+		Spec: *originalKv.Spec.DeepCopy(),
+	}
+
+	return newKv
 }
