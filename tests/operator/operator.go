@@ -125,7 +125,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		copyOriginalCDI                        func() *cdiv1.CDI
 		copyOriginalKv                         func() *v1.KubeVirt
 		createKv                               func(*v1.KubeVirt)
 		createCdi                              func()
@@ -174,19 +173,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		k8sClient = clientcmd.GetK8sCmdClient()
 
-		copyOriginalCDI = func() *cdiv1.CDI {
-			newCDI := &cdiv1.CDI{
-				Spec: *originalCDI.Spec.DeepCopy(),
-			}
-			newCDI.Name = originalCDI.Name
-			newCDI.Namespace = originalCDI.Namespace
-			newCDI.ObjectMeta.Labels = originalCDI.ObjectMeta.Labels
-			newCDI.ObjectMeta.Annotations = originalCDI.ObjectMeta.Annotations
-
-			return newCDI
-
-		}
-
 		copyOriginalKv = func() *v1.KubeVirt {
 			newKv := &v1.KubeVirt{
 				Spec: *originalKv.Spec.DeepCopy(),
@@ -208,7 +194,17 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		}
 
 		createCdi = func() {
-			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Create(context.Background(), copyOriginalCDI(), metav1.CreateOptions{})
+			newCDI := &cdiv1.CDI{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        originalCDI.Name,
+					Namespace:   originalCDI.Namespace,
+					Labels:      originalCDI.ObjectMeta.Labels,
+					Annotations: originalCDI.ObjectMeta.Annotations,
+				},
+				Spec: *originalCDI.Spec.DeepCopy(),
+			}
+
+			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Create(context.Background(), newCDI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
