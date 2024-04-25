@@ -125,8 +125,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		createKv                               func(*v1.KubeVirt)
-		createCdi                              func()
 		sanityCheckDeploymentsDeleted          func()
 		allPodsAreReady                        func(*v1.KubeVirt)
 		allPodsAreTerminated                   func(*v1.KubeVirt)
@@ -171,38 +169,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		createKv = func(newKv *v1.KubeVirt) {
-			Eventually(func() error {
-				_, err = virtClient.KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		createCdi = func() {
-			newCDI := &cdiv1.CDI{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        originalCDI.Name,
-					Namespace:   originalCDI.Namespace,
-					Labels:      originalCDI.ObjectMeta.Labels,
-					Annotations: originalCDI.ObjectMeta.Annotations,
-				},
-				Spec: *originalCDI.Spec.DeepCopy(),
-			}
-
-			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Create(context.Background(), newCDI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() bool {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
-				if err != nil {
-					return false
-				} else if cdi.Status.Phase != sdkapi.PhaseDeployed {
-					return false
-				}
-				return true
-			}, 240*time.Second, 1*time.Second).Should(BeTrue())
-		}
 
 		sanityCheckDeploymentsDeleted = func() {
 			Eventually(func() int {
@@ -1083,7 +1049,7 @@ spec:
 					Expect(err).ToNot(HaveOccurred())
 				}
 			} else if !cdiExists {
-				createCdi()
+				createCdi(originalCDI)
 			}
 		}
 
@@ -3446,4 +3412,31 @@ func copyOriginalKv(originalKv *v1.KubeVirt) *v1.KubeVirt {
 	}
 
 	return newKv
+}
+
+func createKv(newKv *v1.KubeVirt) {
+	Eventually(func() error {
+		_, err := kubevirt.Client().KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
+		return err
+	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func createCdi(originalCDI *cdiv1.CDI) {
+	newCDI := &cdiv1.CDI{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        originalCDI.Name,
+			Namespace:   originalCDI.Namespace,
+			Labels:      originalCDI.ObjectMeta.Labels,
+			Annotations: originalCDI.ObjectMeta.Annotations,
+		},
+		Spec: *originalCDI.Spec.DeepCopy(),
+	}
+
+	_, err := kubevirt.Client().CdiClient().CdiV1beta1().CDIs().Create(context.Background(), newCDI, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() bool {
+		cdi, err := kubevirt.Client().CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
+		return err == nil && cdi.Status.Phase == sdkapi.PhaseDeployed
+	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(BeTrue())
 }
