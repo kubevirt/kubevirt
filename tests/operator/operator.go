@@ -131,14 +131,10 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		patchKvProductNameVersionAndComponent  func(string, string, string, string)
-		patchKvVersionAndRegistry              func(string, string, string)
-		patchKvVersion                         func(string, string)
 		patchKvNodePlacement                   func(string, string, string, *v1.ComponentConfig)
 		patchKvNodePlacementExpectError        func(string, string, string, *v1.ComponentConfig, string)
 		patchKvInfra                           func(*v1.ComponentConfig, bool, string)
 		patchKvWorkloads                       func(*v1.ComponentConfig, bool, string)
-		patchKvCertConfig                      func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		parseDaemonset                         func(string) string
 		parseImage                             func(string) (string, string, string)
@@ -169,39 +165,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		patchKvProductNameVersionAndComponent = func(name, productName string, productVersion string, productComponent string) {
-
-			format := `{ "op": "replace", "path": "%s", "value": "%s"}`
-			data := []byte("[" + fmt.Sprintf(format, "/spec/productName", productName) + "," +
-				fmt.Sprintf(format, "/spec/productVersion", productVersion) + "," +
-				fmt.Sprintf(format, "/spec/productComponent", productComponent) +
-				"]")
-
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		patchKvVersionAndRegistry = func(name string, version string, registry string) {
-			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, version, registry))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		patchKvVersion = func(name string, version string) {
-			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, version))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
 
 		patchKvNodePlacement = func(name string, path string, verb string, componentConfig *v1.ComponentConfig) {
 			var data []byte
@@ -264,23 +227,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			} else {
 				patchKvNodePlacementExpectError(kv.Name, "workloads", verb, workloads, errMsg)
 			}
-		}
-
-		patchKvCertConfig = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
-			var data []byte
-
-			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
-			certRotationStrategy.SelfSigned = certConfig
-			certConfigData, _ := json.Marshal(certRotationStrategy)
-
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
-			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
-
-				return err
-			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
 		}
 
 		patchKvCertConfigExpectError = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
@@ -1559,7 +1505,8 @@ spec:
 				installTestingManifests(flags.TestingManifestPath)
 			} else {
 				By("Updating KubeVirt object With current tag")
-				patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
+				data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, curVersion, curRegistry))
+				patchKV(kv.Name, data)
 			}
 
 			By("Wait for Updating Condition")
@@ -1941,7 +1888,8 @@ spec:
 			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
-			patchKvVersion(kv.Name, flags.KubeVirtVersionTagAlt)
+			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, flags.KubeVirtVersionTagAlt))
+			patchKV(kv.Name, data)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
@@ -2076,7 +2024,13 @@ spec:
 			kv := copyOriginalKv(originalKv)
 
 			By("Patching kubevirt resource with productName , productVersion  and productComponent")
-			patchKvProductNameVersionAndComponent(kv.Name, productName, productVersion, productComponent)
+			const format = `{ "op": "replace", "path": "%s", "value": "%s"}`
+			data := []byte("[" + fmt.Sprintf(format, "/spec/productName", productName) + "," +
+				fmt.Sprintf(format, "/spec/productVersion", productVersion) + "," +
+				fmt.Sprintf(format, "/spec/productComponent", productComponent) +
+				"]")
+
+			patchKV(kv.Name, data)
 
 			for _, deployment := range []string{"virt-api", "virt-controller"} {
 				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
@@ -2581,7 +2535,14 @@ spec:
 
 		It("[test_id:6257]should accept valid cert rotation parameters", func() {
 			kv := copyOriginalKv(originalKv)
-			patchKvCertConfig(kv.Name, certConfig)
+			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
+			certRotationStrategy.SelfSigned = certConfig
+			certConfigData, err := json.Marshal(certRotationStrategy)
+			Expect(err).ToNot(HaveOccurred())
+
+			data := []byte(fmt.Sprintf(`[{"op": "replace", "path": "/spec/certificateRotateStrategy", "value": %s}]`, string(certConfigData)))
+			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
+			patchKV(kv.Name, data)
 		})
 
 		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
@@ -3422,4 +3383,12 @@ func waitForKvWithTimeout(newKv *v1.KubeVirt, timeoutSeconds int) {
 
 func waitForKv(newKv *v1.KubeVirt) {
 	waitForKvWithTimeout(newKv, 300)
+}
+
+func patchKV(name string, data []byte) {
+	Eventually(func() error {
+		_, err := kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
+
+		return err
+	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
