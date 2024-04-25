@@ -113,6 +113,12 @@ type vmYamlDefinition struct {
 }
 
 var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperator, func() {
+
+	const (
+		virtApiDepName        = "virt-api"
+		virtControllerDepName = "virt-controller"
+	)
+
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string
@@ -125,7 +131,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		sanityCheckDeploymentsDeleted          func()
 		allPodsAreReady                        func(*v1.KubeVirt)
 		allPodsAreTerminated                   func(*v1.KubeVirt)
 		waitForUpdateCondition                 func(*v1.KubeVirt)
@@ -169,19 +174,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		sanityCheckDeploymentsDeleted = func() {
-			Eventually(func() int {
-				deploymentCount := 2
-				for _, deployment := range []string{"virt-api", "virt-controller"} {
-					_, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deployment, metav1.GetOptions{})
-					if err != nil && errors.IsNotFound(err) {
-						deploymentCount--
-					}
-				}
-				return deploymentCount
-			}, 15*time.Second, 1*time.Second).Should(Equal(0))
-		}
 
 		allPodsAreTerminated = func(kv *v1.KubeVirt) {
 			Eventually(func() error {
@@ -1604,7 +1596,8 @@ spec:
 			allPodsAreTerminated(originalKv)
 
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			if updateOperator {
 				By("Deleting testing manifests")
@@ -1883,7 +1876,8 @@ spec:
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			By("ensuring that namespaces can be successfully created and deleted")
 			_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &k8sv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testsuite.NamespaceTestOperator}}, metav1.CreateOptions{})
@@ -1950,7 +1944,8 @@ spec:
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			By("Creating KubeVirt Object")
 			kv := copyOriginalKv(originalKv)
@@ -2063,7 +2058,8 @@ spec:
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			eventuallyDeploymentNotFound(virtApiDepName)
+			eventuallyDeploymentNotFound(virtControllerDepName)
 
 			By("Creating KubeVirt Object")
 			kv := copyOriginalKv(originalKv)
@@ -3439,4 +3435,11 @@ func createCdi(originalCDI *cdiv1.CDI) {
 		cdi, err := kubevirt.Client().CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
 		return err == nil && cdi.Status.Phase == sdkapi.PhaseDeployed
 	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(BeTrue())
+}
+
+func eventuallyDeploymentNotFound(name string) {
+	Eventually(func() error {
+		_, err := kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+		return err
+	}).WithTimeout(15 * time.Second).WithPolling(1 * time.Second).Should(MatchError(errors.IsNotFound, "not found error"))
 }
