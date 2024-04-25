@@ -470,6 +470,8 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=false
 	// +default=false
+	// +kubebuilder:deprecatedversion:warning="tektonPipelinesNamespace field is ignored"
+	// Deprecated: This field is ignored.
 	EnableManagedTenantQuota *bool `json:"enableManagedTenantQuota,omitempty"`
 
 	// TODO update description to also include cpu limits as well, after 4.14

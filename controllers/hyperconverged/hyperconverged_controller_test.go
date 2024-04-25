@@ -255,7 +255,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
 			})
 
-			It("should create all managed resources + MTQ", func() {
+			It("should create all managed resources + ensure MTQ is not being created", func() {
 
 				hco := commontestutils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
@@ -332,7 +332,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).ToNot(HaveOccurred())
 				// Check conditions
 
-				Expect(foundResource.Status.RelatedObjects).To(HaveLen(24))
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(23))
 
 				expectedRef := corev1.ObjectReference{
 					Kind:            "MTQ",
@@ -340,7 +340,7 @@ var _ = Describe("HyperconvergedController", func() {
 					APIVersion:      "mtq.kubevirt.io/v1alpha1",
 					ResourceVersion: "1",
 				}
-				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
+				Expect(foundResource.Status.RelatedObjects).ToNot(ContainElement(expectedRef))
 
 				expectedRef = corev1.ObjectReference{
 					Kind:            "AAQ",

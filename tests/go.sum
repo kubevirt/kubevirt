@@ -1449,8 +1449,6 @@ kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4 h1:fZYvD3/Vnitfkx6IJxjL
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4/go.mod h1:018lASpFYBsYN6XwmA2TIrPCx6e0gviTd/ZNtSitKgc=
 kubevirt.io/kubevirt v1.2.0 h1:d6gua0uoCdruSDetlKkgaY3X+A0HRQkQdqMbO2GO/Og=
 kubevirt.io/kubevirt v1.2.0/go.mod h1:V80QMQ1WTpIVZ0nhjd1F0IO7qeTQb6iCPhEK2qOwmA0=
-kubevirt.io/managed-tenant-quota v1.2.0 h1:AE+rmmVfwzvUrWlBfplr/Mhw60YDDEI3j0/Tyh8nebk=
-kubevirt.io/managed-tenant-quota v1.2.0/go.mod h1:oiTB7mMAOXacveW9rbZYoWieMxKvnF+vEyueEN+KCEQ=
 kubevirt.io/ssp-operator/api v0.20.0 h1:omXGmY7JjOtOkSPUc0YJpc7aIUowS+psXBUp78AN6oQ=
 kubevirt.io/ssp-operator/api v0.20.0/go.mod h1:hI2OfoBcAOxWkMd0rdMqEMyaoQ1a3swDbMSagb7+/jY=
 lukechampine.com/uint128 v1.1.1/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=

@@ -207,10 +207,8 @@ VMI example:
 **Default**: `false`
 
 ### enableManagedTenantQuota Feature Gate
-If set to true, enables the Managed Tenant Quota (MTQ) feature. See more details 
-[here](https://github.com/kubevirt/managed-tenant-quota).
+**Note**: the `enableManagedTenantQuota` feature gate is now deprecated and ignored
 
-**Default**: `false`
 
 ### autoResourceLimits Feature Gate
 Set the `autoResourceLimits` feature gate to true in order to enable KubeVirt to set automatic limits when they are needed.

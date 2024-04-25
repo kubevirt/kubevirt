@@ -468,25 +468,6 @@ var _ = Describe("webhooks validator", func() {
 				Expect(err.Error()).To(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
 			})
 		})
-
-		Context("validate feature gates", func() {
-			var getClusterInfo func() util.ClusterInfo
-			BeforeEach(func() {
-				getClusterInfo = util.GetClusterInfo
-			})
-
-			AfterEach(func() {
-				util.GetClusterInfo = getClusterInfo
-			})
-
-			It("should reject request with EnableManagedTenantQuota=true on SNO", func() {
-				util.GetClusterInfo = func() util.ClusterInfo {
-					return commontestutils.ClusterInfoSNOMock{}
-				}
-				cr.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
-				Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
-			})
-		})
 	})
 
 	Context("validate update validation webhook", func() {
@@ -1100,25 +1081,6 @@ var _ = Describe("webhooks validator", func() {
 				err := updateTLSSecurityProfile("invalidProtocolVersion", []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
-			})
-		})
-
-		Context("validate feature gates", func() {
-			var getClusterInfo func() util.ClusterInfo
-			BeforeEach(func() {
-				getClusterInfo = util.GetClusterInfo
-			})
-
-			AfterEach(func() {
-				util.GetClusterInfo = getClusterInfo
-			})
-
-			It("should reject request with EnableManagedTenantQuota=true on SNO", func() {
-				util.GetClusterInfo = func() util.ClusterInfo {
-					return commontestutils.ClusterInfoSNOMock{}
-				}
-				hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
-				Expect(wh.ValidateCreate(ctx, dryRun, hco)).ToNot(Succeed())
 			})
 		})
 	})

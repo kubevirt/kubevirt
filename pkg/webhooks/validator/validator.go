@@ -130,10 +130,6 @@ func (wh *WebhookHandler) ValidateCreate(_ context.Context, dryrun bool, hc *v1b
 		return err
 	}
 
-	if err := wh.validateFeatureGates(hc); err != nil {
-		return err
-	}
-
 	if _, err := operands.NewKubeVirt(hc); err != nil {
 		return err
 	}
@@ -194,10 +190,6 @@ func (wh *WebhookHandler) ValidateUpdate(ctx context.Context, dryrun bool, reque
 	}
 
 	if err := wh.validateMediatedDeviceTypes(requested); err != nil {
-		return err
-	}
-
-	if err := wh.validateFeatureGates(requested); err != nil {
 		return err
 	}
 
@@ -399,16 +391,6 @@ func (wh *WebhookHandler) validateMediatedDeviceTypes(hc *v1beta1.HyperConverged
 			if len(nmdc.MediatedDevicesTypes) > 0 && len(nmdc.MediatedDeviceTypes) > 0 && !slices.Equal(nmdc.MediatedDevicesTypes, nmdc.MediatedDeviceTypes) { //nolint SA1019
 				return fmt.Errorf("mediatedDevicesTypes is deprecated, please use mediatedDeviceTypes instead")
 			}
-		}
-	}
-	return nil
-}
-
-func (wh *WebhookHandler) validateFeatureGates(hc *v1beta1.HyperConverged) error {
-	// reject the EnableManagedTenantQuota on a single node cluster
-	if !hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() {
-		if hc.Spec.FeatureGates.EnableManagedTenantQuota != nil && *hc.Spec.FeatureGates.EnableManagedTenantQuota {
-			return fmt.Errorf("the EnableManagedTenantQuota feature gate is only supported on highly available clusters")
 		}
 	}
 	return nil

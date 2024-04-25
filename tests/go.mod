@@ -43,7 +43,6 @@ require (
 	k8s.io/apiserver v0.29.3
 	kubevirt.io/application-aware-quota v1.1.9
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
-	kubevirt.io/managed-tenant-quota v1.2.0
 	kubevirt.io/ssp-operator/api v0.20.0
 )
 

@@ -305,7 +305,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"enableManagedTenantQuota": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Enable the Managed Tenant Quota operator (MTQ) on the cluster. MTQ streamlines the VirtualMachines migration process in namespaces where resource quotas are applied. Note: this feature is in Developer Preview.",
+							Description: "Enable the Managed Tenant Quota operator (MTQ) on the cluster. MTQ streamlines the VirtualMachines migration process in namespaces where resource quotas are applied. Note: this feature is in Developer Preview. Deprecated: This field is ignored.",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
