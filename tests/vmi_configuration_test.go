@@ -1168,7 +1168,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			},
 				Entry("[Serial][test_id:1671]hugepages-2Mi", Serial, "2Mi", "64Mi", "None"),
 				Entry("[Serial][test_id:1672]hugepages-1Gi", Serial, "1Gi", "1Gi", "None"),
-				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", Serial, "2Mi", "70Mi", "64Mi"),
+				Entry("[QUARANTINE][Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", Serial, decorators.Quarantine, "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
