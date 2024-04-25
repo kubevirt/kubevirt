@@ -1255,7 +1255,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libstorage.DeleteDataVolume(&dv)
 			})
 
-			DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
+			DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc console.LoginToFunction) {
 				By("Create a VMI that will run root(default)")
 				vmi := createVMI()
 
@@ -1343,7 +1343,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 			})
 
-			DescribeTable("should migrate nonroot implementation to root", func(createVMI func() *v1.VirtualMachineInstance, loginFunc func(*v1.VirtualMachineInstance) error) {
+			DescribeTable("should migrate nonroot implementation to root", func(createVMI func() *v1.VirtualMachineInstance, loginFunc console.LoginToFunction) {
 				By("Create a VMI that will run root(default)")
 				vmi := createVMI()
 				// force VMI on privileged namespace since we will be migrating to a root VMI
