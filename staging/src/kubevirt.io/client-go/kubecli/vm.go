@@ -27,10 +27,10 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
 const (
@@ -40,14 +40,16 @@ const (
 
 func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
 	return &vm{
-		restClient: k.restClient,
-		config:     k.config,
-		namespace:  namespace,
-		resource:   "virtualmachines",
+		VirtualMachineInterface: k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachines(namespace),
+		restClient:              k.restClient,
+		config:                  k.config,
+		namespace:               namespace,
+		resource:                "virtualmachines",
 	}
 }
 
 type vm struct {
+	kvcorev1.VirtualMachineInterface
 	restClient *rest.RESTClient
 	config     *rest.Config
 	namespace  string
@@ -56,14 +58,7 @@ type vm struct {
 
 // Create new VirtualMachine in the cluster to specified namespace
 func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	newVm := &v1.VirtualMachine{}
-	err := v.restClient.Post().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		Body(vm).
-		Do(ctx).
-		Into(newVm)
-
+	newVm, err := v.VirtualMachineInterface.Create(ctx, vm, k8smetav1.CreateOptions{})
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return newVm, err
@@ -71,15 +66,11 @@ func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMach
 
 // Get the Virtual machine from the cluster by its name and namespace
 func (v *vm) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
-	newVm := &v1.VirtualMachine{}
-	err := v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		Name(name).
-		VersionedParams(options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(newVm)
-
+	opts := k8smetav1.GetOptions{}
+	if options != nil {
+		opts = *options
+	}
+	newVm, err := v.VirtualMachineInterface.Get(ctx, name, opts)
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return newVm, err
@@ -100,15 +91,7 @@ func (v *vm) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualM
 
 // Update the VirtualMachine instance in the cluster in given namespace
 func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	updatedVm := &v1.VirtualMachine{}
-	err := v.restClient.Put().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		Name(vm.Name).
-		Body(vm).
-		Do(ctx).
-		Into(updatedVm)
-
+	updatedVm, err := v.VirtualMachineInterface.Update(ctx, vm, k8smetav1.UpdateOptions{})
 	updatedVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return updatedVm, err
@@ -116,27 +99,20 @@ func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMach
 
 // Delete the defined VirtualMachine in the cluster in defined namespace
 func (v *vm) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
-	err := v.restClient.Delete().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		Name(name).
-		Body(options).
-		Do(ctx).
-		Error()
-
-	return err
+	opts := k8smetav1.DeleteOptions{}
+	if options != nil {
+		opts = *options
+	}
+	return v.VirtualMachineInterface.Delete(ctx, name, opts)
 }
 
 // List all VirtualMachines in given namespace
 func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
-	newVmList := &v1.VirtualMachineList{}
-	err := v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		VersionedParams(options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(newVmList)
-
+	opts := k8smetav1.ListOptions{}
+	if options != nil {
+		opts = *options
+	}
+	newVmList, err := v.VirtualMachineInterface.List(ctx, opts)
 	for i := range newVmList.Items {
 		newVmList.Items[i].SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	}
@@ -145,43 +121,19 @@ func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.Virt
 }
 
 func (v *vm) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
-	err = v.restClient.Patch(pt).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource(subresources...).
-		VersionedParams(patchOptions, scheme.ParameterCodec).
-		Name(name).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return result, err
+	opts := k8smetav1.PatchOptions{}
+	if patchOptions != nil {
+		opts = *patchOptions
+	}
+	return v.VirtualMachineInterface.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
 func (v *vm) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
-	err = v.restClient.Patch(pt).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource("status").
-		VersionedParams(patchOptions, scheme.ParameterCodec).
-		Name(name).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
+	return v.Patch(ctx, name, pt, data, patchOptions, "status")
 }
 
 func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result = &v1.VirtualMachine{}
-	err = v.restClient.Put().
-		Name(vmi.ObjectMeta.Name).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource("status").
-		Body(vmi).
-		Do(ctx).
-		Into(result)
+	result, err = v.VirtualMachineInterface.UpdateStatus(ctx, vmi, k8smetav1.UpdateOptions{})
 	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
 }
