@@ -131,7 +131,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		waitForUpdateCondition                 func(*v1.KubeVirt)
 		waitForKvWithTimeout                   func(*v1.KubeVirt, int)
 		waitForKv                              func(*v1.KubeVirt)
 		patchKvProductNameVersionAndComponent  func(string, string, string, string)
@@ -172,21 +171,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		waitForUpdateCondition = func(kv *v1.KubeVirt) {
-			Eventually(func() *v1.KubeVirt {
-				kv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				return kv
-			}, 120*time.Second, 1*time.Second).Should(
-				SatisfyAll(
-					matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
-					matcher.HaveConditionTrue(v1.KubeVirtConditionProgressing),
-					matcher.HaveConditionTrue(v1.KubeVirtConditionDegraded),
-				))
-
-		}
 
 		waitForKvWithTimeout = func(newKv *v1.KubeVirt, timeoutSeconds int) {
 			Eventually(func() error {
@@ -3425,4 +3409,19 @@ func expectVirtOperatorPodsToTerminate(kv *v1.KubeVirt) {
 			g.Expect(pod.Status.Phase).To(BeElementOf(k8sv1.PodFailed, k8sv1.PodSucceeded), "waiting for pod %s with phase %s to reach final phase", pod.Name, pod.Status.Phase)
 		}
 	}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func waitForUpdateCondition(kv *v1.KubeVirt) {
+	Eventually(func(g Gomega) *v1.KubeVirt {
+		foundKV, err := kubevirt.Client().KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		return foundKV
+	}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(
+		SatisfyAll(
+			matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
+			matcher.HaveConditionTrue(v1.KubeVirtConditionProgressing),
+			matcher.HaveConditionTrue(v1.KubeVirtConditionDegraded),
+		),
+	)
 }
