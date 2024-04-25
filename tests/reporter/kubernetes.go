@@ -1092,7 +1092,8 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 
 	response, err := virtCli.RestClient().Get().RequestURI(requestURI).Do(context.Background()).Raw()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "dump %s: %v\n", entityName, err)
+		// If a cluster doesn't support network-attachment-definitions (the only thing this function is used for),
+		// logging an error here would spam the logs.
 		return
 	}
 
