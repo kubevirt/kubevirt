@@ -140,7 +140,7 @@
       }
     },
     {
-      "semverRange": "<=1.11.0",
+      "semverRange": "<=1.10.0",
       "groupVersionKind": {
         "group": "apiextensions.k8s.io",
         "version": "v1",
