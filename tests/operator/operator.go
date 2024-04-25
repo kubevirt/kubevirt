@@ -131,7 +131,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		allPodsAreReady                        func(*v1.KubeVirt)
 		allPodsAreTerminated                   func(*v1.KubeVirt)
 		waitForUpdateCondition                 func(*v1.KubeVirt)
 		waitForKvWithTimeout                   func(*v1.KubeVirt, int)
@@ -194,59 +193,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				}
 				return nil
 			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
-
-		allPodsAreReady = func(kv *v1.KubeVirt) {
-			Eventually(func() error {
-
-				curKv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if curKv.Status.TargetDeploymentID != curKv.Status.ObservedDeploymentID {
-					return fmt.Errorf("Target and obeserved id don't match")
-				}
-
-				podsReadyAndOwned := 0
-
-				pods, err := virtClient.CoreV1().Pods(curKv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
-				if err != nil {
-					return err
-				}
-
-				for _, pod := range pods.Items {
-					if !util.IsManagedByOperator(pod.Labels) {
-						continue
-					}
-
-					if pod.Status.Phase != k8sv1.PodRunning {
-						return fmt.Errorf("Waiting for pod %s with phase %s to reach Running phase", pod.Name, pod.Status.Phase)
-					}
-
-					for _, containerStatus := range pod.Status.ContainerStatuses {
-						if !containerStatus.Ready {
-							return fmt.Errorf("Waiting for pod %s to have all containers in Ready state", pod.Name)
-						}
-					}
-
-					id, ok := pod.Annotations[v1.InstallStrategyIdentifierAnnotation]
-					if !ok {
-						return fmt.Errorf("Pod %s is owned by operator but has no id annotation", pod.Name)
-					}
-
-					expectedID := curKv.Status.ObservedDeploymentID
-					if id != expectedID {
-						return fmt.Errorf("Pod %s is of version %s when we expected id %s", pod.Name, id, expectedID)
-					}
-					podsReadyAndOwned++
-				}
-
-				// this just sanity checks that at least one pod was found and verified.
-				// 0 would indicate our labeling was incorrect.
-				Expect(podsReadyAndOwned).ToNot(Equal(0))
-
-				return nil
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		waitForUpdateCondition = func(kv *v1.KubeVirt) {
@@ -1005,7 +951,7 @@ spec:
 
 		By("Waiting for original KV to stabilize")
 		waitForKvWithTimeout(originalKv, 420)
-		allPodsAreReady(originalKv)
+		allKvInfraPodsAreReady(originalKv)
 
 		// repost original CDI object if it doesn't still exist
 		// in order to restore original environment
@@ -1585,7 +1531,7 @@ spec:
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
 			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			// Delete current KubeVirt install so we can install previous release.
@@ -1632,7 +1578,7 @@ spec:
 			waitForKvWithTimeout(kv, 420)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 			sanityCheckDeploymentsExist()
 
 			// kubectl API discovery cache only refreshes every 10 minutes
@@ -1713,7 +1659,7 @@ spec:
 			waitForKvWithTimeout(kv, 420)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
@@ -1860,7 +1806,7 @@ spec:
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
 		It("[test_id:3146]should be able to delete and re-create kubevirt install", decorators.Upgrade, func() {
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			// This ensures that we can remove kubevirt while workloads are running
@@ -1898,7 +1844,7 @@ spec:
 			waitForKv(originalKv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
@@ -1906,7 +1852,7 @@ spec:
 
 		Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist", func() {
 			It("[test_id:3683]should be blocked if a workload exists", func() {
-				allPodsAreReady(originalKv)
+				allKvInfraPodsAreReady(originalKv)
 				sanityCheckDeploymentsExist()
 
 				By("setting the right uninstall strategy")
@@ -1936,7 +1882,7 @@ spec:
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
@@ -1960,7 +1906,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
@@ -1978,7 +1924,7 @@ spec:
 
 			kv := copyOriginalKv(originalKv)
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			_, _, _, oldImageName, _ := parseOperatorImage()
@@ -1995,7 +1941,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			By("Verifying deployments have correct image name")
 			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
@@ -2036,7 +1982,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Restored to original version")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 		})
 
 		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
@@ -2050,7 +1996,7 @@ spec:
 			}
 			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
@@ -2075,7 +2021,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
@@ -2094,7 +2040,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			By("Verifying all non-migratable vmi workloads are shutdown")
 			verifyVMIsEvicted(vmisNonMigratable)
@@ -2121,7 +2067,7 @@ spec:
 
 			kv := copyOriginalKv(originalKv)
 
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			By("Update Virt-Operator using  Alt Tag")
@@ -2135,7 +2081,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 
 			// by using the tag, we also test if resetting (in AfterEach) from tag to sha for the same "version" works
 			By("Restore Operator Version using original tag. ")
@@ -2148,7 +2094,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Restored to original version")
-			allPodsAreReady(kv)
+			allKvInfraPodsAreReady(kv)
 		})
 
 		// TODO: not Serial
@@ -2214,7 +2160,7 @@ spec:
 			productName := "kubevirt-test"
 			productVersion := "0.0.0"
 			productComponent := "kubevirt-component"
-			allPodsAreReady(originalKv)
+			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
 			kv := copyOriginalKv(originalKv)
@@ -2486,7 +2432,7 @@ spec:
 					return nodeSelectorExistInDeployment(virtClient, deploymentName, fakeLabelKey, fakeLabelValue)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
 				//The reason we check this is that sometime it takes a while until the pod is created and
-				//if the pod is created after the call to allPodsAreReady in the AfterEach scope
+				//if the pod is created after the call to allKvInfraPodsAreReady in the AfterEach scope
 				//than we will run the next test with side effect of pending pods of virt-api and virt-controller
 				//and increase flakiness
 				errMsg = "the deployment should try to rollup the pods with the new selector and fail to schedule pods because the nodes don't have the fake label"
@@ -3442,4 +3388,52 @@ func eventuallyDeploymentNotFound(name string) {
 		_, err := kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 		return err
 	}).WithTimeout(15 * time.Second).WithPolling(1 * time.Second).Should(MatchError(errors.IsNotFound, "not found error"))
+}
+
+func allKvInfraPodsAreReady(kv *v1.KubeVirt) {
+	Eventually(func(g Gomega) error {
+
+		curKv, err := kubevirt.Client().KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if curKv.Status.TargetDeploymentID != curKv.Status.ObservedDeploymentID {
+			return fmt.Errorf("target and obeserved id don't match")
+		}
+
+		foundReadyAndOwnedPod := false
+		pods, err := kubevirt.Client().CoreV1().Pods(curKv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by in (virt-operator, kubevirt-operator)"})
+		if err != nil {
+			return err
+		}
+
+		for _, pod := range pods.Items {
+			if pod.Status.Phase != k8sv1.PodRunning {
+				return fmt.Errorf("waiting for pod %s with phase %s to reach Running phase", pod.Name, pod.Status.Phase)
+			}
+
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if !containerStatus.Ready {
+					return fmt.Errorf("waiting for pod %s to have all containers in Ready state", pod.Name)
+				}
+			}
+
+			id, ok := pod.Annotations[v1.InstallStrategyIdentifierAnnotation]
+			if !ok {
+				return fmt.Errorf("pod %s is owned by operator but has no id annotation", pod.Name)
+			}
+
+			expectedID := curKv.Status.ObservedDeploymentID
+			if id != expectedID {
+				return fmt.Errorf("pod %s is of version %s when we expected id %s", pod.Name, id, expectedID)
+			}
+			foundReadyAndOwnedPod = true
+		}
+
+		// this just sanity checks that at least one pod was found and verified.
+		// false would indicate our labeling was incorrect.
+		g.Expect(foundReadyAndOwnedPod).To(BeTrue(), "no ready and owned pod was found. Check if the labeling was incorrect")
+
+		return nil
+	}).WithTimeout(300 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
