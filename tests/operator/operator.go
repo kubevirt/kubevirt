@@ -131,7 +131,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		allPodsAreTerminated                   func(*v1.KubeVirt)
 		waitForUpdateCondition                 func(*v1.KubeVirt)
 		waitForKvWithTimeout                   func(*v1.KubeVirt, int)
 		waitForKv                              func(*v1.KubeVirt)
@@ -173,27 +172,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		allPodsAreTerminated = func(kv *v1.KubeVirt) {
-			Eventually(func() error {
-				pods, err := virtClient.CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
-				if err != nil {
-					return err
-				}
-
-				for _, pod := range pods.Items {
-					manager, managed := pod.Labels[v1.ManagedByLabel]
-					if !managed || manager != v1.ManagedByLabelOperatorValue {
-						continue
-					}
-
-					if pod.Status.Phase != k8sv1.PodFailed && pod.Status.Phase != k8sv1.PodSucceeded {
-						return fmt.Errorf("Waiting for pod %s with phase %s to reach final phase", pod.Name, pod.Status.Phase)
-					}
-				}
-				return nil
-			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		}
 
 		waitForUpdateCondition = func(kv *v1.KubeVirt) {
 			Eventually(func() *v1.KubeVirt {
@@ -1539,7 +1517,7 @@ spec:
 			deleteAllKvAndWait(false)
 
 			By("Verifying all infra pods have terminated")
-			allPodsAreTerminated(originalKv)
+			expectVirtOperatorPodsToTerminate(originalKv)
 
 			By("Sanity Checking Deployments infrastructure is deleted")
 			eventuallyDeploymentNotFound(virtApiDepName)
@@ -3436,4 +3414,15 @@ func allKvInfraPodsAreReady(kv *v1.KubeVirt) {
 
 		return nil
 	}).WithTimeout(300 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func expectVirtOperatorPodsToTerminate(kv *v1.KubeVirt) {
+	Eventually(func(g Gomega) {
+		pods, err := kubevirt.Client().CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by=virt-operator"})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		for _, pod := range pods.Items {
+			g.Expect(pod.Status.Phase).To(BeElementOf(k8sv1.PodFailed, k8sv1.PodSucceeded), "waiting for pod %s with phase %s to reach final phase", pod.Name, pod.Status.Phase)
+		}
+	}).WithTimeout(120 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
