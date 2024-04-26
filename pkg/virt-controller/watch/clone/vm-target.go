@@ -24,6 +24,8 @@ import (
 	"regexp"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	"kubevirt.io/client-go/log"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -32,7 +34,10 @@ import (
 
 func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.VirtualMachineCloneSpec) (patches []string) {
 
-	macAddressPatches := generateMacAddressPatches(source.Spec.Template.Spec.Domain.Devices.Interfaces, cloneSpec.NewMacAddresses)
+	macAddressPatches, err := generateMacAddressPatches(source.Spec.Template.Spec.Domain.Devices.Interfaces, cloneSpec.NewMacAddresses)
+	if err != nil {
+		log.Log.Errorf("failed to generate macAddress patches: %v", err)
+	}
 	patches = append(patches, macAddressPatches...)
 
 	smBiosPatches := generateSmbiosSerialPatches(source.Spec.Template.Spec.Domain.Firmware, cloneSpec.NewSMBiosSerial)
@@ -57,18 +62,27 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.Virt
 	return patches
 }
 
-func generateMacAddressPatches(interfaces []k6tv1.Interface, newMacAddresses map[string]string) (patches []string) {
-	const macAddressPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/%d/macAddress", "value": "%s"}`
-
+func generateMacAddressPatches(interfaces []k6tv1.Interface, newMacAddresses map[string]string) (patches []string, err error) {
+	// If the newMacAddresses map is nil, no patches would be generated.
+	if newMacAddresses == nil {
+		return
+	}
+	patchSet := patch.New()
 	for idx, iface := range interfaces {
 		// If a new mac address is not specified for the current interface an empty mac address would be assigned.
 		// This is OK for clusters that have Kube Mac Pool enabled. For clusters that don't have KMP it is the users'
 		// responsibility to assign new mac address to every network interface.
 		newMac := newMacAddresses[iface.Name]
-		patches = append(patches, fmt.Sprintf(macAddressPatchPattern, idx, newMac))
+		patchSet.AddOption(
+			patch.WithAdd(fmt.Sprintf("/spec/template/spec/domain/devices/interfaces/%d/macAddress", idx), newMac),
+		)
+	}
+	payload, err := patchSet.GeneratePayload()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate macAddress patch payload: %w", err)
 	}
 
-	return patches
+	return []string{strings.Trim(string(payload), "[]")}, nil
 }
 
 func generateSmbiosSerialPatches(firmware *k6tv1.Firmware, newSMBiosSerial *string) (patches []string) {

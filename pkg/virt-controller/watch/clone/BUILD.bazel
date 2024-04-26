@@ -11,6 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/clone",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/util/status:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",
