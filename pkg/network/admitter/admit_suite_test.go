@@ -28,3 +28,31 @@ import (
 func TestAdmitter(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
+
+type stubClusterConfigChecker struct {
+	slirpEnabled                 bool
+	bridgeBindingOnPodNetEnabled bool
+	macvtapFeatureGateEnabled    bool
+	passtFeatureGateEnabled      bool
+	bindingPluginFGEnabled       bool
+}
+
+func (s stubClusterConfigChecker) IsSlirpInterfaceEnabled() bool {
+	return s.slirpEnabled
+}
+
+func (s stubClusterConfigChecker) IsBridgeInterfaceOnPodNetworkEnabled() bool {
+	return s.bridgeBindingOnPodNetEnabled
+}
+
+func (s stubClusterConfigChecker) MacvtapEnabled() bool {
+	return s.macvtapFeatureGateEnabled
+}
+
+func (s stubClusterConfigChecker) PasstEnabled() bool {
+	return s.passtFeatureGateEnabled
+}
+
+func (s stubClusterConfigChecker) NetworkBindingPlugingsEnabled() bool {
+	return s.bindingPluginFGEnabled
+}

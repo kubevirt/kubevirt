@@ -30,6 +30,10 @@ import (
 
 type clusterConfigChecker interface {
 	IsSlirpInterfaceEnabled() bool
+	IsBridgeInterfaceOnPodNetworkEnabled() bool
+	MacvtapEnabled() bool
+	PasstEnabled() bool
+	NetworkBindingPlugingsEnabled() bool
 }
 
 type Validator struct {
@@ -56,8 +60,13 @@ func (v Validator) Validate() []metav1.StatusCause {
 	causes = append(causes, validateSingleNetworkSource(v.field, v.vmiSpec)...)
 	causes = append(causes, validateMultusNetworkSource(v.field, v.vmiSpec)...)
 	causes = append(causes, validateInterfaceStateValue(v.field, v.vmiSpec)...)
-	causes = append(causes, validateInterfaceBinding(v.field, v.vmiSpec)...)
+	causes = append(causes, validateInterfaceBinding(v.field, v.vmiSpec, v.configChecker)...)
 	causes = append(causes, validateSlirpBinding(v.field, v.vmiSpec, v.configChecker)...)
+	causes = append(causes, validateNetworkNameUnique(v.field, v.vmiSpec)...)
+	causes = append(causes, validateNetworksAssignedToInterfaces(v.field, v.vmiSpec)...)
+	causes = append(causes, validateInterfaceNameUnique(v.field, v.vmiSpec)...)
+	causes = append(causes, validateInterfacesAssignedToNetworks(v.field, v.vmiSpec)...)
+	causes = append(causes, validateInterfacesFields(v.field, v.vmiSpec)...)
 
 	return causes
 }

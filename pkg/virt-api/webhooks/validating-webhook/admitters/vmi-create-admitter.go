@@ -45,8 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -73,7 +71,6 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, v1.VirtIO: nil}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
@@ -171,11 +168,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
-	networkInterfaceMap, newCauses := validateNetworksMatchInterfaces(field, spec, config)
-	causes = append(causes, newCauses...)
-
-	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
-
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
@@ -253,122 +245,6 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (networkInterfaceMap map[string]struct{}, causes []metav1.StatusCause) {
-	networkNameMap := vmispec.IndexNetworkSpecByName(spec.Networks)
-
-	// Make sure interfaces and networks are 1to1 related
-	networkInterfaceMap = make(map[string]struct{})
-
-	// Make sure the port name is unique across all the interfaces
-	portForwardMap := make(map[string]struct{})
-
-	// Validate that each interface has a matching network
-	numOfInterfaces := len(spec.Domain.Devices.Interfaces)
-	for idx, iface := range spec.Domain.Devices.Interfaces {
-
-		networkData, networkExists := networkNameMap[iface.Name]
-
-		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, &networkData, config, numOfInterfaces)...)
-
-		causes = append(causes, validateInterfaceNameUnique(field, networkInterfaceMap, iface, idx)...)
-		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
-
-		networkInterfaceMap[iface.Name] = struct{}{}
-
-		causes = append(causes, validatePortConfiguration(field, networkExists, &networkData, iface, idx, portForwardMap)...)
-		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
-		causes = append(causes, validateMacAddress(field, iface, idx)...)
-		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
-		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
-		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
-	}
-	return networkInterfaceMap, causes
-}
-
-func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig, numOfInterfaces int) (causes []metav1.StatusCause) {
-	if !networkExists {
-		causes = appendStatusCauseForNetworkNotFound(field, causes, idx, iface)
-	} else if iface.Masquerade != nil && networkData.Pod == nil {
-		causes = appendStatusCauseForMasqueradeWithoutPodNetwork(field, causes, idx)
-	} else if iface.Masquerade != nil && link.IsReserved(iface.MacAddress) {
-		causes = appendStatusCauseForInvalidMasqueradeMacAddress(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
-		causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
-		causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
-		causes = appendStatusCauseForMacvtapOnlyAllowedWithMultus(field, causes, idx)
-	} else if iface.InterfaceBindingMethod.Passt != nil && !config.PasstEnabled() {
-		causes = appendStatusCauseForPasstFeatureGateNotEnabled(field, causes, idx)
-	} else if iface.Passt != nil && networkData.Pod == nil {
-		causes = appendStatusCauseForPasstWithoutPodNetwork(field, causes, idx)
-	} else if iface.Passt != nil && numOfInterfaces > 1 {
-		causes = appendStatusCauseForPasstWithMultipleInterfaces(field, causes, idx)
-	} else if iface.Binding != nil && !config.NetworkBindingPlugingsEnabled() {
-		causes = appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field, causes, idx)
-	}
-	return causes
-}
-
-func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if iface.DHCPOptions != nil {
-		privateOptions := iface.DHCPOptions.PrivateOptions
-		if countUniqueDHCPPrivateOptions(privateOptions) < len(privateOptions) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Found Duplicates: you have provided duplicate DHCPPrivateOptions",
-				Field:   field.String(),
-			})
-		}
-
-		for _, DHCPPrivateOption := range privateOptions {
-			causes = append(causes, validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption)...)
-		}
-	}
-	return causes
-}
-
-func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if iface.DHCPOptions != nil {
-		for index, ip := range iface.DHCPOptions.NTPServers {
-			if net.ParseIP(ip).To4() == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "NTP servers must be a list of valid IPv4 addresses.",
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("dhcpOptions", "ntpServers").Index(index).String(),
-				})
-			}
-		}
-	}
-	return causes
-}
-
-func validateDHCPPrivateOptionsWithinRange(field *k8sfield.Path, DHCPPrivateOption v1.DHCPPrivateOptions) (causes []metav1.StatusCause) {
-	if !(DHCPPrivateOption.Option >= 224 && DHCPPrivateOption.Option <= 254) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
-			Field:   field.String(),
-		})
-	}
-	return causes
-}
-
-func validateInterfacePciAddress(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if iface.PciAddress != "" {
-		_, err := hwutil.ParsePciAddress(iface.PciAddress)
-		if err != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("interface %s has malformed PCI address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.PciAddress),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("pciAddress").String(),
-			})
-		}
-	}
-	return causes
-}
-
 func validateInterfaceBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, bootOrderMap map[uint]bool) (causes []metav1.StatusCause) {
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		if iface.BootOrder != nil {
@@ -391,247 +267,6 @@ func validateInterfaceBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineIns
 				}
 				bootOrderMap[order] = true
 			}
-		}
-	}
-	return causes
-}
-
-func validateMacAddress(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if iface.MacAddress != "" {
-		mac, err := net.ParseMAC(iface.MacAddress)
-		if err != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-			})
-		}
-		if len(mac) > 6 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("interface %s has MAC address (%s) that is too long.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-			})
-		}
-	}
-	return causes
-}
-
-func validateInterfaceModel(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if iface.Model != "" {
-		if _, exists := validInterfaceModels[iface.Model]; !exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
-			})
-		}
-	}
-	return causes
-}
-
-func validatePortConfiguration(field *k8sfield.Path, networkExists bool, networkData *v1.Network, iface v1.Interface, idx int, portForwardMap map[string]struct{}) (causes []metav1.StatusCause) {
-
-	// Check only ports configured on interfaces connected to a pod network
-	if networkExists && networkData.Pod != nil && iface.Ports != nil {
-		for portIdx, forwardPort := range iface.Ports {
-			causes = append(causes, validateForwardPortNonZero(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortInRange(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortProtocol(field, forwardPort, idx, portIdx)...)
-			causes = append(causes, validateForwardPortName(field, forwardPort, portForwardMap, idx, portIdx)...)
-		}
-	}
-	return causes
-}
-
-func validateForwardPortName(field *k8sfield.Path, forwardPort v1.Port, portForwardMap map[string]struct{}, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Name != "" {
-		if _, ok := portForwardMap[forwardPort.Name]; ok {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-			})
-		}
-
-		if msgs := validation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-			})
-		}
-
-		portForwardMap[forwardPort.Name] = struct{}{}
-	}
-	return causes
-}
-
-func validateForwardPortProtocol(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Protocol != "" {
-		if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Unknown protocol, only TCP or UDP allowed",
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
-			})
-		}
-	} else {
-		forwardPort.Protocol = "TCP"
-	}
-	return causes
-}
-
-func validateForwardPortInRange(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Port < 0 || forwardPort.Port > 65536 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Port field must be in range 0 < x < 65536.",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-		})
-	}
-	return causes
-}
-
-func validateForwardPortNonZero(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
-	if forwardPort.Port == 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: "Port field is mandatory.",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-		})
-	}
-	return causes
-}
-
-func appendStatusCauseForMacvtapOnlyAllowedWithMultus(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Macvtap interface only implemented with Multus network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForMacvtapFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Macvtap feature gate is not enabled",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForBridgeNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForMasqueradeWithoutPodNetwork(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Masquerade interface only implemented with pod network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForNetworkNotFound(field *k8sfield.Path, causes []metav1.StatusCause, idx int, iface v1.Interface) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForInvalidMasqueradeMacAddress(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "The requested MAC address is reserved for the in-pod bridge. Please choose another one.",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForPasstFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Passt feature gate is not enabled",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func appendStatusCauseForPasstWithoutPodNetwork(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Passt interface only implemented with pod network",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-}
-
-func appendStatusCauseForPasstWithMultipleInterfaces(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	return append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Passt interface is only supported as the single interface of the VMI",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-}
-
-func appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: "Binding plugins feature gate is not enabled",
-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-	})
-	return causes
-}
-
-func validateInterfaceNameFormat(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	isValid := regexp.MustCompile(`^[A-Za-z0-9-_]+$`).MatchString
-	if !isValid(iface.Name) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		})
-	}
-	return causes
-}
-
-func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[string]struct{}, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
-	if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueDuplicate,
-			Message: "Only one interface can be connected to one specific network",
-			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		})
-	}
-	return causes
-}
-
-func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkInterfaceMap map[string]struct{}) (causes []metav1.StatusCause) {
-	networkDuplicates := map[string]struct{}{}
-	for i, network := range spec.Networks {
-		if _, exists := networkDuplicates[network.Name]; exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("Network with name %q already exists, every network must have a unique name", network.Name),
-				Field:   field.Child("networks").Index(i).Child("name").String(),
-			})
-		}
-		networkDuplicates[network.Name] = struct{}{}
-		if _, exists := networkInterfaceMap[network.Name]; !exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("networks").Index(i).Child("name").String(), network.Name),
-				Field:   field.Child("networks").Index(i).Child("name").String(),
-			})
 		}
 	}
 	return causes
@@ -1552,14 +1187,6 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	}
 
 	return causes
-}
-
-func countUniqueDHCPPrivateOptions(privateOptions []v1.DHCPPrivateOptions) int {
-	optionSet := map[int]struct{}{}
-	for _, DHCPPrivateOption := range privateOptions {
-		optionSet[DHCPPrivateOption.Option] = struct{}{}
-	}
-	return len(optionSet)
 }
 
 // Copied from kubernetes/pkg/apis/core/validation/validation.go

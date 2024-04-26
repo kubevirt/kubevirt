@@ -31,8 +31,6 @@ go_library(
         "//pkg/instancetype:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
         "//pkg/network/admitter:go_default_library",
-        "//pkg/network/link:go_default_library",
-        "//pkg/network/vmispec:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/snapshot:go_default_library",

@@ -42,7 +42,9 @@ var _ = Describe("Validating network binding combinations", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			Binding:                &v1.PluginBinding{Name: "boo"},
 		}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true, bindingPluginFGEnabled: true}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -57,7 +59,9 @@ var _ = Describe("Validating network binding combinations", func() {
 			Name:    "foo",
 			Binding: &v1.PluginBinding{Name: "boo"},
 		}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		clusterConfig := stubClusterConfigChecker{bindingPluginFGEnabled: true}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 
@@ -67,7 +71,87 @@ var _ = Describe("Validating network binding combinations", func() {
 			Name:                   "foo",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 		}}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubSlirpClusterConfigChecker{})
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Validating core binding", func() {
+	It("should reject a masquerade interface on a network different than pod", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			Ports:                  []v1.Port{{Name: "test"}},
+		}}
+		spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
+		}}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "Masquerade interface only implemented with pod network",
+			Field:   "fake.domain.devices.interfaces[0].name",
+		}))
+	})
+
+	It("should reject a masquerade interface with a specified reserved MAC address", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			MacAddress:             "02:00:00:00:00:00",
+		}}
+		spec.Networks = []v1.Network{
+			{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "The requested MAC address is reserved for the in-pod bridge. Please choose another one.",
+			Field:   "fake.domain.devices.interfaces[0].macAddress",
+		}))
+	})
+
+	It("should reject a bridge interface on a pod network when it is not permitted", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
+			Field:   "fake.domain.devices.interfaces[0].name",
+		}))
+	})
+
+	It("should reject networks with a binding plugin interface when network-binding-plugin feature gate disabled", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:    "default",
+			Binding: &v1.PluginBinding{Name: "testplugin"},
+		}}
+		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+
+		Expect(causes).To(ConsistOf(metav1.StatusCause{
+			Type:    "FieldValueInvalid",
+			Message: "Binding plugins feature gate is not enabled",
+			Field:   "fake.domain.devices.interfaces[0].name",
+		}))
 	})
 })
