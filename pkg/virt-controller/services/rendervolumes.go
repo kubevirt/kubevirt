@@ -160,7 +160,9 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 			}
 
 			if volume.Sysprep != nil {
-				renderer.handleSysprep(volume)
+				if err := renderer.handleSysprep(volume); err != nil {
+					return err
+				}
 			}
 
 			if volume.CloudInitConfigDrive != nil {
@@ -265,13 +267,13 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 	}
 }
 
-func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) {
+func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) error {
 	if volume.Sysprep != nil {
 		var volumeSource k8sv1.VolumeSource
 		// attach a Secret or ConfigMap referenced by the user
 		volumeSource, err := sysprepVolumeSource(*volume.Sysprep)
 		if err != nil {
-			//return nil, err
+			return err
 		}
 		vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 			Name:         volume.Name,
@@ -283,6 +285,7 @@ func (vr *VolumeRenderer) handleSysprep(volume v1.Volume) {
 			ReadOnly:  true,
 		})
 	}
+	return nil
 }
 
 func hotplugVolumes(vmiVolumeStatus []v1.VolumeStatus, vmiSpecVolumes []v1.Volume) map[string]struct{} {
