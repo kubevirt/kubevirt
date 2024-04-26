@@ -1186,6 +1186,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -1199,7 +1206,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
                     If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    the migration will be cancelled, unless AllowWorkloadDisruption is true. Defaults to 800
                   format: int64
                   type: integer
                 disableTLS:
@@ -3924,6 +3931,8 @@ var CRDsValidation map[string]string = map[string]string{
         allowAutoConverge:
           type: boolean
         allowPostCopy:
+          type: boolean
+        allowWorkloadDisruption:
           type: boolean
         bandwidthPerMigration:
           anyOf:
@@ -13431,6 +13440,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -13444,7 +13460,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
                     If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    the migration will be cancelled, unless AllowWorkloadDisruption is true. Defaults to 800
                   format: int64
                   type: integer
                 disableTLS:
@@ -13845,6 +13861,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -13858,7 +13881,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
                     If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    the migration will be cancelled, unless AllowWorkloadDisruption is true. Defaults to 800
                   format: int64
                   type: integer
                 disableTLS:
