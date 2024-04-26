@@ -24,6 +24,10 @@ digraph component {
 		fontname="Courier-Bold" fontsize=42 group="kubevirt-console-plugin" label="kubevirt-console-plugin" rank=same style=dashed
 		"deployment/kubevirt-console-plugin" [label="deployment/kubevirt-console-plugin"]
 	}
+	subgraph "cluster_multi-tenant" {
+		fontname="Courier-Bold" fontsize=42 group="multi-tenant" label="multi-tenant" rank=same style=dashed
+		"deployment/mtq-operator" [label="deployment/mtq-operator"]
+	}
 	subgraph cluster_network {
 		fontname="Courier-Bold" fontsize=42 group=network label=network rank=same style=dashed
 		"NetworkAddonsConfig/cluster" [label="NetworkAddonsConfig/cluster"]
