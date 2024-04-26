@@ -1705,11 +1705,11 @@ func GetDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeployme
 }
 
 func GetDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {
-	return components.NewControllerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	return components.NewControllerDeployment(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), "", "", "", "", config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 }
 
 func GetDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.DaemonSet, error) {
-	return components.NewHandlerDaemonSet(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", config.GetLauncherVersion(), config.GetPrHelperVersion(), config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), nil, config.GetVerbosity(), config.GetExtraEnv(), false)
+	return components.NewHandlerDaemonSet(namespace, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", "", "", config.GetLauncherVersion(), config.GetPrHelperVersion(), config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), nil, config.GetVerbosity(), config.GetExtraEnv(), false)
 }
 
 func GetDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*v12.Deployment, error) {

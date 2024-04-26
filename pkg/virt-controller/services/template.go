@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 
@@ -53,6 +54,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -692,6 +694,10 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
 		sidecarOpts = append(sidecarOpts, WithDropALLCapabilities())
 	}
+	if requestedHookSidecar.Image == "" {
+		requestedHookSidecar.Image = os.Getenv(operatorutil.SidecarShimImageEnvName)
+	}
+
 	return NewContainerSpecRenderer(
 		sidecarName,
 		requestedHookSidecar.Image,

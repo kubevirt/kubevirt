@@ -72,6 +72,7 @@ type templateData struct {
 	VirtExportServerSha    string
 	GsSha                  string
 	PrHelperSha            string
+	SidecarShimSha         string
 	RunbookURLTemplate     string
 	PriorityClassSpec      string
 	FeatureGates           []string
@@ -86,6 +87,7 @@ type templateData struct {
 	VirtExportServerImage  string
 	GsImage                string
 	PrHelperImage          string
+	SidecarShimImage       string
 }
 
 func main() {
@@ -114,6 +116,7 @@ func main() {
 	virtExportServerSha := flag.String("virt-exportserver-sha", "", shaEnvDeprecationMsg)
 	gsSha := flag.String("gs-sha", "", "")
 	prHelperSha := flag.String("pr-helper-sha", "", "")
+	sidecarShimSha := flag.String("sidecar-shim-sha", "", "")
 	runbookURLTemplate := flag.String("runbook-url-template", "", "")
 	featureGates := flag.String("feature-gates", "", "")
 	infraReplicas := flag.Uint("infra-replicas", 0, "")
@@ -126,6 +129,7 @@ func main() {
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
+	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -165,6 +169,7 @@ func main() {
 		data.VirtExportServerSha = *virtExportServerSha
 		data.GsSha = *gsSha
 		data.PrHelperSha = *prHelperSha
+		data.SidecarShimSha = *sidecarShimSha
 		data.RunbookURLTemplate = *runbookURLTemplate
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
@@ -182,6 +187,7 @@ func main() {
 		data.VirtExportServerImage = *virtExportServerImage
 		data.GsImage = *gsImage
 		data.PrHelperImage = *prHelperImage
+		data.SidecarShimImage = *sidecarShimImage
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
@@ -222,6 +228,7 @@ func main() {
 		data.VirtExportServerImage = "{{.VirtExportServerImage}}"
 		data.GsImage = "{{.GsImage}}"
 		data.PrHelperImage = "{{.PrHelperImage}}"
+		data.SidecarShimImage = "{{.SidecarShimImage}}"
 	}
 
 	if *processFiles {
@@ -292,6 +299,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtExportServerSha,
 		data.GsSha,
 		data.PrHelperSha,
+		data.SidecarShimSha,
 		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
@@ -301,6 +309,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtExportServerImage,
 		data.GsImage,
 		data.PrHelperImage,
+		data.SidecarShimImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
 	if err != nil {
