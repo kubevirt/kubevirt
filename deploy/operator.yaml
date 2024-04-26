@@ -65,7 +65,7 @@ spec:
         - name: HPPO_VERSION
           value: v0.19.0
         - name: MTQ_VERSION
-          value: v1.2.0
+          value: v1.2.1
         - name: AAQ_VERSION
           value: v1.2.0
         - name: KV_CONSOLE_PLUGIN_IMAGE
@@ -810,17 +810,17 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v1.2.0
+          value: v1.2.1
         - name: CONTROLLER_IMAGE
-          value: quay.io/kubevirt/mtq-controller@sha256:ae7dd07e4018c63414b021eba34aa4776a6c7d6ff4fcdf9fd2d7ca30aae98a29
+          value: quay.io/kubevirt/mtq-controller@sha256:04b38720b65479046270c8132cff5ab0f2dabc9cae91de1cc95fecf167efc356
         - name: MTQ_LOCK_SERVER_IMAGE
-          value: quay.io/kubevirt/mtq-lock-server@sha256:8e686107dd9990dab1a3d90ee1068541938f673bf54ea9e1308b2ed7218546b0
+          value: quay.io/kubevirt/mtq-lock-server@sha256:8b5189518ac6f68161d6a259e2a6f70e7902855ea1510aa260e79093520a7803
         - name: VERBOSITY
           value: "1"
         - name: PULL_POLICY
           value: IfNotPresent
         - name: MONITORING_NAMESPACE
-        image: quay.io/kubevirt/mtq-operator@sha256:90c7608b0ba085582a65ccdc11d089049c5e6b0438d018dd9dc76eb3490383c7
+        image: quay.io/kubevirt/mtq-operator@sha256:859524721ae1a3b1e5dd6e29036b4c80acff13f74a4ee6769d867283e9ccbba5
         imagePullPolicy: IfNotPresent
         name: mtq-operator
         ports:
