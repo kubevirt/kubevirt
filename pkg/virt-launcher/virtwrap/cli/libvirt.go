@@ -55,7 +55,6 @@ type Connection interface {
 	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
 	DomainEventDeregister(registrationID int) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
-	NewStream(flags libvirt.StreamFlags) (Stream, error)
 	SetReconnectChan(reconnect chan bool)
 	QemuAgentCommand(command string, domainName string) (string, error)
 	GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error)
@@ -122,19 +121,6 @@ func (s *VirStream) UnderlyingStream() *libvirt.Stream {
 
 func (l *LibvirtConnection) SetReconnectChan(reconnect chan bool) {
 	l.reconnect = reconnect
-}
-
-func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
-	if err := l.reconnectIfNecessary(); err != nil {
-		return nil, err
-	}
-
-	s, err := l.Connect.NewStream(flags)
-	if err != nil {
-		l.checkConnectionLost(err)
-		return nil, err
-	}
-	return &VirStream{Stream: s}, nil
 }
 
 func (l *LibvirtConnection) Close() (int, error) {
@@ -517,16 +503,13 @@ func (l *LibvirtConnection) checkConnectionLost(err error) {
 
 type VirDomain interface {
 	GetState() (libvirt.DomainState, int, error)
-	Create() error
 	CreateWithFlags(flags libvirt.DomainCreateFlags) error
 	Suspend() error
 	Resume() error
 	BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error
 	GetBlockInfo(disk string, flags uint32) (*libvirt.DomainBlockInfo, error)
-	AttachDevice(xml string) error
 	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	UpdateDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
-	DetachDevice(xml string) error
 	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
@@ -536,7 +519,6 @@ type VirDomain interface {
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
 	GetMetadata(tipus libvirt.DomainMetadataType, uri string, flags libvirt.DomainModificationImpact) (string, error)
-	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 	MigrateToURI3(string, *libvirt.DomainMigrateParameters, libvirt.DomainMigrateFlags) error
 	MigrateStartPostCopy(flags uint32) error
 	MemoryStats(nrStats uint32, flags uint32) ([]libvirt.DomainMemoryStat, error)
@@ -544,7 +526,6 @@ type VirDomain interface {
 	GetJobInfo() (*libvirt.DomainJobInfo, error)
 	GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error)
 	SetTime(secs int64, nsecs uint, flags libvirt.DomainSetTimeFlags) error
-	AuthorizedSSHKeysGet(user string, flags libvirt.DomainAuthorizedSSHKeysFlags) ([]string, error)
 	AuthorizedSSHKeysSet(user string, keys []string, flags libvirt.DomainAuthorizedSSHKeysFlags) error
 	AbortJob() error
 	Free() error
