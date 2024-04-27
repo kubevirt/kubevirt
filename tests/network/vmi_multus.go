@@ -718,7 +718,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 						return nil
 					}
 					return updatedVmi.Status.Interfaces
-				}, 420*time.Second, 4).Should(HaveLen(4), "Should have interfaces in vmi status")
+				}).WithTimeout(420*time.Second).WithPolling(4*time.Second).Should(HaveLen(4), "Should have interfaces in vmi status")
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())

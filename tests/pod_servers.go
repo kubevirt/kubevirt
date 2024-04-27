@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,7 +38,7 @@ func CreatePodAndWaitUntil(pod *corev1.Pod, phaseToWait corev1.PodPhase) *corev1
 		Expect(err).ToNot(HaveOccurred())
 		return pod.Status.Phase
 	}
-	Eventually(getStatus, 30, 1).Should(Equal(phaseToWait), "should reach %s phase", phaseToWait)
+	Eventually(getStatus).WithTimeout(30*time.Second).WithPolling(time.Second).Should(Equal(phaseToWait), "should reach %s phase", phaseToWait)
 	return pod
 }
 

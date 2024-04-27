@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -89,7 +90,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 					pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), pod.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return pod.Status.Phase
-				}, 50, 5).Should(Equal(k8sv1.PodSucceeded))
+				}).WithTimeout(50 * time.Second).WithPolling(5 * time.Second).Should(Equal(k8sv1.PodSucceeded))
 
 				By("starting another VMI on the same node, to verify kubelet is running again")
 				newVMI := libvmifact.NewCirros()
@@ -98,7 +99,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 					newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(newVMI)).Create(context.Background(), newVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return nil
-				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
+				}).WithTimeout(100*time.Second).WithPolling(10*time.Second).Should(Succeed(), "Should be able to start a new VM")
 				libwait.WaitForSuccessfulVMIStart(newVMI)
 
 				By("checking if the VMI with bridged networking is still running, it will verify the CNI didn't cause the pod to be killed")

@@ -550,7 +550,7 @@ var _ = SIGDescribe("Storage", func() {
 
 					err = virtClient.VirtualMachineInstance(obj.Namespace).Delete(context.Background(), obj.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Eventually(ThisVMI(obj), 120).Should(BeGone())
+					Eventually(ThisVMI(obj)).WithTimeout(120 * time.Second).Should(BeGone())
 				}
 			})
 		})
@@ -597,7 +597,7 @@ var _ = SIGDescribe("Storage", func() {
 						if err != nil && !errors.IsNotFound(err) {
 							Expect(err).ToNot(HaveOccurred())
 						}
-						Eventually(ThisVMI(vmi), 30).Should(Or(BeGone(), BeInPhase(v1.Failed), BeInPhase(v1.Succeeded)))
+						Eventually(ThisVMI(vmi)).WithTimeout(30 * time.Second).Should(Or(BeGone(), BeInPhase(v1.Failed), BeInPhase(v1.Succeeded)))
 					}
 					if nodeName != "" {
 						tests.RemoveHostDiskImage(hostDiskDir, nodeName)
