@@ -475,26 +475,6 @@ func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
 	RunPodAndExpectCompletion(pod)
 }
 
-func CopyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
-	dstPath = testsuite.HostPathAlpine + "-nopriv"
-	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
-
-	By("creating an image with without qemu permissions")
-	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
-
-	nodeName = RunPodAndExpectCompletion(pod).Spec.NodeName
-	return
-}
-
-func DeleteAlpineWithNonQEMUPermissions() {
-	nonQemuAlpinePath := testsuite.HostPathAlpine + "-nopriv"
-	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
-
-	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{BinBash, "-c"}, args)
-
-	RunPodAndExpectCompletion(pod)
-}
-
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 	if err != nil {
