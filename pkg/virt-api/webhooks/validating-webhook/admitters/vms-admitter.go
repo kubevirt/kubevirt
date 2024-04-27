@@ -795,19 +795,6 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 	return nil
 }
 
-func (admitter *VMsAdmitter) isMigrationInProgress(vmi *v1.VirtualMachineInstance) error {
-	if vmi.Status.MigrationState != nil &&
-		!vmi.Status.MigrationState.Completed {
-		return fmt.Errorf("cannot update while VMI migration is in progress")
-	}
-
-	err := EnsureNoMigrationConflict(admitter.VirtClient, vmi.Name, vmi.Namespace)
-	if err != nil {
-		return fmt.Errorf("cannot update while VMI migration is in progress: %v", err)
-	}
-	return nil
-}
-
 func hasCPURequestsOrLimits(rr *v1.ResourceRequirements) bool {
 	if _, ok := rr.Requests[corev1.ResourceCPU]; ok {
 		return true
