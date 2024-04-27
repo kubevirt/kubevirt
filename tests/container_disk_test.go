@@ -62,8 +62,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	DescribeTable("should", func(image string, policy k8sv1.PullPolicy, expectedPolicy k8sv1.PullPolicy) {
-		vmi := tests.NewRandomVMIWithEphemeralDisk(image)
+		vmi := libvmifact.NewGuestless(libvmi.WithContainerDisk("disk0", image))
+
 		vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy = policy
+
 		vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 		Expect(vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy).To(Equal(expectedPolicy))
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
