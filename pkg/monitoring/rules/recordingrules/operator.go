@@ -28,7 +28,7 @@ var operatorRecordingRules = []operatorrules.RecordingRule{
 			Name: "kubevirt_memory_delta_from_requested_bytes",
 			Help: "The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator.",
 			ConstLabels: map[string]string{
-				"reason": "memory_working_set",
+				"reason": "memory_working_set_delta_from_request",
 			},
 		},
 		MetricType: operatormetrics.GaugeType,
@@ -39,7 +39,7 @@ var operatorRecordingRules = []operatorrules.RecordingRule{
 			Name: "kubevirt_memory_delta_from_requested_bytes",
 			Help: "The delta between the pod with highest memory working set or rss and its requested memory for each container, virt-controller, virt-handler, virt-api and virt-operator.",
 			ConstLabels: map[string]string{
-				"reason": "memory_rss",
+				"reason": "memory_rss_delta_from_request",
 			},
 		},
 		MetricType: operatormetrics.GaugeType,
