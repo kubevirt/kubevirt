@@ -2042,7 +2042,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.Multiarchitecture)
+					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "arm"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
