@@ -581,10 +581,13 @@ func GetVmiPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance
 // RunCommandOnVmiPod runs specified command on the virt-launcher pod
 func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
 	virtClient := kubevirt.Client()
-	vmiPod := GetVmiPod(virtClient, vmi)
+	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
+	vmiPod := pods.Items[0]
 
 	output, err := exec.ExecuteCommandOnPod(
-		vmiPod,
+		&vmiPod,
 		"compute",
 		command,
 	)
