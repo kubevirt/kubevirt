@@ -1889,7 +1889,7 @@ var _ = Describe("Migration watcher", func() {
 				true,
 			),
 			Entry("set force migration completion",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowWorkloadDisruption = pointer.BoolPtr(true) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowWorkloadDisruption = pointer.P(true) },
 				func(c *virtv1.MigrationConfiguration) {
 					Expect(c.AllowWorkloadDisruption).ToNot(BeNil())
 					Expect(*c.AllowWorkloadDisruption).To(BeTrue())
@@ -2395,7 +2395,7 @@ func getDefaultMigrationConfiguration() *virtv1.MigrationConfiguration {
 		ProgressTimeout:                   &progressTimeout,
 		UnsafeMigrationOverride:           &unsafeMigrationOverride,
 		AllowPostCopy:                     &allowPostCopy,
-		AllowWorkloadDisruption:          pointer.BoolPtr(allowPostCopy),
+		AllowWorkloadDisruption:           pointer.P(allowPostCopy),
 	}
 }
 
