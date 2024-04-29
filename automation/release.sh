@@ -28,7 +28,7 @@ function ensure_gh_cli_installed() {
     gh config set prompt disabled
 }
 
-export BUILD_ARCH=aarch64,x86_64
+export BUILD_ARCH=s390x,aarch64,x86_64
 export KUBEVIRT_RELEASE=true
 
 function build_release_artifacts() {
