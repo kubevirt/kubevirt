@@ -90,7 +90,12 @@ func getDeviceMetadata(arg string) (string, string, error) {
 		sep := strings.Index(arg, ":")
 		vendorHex, productHex = arg[:sep], arg[sep+1:]
 	} else if strings.Contains(arg, "-") {
-		return "", "", fmt.Errorf("Unsupported")
+		var err error
+		sep := strings.Index(arg, "-")
+		vendorHex, productHex, err = busToDevicePlatform(arg[:sep], arg[sep+1:])
+		if err != nil {
+			return "", "", err
+		}
 	}
 
 	vendorInfo, productInfo, _ := MetadataLookup(hwdata, vendorHex, productHex)

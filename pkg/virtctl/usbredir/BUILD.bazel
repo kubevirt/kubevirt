@@ -4,6 +4,7 @@ load("@bazeldnf//:deps.bzl", "tar2files")
 go_library(
     name = "go_default_library",
     srcs = [
+        "bus_to_device_info_unix.go",
         "client.go",
         "hwdata.go",
         "usbredir.go",
