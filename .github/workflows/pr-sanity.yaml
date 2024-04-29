@@ -71,7 +71,7 @@ jobs:
           go-version-file: ${{matrix.working-directory}}/go.mod
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v5
         with:
           version: v1.57.0
           skip-pkg-cache: true
