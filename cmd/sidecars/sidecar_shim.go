@@ -195,6 +195,7 @@ func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error
 
 	log.Log.Infof("Executing %s", preCloudInitIsoBin)
 	command := exec.Command(preCloudInitIsoBin, args...)
+	command.Stderr = os.Stderr
 	return command.Output()
 }
 
@@ -214,6 +215,7 @@ func runOnDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 
 	log.Log.Infof("Executing %s", onDefineDomainBin)
 	command := exec.Command(onDefineDomainBin, args...)
+	command.Stderr = os.Stderr
 	return command.Output()
 }
 
