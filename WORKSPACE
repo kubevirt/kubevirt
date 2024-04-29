@@ -1,9 +1,5 @@
 workspace(name = "kubevirt")
 
-load("//third_party:deps.bzl", "deps")
-
-deps()
-
 # register crosscompiler toolchains
 load("//bazel/toolchain:toolchain.bzl", "register_all_toolchains")
 
