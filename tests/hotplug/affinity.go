@@ -100,7 +100,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		It("should successfully update node selector", func() {
+		It("[test_id:11208]should successfully update node selector", func() {
 
 			By("Creating a running VM")
 			options := libnet.WithMasqueradeNetworking()
@@ -159,7 +159,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			}, 240*time.Second, time.Second).Should(BeTrue())
 
 		})
-		It("should successfully update node affinity", func() {
+		It("[test_id:11209]should successfully update node affinity", func() {
 
 			By("Creating a running VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(

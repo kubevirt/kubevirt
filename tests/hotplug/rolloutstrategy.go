@@ -54,7 +54,7 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
-		It("should set RestartRequired when changing any spec field", func() {
+		It("[test_id:11207]should set RestartRequired when changing any spec field", func() {
 			By("Creating a VM with CPU topology")
 			vmi := libvmifact.NewCirros()
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
