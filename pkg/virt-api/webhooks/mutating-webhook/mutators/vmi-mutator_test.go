@@ -154,38 +154,43 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		}
 
-		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{"test": "test"}}
-		preset = &v1.VirtualMachineInstancePreset{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name: "test-preset",
-			},
-			Spec: v1.VirtualMachineInstancePresetSpec{
-				Domain: &v1.DomainSpec{
-					CPU: &v1.CPU{Cores: 4},
-				},
-				Selector: selector,
-			},
-		}
-		presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
-		presetInformer.GetIndexer().Add(preset)
-
 		mutator = &VMIsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
+		presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
 		mutator.VMIPresetInformer = presetInformer
 		mutator.KubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
 	})
 
-	It("should apply presets on VMI create", func() {
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
-		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
-	})
+	Context("with presets", func() {
+		BeforeEach(func() {
+			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{"test": "test"}}
+			preset = &v1.VirtualMachineInstancePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "test-preset",
+				},
+				Spec: v1.VirtualMachineInstancePresetSpec{
+					Domain: &v1.DomainSpec{
+						CPU: &v1.CPU{Cores: 4},
+					},
+					Selector: selector,
+				},
+			}
+			presetInformer.GetIndexer().Add(preset)
+		})
 
-	It("should include deprecation warning in response when presets are applied to VMI", func() {
-		resp := admitVMI(vmi.Spec.Architecture)
-		Expect(resp.Allowed).To(BeTrue())
-		Expect(resp.Warnings).ToNot(BeEmpty())
-		Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
+		It("should apply presets on VMI create", func() {
+			_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
+			Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
+		})
+
+		It("should include deprecation warning in response when presets are applied to VMI", func() {
+			resp := admitVMI(vmi.Spec.Architecture)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Warnings).ToNot(BeEmpty())
+			Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
+		})
 	})
 
 	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string) {
