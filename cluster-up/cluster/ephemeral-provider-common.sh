@@ -87,7 +87,7 @@ function _registry_volume() {
 
 function _add_common_params() {
     # shellcheck disable=SC2155
-    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 6 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix ${KUBEVIRT_PROVIDER} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --numa ${KUBEVIRT_NUM_NUMA_NODES} --cpu ${KUBEVIRT_NUM_VCPU} --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix ${KUBEVIRT_PROVIDER} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
 
     params=" --dns-port $KUBEVIRT_DNS_HOST_PORT $params"
 
