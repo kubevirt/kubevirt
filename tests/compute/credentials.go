@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -156,7 +157,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			vmi := libvmifact.NewFedora(
 				withSSHPK(secretID, withQuestAgentPropagationMethod),
 				libvmi.WithCloudInitNoCloudUserData(
-					tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec"),
+					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec"),
 				),
 			)
 
@@ -178,7 +179,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			const secretID = "my-user-pass"
 			vmi := libvmifact.NewFedora(
 				withPassword(secretID),
-				libvmi.WithCloudInitNoCloudUserData(tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password")),
+				libvmi.WithCloudInitNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password")),
 			)
 
 			customPassword := "imadethisup"

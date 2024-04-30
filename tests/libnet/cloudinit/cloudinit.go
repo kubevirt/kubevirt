@@ -199,3 +199,9 @@ func CreateDefaultCloudInitNetworkData() string {
 	}
 	return data
 }
+
+func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
+	return fmt.Sprintf(`#!/bin/bash
+            echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
+`, commands)
+}
