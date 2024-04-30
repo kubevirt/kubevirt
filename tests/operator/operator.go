@@ -3288,7 +3288,7 @@ func verifyOperatorWebhookCertificate() {
 	certPool.AppendCertsFromPEM(caBundle)
 	// ensure that the state is fully restored before each test
 	Eventually(func() error {
-		currentCert, err := tests.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
+		currentCert, err := libpod.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
 		Expect(err).ToNot(HaveOccurred())
 		crt, err := x509.ParseCertificate(currentCert[0])
 		Expect(err).ToNot(HaveOccurred())

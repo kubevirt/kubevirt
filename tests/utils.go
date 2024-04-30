@@ -35,7 +35,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -52,8 +51,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/transport/spdy"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -749,50 +746,6 @@ func GetRunningVMIEmulator(vmi *v1.VirtualMachineInstance) (string, error) {
 	return domSpec.Devices.Emulator, nil
 }
 
-func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeout time.Duration) error {
-	errChan := make(chan error, 1)
-	readyChan := make(chan struct{})
-	go func() {
-		cli := kubevirt.Client()
-
-		req := cli.CoreV1().RESTClient().Post().
-			Resource("pods").
-			Namespace(pod.Namespace).
-			Name(pod.Name).
-			SubResource("portforward")
-
-		kubevirtClientConfig, err := kubecli.GetKubevirtClientConfig()
-		if err != nil {
-			errChan <- err
-			return
-		}
-		transport, upgrader, err := spdy.RoundTripperFor(kubevirtClientConfig)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
-		forwarder, err := portforward.New(dialer, ports, stop, readyChan, GinkgoWriter, GinkgoWriter)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		err = forwarder.ForwardPorts()
-		if err != nil {
-			errChan <- err
-		}
-	}()
-
-	select {
-	case err := <-errChan:
-		return err
-	case <-readyChan:
-		return nil
-	case <-time.After(readyTimeout):
-		return fmt.Errorf("failed to forward ports, timed out")
-	}
-}
-
 func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string, loginTo console.LoginToFunction, sudoNeeded bool) {
 	Expect(loginTo(vmi)).To(Succeed())
 
@@ -932,46 +885,11 @@ func RetryIfModified(do func() error) (err error) {
 	return err
 }
 
-func getCert(pod *k8sv1.Pod, port string) []byte {
-	randPort := strconv.Itoa(4321 + rand.Intn(6000))
-	var rawCert []byte
-	mutex := &sync.Mutex{}
-	conf := &tls.Config{
-		InsecureSkipVerify: true,
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			mutex.Lock()
-			defer mutex.Unlock()
-			rawCert = rawCerts[0]
-			return nil
-		},
-	}
-
-	var certificate []byte
-	EventuallyWithOffset(2, func() []byte {
-		stopChan := make(chan struct{})
-		defer close(stopChan)
-		err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
-		ExpectWithOffset(2, err).ToNot(HaveOccurred())
-
-		conn, err := tls.Dial("tcp4", fmt.Sprintf("localhost:%s", randPort), conf)
-		if err == nil {
-			defer conn.Close()
-		}
-		mutex.Lock()
-		defer mutex.Unlock()
-		certificate = make([]byte, len(rawCert))
-		copy(certificate, rawCert)
-		return certificate
-	}, 40*time.Second, 1*time.Second).Should(Not(BeEmpty()))
-
-	return certificate
-}
-
 func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 5*time.Second)
+	err := libpod.ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -989,34 +907,13 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// GetCertsForPods returns the used certificates for all pods matching  the label selector
-func GetCertsForPods(labelSelector string, namespace string, port string) ([][]byte, error) {
-	cli := kubevirt.Client()
-	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(pods.Items).ToNot(BeEmpty())
-
-	var certs [][]byte
-
-	for _, pod := range pods.Items {
-		err := func() error {
-			certs = append(certs, getCert(&pod, port))
-			return nil
-		}()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return certs, nil
-}
-
 // EnsurePodsCertIsSynced waits until new certificates are rolled out  to all pods which are matching the specified labelselector.
 // Once all certificates are in sync, the final secret is returned
 func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string) []byte {
 	var certs [][]byte
 	EventuallyWithOffset(1, func() bool {
 		var err error
-		certs, err = GetCertsForPods(labelSelector, namespace, port)
+		certs, err = libpod.GetCertsForPods(labelSelector, namespace, port)
 		Expect(err).ToNot(HaveOccurred())
 		if len(certs) == 0 {
 			return true

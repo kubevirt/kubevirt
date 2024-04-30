@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libpod"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -92,7 +93,7 @@ var _ = DescribeInfra("tls configuration", func() {
 			func(i int, pod k8sv1.Pod) {
 				stopChan := make(chan struct{})
 				defer close(stopChan)
-				Expect(tests.ForwardPorts(&pod, []string{fmt.Sprintf("844%d:%d", i, 8443)}, stopChan, 10*time.Second)).To(Succeed())
+				Expect(libpod.ForwardPorts(&pod, []string{fmt.Sprintf("844%d:%d", i, 8443)}, stopChan, 10*time.Second)).To(Succeed())
 
 				acceptedTLSConfig := &tls.Config{
 					InsecureSkipVerify: true,

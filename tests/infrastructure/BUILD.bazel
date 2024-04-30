@@ -42,6 +42,7 @@ go_library(
         "//tests/libmonitoring:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libpod:go_default_library",
         "//tests/libreplicaset:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
