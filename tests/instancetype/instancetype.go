@@ -778,16 +778,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preferenceRevision, err = virtClient.AppsV1().ControllerRevisions(namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm := libvmi.NewVirtualMachine(vmi)
-				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-					Name:         "dummy",
-					RevisionName: instancetypeRevision.Name,
-				}
-				vm.Spec.Preference = &virtv1.PreferenceMatcher{
-					Name:         "dummy",
-					RevisionName: preferenceRevision.Name,
-				}
-
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetypeRevision(instancetypeRevision.Name), libvmi.WithPreferenceRevision(preferenceRevision.Name))
 				vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm = tests.StartVirtualMachine(vm)

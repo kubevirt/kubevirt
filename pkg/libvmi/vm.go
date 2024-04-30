@@ -149,3 +149,23 @@ func WithPreferenceInferredFromVolume(name string) VMOption {
 		}
 	}
 }
+
+func WithInstancetypeRevision(revisionName string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		resourcesRemovedFromVMI(&vm.Spec.Template.Spec)
+		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+			Name:         "unused",
+			RevisionName: revisionName,
+		}
+	}
+}
+
+func WithPreferenceRevision(revisionName string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		preferencesRemovedFromVMI(&vm.Spec.Template.Spec)
+		vm.Spec.Preference = &v1.PreferenceMatcher{
+			Name:         "unused",
+			RevisionName: revisionName,
+		}
+	}
+}
