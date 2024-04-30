@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -46,7 +47,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -60,7 +60,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = libvmifact.NewAlpine()
 	})
 
 	Describe("[rfe_id:609]Creating a VirtualMachineInstance", func() {
@@ -68,8 +68,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		Context("with headless", func() {
 
 			BeforeEach(func() {
-				f := false
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &f
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
 			})
 
 			It("[test_id:707]should create headless vmi without any issue", func() {
@@ -77,7 +76,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", func() {
-				tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
@@ -117,7 +116,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 			It("[test_id:713]should have more memory on pod when headless", func() {
-				normalVmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				normalVmi := libvmifact.NewAlpine()
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)
@@ -159,7 +158,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		Context("without headless", func() {
 
 			It("[test_id:714][posneg:negative]should have one vnc graphic device in xml", func() {
-				tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
