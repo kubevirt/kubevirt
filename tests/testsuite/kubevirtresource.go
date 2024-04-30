@@ -116,6 +116,8 @@ func AdjustKubeVirtResource() {
 			virtconfig.DisableCustomSELinuxPolicy,
 		)
 	}
+	liveUpdate := v1.VMRolloutStrategyLiveUpdate
+	kv.Spec.Configuration.VMRolloutStrategy = &liveUpdate
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true

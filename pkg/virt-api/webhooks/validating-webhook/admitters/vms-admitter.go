@@ -432,14 +432,6 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		return causes
 	}
 
-	if spec.Instancetype != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("Cannot configure instance type when the vmRolloutStrategy is LiveUpdate"),
-			Field:   field.Child("instancetype").String(),
-		})
-	}
-
 	causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
 
 	if hasCPURequestsOrLimits(&spec.Template.Spec.Domain.Resources) {
@@ -458,7 +450,7 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 }
 
 func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes []metav1.StatusCause) {
-	if domain.CPU.Sockets != 0 && domain.CPU.MaxSockets != 0 && domain.CPU.Sockets > domain.CPU.MaxSockets {
+	if domain.CPU != nil && domain.CPU.Sockets != 0 && domain.CPU.MaxSockets != 0 && domain.CPU.Sockets > domain.CPU.MaxSockets {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Number of sockets in CPU topology is greater than the maximum sockets allowed"),
