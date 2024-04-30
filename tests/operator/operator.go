@@ -136,7 +136,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		patchKvInfra                           func(*v1.ComponentConfig, bool, string)
 		patchKvWorkloads                       func(*v1.ComponentConfig, bool, string)
 		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
-		parseImage                             func(string) (string, string, string)
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
 		patchOperator                          func(*string, *string) bool
@@ -243,27 +242,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				return err
 			}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
 
-		}
-
-		parseImage = func(image string) (registry, imageName, version string) {
-			var getVersion func(matches [][]string) string
-			var imageRegEx *regexp.Regexp
-
-			if strings.Contains(image, "@sha") {
-				imageRegEx = regexp.MustCompile(`^(.+)/(.+)(@sha\d+:)([\da-fA-F]+)$`)
-				getVersion = func(matches [][]string) string { return matches[0][3] + matches[0][4] }
-			} else {
-				imageRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
-				getVersion = func(matches [][]string) string { return matches[0][3] }
-			}
-
-			matches := imageRegEx.FindAllStringSubmatch(image, 1)
-			Expect(matches).To(HaveLen(1))
-			registry = matches[0][1]
-			imageName = matches[0][2]
-			version = getVersion(matches)
-
-			return
 		}
 
 		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imageName, version string) {
@@ -3377,6 +3355,32 @@ func patchKV(name string, data []byte) {
 
 		return err
 	}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+var (
+	imageShaRegEx = regexp.MustCompile(`^(.+)/(.+)(@sha\d+:)([\da-fA-F]+)$`)
+	imageTagRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
+)
+
+func parseImage(image string) (registry, imageName, version string) {
+	var getVersion func(matches [][]string) string
+	var imageRegEx *regexp.Regexp
+
+	if strings.Contains(image, "@sha") {
+		imageRegEx = imageShaRegEx
+		getVersion = func(matches [][]string) string { return matches[0][3] + matches[0][4] }
+	} else {
+		imageRegEx = imageTagRegEx
+		getVersion = func(matches [][]string) string { return matches[0][3] }
+	}
+
+	matches := imageRegEx.FindAllStringSubmatch(image, 1)
+	Expect(matches).To(HaveLen(1))
+	registry = matches[0][1]
+	imageName = matches[0][2]
+	version = getVersion(matches)
+
+	return
 }
 
 func getDaemonsetImage(name string) string {
