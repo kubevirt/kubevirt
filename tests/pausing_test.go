@@ -55,7 +55,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Pausing", decorators.SigCompute, func() {
@@ -131,7 +130,10 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			When("paused via virtctl", func() {
 				It("[test_id:3224]should not be paused", func() {
 					By("Launching a VMI with LivenessProbe")
-					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+					vmi = libvmifact.NewCirros(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					)
 					// a random probe which will not fail immediately
 					vmi.Spec.LivenessProbe = &v1.Probe{
 						Handler: v1.Handler{
@@ -146,7 +148,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						SuccessThreshold:    1,
 						FailureThreshold:    1,
 					}
-					tests.RunVMIAndExpectLaunch(vmi, 90)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 					By("Pausing it")
 					command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
