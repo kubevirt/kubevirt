@@ -200,7 +200,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
 		It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
-			vmi := libvmifact.NewGuestless()
+			// Use an Alpine VMI so we have enough memory in the eventual instance type and launched VMI to get past validation checks
+			vmi := libvmifact.NewAlpine()
 
 			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
@@ -365,6 +366,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
 		})
 		It("should apply memory overcommit instancetype to VMI", func() {
+			// Use an Alpine VMI so we have enough memory in the eventual instance type and launched VMI to get past validation checks
+			vmi = libvmifact.NewAlpine()
 			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
 
@@ -372,16 +375,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := libinstancetype.NewPreference()
-
-			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
-				Create(context.Background(), preference, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm := libvmi.NewVirtualMachine(vmi,
-				libvmi.WithInstancetype(instancetype.Name),
-				libvmi.WithPreference(preference.Name),
-			)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
