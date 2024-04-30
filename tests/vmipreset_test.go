@@ -50,21 +50,23 @@ import (
 )
 
 var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIPreset", decorators.SigCompute, func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
+	const (
+		flavorKey    = core.GroupName + "/flavor"
+		memoryFlavor = "memory-test"
+		memoryPrefix = "test-memory-"
+		cpuPrefix    = "test-cpu"
+		cpuFlavor    = "cpu-test"
+		cores        = 7
+	)
 
-	var vmi *v1.VirtualMachineInstance
-	var memoryPreset *v1.VirtualMachineInstancePreset
-	var cpuPreset *v1.VirtualMachineInstancePreset
-
-	flavorKey := fmt.Sprintf("%s/flavor", core.GroupName)
-	memoryFlavor := "memory-test"
-	memoryPrefix := "test-memory-"
-	memory, _ := resource.ParseQuantity("128M")
-
-	cpuPrefix := "test-cpu"
-	cpuFlavor := "cpu-test"
-	cores := 7
+	var (
+		err          error
+		virtClient   kubecli.KubevirtClient
+		vmi          *v1.VirtualMachineInstance
+		memoryPreset *v1.VirtualMachineInstancePreset
+		cpuPreset    *v1.VirtualMachineInstancePreset
+		memory       resource.Quantity
+	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -72,6 +74,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, memoryFlavor))
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
+		memory = resource.MustParse("128M")
 		memoryPreset = &v1.VirtualMachineInstancePreset{
 			ObjectMeta: k8smetav1.ObjectMeta{GenerateName: memoryPrefix},
 			Spec: v1.VirtualMachineInstancePresetSpec{
@@ -300,15 +303,21 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Conflict", func() {
-		var conflictPreset *v1.VirtualMachineInstancePreset
+		const (
+			conflictFlavor = "conflict-test"
+			conflictPrefix = "test-conflict-"
+			conflictKey    = core.GroupName + "/conflict"
+		)
 
-		conflictKey := fmt.Sprintf("%s/conflict", core.GroupName)
-		conflictFlavor := "conflict-test"
-		conflictMemory, _ := resource.ParseQuantity("256M")
-		conflictPrefix := "test-conflict-"
+		var (
+			conflictPreset *v1.VirtualMachineInstancePreset
+			conflictMemory resource.Quantity
+		)
 
 		BeforeEach(func() {
+			conflictMemory = resource.MustParse("256M")
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{conflictKey: conflictFlavor}}
+
 			conflictPreset = &v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: conflictPrefix},
 				Spec: v1.VirtualMachineInstancePresetSpec{
@@ -339,14 +348,15 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Override", func() {
-		var overridePreset *v1.VirtualMachineInstancePreset
+		var (
+			overridePreset *v1.VirtualMachineInstancePreset
+		)
 
-		overrideKey := fmt.Sprintf("kubevirt.io/vmPreset")
-		overrideFlavor := "vmi-preset-small"
-		overrideMemory, _ := resource.ParseQuantity("64M")
-		overridePrefix := "test-override-"
-
-		vmiMemory, _ := resource.ParseQuantity("128M")
+		const (
+			overrideKey    = "kubevirt.io/vmPreset"
+			overrideFlavor = "vmi-preset-small"
+			overridePrefix = "test-override-"
+		)
 
 		BeforeEach(func() {
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{overrideKey: overrideFlavor}}
@@ -356,7 +366,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Selector: selector,
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
-							"memory": overrideMemory}},
+							"memory": resource.MustParse("64M")}},
 					},
 				},
 			}
@@ -385,6 +395,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			label, ok := vmi.Labels[overrideKey]
 			Expect(ok).To(BeTrue())
 			Expect(label).To(Equal(overrideFlavor))
+
+			vmiMemory := resource.MustParse("128M")
 			Expect(newVmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(vmiMemory))
 		})
 	})
@@ -429,13 +441,17 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Match Expressions", func() {
-		var preset *v1.VirtualMachineInstancePreset
-		labelKey := "kubevirt.io/os"
+		var (
+			preset   *v1.VirtualMachineInstancePreset
+			vmiWin7  *v1.VirtualMachineInstance
+			vmiWin10 *v1.VirtualMachineInstance
+		)
 
-		var vmiWin7 *v1.VirtualMachineInstance
-		var vmiWin10 *v1.VirtualMachineInstance
-		win7Label := "win7"
-		win10Label := "win10"
+		const (
+			labelKey   = "kubevirt.io/os"
+			win7Label  = "win7"
+			win10Label = "win10"
+		)
 
 		BeforeEach(func() {
 			selector := k8smetav1.LabelSelector{
@@ -486,17 +502,21 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("[rfe_id:613]MatchLabels", func() {
-		var preset *v1.VirtualMachineInstancePreset
-		labelKey := "kubevirt.io/cpu"
-		labelValue := "dodecacore"
-		numCores := uint32(12)
-		presetName := "twelve-cores"
+		var (
+			preset   *v1.VirtualMachineInstancePreset
+			vmiWin7  *v1.VirtualMachineInstance
+			vmiWin10 *v1.VirtualMachineInstance
+		)
 
-		var annotationLabel string
+		const (
+			labelKey        = "kubevirt.io/cpu"
+			labelValue      = "dodecacore"
+			numCores        = uint32(12)
+			presetName      = "twelve-cores"
+			annotationLabel = "virtualmachinepreset.kubevirt.io/" + presetName
+		)
+
 		var annotationVal string
-
-		var vmiWin7 *v1.VirtualMachineInstance
-		var vmiWin10 *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			selector := k8smetav1.LabelSelector{
@@ -519,7 +539,6 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			vmiWin7 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithResourceMemory("1Mi"))
 			vmiWin10 = libvmi.New(libvmi.WithLabel(labelKey, labelValue), libvmi.WithResourceMemory("1Mi"))
 
-			annotationLabel = fmt.Sprintf("virtualmachinepreset.kubevirt.io/%s", presetName)
 			annotationVal = v1.GroupVersion.String()
 		})
 
