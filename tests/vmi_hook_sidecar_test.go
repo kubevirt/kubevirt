@@ -39,11 +39,12 @@ import (
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hooksv1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -77,7 +78,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = libvmifact.NewAlpine(libvmi.WithInterface(
+			libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
 
