@@ -139,7 +139,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
 		patchOperator                          func(*string, *string) bool
-		installOperator                        func(string)
 		installTestingManifests                func(string)
 		deleteOperator                         func(string)
 		deleteTestingManifests                 func(string)
@@ -301,21 +300,6 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 			return modified
-		}
-
-		installOperator = func(manifestPath string) {
-			// namespace is already hardcoded within the manifests
-			_, _, err = clientcmd.RunCommandWithNS(metav1.NamespaceNone, k8sClient, "apply", "-f", manifestPath)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for KubeVirt CRD to be created")
-			ext, err := extclient.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() error {
-				_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "kubevirts.kubevirt.io", metav1.GetOptions{})
-				return err
-			}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		installTestingManifests = func(manifestPath string) {
@@ -3381,6 +3365,21 @@ func parseImage(image string) (registry, imageName, version string) {
 	version = getVersion(matches)
 
 	return
+}
+
+func installOperator(manifestPath string) {
+	// namespace is already hardcoded within the manifests
+	_, _, err := clientcmd.RunCommandWithNS(metav1.NamespaceNone, clientcmd.GetK8sCmdClient(), "apply", "-f", manifestPath)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Waiting for KubeVirt CRD to be created")
+	ext, err := extclient.NewForConfig(kubevirt.Client().Config())
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() error {
+		_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "kubevirts.kubevirt.io", metav1.GetOptions{})
+		return err
+	}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
 }
 
 func getDaemonsetImage(name string) string {
