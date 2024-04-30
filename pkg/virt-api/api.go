@@ -365,6 +365,8 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.USBRedirRequestHandler).
 			Param(definitions.NamespaceParam(subws)).
 			Param(definitions.NameParam(subws)).
+			Param(definitions.USBRedirVendorParameter(subws)).
+			Param(definitions.USBRedirProductParameter(subws)).
 			Operation(version.Version + "usbredir").
 			Doc("Open a websocket connection to connect to USB device on the specified VirtualMachineInstance."))
 

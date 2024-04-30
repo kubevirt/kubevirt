@@ -687,3 +687,16 @@ func VSOCKPortParameter(ws *restful.WebService) *restful.Parameter {
 func VSOCKTLSParameter(ws *restful.WebService) *restful.Parameter {
 	return ws.QueryParameter(TLSParamName, "Weather to request a TLS encrypted session from the VSOCK application.").DataType("boolean").Required(false)
 }
+
+const (
+	VendorParamName  = "vendor"
+	ProductParamName = "product"
+)
+
+func USBRedirVendorParameter(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter(VendorParamName, "Provides Vendor of USB device").DataType("string").Required(false)
+}
+
+func USBRedirProductParameter(ws *restful.WebService) *restful.Parameter {
+	return ws.QueryParameter(ProductParamName, "Provides Product of USB device").DataType("string").Required(false)
+}
