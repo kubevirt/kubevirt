@@ -1,0 +1,339 @@
+#
+#	List of USB ID's
+#
+#	Maintained by Stephen J. Gowdy <linux.usb.ids@gmail.com>
+#	If you have any new entries, please submit them via
+#		http://www.linux-usb.org/usb-ids.html
+#	or send entries as patches (diff -u old new) in the
+#	body of your email (a bot will attempt to deal with it).
+#	The latest version can be obtained from
+#		http://www.linux-usb.org/usb.ids
+#
+# Version: 2024.01.30
+# Date:    2024-01-30 20:34:02
+#
+
+# Vendors, devices and interfaces. Please keep sorted.
+
+# Syntax:
+# vendor  vendor_name
+#	device  device_name				<-- single tab
+#		interface  interface_name		<-- two tabs
+
+03eb  Atmel Corp.
+	0902  4-Port Hub
+	2002  Mass Storage Device
+	2015  at90usbkey sample firmware (HID keyboard)
+	2018  at90usbkey sample firmware (CDC ACM)
+	2019  stk525 sample firmware (microphone)
+	201c  at90usbkey sample firmware (HID mouse)
+	201d  at90usbkey sample firmware (HID generic)
+	2022  at90usbkey sample firmware (composite device)
+	2040  LUFA Test PID
+	2041  LUFA Mouse Demo Application
+	2042  LUFA Keyboard Demo Application
+	2043  LUFA Joystick Demo Application
+	2044  LUFA CDC Demo Application
+	2045  LUFA Mass Storage Demo Application
+	2046  LUFA Audio Output Demo Application
+03ee  Mitsumi
+	0000  CD-R/RW Drive
+	2501  eHome Infrared Receiver
+	2502  eHome Infrared Receiver
+	5609  Japanese Keyboard
+	641f  WIF-0402C Bluetooth Adapter
+	6438  Bluetooth Device
+	6440  WML-C52APR Bluetooth Adapter
+	6901  SmartDisk FDD
+	6902  Floppy Disk Drive
+	7500  CD-R/RW
+	ffff  Dongle with BlueCore in DFU mode
+03f0  HP, Inc
+	0004  DeskJet 895c
+	0011  OfficeJet G55
+	0012  DeskJet 1125C Printer Port
+	0024  KU-0316 Keyboard
+	002a  LaserJet P1102
+	0053  DeskJet 2620 All-in-One Printer
+	0101  ScanJet 4100c
+	0102  PhotoSmart S20
+	0104  DeskJet 880c/970c
+	0105  ScanJet 4200c
+	0107  CD-Writer Plus
+	010c  Multimedia Keyboard Hub
+	0111  G55xi Printer/Scanner/Copier
+	0117  LaserJet 3200
+	011c  hn210w 802.11b Adapter
+	011d  Bluetooth 1.2 Interface [Broadcom BCM2035]
+	0121  HP 39g+ [F2224A], 39gs [F2223A], 40gs [F2225A], 48gII [F2226A], 49g+ [F2228A], 50g [F2229A, NW240AA]
+	0122  HID Internet Keyboard
+	0125  DAT72 Tape
+	0139  Barcode Scanner 4430
+	0201  ScanJet 6200c
+	0202  PhotoSmart S20
+	0204  DeskJet 815c
+	0205  ScanJet 3300c
+	0207  CD-Writer Plus 8200e
+	020c  Multimedia Keyboard
+	0211  OfficeJet G85
+	0212  DeskJet 1220C
+	0217  LaserJet 2200
+	0218  APOLLO P2500/2600
+	0221  StreamSmart 400 [F2235AA]
+	0223  Digital Drive Flash Reader
+	022a  LaserJet CP1525nw/x
+	0241  Link-5 micro dongle
+	0304  DeskJet 810c/812c
+	0305  ScanJet 4300c
+	0307  CD-Writer+ CD-4e
+	0311  OfficeJet G85xi
+	0312  Color Inkjet CP1700
+	0314  designjet 30/130 series
+	0317  LaserJet 1200
+	0324  SK-2885 keyboard
+	034a  Elite Keyboard
+	0401  ScanJet 5200c
+	0404  DeskJet 830c/832c
+	0405  ScanJet 3400cse
+	0411  OfficeJet G95
+	0412  Printing Support
+	0417  LaserJet 1200 series
+	0423  HS-COMBO Cardreader
+	042a  LaserJet M1132 MFP
+	0441  Prime [NW280AA, G8X92AA]
+	0504  DeskJet 885c
+	0505  ScanJet 2100c
+	0507  DVD+RW
+	050c  5219 Wireless Keyboard
+	0511  OfficeJet K60
+	0512  DeskJet 450
+	0517  LaserJet 1000
+	051d  Bluetooth Interface
+	052a  LaserJet M1212nf MFP
+	0601  ScanJet 6300c
+	0604  DeskJet 840c
+	0605  ScanJet 2200c
+	0610  Z24i Monitor Hub
+	0611  OfficeJet K60xi
+	0612  business inkjet 3000
+	0624  Bluetooth Dongle
+	0641  X1200 Optical Mouse
+	0653  DeskJet 3700 series
+	0701  ScanJet 5300c/5370c
+	0704  DeskJet 825c
+	0705  ScanJet 4400c
+	070c  Personal Media Drive
+	0711  OfficeJet K80
+	0712  DeskJet 1180c
+	0714  Printing Support
+	0741  Prime Wireless Kit [FOK65AA]
+	0801  ScanJet 7400c
+	0804  DeskJet 816c
+	0805  HP4470C
+	0811  OfficeJet K80xi
+	0817  LaserJet 3300
+	0853  ENVY 5000 series
+	0901  ScanJet 2300c
+	0904  DeskJet 845c
+	0912  Printing Support
+	0917  LaserJet 3330
+	0924  Modular Smartcard Keyboard
+	0941  X500 Optical Mouse
+	094a  Optical Mouse [672662-001]
+	0a01  ScanJet 2400c
+	0a17  color LaserJet 3700
+	0b01  ScanJet 82x0C
+	0b0c  Wireless Keyboard and Optical Mouse receiver
+	0b17  LaserJet 2300d
+	0c17  LaserJet 1010
+	0c24  Bluetooth Dongle
+	0d12  OfficeJet 9100 series
+	0d17  LaserJet 1012
+	0d4a  SK-2025 Keyboard
+	0e17  LaserJet 1015
+	0f0c  Wireless Keyboard and Optical Mouse receiver
+	0f11  OfficeJet V40
+	0f12  Printing Support
+	0f17  LaserJet 1150
+	0f2a  LaserJet 400 color M451dn
+	1001  Photo Scanner 1000
+	1002  PhotoSmart 140 series
+	1004  DeskJet 970c/970cse
+	1005  ScanJet 5400c
+	1011  OfficeJet V40xi
+	1016  Jornada 548 / iPAQ HW6515 Pocket PC
+	1017  LaserJet 1300
+	1024  Smart Card Keyboard
+	1027  Virtual keyboard and mouse
+	102a  LaserJet Professional P 1102w
+	1102  PhotoSmart 240 series
+	1104  DeskJet 959c
+	1105  ScanJet 5470c/5490c
+	1111  OfficeJet v60
+	1116  Jornada 568 Pocket PC
+	1117  LaserJet 1300n
+	1151  PSC-750xi Printer/Scanner/Copier
+	1198  HID-compliant mouse
+	1202  PhotoSmart 320 series
+	1204  DeskJet 930c
+	1205  ScanJet 4500C/5550C
+	1211  OfficeJet v60xi
+	1217  LaserJet 2300L
+	1227  Virtual CD-ROM
+	1302  PhotoSmart 370 series
+	1305  ScanJet 4570c
+	1311  OfficeJet V30
+	1312  DeskJet 460
+	1317  LaserJet 1005
+	1327  iLO Virtual Hub
+	134a  Optical Mouse
+	1405  ScanJet 3670
+	1411  PSC 750
+	1424  f2105 Monitor Hub
+	1502  PhotoSmart 420 series
+	1504  DeskJet 920c
+	150c  Mood Lighting (Microchip Technology Inc.)
+	1511  PSC 750xi
+	1512  Printing Support
+	1517  color LaserJet 3500
+	1524  Smart Card Keyboard - KR
+	1539  Mini Magnetic Stripe Reader
+	1541  Prime [G8X92AA]
+	154a  Laser Mouse
+	1602  PhotoSmart 330 series
+	1604  DeskJet 940c
+	1605  ScanJet 5530C PhotoSmart
+	1611  psc 780
+	1617  LaserJet 3015
+	161d  Wireless Rechargeable Optical Mouse (HID)
+	1624  Smart Card Keyboard - JP
+	1647  Z27n G2 Monitor Hub
+	1702  PhotoSmart 380 series
+	1704  DeskJet 948C
+	1705  ScanJet 5590
+	1711  psc 780xi
+	1712  Printing Support
+	1717  LaserJet 3020
+	171d  Bluetooth 2.0 Interface [Broadcom BCM2045]
+	1801  Inkjet P-2000U
+	1802  PhotoSmart 470 series
+	1804  DeskJet 916C
+	1805  ScanJet 7650
+	1811  PSC 720
+	1812  OfficeJet Pro K550
+	1817  LaserJet 3030
+	181d  Bluetooth 2.0 Interface
+	1902  PhotoSmart A430 series
+	1904  DeskJet 3820
+	1911  OfficeJet V45
+	1917  LaserJet 3380
+	1a02  PhotoSmart A510 series
+	1a11  OfficeJet 5100 series
+	1a17  color LaserJet 4650
+	1b02  PhotoSmart A610 series
+	1b04  DeskJet 3810
+	1b05  ScanJet 4850C/4890C
+	1b07  Premium Starter Webcam
+	1c02  PhotoSmart A710 series
+	1c17  Color LaserJet 2550l
+	1d02  PhotoSmart A310 series
+	1d17  LaserJet 1320
+	1d24  Barcode scanner
+	1e02  PhotoSmart A320 Printer series
+	1e11  PSC-950
+	1e17  LaserJet 1160 series
+	1f02  PhotoSmart A440 Printer series
+	1f11  PSC 920
+	1f12  OfficeJet Pro K5300
+	1f17  color LaserJet 5550
+	1f1d  un2400 Gobi Wireless Modem
+	2001  Floppy
+	2002  Hub
+	2004  DeskJet 640c
+	2005  ScanJet 3570c
+	2012  OfficeJet Pro K5400
+	201d  un2400 Gobi Wireless Modem (QDL mode)
+	2039  Cashdrawer
+	2102  PhotoSmart 7345
+	2104  DeskJet 630c
+	2112  OfficeJet Pro L7500
+	211d  Sierra MC5725 [ev2210]
+	2202  PhotoSmart 7600 series
+	2205  ScanJet 3500c
+	2212  OfficeJet Pro L7600
+	2217  color LaserJet 9500 MFP
+	222a  LaserJet Pro MFP M125nw
+	2302  PhotoSmart 7600 series
+	2304  DeskJet 656c
+	2305  ScanJet 3970c
+	2311  OfficeJet d series
+	2312  OfficeJet Pro L7700
+	2317  LaserJet 4350
+	231d  Broadcom 2070 Bluetooth Combo
+	2402  PhotoSmart 7700 series
+	2404  Deskjet F2280 series
+	2405  ScanJet 4070 PhotoSmart
+	2417  LaserJet 4250
+	241d  Gobi 2000 Wireless Modem (QDL mode)
+	2424  LP1965 19" Monitor Hub
+	2441  Prime G2 [2AP18AA]
+	2502  PhotoSmart 7700 series
+	2504  DeskJet F4200 series
+	2505  ScanJet 3770
+	2512  OfficeJet Pro L7300 / Compaq LA2405 series monitor
+	2514  4-port hub
+	2517  LaserJet 2410
+	251d  Gobi 2000 Wireless Modem
+	2524  LP3065 30" Monitor Hub
+	2602  PhotoSmart A520 series
+	2605  ScanJet 3800c
+	2611  OfficeJet 7100 series
+	2617  Color LaserJet 2820 series
+	2624  Pole Display (HP522 2 x 20 Line Display)
+	2702  PhotoSmart A620 series
+	2704  DeskJet 915
+	2717  Color LaserJet 2830
+	2724  Magnetic Stripe Reader IDRA-334133-HP
+	2805  Scanjet G2710
+	2811  PSC-2100
+	2817  Color LaserJet 2840
+	2841  OMEN MINDFRAME [3XT27AA]
+	2902  PhotoSmart A820 series
+	2911  PSC 2200
+	2917  LaserJet 2420
+	2a11  PSC 2150 series
+	2a17  LaserJet 2430
+	2a1d  Integrated Module with Bluetooth 2.1 Wireless technology
+	2b11  PSC 2170 series
+	2b17  LaserJet 1020
+	2b4a  Business Slim Keyboard
+	2c12  Officejet J4680
+	2c17  LaserJet 1022
+	2c24  Logitech M-UAL-96 Mouse
+	2d05  Scanjet 7000
+	2d11  OfficeJet 6110
+	2d17  Printing Support
+	2d2a  LaserJet Pro MFP M225dw
+	2e11  PSC 1000
+	2e17  LaserJet 2600n
+	2e24  LP2275w Monitor Hub
+	2f11  PSC 1200
+	2f17  Color LaserJet 2605dn
+	2f24  LP2475w Monitor Hub
+	3002  PhotoSmart P1000
+	3004  DeskJet 980c
+	3005  ScanJet 4670v
+	3011  PSC 1100 series
+	3017  Printing Support
+041f  LCS Telegraphics
+0420  Chips and Technologies
+	1307  Celly SIM Card Reader
+0421  Nokia Mobile Phones
+	0001  E61i (PC Suite mode)
+	0018  6288 GSM Smartphone
+	0019  6288 GSM Smartphone (imaging mode)
+	001a  6288 GSM Smartphone (file transfer mode)
+	0024  5610 XpressMusic (Storage mode)
+	0025  5610 XpressMusic (PC Suite mode)
+	0028  5610 XpressMusic (Imaging mode)
+	002d  6120 Phone (Mass storage mode)

@@ -34,7 +34,7 @@ func (c *FakeVirtualMachineInstances) SerialConsole(name string, options *kvcore
 	return nil, nil
 }
 
-func (c *FakeVirtualMachineInstances) USBRedir(vmiName string) (kvcorev1.StreamInterface, error) {
+func (c *FakeVirtualMachineInstances) USBRedir(vmiName, vendor, product string) (kvcorev1.StreamInterface, error) {
 	return nil, nil
 }
 

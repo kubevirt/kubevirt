@@ -59,8 +59,11 @@ type vmis struct {
 	kubeconfig string
 }
 
-func (v *vmis) USBRedir(name string) (kvcorev1.StreamInterface, error) {
-	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
+func (v *vmis) USBRedir(name, vendor, product string) (kvcorev1.StreamInterface, error) {
+	queryParams := url.Values{}
+	queryParams.Add("vendor", vendor)
+	queryParams.Add("product", product)
+	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", queryParams)
 }
 
 func (v *vmis) VNC(name string) (kvcorev1.StreamInterface, error) {

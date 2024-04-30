@@ -23,8 +23,11 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
 
@@ -78,7 +81,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("should fail to connect to VMI's usbredir socket", func() {
-			usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
+			usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name, "", "")
 			Expect(err).To(HaveOccurred())
 			Expect(usbredirVMI).To(BeNil())
 		})
@@ -104,7 +107,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				ctx, cancelFn := context.WithCancel(context.Background())
 				cancelFns[i] = cancelFn
 				errors[i] = make(chan error)
-				go runConnectGoroutine(virtClient, name, namespace, ctx, errors[i])
+				go runConnectGoroutine(virtClient, name, namespace, ctx, errors[i], "", "")
 				// avoid too fast requests which might get denied by server (to avoid flakyness)
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -128,7 +131,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				errors[i] = make(chan error)
 				ctx, cancelFn := context.WithCancel(context.Background())
 				cancelFns[i] = cancelFn
-				go runConnectGoroutine(virtClient, name, namespace, ctx, errors[i])
+				vendor, product := fmt.Sprintf("vendor-%d", i), fmt.Sprintf("product-%d", i)
+				go runConnectGoroutine(virtClient, name, namespace, ctx, errors[i], vendor, product)
 				// avoid too fast requests which might get denied by server (to avoid flakyness)
 				time.Sleep(100 * time.Millisecond)
 			}
@@ -139,15 +143,36 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Expect(err).ToNot(HaveOccurred())
 				case <-time.After(time.Second):
 					cancelFns[i]()
+					Eventually(func(g Gomega) {
+						curVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).
+							Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(curVmi.Status.ClientPassthrough).ToNot(BeNil())
+						g.Expect(curVmi.Status.ClientPassthrough.USB).To(HaveLen(v1.UsbClientPassthroughMaxNumberOf - i))
+						g.Expect(curVmi.Status.ClientPassthrough.USB).To(ContainElement(
+							v1.USBDeviceInfo{
+								Vendor:  fmt.Sprintf("vendor-%d", i),
+								Product: fmt.Sprintf("product-%d", i),
+							},
+						),
+						)
+					})
 				}
 			}
+
+			Eventually(func(g Gomega) {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).
+					Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(vmi.Status.ClientPassthrough).To(BeNil())
+			})
 		})
 
 		It("Should work several times", func() {
 			for i := 0; i < 4*v1.UsbClientPassthroughMaxNumberOf; i++ {
 				ctx, cancelFn := context.WithCancel(context.Background())
 				errch := make(chan error)
-				go runConnectGoroutine(virtClient, name, namespace, ctx, errch)
+				go runConnectGoroutine(virtClient, name, namespace, ctx, errch, "", "")
 
 				select {
 				case err := <-errch:
@@ -167,8 +192,9 @@ func runConnectGoroutine(
 	namespace string,
 	ctx context.Context,
 	errch chan error,
+	vendor, product string,
 ) {
-	usbredirStream, err := virtClient.VirtualMachineInstance(namespace).USBRedir(name)
+	usbredirStream, err := virtClient.VirtualMachineInstance(namespace).USBRedir(name, vendor, product)
 	if err != nil {
 		errch <- err
 		return

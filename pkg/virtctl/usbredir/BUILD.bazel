@@ -1,13 +1,54 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@bazeldnf//:deps.bzl", "tar2files")
 
 go_library(
     name = "go_default_library",
     srcs = [
         "client.go",
+        "hwdata.go",
         "usbredir.go",
         "usbredir_default.go",
         "usbredir_s390x.go",
     ],
+    embedsrcs = select({
+        "@io_bazel_rules_go//go/platform:386": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:amd64": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:arm": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:arm64": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:mips": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64le": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:mipsle": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64le": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:riscv64": [
+            "hwdata-usb.ids",
+        ],
+        "@io_bazel_rules_go//go/platform:wasm": [
+            "hwdata-usb.ids",
+        ],
+        "//conditions:default": [],
+    }),
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/usbredir",
     visibility = ["//visibility:public"],
     deps = [
@@ -77,4 +118,38 @@ go_library(
         ],
         "//conditions:default": [],
     }),
+)
+
+genrule(
+    name = "hwdata-file",
+    srcs = [":hwdata-files/usr/share/hwdata/usb.ids"],
+    outs = ["hwdata-usb.ids"],
+    cmd = "cp $(location :hwdata-files/usr/share/hwdata/usb.ids) $@",
+)
+
+tar2files(
+    name = "hwdata-files",
+    files = {
+        "/usr/share/hwdata": [
+            "usb.ids",
+        ],
+    },
+    tar = "//rpm:virtctl-usbredir_x86_64",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "hwdata_test.go",
+        "usbredir_suite_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    embed = [":go_default_library"],
+    embedsrcs = ["testdata/hwdata_usb.ids"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
 )

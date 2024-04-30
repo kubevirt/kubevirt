@@ -20,15 +20,21 @@ package usbredir
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 )
+
+//go:embed hwdata-usb.ids
+var hwdata string
 
 func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) error {
 	if _, err := exec.LookPath(usbredirClient); err != nil {
@@ -47,9 +53,13 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 
 	vmiArg := args[1]
 	usbdeviceArg := args[0]
+	vendor, product, err := getDeviceMetadata(usbdeviceArg)
+	if err != nil {
+		log.Log.Reason(err).Info("Failed to find vendor & product info")
+	}
 
 	// Get connection to the websocket for usbredir subresource
-	usbredirVMI, err := virtCli.VirtualMachineInstance(namespace).USBRedir(vmiArg)
+	usbredirVMI, err := virtCli.VirtualMachineInstance(namespace).USBRedir(vmiArg, vendor, product)
 	if err != nil {
 		return fmt.Errorf("Can't access VMI %s: %s", vmiArg, err.Error())
 	}
@@ -71,4 +81,20 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 	} else {
 		return usbredirClient.Redirect(usbdeviceArg)
 	}
+}
+
+func getDeviceMetadata(arg string) (string, string, error) {
+	var vendorHex, productHex string
+
+	if strings.Contains(arg, ":") {
+		sep := strings.Index(arg, ":")
+		vendorHex, productHex = arg[:sep], arg[sep+1:]
+	} else if strings.Contains(arg, "-") {
+		return "", "", fmt.Errorf("Unsupported")
+	}
+
+	vendorInfo, productInfo, _ := MetadataLookup(hwdata, vendorHex, productHex)
+	vendor := fmt.Sprintf("0x%s: %s", vendorHex, vendorInfo)
+	product := fmt.Sprintf("0x%s: %s", productHex, productInfo)
+	return vendor, product, nil
 }
