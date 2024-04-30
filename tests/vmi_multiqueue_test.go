@@ -23,7 +23,9 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -93,16 +95,13 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		)
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
+			Expect(availableCPUs).To(BeNumerically(">=", numCpus),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 
+			cpuResources := strconv.Itoa(int(numCpus))
+			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.Bool(true)
-			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
-
-			tests.AddEphemeralDisk(vmi, "disk1", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
