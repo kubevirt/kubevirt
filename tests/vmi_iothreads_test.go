@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -56,7 +57,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = libvmifact.NewAlpine()
 	})
 
 	Context("IOThreads Policies", func() {
@@ -167,7 +168,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
@@ -177,7 +178,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, newVMI)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
