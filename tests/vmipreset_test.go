@@ -186,13 +186,12 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(newVMI)
 
-			Expect(newVMI.Labels[flavorKey]).To(Equal(memoryFlavor))
-			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(memoryFlavor))
+			Expect(newVMI.Labels).To(HaveKeyWithValue(flavorKey, memoryFlavor))
+			Expect(newPreset.Spec.Selector.MatchLabels).To(HaveKeyWithValue(flavorKey, memoryFlavor))
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, found := newVMI.Annotations[annotationKey]
-			Expect(found).To(BeFalse())
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey))
 		})
 
 		It("[test_id:1601]Should accept presets that don't conflict with VirtualMachineInstance settings", func() {
@@ -211,12 +210,12 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(newVMI)
 
-			Expect(newVMI.Labels[flavorKey]).To(Equal(cpuFlavor))
-			Expect(newPreset.Spec.Selector.MatchLabels[flavorKey]).To(Equal(cpuFlavor))
+			Expect(newVMI.Labels).To(HaveKeyWithValue(flavorKey, cpuFlavor))
+			Expect(newPreset.Spec.Selector.MatchLabels).To(HaveKeyWithValue(flavorKey, cpuFlavor))
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			Expect(newVMI.Annotations[annotationKey]).To(Equal(fmt.Sprintf("kubevirt.io/%s", v1.ApiLatestVersion)))
+			Expect(newVMI.Annotations).To(HaveKeyWithValue(annotationKey, fmt.Sprintf("kubevirt.io/%s", v1.ApiLatestVersion)))
 
 			// check a setting from the preset itself to show it was applied
 			Expect(int(newVMI.Spec.Domain.CPU.Cores)).To(Equal(cores))
@@ -241,9 +240,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, found := newVMI.Annotations[annotationKey]
-			Expect(found).To(BeFalse())
-
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey))
 			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
@@ -264,8 +261,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, found := newVMI.Annotations[annotationKey]
-			Expect(found).To(BeFalse())
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey))
 			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 	})
@@ -282,10 +278,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
-			vmi = libvmifact.NewAlpine(
-				libvmi.WithLabel(flavorKey, cpuFlavor),
-				libvmi.WithAnnotation(exclusionMarking, "true"),
-			)
+			vmi = libvmifact.NewAlpine(libvmi.WithLabel(flavorKey, cpuFlavor), libvmi.WithAnnotation(exclusionMarking, "true"))
 
 			newVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -293,8 +286,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", core.GroupName, newPreset.Name)
-			_, ok := newVMI.Annotations[annotationKey]
-			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
+			Expect(newVMI.Annotations).ToNot(HaveKey(annotationKey), "Preset should not have been applied due to exclusion")
 
 			// check a setting from the preset itself to show it was applied
 			Expect(newVMI.Spec.Domain.CPU.Cores).NotTo(Equal(newPreset.Spec.Domain.CPU.Cores),
@@ -391,10 +383,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			By("Verifying VMI")
 			Expect(newVmi.Annotations).To(Equal(vmi.Annotations))
-
-			label, ok := vmi.Labels[overrideKey]
-			Expect(ok).To(BeTrue())
-			Expect(label).To(Equal(overrideFlavor))
+			Expect(vmi.Labels).To(HaveKeyWithValue(overrideKey, overrideFlavor))
 
 			vmiMemory := resource.MustParse("128M")
 			Expect(newVmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(vmiMemory))
@@ -559,14 +548,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that preset matched the first VMI")
-			thisAnnotation, ok := newVmi7.Annotations[annotationLabel]
-			Expect(ok).To(BeTrue(), fmt.Sprintf("VMI is missing expected annotation: %s", annotationLabel))
-			Expect(thisAnnotation).To(Equal(annotationVal))
-
+			Expect(newVmi7.Annotations).To(HaveKeyWithValue(annotationLabel, annotationVal))
 			By("Checking that preset matched the second VMI")
-			thisAnnotation, ok = newVmi10.Annotations[annotationLabel]
-			Expect(ok).To(BeTrue(), fmt.Sprintf("VMI is missing expected annotation: %s", annotationLabel))
-			Expect(thisAnnotation).To(Equal(annotationVal))
+			Expect(newVmi10.Annotations).To(HaveKeyWithValue(annotationLabel, annotationVal))
 
 			By("Checking that both VMs have 12 cores")
 			Expect(newVmi7.Spec.Domain.CPU.Cores).To(Equal(numCores))
@@ -591,5 +575,5 @@ func waitForPresetDeletion(virtClient kubecli.KubevirtClient, presetName string)
 	Eventually(func() error {
 		_, err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(testsuite.GetTestNamespace(nil)).Name(presetName).Do(context.Background()).Get()
 		return err
-	}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "timed out waiting for VMI preset to be deleted")
+	}).WithTimeout(60*time.Second).WithPolling(1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "timed out waiting for VMI preset to be deleted")
 }
