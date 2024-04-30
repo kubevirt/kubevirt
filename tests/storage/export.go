@@ -441,6 +441,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	verifyArchiveGzContent := func(fileName, expectedMD5 string, downloadPod *k8sv1.Pod, volumeMode k8sv1.PersistentVolumeMode) {
+		extractedFileName := strings.ReplaceAll(fileName, ".tar.gz", ".img")
 		command := []string{
 			"/usr/bin/tar",
 			"--strip-components",
@@ -448,13 +449,13 @@ var _ = SIGDescribe("Export", func() {
 			"-xzvf",
 			filepath.Join(dataPath, fileName),
 			"-C",
-			dataPath,
+			filepath.Join(dataPath),
+			"./" + extractedFileName,
 		}
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
-		fileName = strings.ReplaceAll(fileName, ".tar.gz", ".img")
-		fileAndPathName := filepath.Join(dataPath, fileName)
+		fileAndPathName := filepath.Join(dataPath, extractedFileName)
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
