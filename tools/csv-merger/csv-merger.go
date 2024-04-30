@@ -97,7 +97,9 @@ var (
 	kvUIProxyImage      = flag.String("kubevirt-consoleproxy-image-name", "", "KubeVirt Console Proxy image")
 	kvVirtIOWinImage    = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
 	smbios              = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
-	machinetype         = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
+	machinetype         = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap (Deprecated, use amd64-machinetype)")
+	amd64MachineType    = flag.String("amd64-machinetype", "", "Custom AMD64_MACHINETYPE string for KubeVirt ConfigMap")
+	arm64MachineType    = flag.String("arm64-machinetype", "", "Custom ARM64_MACHINETYPE string for KubeVirt ConfigMap")
 	csvVersion          = flag.String("csv-version", "", "CSV version")
 	replacesCsvVersion  = flag.String("replaces-csv-version", "", "CSV version to replace")
 	metadataDescription = flag.String("metadata-description", "", "One-Liner Description")
@@ -534,6 +536,8 @@ func getDeploymentParams() *components.DeploymentOperatorParams {
 		VirtIOWinContainer: *kvVirtIOWinImage,
 		Smbios:             *smbios,
 		Machinetype:        *machinetype,
+		Amd64MachineType:   *amd64MachineType,
+		Arm64MachineType:   *arm64MachineType,
 		HcoKvIoVersion:     *hcoKvIoVersion,
 		KubevirtVersion:    *kubevirtVersion,
 		CdiVersion:         *cdiVersion,
