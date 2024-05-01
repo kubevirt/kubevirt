@@ -1034,23 +1034,6 @@ func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string)
 	return nil
 }
 
-// GetPodsCertIfSynced returns the certificate for all matching pods once all of them use the same certificate
-func GetPodsCertIfSynced(labelSelector string, namespace string, port string) (cert []byte, synced bool, err error) {
-	certs, err := GetCertsForPods(labelSelector, namespace, port)
-	if err != nil {
-		return nil, false, err
-	}
-	if len(certs) == 0 {
-		return nil, true, nil
-	}
-	for _, crt := range certs {
-		if !reflect.DeepEqual(certs[0], crt) {
-			return nil, false, nil
-		}
-	}
-	return certs[0], true, nil
-}
-
 func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) {
 	virtClient := kubevirt.Client()
 	configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), configMapName, metav1.GetOptions{})

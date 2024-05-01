@@ -149,10 +149,21 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
+
+			apiCerts, err := tests.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 			Expect(err).ToNot(HaveOccurred())
-			newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
+			if !hasIdenticalCerts(apiCerts) {
+				return false
+			}
+			newAPICert := apiCerts[0]
+
+			handlerCerts, err := tests.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 			Expect(err).ToNot(HaveOccurred())
+			if !hasIdenticalCerts(handlerCerts) {
+				return false
+			}
+			newHandlerCert := handlerCerts[0]
+
 			return !reflect.DeepEqual(oldHandlerCert, newHandlerCert) && !reflect.DeepEqual(oldAPICert, newAPICert)
 		}, 120*time.Second).Should(BeTrue())
 	})
@@ -195,4 +206,17 @@ func getCertFromSecret(secretName string) []byte {
 		return rawBundle
 	}
 	return nil
+}
+
+func hasIdenticalCerts(certs [][]byte) bool {
+	if len(certs) == 0 {
+		return false
+	}
+	for _, crt := range certs {
+		if !reflect.DeepEqual(certs[0], crt) {
+			return false
+		}
+	}
+
+	return true
 }
