@@ -917,7 +917,7 @@ func getVirtHandlerList(virtCli kubecli.KubevirtClient) *v1.PodList {
 
 func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList {
 
-	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
+	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v\n", err)
 		return nil
@@ -941,7 +941,7 @@ func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.Vi
 	runningVMIs := []v12.VirtualMachineInstance{}
 
 	for _, ns := range namespace {
-		nsVMIs, err := virtCli.VirtualMachineInstance(ns).List(context.Background(), &metav1.ListOptions{})
+		nsVMIs, err := virtCli.VirtualMachineInstance(ns).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get vmis from namespace %s: %v\n", ns, err)
 			continue

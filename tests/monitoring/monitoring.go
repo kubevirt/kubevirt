@@ -107,7 +107,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 
 			// delete VMI
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
@@ -182,7 +182,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			vmi := libvmi.NewCirros()
 			vmi.APIVersion = "v1alpha3"
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")

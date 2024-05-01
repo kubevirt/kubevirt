@@ -355,7 +355,7 @@ func (c *VMIController) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(vmi)
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi)
+		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, v1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
@@ -753,7 +753,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		if len(patchBytes) > 0 {
-			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patchBytes), &v1.PatchOptions{})
+			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patchBytes), v1.PatchOptions{})
 			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 			// So just retry like with any other errors
 			if err != nil {
@@ -778,7 +778,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	if vmiChanged {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmiCopy)
+		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmiCopy, v1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err

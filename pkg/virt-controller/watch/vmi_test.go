@@ -175,7 +175,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectVirtualMachineHandover := func(vmi *virtv1.VirtualMachineInstance) {
-		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduled))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
@@ -190,7 +190,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectVirtualMachineSchedulingState := func(vmi *virtv1.VirtualMachineInstance) {
-		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduling))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
@@ -200,7 +200,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectVirtualMachineScheduledState := func(vmi *virtv1.VirtualMachineInstance) {
-		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduled))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
@@ -210,7 +210,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectVirtualMachineFailedState := func(vmi *virtv1.VirtualMachineInstance) {
-		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Failed))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
@@ -220,14 +220,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectVirtualMachineDataVolumesReadyCondition := func(vmi *virtv1.VirtualMachineInstance, expectedStatus k8sv1.ConditionStatus) {
-		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceDataVolumesReady), "Status": BeEquivalentTo(expectedStatus)})))
 		}).Return(vmi, nil)
 	}
 
 	shouldExpectVirtualMachineDataVolumesReadyConditionWithMessage := func(vmi *virtv1.VirtualMachineInstance, expectedStatus k8sv1.ConditionStatus, expectedMessage string) {
-		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceDataVolumesReady), "Status": BeEquivalentTo(expectedStatus), "Message": BeEquivalentTo(expectedMessage)})))
 		}).Return(vmi, nil)
@@ -378,7 +378,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElements(
 					MatchFields(IgnoreExtras, Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceProvisioning)}),
 					MatchFields(IgnoreExtras, Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceDataVolumesReady), "Status": BeEquivalentTo(k8sv1.ConditionFalse)}),
@@ -433,7 +433,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			dataVolumeFeeder.Add(dataVolume)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Pending))
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).
 					To(ContainElement(virtv1.VirtualMachineInstanceCondition{
@@ -533,7 +533,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				addActivePods(vmi, pod.UID, "")
 				dataVolumeFeeder.Add(dataVolume)
 
-				vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+				vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(expectedPhase))
 				}).Return(vmi, nil)
 				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
@@ -622,7 +622,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{"Type": Equal(virtv1.VirtualMachineInstanceProvisioning)})))
 			}).Return(vmi, nil)
@@ -671,7 +671,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			dataVolumeFeeder.Add(dataVolume)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Pending))
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).
 					To(ContainElement(virtv1.VirtualMachineInstanceCondition{
@@ -790,7 +790,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			]`
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			Expect(pod.Annotations).ToNot(HaveKey(sriov.NetworkPCIMapAnnot))
 		})
@@ -831,7 +831,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			]`
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			prependInjectPodPatch(pod)
 			controller.Execute()
 			Expect(pod.Annotations).To(HaveKeyWithValue(sriov.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
@@ -969,7 +969,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				return true, nil, fmt.Errorf("random error")
 			})
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -991,7 +991,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				return true, nil, fmt.Errorf("random error")
 			})
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -1021,7 +1021,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				return true, update.GetObject(), nil
 			})
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).ToNot(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type": Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -1071,8 +1071,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				}
 				addVirtualMachine(vmi)
-				update := vmiInterface.EXPECT().Update(context.Background(), gomock.Any())
-				update.Do(func(ctx context.Context, vmi *virtv1.VirtualMachineInstance) {
+				update := vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+				update.Do(func(ctx context.Context, vmi *virtv1.VirtualMachineInstance, options metav1.UpdateOptions) {
 					expectConditions(vmi)
 					_ = vmiInformer.GetStore().Update(vmi)
 					key := kvcontroller.VirtualMachineInstanceKey(vmi)
@@ -1087,7 +1087,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				addVirtualMachine(vmi)
 
 				// make sure that during next iteration we do not add the same condition again
-				vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, vmi *virtv1.VirtualMachineInstance) {
+				vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, vmi *virtv1.VirtualMachineInstance, options metav1.UpdateOptions) {
 					expectConditions(vmi)
 				}).Return(vmi, nil)
 
@@ -1160,7 +1160,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				addVirtualMachine(vmi)
 				podFeeder.Add(pod)
 
-				vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+				vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduling))
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 						Fields{
@@ -1193,7 +1193,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				addVirtualMachine(vmi)
 				podFeeder.Add(pod)
 
-				vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+				vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).ToNot(ContainElement(MatchFields(IgnoreExtras,
 						Fields{
 							"Type": Equal(virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)),
@@ -1330,7 +1330,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			case virtv1.Scheduled:
 				shouldExpectVirtualMachineScheduledState(vmi)
 			case virtv1.Scheduling:
-				vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+				vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduling))
 					Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
 						Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
@@ -1395,7 +1395,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -1430,7 +1430,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -1453,7 +1453,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -1489,7 +1489,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(*arg.(*virtv1.VirtualMachineInstance).Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
 			}).Return(vmi, nil)
 
@@ -1558,7 +1558,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				// outdated launcher label should get cleared after being finalized
 				_, ok := arg.(*virtv1.VirtualMachineInstance).Labels[virtv1.OutdatedLauncherImageLabel]
 				Expect(ok).To(BeFalse())
@@ -1605,7 +1605,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				if !expectFinalizer {
 					Expect(arg.(*virtv1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(virtv1.VirtualMachineControllerFinalizer))
 				} else {
@@ -1663,7 +1663,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			vmiPatch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }]`
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(vmiPatch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(vmiPatch), metav1.PatchOptions{}).Return(vmi, nil)
 
 			podPatch := `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234"} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/outdatedLauncherImage":""} }]`
 			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
@@ -1697,7 +1697,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "a" }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} }]`
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1714,7 +1714,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1731,7 +1731,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(ctx context.Context, _ string, _ interface{}, patchBytes []byte, options interface{}, _ ...string) (*virtv1.VirtualMachineInstance, error) {
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).DoAndReturn(func(ctx context.Context, _ string, _ interface{}, patchBytes []byte, options interface{}, _ ...string) (*virtv1.VirtualMachineInstance, error) {
 				patch, err := jsonpatch.DecodePatch(patchBytes)
 				Expect(err).ToNot(HaveOccurred())
 				vmiBytes, err := json.Marshal(vmi)
@@ -1763,7 +1763,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 
 			patch := `[{ "op": "test", "path": "/status/activePods", "value": {} }, { "op": "replace", "path": "/status/activePods", "value": {"someUID":"someHost"} }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		})
@@ -1791,7 +1791,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/status/phase", "value": "%s" }, { "op": "replace", "path": "/status/phase", "value": "Failed" }]`, phase)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 
 			controller.Execute()
 		},
@@ -1833,7 +1833,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -1874,7 +1874,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 					Fields{
 						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
@@ -1898,7 +1898,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 			addActivePods(vmi, pod.UID, "")
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.MigrationTransport).
 					To(Equal(virtv1.MigrationTransportUnix))
 			}).Return(vmi, nil)
@@ -1927,7 +1927,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				addActivePods(vmi, pod.UID, "")
 				podFeeder.Add(pod)
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 
 				patch := ""
 				kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
@@ -2014,7 +2014,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				patch, _ := action.(testing.PatchAction)
 				Expect(string(patch.GetPatch())).To(ContainSubstring(fmt.Sprintf(`"type":"%s"`, virtv1.VirtualMachineUnpaused)))
@@ -2047,7 +2047,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(vmi, nil)
 			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				patch, _ := action.(testing.PatchAction)
 				Expect(string(patch.GetPatch())).To(ContainSubstring(fmt.Sprintf(`"type":"%s"`, virtv1.VirtualMachineUnpaused)))
@@ -2085,7 +2085,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				podFeeder.Add(pod)
 				addActivePods(vmi, pod.UID, "")
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Do(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) {
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Do(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) {
 					originalVMIBytes, err := json.Marshal(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					patchBytes := patch.([]byte)
@@ -3026,7 +3026,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Bound","reason":"PVCNotReady","message":"PVC is in phase Bound","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"},"hotplugVolume":{}}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
@@ -3116,7 +3116,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(podInformer.GetIndexer().Add(virtlauncherPod)).To(Succeed())
 			//Modify by adding a new hotplugged disk
 			patch := `[{ "op": "test", "path": "/status/volumeStatus", "value": [{"name":"existing","target":""},{"name":"hotplug","target":"","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }, { "op": "replace", "path": "/status/volumeStatus", "value": [{"name":"existing","target":"","persistentVolumeClaimInfo":{"filesystemOverhead":"0.055"}},{"name":"hotplug","target":"","phase":"Detaching","hotplugVolume":{"attachPodName":"hp-volume-hotplug","attachPodUID":"abcd"}}] }]`
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
@@ -3243,7 +3243,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		expectTopologyHintsUpdate := func() {
 			var vmi *virtv1.VirtualMachineInstance
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg interface{}, options metav1.UpdateOptions) {
 				vmi = arg.(*virtv1.VirtualMachineInstance)
 				Expect(topology.AreTSCFrequencyTopologyHintsDefined(vmi)).To(BeTrue())
 			}).Return(vmi, nil)
@@ -3344,7 +3344,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg *virtv1.VirtualMachineInstance) {
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, arg *virtv1.VirtualMachineInstance, options metav1.UpdateOptions) {
 				Expect(arg.Status.Phase).To(Equal(virtv1.Scheduled))
 				Expect(arg.Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
 				Expect(arg.Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))

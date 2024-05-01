@@ -200,13 +200,13 @@ var _ = Describe("VirtualMachine", func() {
 
 		shouldExpectGracePeriodPatched := func(expectedGracePeriod int64, vmi *virtv1.VirtualMachineInstance) {
 			patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, expectedGracePeriod)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
 			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 		}
 
 		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
@@ -780,7 +780,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			dataVolumeFeeder.Add(existingDataVolume)
 			// expect creation called
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
@@ -818,7 +818,7 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume)
 
 			// expect creation called
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
@@ -855,7 +855,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			dataVolumeFeeder.Add(existingDataVolume)
 			// expect creation called
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
@@ -1434,7 +1434,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmRevision := createVMRevision(vm)
 			expectControllerRevisionCreation(vmRevision)
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
@@ -1462,7 +1462,7 @@ var _ = Describe("VirtualMachine", func() {
 			expectControllerRevisionList(oldVMRevision)
 			expectControllerRevisionDelete(oldVMRevision)
 			expectControllerRevisionCreation(vmRevision)
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 				Expect(arg.(*virtv1.VirtualMachineInstance).Status.VirtualMachineRevisionName).To(Equal(vmRevision.Name))
 			}).Return(vmi, nil)
@@ -1501,7 +1501,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 
 				annotations := map[string]string{virtv1.VirtualMachineGenerationAnnotation: "3"}
-				vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
+				vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, obj interface{}, opts metav1.CreateOptions) {
 					Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 				}).Return(vmi, nil)
 
@@ -1535,7 +1535,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				patch := `[{ "op": "test", "path": "/metadata/annotations", "value": {} }, { "op": "replace", "path": "/metadata/annotations", "value": {"kubevirt.io/vm-generation":"4"} }]`
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 
 				err := controller.patchVmGenerationAnnotationOnVmi(4, vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1617,7 +1617,7 @@ var _ = Describe("VirtualMachine", func() {
 						ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 						ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
 
-						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Return(vmi, nil)
+						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Return(vmi, nil)
 					} else {
 						// Should not be called
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -1819,7 +1819,7 @@ var _ = Describe("VirtualMachine", func() {
 					ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 					ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
 
-					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Times(1).Return(vmi, nil)
+					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Times(1).Return(vmi, nil)
 				} else {
 					// Should not be called
 					vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -1926,7 +1926,7 @@ var _ = Describe("VirtualMachine", func() {
 						ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 						ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
 
-						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), &metav1.PatchOptions{}).Times(1).Return(vmi, nil)
+						vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("["+strings.Join(ops, ", ")+"]"), metav1.PatchOptions{}).Times(1).Return(vmi, nil)
 					} else {
 						// Should not be called
 						vmiInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
@@ -2040,7 +2040,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			// expect creation called
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 
@@ -2073,7 +2073,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			// expect creation called
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("vmname"))
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal(""))
 			}).Return(vmi, nil)
@@ -2262,7 +2262,7 @@ var _ = Describe("VirtualMachine", func() {
 			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
 			vmiSource.Add(nonMatchingVMI)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(2).Return(vm, nil).AnyTimes()
 
 			sanityExecute(vm)
@@ -2279,7 +2279,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Get(context.Background(), vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), &metav1.PatchOptions{})
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), metav1.PatchOptions{})
 
 			sanityExecute(vm)
 		})
@@ -2344,7 +2344,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			// vmiFeeder.Add(vmi)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, fmt.Errorf("some random failure"))
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, fmt.Errorf("some random failure"))
 
 			// We should see the failed condition, replicas should stay at 0
 			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
@@ -2516,7 +2516,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
 			}).Return(vm, nil)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 
 			sanityExecute(vm)
 		})
@@ -2596,7 +2596,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStarting
 			addVirtualMachine(vm)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, obj interface{}, opts metav1.CreateOptions) {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
@@ -2611,7 +2611,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStarting
 			addVirtualMachine(vm)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, obj interface{}, opts metav1.CreateOptions) {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
@@ -2626,7 +2626,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStarting
 			addVirtualMachine(vm)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, obj interface{}, opts metav1.CreateOptions) {
 				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
 			}).Return(vmi, nil)
 
@@ -2644,7 +2644,7 @@ var _ = Describe("VirtualMachine", func() {
 				update := `{ "op": "add", "path": "/spec/volumes", "value": [{"name":"testPVC","memoryDump":{"claimName":"testPVC","hotpluggable":true}}]}`
 				patch := fmt.Sprintf("[%s, %s]", test, update)
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			}
 
 			shouldExpectVMIVolumesRemovePatched := func(vmi *virtv1.VirtualMachineInstance) {
@@ -2653,7 +2653,7 @@ var _ = Describe("VirtualMachine", func() {
 				patch := fmt.Sprintf("[%s, %s]", test, update)
 				fmt.Println(patch)
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{}).Return(vmi, nil)
 			}
 
 			applyVMIMemoryDumpVol := func(spec *virtv1.VirtualMachineInstanceSpec) *virtv1.VirtualMachineInstanceSpec {
@@ -3017,7 +3017,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, vmi := DefaultVirtualMachine(true)
 				addVirtualMachine(vm)
 
-				vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+				vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
@@ -3201,7 +3201,7 @@ var _ = Describe("VirtualMachine", func() {
 					})
 
 					if running {
-						vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+						vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 					}
 
 					sanityExecute(vm)
@@ -3225,7 +3225,7 @@ var _ = Describe("VirtualMachine", func() {
 						dataVolumeFeeder.Add(dv)
 
 						if dvPhase == cdiv1.WaitForFirstConsumer {
-							vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+							vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 						}
 						vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 							objVM := obj.(*virtv1.VirtualMachine)
@@ -3352,7 +3352,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Return(vmi, nil)
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Return(vmi, nil)
 
 					addVirtualMachine(vm)
 				})
@@ -3755,7 +3755,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
 						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
@@ -3799,7 +3799,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
 						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
@@ -3932,7 +3932,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
 						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
@@ -3964,7 +3964,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
 						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
@@ -4002,7 +4002,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
 						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
@@ -4038,7 +4038,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
 						Expect(*vmiArg.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
@@ -4256,7 +4256,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
@@ -4299,7 +4299,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
@@ -4444,7 +4444,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
@@ -4477,7 +4477,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
@@ -4515,7 +4515,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
@@ -4551,7 +4551,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 
@@ -4690,7 +4690,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Devices.Interfaces[0].Model).To(Equal(preference.Spec.Devices.PreferredInterfaceModel))
 						Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
@@ -4738,7 +4738,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(*vmiArg.Spec.Domain.Devices.AutoattachPodInterface).To(BeFalse())
 						Expect(vmiArg.Spec.Domain.Devices.Interfaces).To(BeEmpty())
@@ -4788,7 +4788,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Devices.Disks).To(HaveLen(2))
 						Expect(vmiArg.Spec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
@@ -4823,7 +4823,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Devices.Inputs).To(HaveLen(1))
 						Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
@@ -4871,7 +4871,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(vmiArg.Spec.Domain.Devices.Inputs).To(HaveLen(1))
 						Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
@@ -4918,7 +4918,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						vmiArg := arg.(*virtv1.VirtualMachineInstance)
 						Expect(*vmiArg.Spec.Domain.Devices.AutoattachInputDevice).To(BeFalse())
 						Expect(vmiArg.Spec.Domain.Devices.Inputs).To(BeEmpty())
@@ -4957,7 +4957,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				addVirtualMachine(vm)
 
-				vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+				vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 					vmiArg := arg.(*virtv1.VirtualMachineInstance)
 					switch expectedIface {
 					case "bridge":
@@ -4987,7 +4987,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				vmiArg := arg.(*virtv1.VirtualMachineInstance)
 				Expect(vmiArg.Spec.Domain.Devices.Interfaces).To(Equal(interfaces))
 				Expect(vmiArg.Spec.Networks).To(Equal(networks))
@@ -5023,7 +5023,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				vmiArg := arg.(*virtv1.VirtualMachineInstance)
 				Expect(vmiArg.Spec.Domain.Devices.Disks).To(HaveLen(2))
 				Expect(vmiArg.Spec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
@@ -5043,7 +5043,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(1).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				vmiArg := arg.(*virtv1.VirtualMachineInstance)
 
 				if expectedInputDevice != nil {
@@ -5263,7 +5263,7 @@ var _ = Describe("VirtualMachine", func() {
 						GuestRequested: &guestMemory,
 					}
 
-					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Do(
+					vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Do(
 						func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{},
 						) {
 							originalVMIBytes, err := json.Marshal(vmi)
@@ -5476,7 +5476,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, vmi := DefaultVirtualMachine(true)
 					addVirtualMachine(vm)
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						Expect(arg.(*virtv1.VirtualMachineInstance).Status.CurrentCPUTopology).To(Not(BeNil()))
 					}).Return(vmi, nil)
 
@@ -5506,7 +5506,7 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					addVirtualMachine(vm)
 
-					vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+					vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 						currentCPUTopology := arg.(*virtv1.VirtualMachineInstance).Status.CurrentCPUTopology
 						Expect(currentCPUTopology).To(Not(BeNil()))
 						Expect(currentCPUTopology.Sockets).To(Equal(numOfSockets))
@@ -5559,7 +5559,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			expectVMICreation := func() {
-				vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, arg interface{}) (interface{}, error) {
+				vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).DoAndReturn(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) (interface{}, error) {
 					return arg, nil
 				}).AnyTimes()
 			}

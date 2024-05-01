@@ -80,7 +80,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 
 		Eventually(func() error {
 			var err error
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			return err
 		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 
@@ -92,7 +92,7 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		By("Expecting  paused event on VMI ")
 		events.ExpectEvent(vmi, k8sv1.EventTypeWarning, "IOerror")
 
-		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
 		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})

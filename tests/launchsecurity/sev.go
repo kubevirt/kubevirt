@@ -354,7 +354,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := newSEVFedora(false, libvmi.WithSEVAttestation())
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
 

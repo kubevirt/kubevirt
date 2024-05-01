@@ -219,7 +219,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 
 				By("Checking if the VirtualMachineInstance was created")
 				EventuallyWithOffset(1, func() error {
-					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 					return err
 				}).Should(Succeed(), "the VirtualMachineInstance %q still does not exist", vmName)
 
@@ -231,7 +231,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 				}).Should(BeTrue(), "VirtualMachine %q still does not have status ready", vmName)
 
 				By("Checking if the VirtualMachineInstance specs match Template parameters")
-				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmName, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to fetch VirtualMachine %q: %v", vmName, err)
 				vmiCPUCores := vmi.Spec.Domain.CPU.Cores
 				templateParamCPUCores, err := strconv.ParseUint(templateParams["CPU_CORES"], 10, 32)

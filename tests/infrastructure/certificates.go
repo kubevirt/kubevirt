@@ -146,7 +146,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 			vmi := libvmi.NewAlpine()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 			Expect(err).ToNot(HaveOccurred())

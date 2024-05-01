@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -57,7 +58,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 		}
 
 		By("Starting a VirtualMachineInstance")
-		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), cpuVMI)
+		cpuVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		cpuVMI = libwait.WaitForSuccessfulVMIStart(cpuVMI)
 		By("Fetching the numa memory mapping")

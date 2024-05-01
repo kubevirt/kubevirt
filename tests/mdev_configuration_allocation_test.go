@@ -237,7 +237,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 		cleanupConfiguredMdevs := func() {
 			By("Deleting the VMI")
-			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
+			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
 			tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -261,7 +261,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -297,7 +297,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -342,7 +342,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = createdVmi
 			libwait.WaitForSuccessfulVMIStart(vmi)

@@ -401,7 +401,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			writeError(errors.NewInternalError(err), response)
@@ -498,7 +498,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			writeError(errors.NewInternalError(err), response)
@@ -639,7 +639,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	hasVMI := true
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		hasVMI = false
 	} else if err != nil {
@@ -658,7 +658,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
 		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
-		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), patchType, []byte(bodyString), k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
@@ -854,7 +854,7 @@ func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string)
 // FetchVirtualMachineInstance by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
@@ -878,7 +878,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name s
 		return nil, errors.NewConflict(v1.Resource("virtualmachine"), vm.Name, fmt.Errorf("VMI is not started"))
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
@@ -1285,7 +1285,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 
 	dryRunOption := app.getDryRunOption(volumeRequest)
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -1699,7 +1699,7 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 	}
 
 	log.Log.Object(vmi).Infof("Patching vmi: %s", string(patch))
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, &k8smetav1.PatchOptions{}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to patch vmi")
 		writeError(errors.NewInternalError(err), response)
 		return

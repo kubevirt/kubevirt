@@ -331,7 +331,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					if errors.IsNotFound(err) {
 						return false
 					}
@@ -596,14 +596,14 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVMI.Status.FSFreezeStatus == "frozen"
 				}, time.Minute, 2*time.Second).Should(BeTrue())
 
 				deleteSnapshot()
 				Eventually(func() bool {
-					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVMI.Status.FSFreezeStatus == ""
 				}, time.Minute, 2*time.Second).Should(BeTrue())
@@ -629,7 +629,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Eventually(func() bool {
 					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return snapshot.Status != nil &&
 						snapshot.Status.Phase == snapshotv1.InProgress &&
@@ -640,7 +640,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Eventually(func() bool {
 					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					_, contentErr := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 					return snapshot.Status != nil &&
@@ -767,7 +767,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				blankDisk := "/dev/"
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, volStatus := range vmi.Status.VolumeStatus {
 						if volStatus.Name == "blank" {
@@ -827,7 +827,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.FSFreezeStatus == "frozen"
 				}, 180*time.Second, time.Second).Should(BeTrue())
@@ -845,7 +845,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.FSFreezeStatus == ""
 				}, 180*time.Second, time.Second).Should(BeTrue())
@@ -1660,7 +1660,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 		verifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
 	}
 
-	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	verifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
 	libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())

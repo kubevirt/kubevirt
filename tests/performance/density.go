@@ -191,7 +191,7 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 	for i := 1; i <= vmCount; i++ {
 		vmi := createVMISpecWithResources()
 		By(fmt.Sprintf("Creating VMI %s", vmi.ObjectMeta.Name))
-		_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+		_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// interval for throughput control
@@ -285,7 +285,7 @@ func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 
 func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout time.Duration) {
 	Eventually(func() int {
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(context.Background(), &metav1.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		running := 0
 		for _, vmi := range vmis.Items {

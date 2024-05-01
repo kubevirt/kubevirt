@@ -97,7 +97,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -109,7 +109,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -127,7 +127,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			It("[test_id:4297]Make sure qemu processes are MCS constrained", func() {
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -150,7 +150,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				By("Checking that qemu process has SELinux category_set")
 				Expect(strings.Split(qemuProcessSelinuxContext, ":")).To(HaveLen(5))
 
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -167,7 +167,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -182,7 +182,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(superPrivilegedType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -199,7 +199,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting a New VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -228,7 +228,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(launcherType))
 
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -242,7 +242,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Starting a New VMI")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -317,7 +317,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			vmi := libvmi.NewAlpine(libvmi.WithMasqueradeNetworking()...)
 
 			By("Starting a New VMI")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -327,7 +327,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			By("Ensuring the VMI SELinux context status gets set")
 			seContext := ""
 			Eventually(func() string {
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				seContext = vmi.Status.SelinuxContext
 				return seContext
@@ -342,7 +342,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the VMI SELinux context status didn't change")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmi.Status.SelinuxContext).To(Equal(seContext))
 

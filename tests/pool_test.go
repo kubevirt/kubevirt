@@ -72,7 +72,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	waitForVMIs := func(namespace string, expectedCount int) {
 		Eventually(func() error {
-			vmis, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &v12.ListOptions{})
+			vmis, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), v12.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(vmis.Items) != expectedCount {
 				return fmt.Errorf("Only %d vmis exist, expected %d", len(vmis.Items), expectedCount)
@@ -394,7 +394,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
-		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmiUID := vmi.UID
@@ -430,7 +430,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Ensuring VMI remains consistent and isn't restarted")
 		Consistently(func() error {
-			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return nil
 			}
@@ -452,7 +452,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(vms.Items).To(HaveLen(1))
 
 		name := vms.Items[0].Name
-		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmiUID := vmi.UID
@@ -489,7 +489,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Ensuring VMI is re-created to pick up new label")
 		Eventually(func() error {
-			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return nil
 			}

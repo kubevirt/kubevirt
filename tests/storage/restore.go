@@ -146,7 +146,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return false
 			}
@@ -931,7 +931,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				if !onlineSnapshot {
 					By("Starting VM")
 					vm = tests.StartVirtualMachine(vm)
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(login(vmi)).To(Succeed())
@@ -962,7 +962,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				targetVM = tests.StartVirtualMachine(targetVM)
-				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, &metav1.GetOptions{})
+				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying original file contents")
@@ -1555,7 +1555,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				newVM = tests.StopVirtualMachine(updatedVM)
 				newVM = tests.StartVirtualMachine(newVM)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(newMemory))
 
@@ -1569,7 +1569,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.Restores).To(HaveLen(1))
 
 				tests.StartVirtualMachine(newVM)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(initialMemory))
 			})
@@ -1622,7 +1622,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				targetVM := getTargetVM(restoreToNewVM)
-				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, &metav1.GetOptions{})
+				targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(targetVMI.Spec.Volumes).To(HaveLen(2))
 				foundHotPlug := false
@@ -1717,7 +1717,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", console.LoginToFedora)
 
 					targetVM := getTargetVM(restoreToNewVM)
-					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, &metav1.GetOptions{})
+					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(targetVMI.Spec.Volumes).To(HaveLen(1))
 					foundMemoryDump := false
