@@ -129,8 +129,10 @@ aliases:
   # Owns the responsibility to keep kubevirt observable by i.e.
   # having mertics, alters, and runbooks.
   #
-  sig-observability-approvers: []
-  sig-observability-reviewers: []
+  sig-observability-approvers:
+    - sradco
+  sig-observability-reviewers:
+    - machadovilaca
 
   #
   # SIG Release
