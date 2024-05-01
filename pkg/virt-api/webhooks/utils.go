@@ -25,14 +25,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-
+	v1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
-	v1 "kubevirt.io/api/core/v1"
-	clientutil "kubevirt.io/client-go/util"
 )
 
 var Arch = runtime.GOARCH
@@ -80,16 +76,16 @@ type Informers struct {
 	NamespaceInformer  cache.SharedIndexInformer
 }
 
-func IsKubeVirtServiceAccount(serviceAccount string) bool {
-	ns, err := clientutil.GetNamespace()
-	logger := log.DefaultLogger()
+func IsKubeVirtServiceAccount(namespace string, serviceAccount string) bool {
+	// ns, err := clientutil.GetNamespace()
+	// logger := log.DefaultLogger()
 
-	if err != nil {
-		logger.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
-		ns = "kubevirt"
-	}
+	// if err != nil {
+	// 	logger.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
+	// 	ns = "kubevirt"
+	// }
 
-	prefix := fmt.Sprintf("system:serviceaccount:%s", ns)
+	prefix := fmt.Sprintf("system:serviceaccount:%s", namespace)
 	return serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ApiServiceAccountName) ||
 		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName) ||
 		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName)

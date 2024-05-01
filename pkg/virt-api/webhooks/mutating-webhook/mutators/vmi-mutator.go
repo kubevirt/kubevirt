@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -152,7 +151,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
 		if !equality.Semantic.DeepEqual(newVMI.Status, oldVMI.Status) {
-			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
+			if !webhooks.IsKubeVirtServiceAccount(ar.Request.Namespace, ar.Request.UserInfo.Username) {
 				patchOps = append(patchOps, patch.PatchOperation{
 					Op:    "replace",
 					Path:  "/status",

@@ -26,13 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type VMIUpdateAdmitter struct {
@@ -53,7 +51,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	// Reject VMI update if VMI spec changed
 	if !equality.Semantic.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
-		if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
+		if webhooks.IsKubeVirtServiceAccount(ar.Request.Namespace, ar.Request.UserInfo.Username) {
 			hotplugResponse := admitHotplug(oldVMI, newVMI, admitter.ClusterConfig)
 			if hotplugResponse != nil {
 				return hotplugResponse
@@ -297,7 +295,7 @@ func admitVMILabelsUpdate(
 	oldVMI *v1.VirtualMachineInstance,
 	ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 
-	if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
+	if webhooks.IsKubeVirtServiceAccount(ar.Request.Namespace, ar.Request.UserInfo.Username) {
 		return nil
 	}
 

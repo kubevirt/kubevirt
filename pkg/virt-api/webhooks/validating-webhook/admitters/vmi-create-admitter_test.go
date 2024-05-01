@@ -24,12 +24,6 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
-	"kubevirt.io/client-go/api"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -43,15 +37,17 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -446,7 +442,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Annotations: annotations,
 			}
 
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account", "empty-namespace")
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Message).To(ContainSubstring(expectedMsg))
@@ -467,7 +463,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.ObjectMeta = metav1.ObjectMeta{
 				Annotations: annotations,
 			}
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account", "empty-namespace")
 			Expect(causes).To(BeEmpty())
 		},
 			Entry("with ExperimentalIgnitionSupport feature gate enabled",
@@ -3896,7 +3892,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with multi-threaded QEMU migrations", func() {
 		DescribeTable("should", func(threadCountStr string, isValid bool) {
 			meta := metav1.ObjectMeta{Annotations: map[string]string{cmdclient.MultiThreadedQemuMigrationAnnotation: threadCountStr}}
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &meta, config, "fake-account")
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &meta, config, "fake-account", "empty-namespace")
 
 			if isValid {
 				Expect(causes).To(BeEmpty())

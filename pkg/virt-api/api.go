@@ -31,11 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	"k8s.io/kube-openapi/pkg/common/restfuladapter"
-	"k8s.io/kube-openapi/pkg/validation/spec"
-
-	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-
 	restful "github.com/emicklei/go-restful/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
@@ -46,16 +41,14 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	builderv3 "k8s.io/kube-openapi/pkg/builder3"
-
-	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
-
+	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 	v1 "kubevirt.io/api/core/v1"
+	v12 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
-
-	v12 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -67,6 +60,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"

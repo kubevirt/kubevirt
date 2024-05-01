@@ -28,11 +28,11 @@ import (
 
 var _ = Describe("IsKubeVirtServiceAccount", func() {
 	It("rejects an invalid service account", func() {
-		Expect(webhooks.IsKubeVirtServiceAccount("invalid:service:account")).To(BeFalse())
+		Expect(webhooks.IsKubeVirtServiceAccount("", "invalid:service:account")).To(BeFalse())
 	})
 	It("recognizes all KubeVirt service accounts", func() {
-		Expect(webhooks.IsKubeVirtServiceAccount("system:serviceaccount:kubevirt:kubevirt-apiserver")).To(BeTrue())
-		Expect(webhooks.IsKubeVirtServiceAccount("system:serviceaccount:kubevirt:kubevirt-controller")).To(BeTrue())
-		Expect(webhooks.IsKubeVirtServiceAccount("system:serviceaccount:kubevirt:kubevirt-handler")).To(BeTrue())
+		Expect(webhooks.IsKubeVirtServiceAccount("system:serviceaccount:kubevirt:namespace", "system:serviceaccount:kubevirt:kubevirt-apiserver")).To(BeTrue())
+		Expect(webhooks.IsKubeVirtServiceAccount("system:serviceaccount:kubevirt:namespace", "system:serviceaccount:kubevirt:kubevirt-controller")).To(BeTrue())
+		Expect(webhooks.IsKubeVirtServiceAccount("system:serviceaccount:kubevirt:namespace", "system:serviceaccount:kubevirt:kubevirt-handler")).To(BeTrue())
 	})
 })
