@@ -114,7 +114,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Adding node selector")
 			vmNodeSelector := map[string]string{k8sv1.LabelOSStable: "not-existing-os"}
@@ -171,7 +171,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Adding Affinity")
 			vmAffinity := generateNodeAffinity("fakeNode_1")

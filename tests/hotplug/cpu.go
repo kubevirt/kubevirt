@@ -103,7 +103,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 200m CPU")
 			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
@@ -202,7 +202,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 2 CPU")
 			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
