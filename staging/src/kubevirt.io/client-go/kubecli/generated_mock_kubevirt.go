@@ -8,6 +8,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	versioned "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned"
 	v1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	v10 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	v11 "k8s.io/api/autoscaling/v1"
@@ -69,9 +70,9 @@ import (
 	v1beta115 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	rest "k8s.io/client-go/rest"
 	v120 "kubevirt.io/api/core/v1"
-	versioned "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
-	versioned0 "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
-	versioned1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	versioned0 "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
+	versioned1 "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
+	versioned2 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	v1alpha19 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
 	v121 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	v1beta116 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1"
@@ -79,8 +80,8 @@ import (
 	v1alpha110 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	v1alpha111 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	v1beta118 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1"
-	versioned2 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
-	versioned3 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
+	versioned3 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
+	versioned4 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 	version "kubevirt.io/client-go/version"
 )
 
@@ -325,9 +326,9 @@ func (_mr *_MockKubevirtClientRecorder) RestClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RestClient")
 }
 
-func (_m *MockKubevirtClient) GeneratedKubeVirtClient() versioned1.Interface {
+func (_m *MockKubevirtClient) GeneratedKubeVirtClient() versioned2.Interface {
 	ret := _m.ctrl.Call(_m, "GeneratedKubeVirtClient")
-	ret0, _ := ret[0].(versioned1.Interface)
+	ret0, _ := ret[0].(versioned2.Interface)
 	return ret0
 }
 
@@ -335,9 +336,9 @@ func (_mr *_MockKubevirtClientRecorder) GeneratedKubeVirtClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GeneratedKubeVirtClient")
 }
 
-func (_m *MockKubevirtClient) CdiClient() versioned.Interface {
+func (_m *MockKubevirtClient) CdiClient() versioned0.Interface {
 	ret := _m.ctrl.Call(_m, "CdiClient")
-	ret0, _ := ret[0].(versioned.Interface)
+	ret0, _ := ret[0].(versioned0.Interface)
 	return ret0
 }
 
@@ -345,9 +346,9 @@ func (_mr *_MockKubevirtClientRecorder) CdiClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CdiClient")
 }
 
-func (_m *MockKubevirtClient) NetworkClient() versioned2.Interface {
+func (_m *MockKubevirtClient) NetworkClient() versioned3.Interface {
 	ret := _m.ctrl.Call(_m, "NetworkClient")
-	ret0, _ := ret[0].(versioned2.Interface)
+	ret0, _ := ret[0].(versioned3.Interface)
 	return ret0
 }
 
@@ -395,9 +396,9 @@ func (_mr *_MockKubevirtClientRecorder) DiscoveryClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoveryClient")
 }
 
-func (_m *MockKubevirtClient) PrometheusClient() versioned3.Interface {
+func (_m *MockKubevirtClient) PrometheusClient() versioned4.Interface {
 	ret := _m.ctrl.Call(_m, "PrometheusClient")
-	ret0, _ := ret[0].(versioned3.Interface)
+	ret0, _ := ret[0].(versioned4.Interface)
 	return ret0
 }
 
@@ -405,9 +406,9 @@ func (_mr *_MockKubevirtClientRecorder) PrometheusClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrometheusClient")
 }
 
-func (_m *MockKubevirtClient) KubernetesSnapshotClient() versioned0.Interface {
+func (_m *MockKubevirtClient) KubernetesSnapshotClient() versioned1.Interface {
 	ret := _m.ctrl.Call(_m, "KubernetesSnapshotClient")
-	ret0, _ := ret[0].(versioned0.Interface)
+	ret0, _ := ret[0].(versioned1.Interface)
 	return ret0
 }
 
@@ -433,6 +434,16 @@ func (_m *MockKubevirtClient) MigrationPolicyClient() *v1alpha110.MigrationsV1al
 
 func (_mr *_MockKubevirtClientRecorder) MigrationPolicyClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrationPolicyClient")
+}
+
+func (_m *MockKubevirtClient) IPAMClaimsClient() versioned.Interface {
+	ret := _m.ctrl.Call(_m, "IPAMClaimsClient")
+	ret0, _ := ret[0].(versioned.Interface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) IPAMClaimsClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IPAMClaimsClient")
 }
 
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {
