@@ -53,9 +53,11 @@ func GetCertsForPods(labelSelector string, namespace string, port string) ([][]b
 
 	var certs [][]byte
 
+	//nolint:gocritic
 	for _, pod := range pods.Items {
+		podCopy := pod
 		err := func() error {
-			certs = append(certs, getCert(&pod, port))
+			certs = append(certs, getCert(&podCopy, port))
 			return nil
 		}()
 		if err != nil {
@@ -66,10 +68,16 @@ func GetCertsForPods(labelSelector string, namespace string, port string) ([][]b
 }
 
 func getCert(pod *k8sv1.Pod, port string) []byte {
-	randPort := strconv.Itoa(4321 + rand.Intn(6000))
+	const (
+		basePort  = 4321
+		portRange = 6000
+	)
+	//nolint:gosec
+	randPort := strconv.Itoa(basePort + rand.Intn(portRange))
 	var rawCert []byte
 	mutex := &sync.Mutex{}
 	conf := &tls.Config{
+		//nolint:gosec
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			mutex.Lock()
@@ -80,11 +88,13 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 	}
 
 	var certificate []byte
-	EventuallyWithOffset(2, func() []byte {
+	const offset = 2
+	EventuallyWithOffset(offset, func() []byte {
 		stopChan := make(chan struct{})
 		defer close(stopChan)
-		err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
-		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+		const timeout = 10
+		err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, timeout*time.Second)
+		ExpectWithOffset(offset, err).ToNot(HaveOccurred())
 
 		conn, err := tls.Dial("tcp4", fmt.Sprintf("localhost:%s", randPort), conf)
 		if err == nil {
