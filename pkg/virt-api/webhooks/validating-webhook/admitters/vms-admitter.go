@@ -236,6 +236,63 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
+const (
+	instancetypeCPUGuestPath              = "instancetype.spec.cpu.guest"
+	spreadAcrossSocketsCoresErrFmt        = "%d vCPUs provided by the instance type are not divisible by the Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d provided by the preference"
+	spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
+	spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
+)
+
+func checkSpreadCPUTopology(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
+	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec == nil || topology != instancetypev1beta1.PreferSpread {
+		return nil
+	}
+
+	ratio := instancetype.DefaultSpreadSocketCoreRatio
+	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
+		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
+	}
+
+	across := instancetypev1beta1.SpreadAcrossSocketsCores
+	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
+		if preferenceSpec.CPU.SpreadOptions.Across != nil {
+			across = *preferenceSpec.CPU.SpreadOptions.Across
+		}
+		if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
+			ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
+		}
+	}
+
+	switch across {
+	case instancetypev1beta1.SpreadAcrossSocketsCores:
+		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, instancetypeSpec.CPU.Guest, ratio),
+				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
+			}}
+		}
+	case instancetypev1beta1.SpreadAcrossCoresThreads:
+		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, ratio),
+				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
+			}}
+		}
+	case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
+		const threadsPerCore = 2
+		if (instancetypeSpec.CPU.Guest%threadsPerCore) > 0 || ((instancetypeSpec.CPU.Guest/threadsPerCore)%ratio) > 0 {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, threadsPerCore, ratio),
+				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
+			}}
+		}
+	}
+	return nil
+}
+
 func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
 	instancetypeSpec, err := admitter.InstancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
@@ -255,19 +312,8 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 		}}
 	}
 
-	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec != nil && topology == instancetypev1beta1.PreferSpread {
-		ratio := preferenceSpec.PreferSpreadSocketToCoreRatio
-		if ratio == 0 {
-			ratio = instancetype.DefaultSpreadRatio
-		}
-
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return nil, nil, []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Instancetype CPU Guest is not divisible by PreferSpreadSocketToCoreRatio",
-				Field:   k8sfield.NewPath("instancetype.spec.cpu.guest").String(),
-			}}
-		}
+	if spreadConflicts := checkSpreadCPUTopology(instancetypeSpec, preferenceSpec); len(spreadConflicts) > 0 {
+		return nil, nil, spreadConflicts
 	}
 
 	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
