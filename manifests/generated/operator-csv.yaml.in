@@ -722,6 +722,13 @@ spec:
           - list
           - watch
         - apiGroups:
+          - k8s.cni.cncf.io
+          resources:
+          - ipamclaims
+          verbs:
+          - get
+          - create
+        - apiGroups:
           - route.openshift.io
           resources:
           - routes
