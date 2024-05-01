@@ -55,7 +55,7 @@ rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 function functest() {
-    KUBEVIRT_FUNC_TEST_SUITE_ARGS="--ginkgo.trace
+    KUBEVIRT_FUNC_TEST_SUITE_ARGS="--ginkgo.trace --ginkgo.dry-run
 	    -apply-default-e2e-configuration \
 	    -conn-check-ipv4-address=${conn_check_ipv4_address} \
 	    -conn-check-ipv6-address=${conn_check_ipv6_address} \
