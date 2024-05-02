@@ -392,9 +392,24 @@ func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.Virtua
 			return Conflicts{cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
 	case instancetypev1beta1.PreferSpread:
-		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets
-		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{cpuField.Child("cores"), cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores and sockets")
+		var (
+			vCPUs     uint32
+			conflicts Conflicts
+		)
+		_, across := GetSpreadOptions(preferenceSpec)
+		switch across {
+		case instancetypev1beta1.SpreadAcrossSocketsCores:
+			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores
+			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores")}
+		case instancetypev1beta1.SpreadAcrossCoresThreads:
+			vCPUs = vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
+			conflicts = Conflicts{cpuField.Child("cores"), cpuField.Child("threads")}
+		case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
+			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
+			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores"), cpuField.Child("threads")}
+		}
+		if vCPUs < preferenceSpec.Requirements.CPU.Guest {
+			return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, preferenceSpec.Requirements.CPU.Guest, across)
 		}
 	case instancetypev1beta1.PreferAny:
 		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads

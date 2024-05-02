@@ -2348,7 +2348,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 			),
-			Entry("by a VM for vCPUs using PreferSpread",
+			Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -2365,6 +2365,55 @@ var _ = Describe("Instancetype and Preferences", func() {
 						CPU: &v1.CPU{
 							Cores:   uint32(2),
 							Sockets: uint32(3),
+						},
+					},
+				},
+			),
+			Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferSpread,
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(6),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Threads: uint32(2),
+							Cores:   uint32(3),
+						},
+					},
+				},
+			),
+			Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferSpread,
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(8),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Threads: uint32(2),
+							Cores:   uint32(2),
+							Sockets: uint32(2),
 						},
 					},
 				},
@@ -2516,7 +2565,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
 				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
 			),
-			Entry("by a VM for vCPUs using PreferSpread",
+			Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -2536,8 +2585,61 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), "cores and sockets"),
+				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCores),
+			),
+			Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+						PreferredCPUTopology: &preferSpread,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(4),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Cores:   uint32(1),
+							Threads: uint32(1),
+						},
+					},
+				},
+				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossCoresThreads),
+			),
+			Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+						PreferredCPUTopology: &preferSpread,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(4),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Sockets: uint32(1),
+							Cores:   uint32(1),
+							Threads: uint32(1),
+						},
+					},
+				},
+				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferAny",
 				nil,
