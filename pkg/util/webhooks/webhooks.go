@@ -222,3 +222,26 @@ func GetInstanceTypeSpecFromAdmissionRequest(request *admissionv1.AdmissionReque
 
 	return &instancetypeObj.Spec, nil, nil
 }
+
+func GetPreferenceSpecFromAdmissionRequest(request *admissionv1.AdmissionRequest) (new *instancetypev1beta1.VirtualMachinePreferenceSpec, old *instancetypev1beta1.VirtualMachinePreferenceSpec, err error) {
+	raw := request.Object.Raw
+	preferenceObj := instancetypev1beta1.VirtualMachinePreference{}
+
+	err = json.Unmarshal(raw, &preferenceObj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if request.Operation == admissionv1.Update {
+		raw := request.OldObject.Raw
+		oldPreferenceObj := instancetypev1beta1.VirtualMachinePreference{}
+
+		err = json.Unmarshal(raw, &oldPreferenceObj)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &preferenceObj.Spec, &oldPreferenceObj.Spec, nil
+	}
+
+	return &preferenceObj.Spec, nil, nil
+}
