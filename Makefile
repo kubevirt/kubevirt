@@ -12,7 +12,7 @@ FUNC_TEST_IMAGE    ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-functest
 VIRT_ARTIFACTS_SERVER ?= $(REGISTRY_NAMESPACE)/virt-artifacts-server
 LDFLAGS            ?= -w -s
 GOLANDCI_LINT_VERSION ?= v1.57.0
-
+HCO_BUMP_LEVEL ?= minor
 
 
 # Prow doesn't have docker command
@@ -237,6 +237,9 @@ lint-monitoring:
 	go install github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@e2be790
 	monitoringlinter ./...
 
+bump-hco:
+	./hack/bump-hco.sh ${HCO_BUMP_LEVEL}
+
 .PHONY: start \
 		clean \
 		build \
@@ -285,4 +288,5 @@ lint-monitoring:
 		lint-metrics \
 		lint-monitoring \
 		sanity \
-		goimport
+		goimport \
+		bump-hco

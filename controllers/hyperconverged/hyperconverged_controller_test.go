@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/blang/semver/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -1330,26 +1331,34 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("Upgrade Mode", func() {
-			const (
-				oldVersion          = "1.6.1"  // to be sure to cover v2v CRDs removal during upgrades
-				newVersion          = "1.12.0" // TODO: avoid hard-coding values
-				oldComponentVersion = "1.12.0"
-				newComponentVersion = "1.12.3"
-			)
-
-			// this is used for version label and the tests below
-			// assumes there is no change in labels. Therefore, it should be
-			// set before getBasicDeployment so that the existing resource can
-			// have the correct labels
-			_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
-
 			var (
-				expected       *BasicExpected
-				origConditions []metav1.Condition
-				okConds        []metav1.Condition
+				oldVersion          string // to be sure to cover v2v CRDs removal during upgrades
+				newHCOVersion       string
+				oldComponentVersion string
+				newComponentVersion string
+				expected            *BasicExpected
+				origConditions      []metav1.Condition
+				okConds             []metav1.Condition
 			)
 
 			BeforeEach(func() {
+				newHCOVersion = version.Version
+				oldComponentVersion = version.Version
+
+				verComp := semver.MustParse(version.Version)
+				verComp.Patch += 3
+				newComponentVersion = verComp.String()
+
+				verComp = semver.MustParse(version.Version)
+				verComp.Minor--
+				oldVersion = verComp.String()
+
+				// this is used for version label and the tests below
+				// assumes there is no change in labels. Therefore, it should be
+				// set before getBasicDeployment so that the existing resource can
+				// have the correct labels
+				_ = os.Setenv(hcoutil.HcoKvIoVersionName, newHCOVersion)
+
 				expected = getBasicDeployment()
 				origConditions = expected.hco.Status.Conditions
 				okConds = expected.hco.Status.Conditions
@@ -1412,7 +1421,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				ver, ok := GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).To(Equal(newVersion))
+				Expect(ver).To(Equal(newHCOVersion))
 
 				expected.hco.Status.Conditions = okConds
 			})
@@ -1460,7 +1469,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).To(Equal(newVersion))
+				Expect(ver).To(Equal(newHCOVersion))
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionFalse))
 				validateOperatorCondition(reconciler, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
@@ -1523,7 +1532,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					r := initReconciler(cl, nil)
 					r.firstLoop = false
-					r.ownVersion = newVersion
+					r.ownVersion = newHCOVersion
 
 					res, err := r.Reconcile(context.TODO(), request)
 					Expect(
@@ -1549,7 +1558,7 @@ var _ = Describe("HyperconvergedController", func() {
 						).To(Succeed())
 						ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 						Expect(ok).To(BeTrue())
-						Expect(ver).To(Equal(newVersion))
+						Expect(ver).To(Equal(newHCOVersion))
 					} else {
 						Expect(err).To(HaveOccurred())
 						Expect(err.Error()).To(ContainSubstring(errorMessage))
@@ -1585,43 +1594,43 @@ var _ = Describe("HyperconvergedController", func() {
 				},
 				Entry(
 					"semver",
-					oldVersion,
+					"1.11.0",
 					true,
 					"",
 				),
 				Entry(
 					"semver with leading spaces",
-					"  "+oldVersion,
+					"  1.11.0",
 					true,
 					"",
 				),
 				Entry(
 					"semver with trailing spaces",
-					oldVersion+"  ",
+					"1.11.0  ",
 					true,
 					"",
 				),
 				Entry(
 					"semver with leading and trailing spaces",
-					"  "+oldVersion+"  ",
+					"  1.11.0  ",
 					true,
 					"",
 				),
 				Entry(
 					"quasi semver with leading v",
-					"  "+"v"+oldVersion+"  ",
+					"  v1.11.0  ",
 					true,
 					"",
 				),
 				Entry(
 					"quasi semver with leading v",
-					"v"+oldVersion,
+					"v1.11.0",
 					true,
 					"",
 				),
 				Entry(
 					"only major and minor",
-					"1.6",
+					"1.11",
 					true,
 					"",
 				),
@@ -1633,13 +1642,13 @@ var _ = Describe("HyperconvergedController", func() {
 				),
 				Entry(
 					"only major with leading v",
-					"1",
+					"v1",
 					true,
 					"",
 				),
 				Entry(
 					"additional zeros",
-					"0000001.0000006.000000",
+					"0000001.0000012.000000",
 					true,
 					"",
 				),
@@ -1651,7 +1660,7 @@ var _ = Describe("HyperconvergedController", func() {
 				),
 				Entry(
 					"additional dots",
-					"1...6..0",
+					"1...12..0",
 					false,
 					"invalid syntax",
 				),
@@ -1706,7 +1715,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 				Expect(ok).To(BeTrue())
-				Expect(ver).To(Equal(newVersion))
+				Expect(ver).To(Equal(newHCOVersion))
 
 				cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 				Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionFalse))
@@ -1715,7 +1724,7 @@ var _ = Describe("HyperconvergedController", func() {
 			DescribeTable(
 				"don't complete upgrade if a component version is not match to the component's version env ver",
 				func(makeComponentNotReady, makeComponentReady, updateComponentVersion func()) {
-					_ = os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+					_ = os.Setenv(hcoutil.HcoKvIoVersionName, newHCOVersion)
 
 					// old HCO Version is set
 					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
@@ -1740,7 +1749,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cond := apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 					Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionTrue))
 					Expect(cond.Reason).To(Equal("HCOUpgrading"))
-					Expect(cond.Message).To(Equal("HCO is now upgrading to version " + newVersion))
+					Expect(cond.Message).To(Equal("HCO is now upgrading to version " + newHCOVersion))
 
 					// check that the upgrade is not done if the not all the versions are match.
 					// Conditions are valid
@@ -1759,7 +1768,7 @@ var _ = Describe("HyperconvergedController", func() {
 					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 					Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionTrue))
 					Expect(cond.Reason).To(Equal("HCOUpgrading"))
-					Expect(cond.Message).To(Equal("HCO is now upgrading to version " + newVersion))
+					Expect(cond.Message).To(Equal("HCO is now upgrading to version " + newHCOVersion))
 
 					// now, complete the upgrade
 					updateComponentVersion()
@@ -1773,7 +1782,7 @@ var _ = Describe("HyperconvergedController", func() {
 					// check that the image Id is set, now, when upgrade is completed
 					ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
-					Expect(ver).To(Equal(newVersion))
+					Expect(ver).To(Equal(newHCOVersion))
 					cond = apimetav1.FindStatusCondition(foundResource.Status.Conditions, hcov1beta1.ConditionProgressing)
 					Expect(cond.Status).To(BeEquivalentTo(metav1.ConditionFalse))
 					Expect(cond.Reason).To(Equal("ReconcileCompleted"))
@@ -1857,7 +1866,7 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundHC, metav1.ConditionTrue)
 					ver, ok := GetVersion(&foundHC.Status, hcoVersionName)
 					Expect(ok).To(BeTrue())
-					Expect(ver).To(Equal(newVersion))
+					Expect(ver).To(Equal(newHCOVersion))
 				})
 
 				It("should not update .status.storedVersions on the HCO CRD if not in upgrade mode", func() {
@@ -1977,7 +1986,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				It("should remove v2v CRDs during upgrades", func() {
 					// Simulate ongoing upgrade
-					UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
+					UpdateVersion(&expected.hco.Status, hcoVersionName, "1.6.1")
 
 					resources := expected.toArray()
 					for _, r := range currentCRDs {

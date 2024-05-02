@@ -12,17 +12,20 @@ MAJOR=$(echo $base | sed -e "s#$RE#\1#")
 MINOR=$(echo $base | sed -e "s#$RE#\2#")
 PATCH=$(echo $base | sed -e "s#$RE#\3#")
 
-case "$increment_type" in
+case "${increment_type}" in
 major)
   ((MAJOR += 1))
-  ((MINOR = 0))
-  ((PATCH = 0))
+  MINOR=0
+  PATCH=0
   ;;
 minor)
   ((MINOR += 1))
-  ((PATCH = 0))
+  PATCH=0
   ;;
 patch)
+  ((PATCH += 1))
+  ;;
+*)
   ((PATCH += 1))
   ;;
 esac
