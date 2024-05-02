@@ -13,10 +13,11 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/testing"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -39,6 +40,7 @@ var _ = Describe("Replicaset", func() {
 
 		var ctrl *gomock.Controller
 		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+		var virtClientset *fake.Clientset
 		var rsInterface *kubecli.MockReplicaSetInterface
 		var vmiSource *framework.FakeControllerSource
 		var rsSource *framework.FakeControllerSource
@@ -60,6 +62,7 @@ var _ = Describe("Replicaset", func() {
 			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
+			virtClientset = fake.NewSimpleClientset()
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			rsInterface = kubecli.NewMockReplicaSetInterface(ctrl)
 
@@ -74,9 +77,10 @@ var _ = Describe("Replicaset", func() {
 			controller.Queue = mockQueue
 			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
-			// Set up mock client
-			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
-			virtClient.EXPECT().ReplicaSet(metav1.NamespaceDefault).Return(rsInterface).AnyTimes()
+			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+			virtClient.EXPECT().ReplicaSet(metav1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault)).AnyTimes()
+
+			testing.PrependGenerateNameCreateReactor(&virtClientset.Fake, "virtualmachineinstances")
 			syncCaches(stop)
 		})
 

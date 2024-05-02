@@ -19,7 +19,12 @@
 
 package testing
 
-import "k8s.io/client-go/testing"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/storage/names"
+	"k8s.io/client-go/testing"
+)
 
 // FilterActions returns the actions which satisfy the passed verb and resource name.
 func FilterActions(fake *testing.Fake, verb, resourceName string) []testing.Action {
@@ -30,4 +35,22 @@ func FilterActions(fake *testing.Fake, verb, resourceName string) []testing.Acti
 		}
 	}
 	return filtered
+}
+
+// PrependGenerateNameCreateReactor prepends a reactor to the specified resource
+// that generates a name starting from the meta.generateName field.
+func PrependGenerateNameCreateReactor(fake *testing.Fake, resourceName string) {
+	fake.PrependReactor("create", resourceName, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+		ret = action.(testing.CreateAction).GetObject()
+		meta, ok := ret.(metav1.Object)
+		if !ok {
+			return
+		}
+
+		if meta.GetName() == "" && meta.GetGenerateName() != "" {
+			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
+		}
+
+		return
+	})
 }

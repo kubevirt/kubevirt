@@ -836,6 +836,9 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
+# k8s.io/apiserver v0.30.0 => k8s.io/apiserver v0.30.0
+## explicit; go 1.22.0
+k8s.io/apiserver/pkg/storage/names
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.30.0
 ## explicit; go 1.22.0
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
