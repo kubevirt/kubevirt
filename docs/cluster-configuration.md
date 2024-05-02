@@ -1156,6 +1156,10 @@ To configure AAQ, set the fields of the `applicationAwareConfig` object in the H
   
   **note**: this setting cause some performance cost. Only set to true if there is a good reason.
 
+### Limitations
+
+Pods that set `.spec.nodeName` are not allowed to use in any namespace that AAQ is targeting.
+
 ### Example
 ```yaml
 spec:
@@ -1165,6 +1169,14 @@ spec:
       matchLabels:
         some-label: "some value"
     allowApplicationAwareClusterResourceQuota: true
+```
+
+**Note**: if a namespace selector is not being defined, AAQ would target namespaces with the `application-aware-quota/enable` key.
+It is also possible to target every namespace by defining an empty (non-nil) namespaceSelector as follows:
+```yaml
+spec:
+  applicationAwareConfig:
+    namespaceSelector: {}
 ```
 ## Configure higher workload density
 Cluster administrators can opt-in for higher VM workload density by configuring the memroy overcommit percentage as follows:
