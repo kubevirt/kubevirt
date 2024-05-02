@@ -35,6 +35,7 @@ import (
 var excludedMetrics = map[string]struct{}{
 	"kubevirt_hyperconverged_operator_health_status": struct{}{},
 	"cluster:vmi_request_cpu_cores:sum":              struct{}{},
+	"cnv_abnormal":                                   struct{}{},
 }
 
 func main() {
