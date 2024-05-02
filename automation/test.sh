@@ -84,6 +84,10 @@ elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_NUM_SECONDARY_NICS=1
   export KUBEVIRT_DEPLOY_NFS_CSI=true
+elif [[ $TARGET =~ sig-compute-serial ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
+elif [[ $TARGET =~ sig-compute-parallel ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
@@ -423,6 +427,13 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-realtime)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
     label_filter='(sig-compute-migrations && !(GPU,VGPU))'
+  elif [[ $TARGET =~ sig-compute-serial ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+    ginko_params="${ginko_params} --focus=\\[Serial\\]"
+    label_filter='((sig-compute) && !(GPU,VGPU,sig-compute-migrations))'
+  elif [[ $TARGET =~ sig-compute-parallel ]]; then
+    ginko_params="${ginko_params} --skip=\\[Serial\\]"
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-compute ]]; then
     label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
