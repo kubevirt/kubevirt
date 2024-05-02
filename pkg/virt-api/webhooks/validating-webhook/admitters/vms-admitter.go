@@ -248,21 +248,7 @@ func checkSpreadCPUTopology(instancetypeSpec *instancetypev1beta1.VirtualMachine
 		return nil
 	}
 
-	ratio := instancetype.DefaultSpreadSocketCoreRatio
-	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
-		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
-	}
-
-	across := instancetypev1beta1.SpreadAcrossSocketsCores
-	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
-		if preferenceSpec.CPU.SpreadOptions.Across != nil {
-			across = *preferenceSpec.CPU.SpreadOptions.Across
-		}
-		if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
-			ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
-		}
-	}
-
+	ratio, across := instancetype.GetSpreadOptions(preferenceSpec)
 	switch across {
 	case instancetypev1beta1.SpreadAcrossSocketsCores:
 		if (instancetypeSpec.CPU.Guest % ratio) > 0 {

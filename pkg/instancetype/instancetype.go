@@ -33,13 +33,12 @@ import (
 )
 
 const (
-	VMFieldConflictErrorFmt                                = "VM field %s conflicts with selected instance type"
-	InsufficientInstanceTypeCPUResourcesErrorFmt           = "insufficient CPU resources of %d vCPU provided by instance type, preference requires %d vCPU"
-	InsufficientVMCPUResourcesErrorFmt                     = "insufficient CPU resources of %d vCPU provided by VirtualMachine, preference requires %d vCPU provided as %s"
-	InsufficientInstanceTypeMemoryResourcesErrorFmt        = "insufficient Memory resources of %s provided by instance type, preference requires %s"
-	InsufficientVMMemoryResourcesErrorFmt                  = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
-	NoVMCPUResourcesDefinedErrorFmt                        = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
-	DefaultSpreadRatio                              uint32 = 2
+	VMFieldConflictErrorFmt                         = "VM field %s conflicts with selected instance type"
+	InsufficientInstanceTypeCPUResourcesErrorFmt    = "insufficient CPU resources of %d vCPU provided by instance type, preference requires %d vCPU"
+	InsufficientVMCPUResourcesErrorFmt              = "insufficient CPU resources of %d vCPU provided by VirtualMachine, preference requires %d vCPU provided as %s"
+	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"
+	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
+	NoVMCPUResourcesDefinedErrorFmt                 = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
 )
 
 type Methods interface {
@@ -80,6 +79,25 @@ func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
 	}
 	return preferredTopology
+}
+
+const defaultSpreadRatio uint32 = 2
+
+func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
+	ratio := defaultSpreadRatio
+	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
+		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
+	}
+	across := instancetypev1beta1.SpreadAcrossSocketsCores
+	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
+		if preferenceSpec.CPU.SpreadOptions.Across != nil {
+			across = *preferenceSpec.CPU.SpreadOptions.Across
+		}
+		if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
+			ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
+		}
+	}
+	return ratio, across
 }
 
 func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourceGeneration int64) string {
@@ -977,19 +995,7 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *instancetypev1beta1.Vir
 	case instancetypev1beta1.PreferThreads:
 		vmiSpec.Domain.CPU.Threads = vCPUs
 	case instancetypev1beta1.PreferSpread:
-		ratio := DefaultSpreadRatio
-		if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
-			ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
-		}
-		across := instancetypev1beta1.SpreadAcrossSocketsCores
-		if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
-			if preferenceSpec.CPU.SpreadOptions.Across != nil {
-				across = *preferenceSpec.CPU.SpreadOptions.Across
-			}
-			if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
-				ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
-			}
-		}
+		ratio, across := GetSpreadOptions(preferenceSpec)
 		switch across {
 		case instancetypev1beta1.SpreadAcrossSocketsCores:
 			vmiSpec.Domain.CPU.Cores = ratio
