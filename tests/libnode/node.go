@@ -29,9 +29,11 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/pkg/util/nodes"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	. "github.com/onsi/gomega"
 
@@ -442,4 +444,15 @@ func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
 		}
 	}
 	return hostModel
+}
+
+func ExecuteCommandOnNodeThroughVirtHandler(
+	virtCli kubecli.KubevirtClient,
+	nodeName string,
+	command []string) (stdout string, stderr string, err error) {
+	virtHandlerPod, err := GetVirtHandlerPod(virtCli, nodeName)
+	if err != nil {
+		return "", "", err
+	}
+	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
 }
