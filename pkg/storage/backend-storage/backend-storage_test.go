@@ -20,7 +20,6 @@
 package backendstorage
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -31,39 +30,20 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Backend Storage", func() {
 	var backendStorage *BackendStorage
-	var cdiClient *cdifake.Clientset
 	var config *virtconfig.ClusterConfig
 	var kvInformer cache.SharedIndexInformer
 	var storageClassInformer cache.SharedIndexInformer
-
-	cdiConfigInit := func() (cdiConfig *v1beta1.CDIConfig) {
-		cdiConfig = &v1beta1.CDIConfig{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name: storagetypes.ConfigName,
-			},
-			Spec: v1beta1.CDIConfigSpec{
-				UploadProxyURLOverride: nil,
-			},
-			Status: v1beta1.CDIConfigStatus{
-				FilesystemOverhead: &v1beta1.FilesystemOverhead{
-					Global: storagetypes.DefaultFSOverhead,
-				},
-			},
-		}
-		return
-	}
+	var storageProfileInformer cache.SharedIndexInformer
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
@@ -71,11 +51,9 @@ var _ = Describe("Backend Storage", func() {
 		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{}
 		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-		cdiConfig := cdiConfigInit()
-		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
-		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+		storageProfileInformer, _ = testutils.NewFakeInformerFor(&v1beta1.StorageProfile{})
 
-		backendStorage = NewBackendStorage(virtClient, config, storageClassInformer.GetStore())
+		backendStorage = NewBackendStorage(virtClient, config, storageClassInformer.GetStore(), storageProfileInformer.GetStore())
 	})
 
 	Context("Storage class", func() {
@@ -110,34 +88,36 @@ var _ = Describe("Backend Storage", func() {
 	Context("Access mode", func() {
 		BeforeEach(func() {
 			By("Creating a storage profile with no access/volume mode")
-			sp := v1beta1.StorageProfile{
+			sp := &v1beta1.StorageProfile{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "noMode",
+					Name: "nomode",
 				},
 				Spec: v1beta1.StorageProfileSpec{},
 				Status: v1beta1.StorageProfileStatus{
 					ClaimPropertySets: []v1beta1.ClaimPropertySet{},
 				},
 			}
-			_, err := cdiClient.CdiV1beta1().StorageProfiles().Create(context.Background(), &sp, k8smetav1.CreateOptions{})
+			err := storageProfileInformer.GetStore().Add(sp)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Creating a storage profile with RWO FS as its only mode")
+			sp = sp.DeepCopy()
 			sp.Name = "onlyrwo"
-			sp.Status.ClaimPropertySets = append(sp.Status.ClaimPropertySets, v1beta1.ClaimPropertySet{
+			sp.Status.ClaimPropertySets = []v1beta1.ClaimPropertySet{{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
 				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
-			})
-			_, err = cdiClient.CdiV1beta1().StorageProfiles().Create(context.Background(), &sp, k8smetav1.CreateOptions{})
+			}}
+			err = storageProfileInformer.GetStore().Add(sp)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Creating a storage profile that supports FS in both RWO and RWX")
+			sp = sp.DeepCopy()
 			sp.Name = "both"
-			sp.Status.ClaimPropertySets = append(sp.Status.ClaimPropertySets, v1beta1.ClaimPropertySet{
+			sp.Status.ClaimPropertySets = []v1beta1.ClaimPropertySet{{
 				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany, v1.ReadWriteOnce},
 				VolumeMode:  pointer.P(v1.PersistentVolumeFilesystem),
-			})
-			_, err = cdiClient.CdiV1beta1().StorageProfiles().Create(context.Background(), &sp, k8smetav1.CreateOptions{})
+			}}
+			err = storageProfileInformer.GetStore().Add(sp)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -158,7 +138,7 @@ var _ = Describe("Backend Storage", func() {
 
 		It("Should pick RWO when RWX isn't possible", func() {
 			accessMode := backendStorage.getAccessMode("onlyrwo", v1.PersistentVolumeFilesystem)
-			Expect(accessMode).To(Equal(v1.ReadWriteOnce))
+			Expect(accessMode).To(Equal(v1.ReadWriteOnce), fmt.Sprintf("%#v", storageProfileInformer.GetStore().ListKeys()))
 		})
 	})
 })

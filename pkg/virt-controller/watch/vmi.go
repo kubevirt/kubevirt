@@ -147,6 +147,7 @@ func NewVMIController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
+	storageProfileInformer cache.SharedIndexInformer,
 	cdiInformer cache.SharedIndexInformer,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -170,11 +171,13 @@ func NewVMIController(templateService services.TemplateService,
 		clusterConfig:     clusterConfig,
 		topologyHinter:    topologyHinter,
 		cidsMap:           newCIDsMap(),
-		backendStorage:    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore()),
+		backendStorage:    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore()),
 	}
 
 	c.hasSynced = func() bool {
-		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() && pvcInformer.HasSynced() && storageClassInformer.HasSynced()
+		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
+			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
+			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

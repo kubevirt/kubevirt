@@ -22,9 +22,9 @@ package backendstorage
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -75,19 +75,18 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 }
 
 type BackendStorage struct {
-	client          kubecli.KubevirtClient
-	clusterConfig   *virtconfig.ClusterConfig
-	scStore         cache.Store
-	accessModeCache map[string]v1.PersistentVolumeAccessMode
-	cacheLock       sync.Mutex
+	client        kubecli.KubevirtClient
+	clusterConfig *virtconfig.ClusterConfig
+	scStore       cache.Store
+	spStore       cache.Store
 }
 
-func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store) *BackendStorage {
+func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store) *BackendStorage {
 	return &BackendStorage{
-		client:          client,
-		clusterConfig:   clusterConfig,
-		scStore:         scStore,
-		accessModeCache: map[string]v1.PersistentVolumeAccessMode{},
+		client:        client,
+		clusterConfig: clusterConfig,
+		scStore:       scStore,
+		spStore:       spStore,
 	}
 }
 
@@ -108,25 +107,18 @@ func (bs *BackendStorage) getStorageClass() (string, error) {
 }
 
 func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentVolumeMode) v1.PersistentVolumeAccessMode {
-	bs.cacheLock.Lock()
-	defer bs.cacheLock.Unlock()
-	if accessMode, exists := bs.accessModeCache[storageClass]; exists {
-		return accessMode
-	}
-
 	// Storage profiles are guaranteed to have the same name as their storage class
-	storageProfile, err := bs.client.CdiClient().CdiV1beta1().StorageProfiles().Get(context.Background(), storageClass, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		log.Log.Infof("no storage profile found for %s, defaulting to RWX", storageClass)
-		return v1.ReadWriteMany
-	}
+	obj, exists, err := bs.spStore.GetByKey(storageClass)
 	if err != nil {
-		// CDI not present most likely
 		log.Log.Reason(err).Info("couldn't access storage profiles, defaulting to RWX")
 		return v1.ReadWriteMany
 	}
+	if !exists {
+		log.Log.Infof("no storage profile found for %s, defaulting to RWX", storageClass)
+		return v1.ReadWriteMany
+	}
+	storageProfile := obj.(*v1beta1.StorageProfile)
 
-	bs.accessModeCache[storageClass] = v1.ReadWriteMany
 	if storageProfile.Status.ClaimPropertySets == nil || len(storageProfile.Status.ClaimPropertySets) == 0 {
 		log.Log.Infof("no ClaimPropertySets in storage profile %s, defaulting to RWX", storageProfile.Name)
 		return v1.ReadWriteMany
@@ -147,7 +139,6 @@ func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentV
 		}
 	}
 	if foundrwo {
-		bs.accessModeCache[storageClass] = v1.ReadWriteOnce
 		return v1.ReadWriteOnce
 	}
 
