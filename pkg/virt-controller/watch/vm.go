@@ -1875,36 +1875,6 @@ func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, ma
 	}
 }
 
-// filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
-// TODO +pkotas unify with replicaset this code is the same without dependency
-func (c *VMController) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return !vmi.IsFinal()
-	})
-}
-
-// filterReadyVMIs takes a list of VMIs and returns all VMIs which are in ready state.
-// TODO +pkotas unify with replicaset this code is the same
-func (c *VMController) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
-	})
-}
-
-// listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
-// TODO +pkotas unify this code with replicaset
-func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiIndexer.ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-	var vmis []*virtv1.VirtualMachineInstance
-	for _, obj := range objs {
-		vmis = append(vmis, obj.(*virtv1.VirtualMachineInstance))
-	}
-	return vmis, nil
-}
-
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
 // from the VirtualMachine cache which run in this namespace
 func (c *VMController) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
