@@ -27,10 +27,9 @@ import (
 	"os"
 
 	"github.com/spf13/pflag"
+	"libvirt.org/go/libvirtxml"
 
 	vmSchema "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -43,7 +42,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		return "", fmt.Errorf("Failed to unmarshal given VMI spec: %s %s", err, string(vmiJSON))
 	}
 
-	domainSpec := api.DomainSpec{}
+	domainSpec := libvirtxml.Domain{}
 	if err := xml.Unmarshal(domainXML, &domainSpec); err != nil {
 		return "", fmt.Errorf("Failed to unmarshal given Domain spec: %s %s", err, string(domainXML))
 	}
@@ -54,15 +53,30 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		return string(domainXML), nil
 	}
 
-	domainSpec.OS.SMBios = &api.SMBios{Mode: "sysinfo"}
-	if domainSpec.SysInfo == nil {
-		domainSpec.SysInfo = &api.SysInfo{}
+	if domainSpec.OS == nil {
+		domainSpec.OS = &libvirtxml.DomainOS{}
 	}
-	domainSpec.SysInfo.Type = "smbios"
-	domainSpec.SysInfo.BaseBoard = append(domainSpec.SysInfo.BaseBoard, api.Entry{
-		Name:  "manufacturer",
-		Value: baseBoardManufacturer,
-	})
+	domainSpec.OS.SMBios = &libvirtxml.DomainSMBios{Mode: "sysinfo"}
+
+	var sysInfo libvirtxml.DomainSysInfo
+	if len(domainSpec.SysInfo) > 0 {
+		sysInfo = domainSpec.SysInfo[0]
+	}
+	if sysInfo.SMBIOS == nil {
+		sysInfo.SMBIOS = &libvirtxml.DomainSysInfoSMBIOS{}
+	}
+
+	sysInfo.SMBIOS.BaseBoard = []libvirtxml.DomainSysInfoBaseBoard{
+		{
+			Entry: []libvirtxml.DomainSysInfoEntry{
+				{
+					Name:  "manufacturer",
+					Value: baseBoardManufacturer,
+				},
+			},
+		},
+	}
+	domainSpec.SysInfo = []libvirtxml.DomainSysInfo{sysInfo}
 
 	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {
