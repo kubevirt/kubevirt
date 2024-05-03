@@ -41,7 +41,6 @@ import (
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -175,11 +174,6 @@ func initializeDirs(ephemeralDiskDir string,
 	}
 
 	err = ignition.SetLocalDirectory(filepath.Join(ephemeralDiskDir, "ignition-data"))
-	if err != nil {
-		panic(err)
-	}
-
-	err = containerdisk.SetLocalDirectory(containerDiskDir)
 	if err != nil {
 		panic(err)
 	}
