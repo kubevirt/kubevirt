@@ -20,13 +20,18 @@
 package containerdisk
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
-	"path"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -34,156 +39,71 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-var containerDiskOwner = "qemu"
+const (
+	mountBaseDir           = "/var/run/kubevirt/container-disks"
+	KernelBootName         = "kernel-boot"
+	KernelBootVolumeName   = KernelBootName + "-volume"
+	DiskSourceFallbackPath = "/disk"
+	pidFileDir             = "/var/run/containerdisk"
+	Pidfile                = "pidfile"
+)
 
-var podsBaseDir = util.KubeletPodsDir
+type process interface {
+	Signal(os.Signal) error
+}
 
-var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
+type ContainerDiskManager struct {
+	pidFileDir   string
+	mountBaseDir string
+	procfs       string
+	cdVolumes    []string
+	findProcess  func(pid int) (process, error)
+	getImageInfo func(img string) (*ImgInfo, error)
+}
 
-type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
-type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
-
-const KernelBootName = "kernel-boot"
-const KernelBootVolumeName = KernelBootName + "-volume"
+func NewContainerDiskManager() *ContainerDiskManager {
+	return &ContainerDiskManager{
+		pidFileDir:   pidFileDir,
+		mountBaseDir: mountBaseDir,
+		procfs:       "/proc",
+		findProcess:  func(pid int) (process, error) { return os.FindProcess(pid) },
+		getImageInfo: GetImageInfo,
+	}
+}
 
 const ephemeralStorageOverheadSize = "50M"
 
 var digestRegex = regexp.MustCompile(`sha256:([a-zA-Z0-9]+)`)
 
-func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
-	return filepath.Join(mountBaseDir, string(vmi.UID))
-}
-
-func GetVolumeMountDirOnGuest(vmi *v1.VirtualMachineInstance) string {
-	return filepath.Join(mountBaseDir, string(vmi.UID))
-}
-
-func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (*safepath.Path, error) {
-	basepath := ""
-	foundEntries := 0
-	foundBasepath := ""
-	for podUID := range vmi.Status.ActivePods {
-		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
-		exists, err := diskutils.FileExists(basepath)
-		if err != nil {
-			return nil, err
-		} else if exists {
-			foundEntries++
-			foundBasepath = basepath
-		}
-	}
-
-	if foundEntries == 1 {
-		return safepath.JoinAndResolveWithRelativeRoot("/", foundBasepath)
-	} else if foundEntries > 1 {
-		// Don't mount until outdated pod environments are removed
-		// otherwise we might stomp on a previous cleanup
-		return nil, fmt.Errorf("Found multiple pods active for vmi %s/%s. Waiting on outdated pod directories to be removed", vmi.Namespace, vmi.Name)
-	}
-	return nil, os.ErrNotExist
-}
-
-func GetDiskTargetDirFromHostView(vmi *v1.VirtualMachineInstance) (*safepath.Path, error) {
-	basepath, err := GetVolumeMountDirOnHost(vmi)
-	if err != nil {
-		return nil, err
-	}
-	return basepath, nil
-}
-
 func GetDiskTargetName(volumeIndex int) string {
 	return fmt.Sprintf("disk_%d.img", volumeIndex)
 }
 
-func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
-	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex))
+func (c *ContainerDiskManager) GetContainerDisksDirLauncherView() string {
+	return c.mountBaseDir
 }
 
-func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
+func (c *ContainerDiskManager) GetDiskTargetPathFromLauncherView(volumeIndex int) string {
+	return filepath.Join(c.mountBaseDir, GetDiskTargetName(volumeIndex))
+}
+
+func (c *ContainerDiskManager) GetKernelBootArtifactDirFromLauncherView() string {
+	return filepath.Join(c.mountBaseDir, KernelBootVolumeName)
+}
+
+func (c *ContainerDiskManager) GetKernelBootArtifactPathFromLauncherView(artifact string) string {
 	artifactBase := filepath.Base(artifact)
-	return filepath.Join(mountBaseDir, KernelBootName, artifactBase)
-}
-
-// SetLocalDirectoryOnly TODO: Refactor this package. This package is used by virt-controller
-// to set proper paths on the virt-launcher template and by virt-launcher to create directories
-// at the right location. The functions have side-effects and mix path setting and creation
-// which makes it hard to differentiate the usage per component.
-func SetLocalDirectoryOnly(dir string) {
-	mountBaseDir = dir
-}
-
-func SetLocalDirectory(dir string) error {
-	SetLocalDirectoryOnly(dir)
-	return os.MkdirAll(dir, 0750)
-}
-
-func SetKubeletPodsDirectory(dir string) {
-	podsBaseDir = dir
-}
-
-// used for testing - we don't want to MkdirAll on a production host mount
-func setPodsDirectory(dir string) error {
-	podsBaseDir = dir
-	return os.MkdirAll(dir, 0750)
-}
-
-// The unit test suite uses this function
-func setLocalDataOwner(user string) {
-	containerDiskOwner = user
-}
-
-// GetDiskTargetPartFromLauncherView returns (path to disk image, image type, and error)
-func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
-
-	path := GetDiskTargetPathFromLauncherView(volumeIndex)
-	exists, err := diskutils.FileExists(path)
-	if err != nil {
-		return "", err
-	} else if exists {
-		return path, nil
-	}
-
-	return "", fmt.Errorf("no supported file disk found for volume with index %d", volumeIndex)
-}
-
-// NewSocketPathGetter get the socket pat of a containerDisk. For testing a baseDir
-// can be provided which can for instance point to /tmp.
-func NewSocketPathGetter(baseDir string) SocketPathGetter {
-	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-		for podUID := range vmi.Status.ActivePods {
-			basePath := getContainerDiskSocketBasePath(baseDir, string(podUID))
-			socketPath := filepath.Join(basePath, fmt.Sprintf("disk_%d.sock", volumeIndex))
-			exists, _ := diskutils.FileExists(socketPath)
-			if exists {
-				return socketPath, nil
-			}
-		}
-		return "", fmt.Errorf("container disk socket path not found for vmi \"%s\"", vmi.Name)
-	}
-}
-
-// NewKernelBootSocketPathGetter get the socket pat of the kernel-boot containerDisk. For testing a baseDir
-// can be provided which can for instance point to /tmp.
-func NewKernelBootSocketPathGetter(baseDir string) KernelBootSocketPathGetter {
-	return func(vmi *v1.VirtualMachineInstance) (string, error) {
-		for podUID := range vmi.Status.ActivePods {
-			basePath := getContainerDiskSocketBasePath(baseDir, string(podUID))
-			socketPath := filepath.Join(basePath, KernelBootName+".sock")
-			exists, _ := diskutils.FileExists(socketPath)
-			if exists {
-				return socketPath, nil
-			}
-		}
-		return "", fmt.Errorf("kernel boot socket path not found for vmi \"%s\"", vmi.Name)
-	}
+	dir := c.GetKernelBootArtifactDirFromLauncherView()
+	return filepath.Join(dir, artifactBase)
 }
 
 func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
@@ -282,8 +202,6 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 		return nil
 	}
 
-	volumeMountDir := GetVolumeMountDirOnGuest(vmi)
-	diskContainerName := toContainerName(volume.Name)
 	diskContainerImage := volume.ContainerDisk.Image
 	if img, exists := imageIDs[volume.Name]; exists {
 		diskContainerImage = img
@@ -312,43 +230,16 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 		resources.Limits[kubev1.ResourceMemory] = *memLimit
 	}
 
-	var mountedDiskName string
-	if isKernelBoot {
-		mountedDiskName = KernelBootName
-	} else {
-		mountedDiskName = "disk_" + strconv.Itoa(volumeIdx)
-	}
-
 	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 		resources.Requests[kubev1.ResourceCPU] = resources.Limits[kubev1.ResourceCPU]
 		resources.Requests[kubev1.ResourceMemory] = resources.Limits[kubev1.ResourceMemory]
 	}
-	var args []string
-	var name string
-	if isInit {
-		name = diskContainerName + "-init"
-		args = []string{"--no-op"}
-	} else {
-		name = diskContainerName
-		copyPathArg := path.Join(volumeMountDir, mountedDiskName)
-		args = []string{"--copy-path", copyPathArg}
-	}
-
-	noPrivilegeEscalation := false
-	nonRoot := true
 	var userId int64 = util.NonRootUID
-
 	container := &kubev1.Container{
-		Name:            name,
 		Image:           diskContainerImage,
 		ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
 		Command:         []string{"/usr/bin/container-disk"},
-		Args:            args,
 		VolumeMounts: []kubev1.VolumeMount{
-			{
-				Name:      podVolumeName,
-				MountPath: volumeMountDir,
-			},
 			{
 				Name:      binVolumeName,
 				MountPath: "/usr/bin",
@@ -357,45 +248,230 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 		Resources: resources,
 		SecurityContext: &kubev1.SecurityContext{
 			RunAsUser:                &userId,
-			RunAsNonRoot:             &nonRoot,
-			AllowPrivilegeEscalation: &noPrivilegeEscalation,
+			RunAsNonRoot:             virtpointer.P(true),
+			AllowPrivilegeEscalation: virtpointer.P(false),
 			Capabilities: &kubev1.Capabilities{
 				Drop: []kubev1.Capability{"ALL"},
 			},
 		},
 	}
+	switch {
+	case isInit:
+		container.Name = toContainerName(volume.Name) + "-init"
+		container.Args = []string{"--no-op"}
+	case isKernelBoot:
+		container.Name = toContainerName(KernelBootVolumeName)
+		container.VolumeMounts = append(container.VolumeMounts, kubev1.VolumeMount{
+			Name:      GetPidfileVolumeName(KernelBootVolumeName),
+			MountPath: pidFileDir,
+		})
+	default:
+		container.Name = toContainerName(volume.Name)
+		container.VolumeMounts = append(container.VolumeMounts, kubev1.VolumeMount{
+			Name:      GetPidfileVolumeName(volume.Name),
+			MountPath: pidFileDir,
+		})
+	}
 
 	return container
 }
 
-func CreateEphemeralImages(
-	vmi *v1.VirtualMachineInstance,
-	diskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
-	disksInfo map[string]*DiskInfo,
-) error {
-	// The domain is setup to use the COW image instead of the base image. What we have
-	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
-	// for each disk that requires it.
+func GetPidfileVolumeName(name string) string {
+	return fmt.Sprintf("pidfile-%s", name)
+}
 
-	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.ContainerDisk != nil {
-			info, _ := disksInfo[volume.Name]
-			if info == nil {
-				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
-			}
-			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
-				return err
-			} else if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
+func (c *ContainerDiskManager) GetPidfileDir(name string) string {
+	return filepath.Join(c.pidFileDir, name)
+}
+
+func (c *ContainerDiskManager) GetPidfilePath(name string) string {
+	return filepath.Join(c.GetPidfileDir(name), Pidfile)
+}
+
+func (c *ContainerDiskManager) GetVolumeMountPidfileContainerDisk(name string) k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      GetPidfileVolumeName(name),
+		MountPath: c.GetPidfileDir(name),
+	}
+}
+
+func (c *ContainerDiskManager) readPidfile(volName string) (int, error) {
+	t, err := os.ReadFile(c.GetPidfilePath(volName))
+	if err != nil {
+		return -1, err
+	}
+	pid, err := strconv.Atoi(string(t))
+	if err != nil {
+		return -1, err
+	}
+	return pid, nil
+}
+
+func (c *ContainerDiskManager) GetContainerDiksPath(volume *v1.Volume) (string, error) {
+	if volume.VolumeSource.ContainerDisk == nil {
+		return "", fmt.Errorf("not a container disk")
+	}
+	pid, err := c.readPidfile(volume.Name)
+	if err != nil {
+		return "", err
+	}
+	if volume.VolumeSource.ContainerDisk.Path != "" {
+		file := filepath.Join(c.procfs, strconv.Itoa(pid), "/root", volume.VolumeSource.ContainerDisk.Path)
+		if _, err := os.Stat(file); err != nil {
+			return "", fmt.Errorf("failed to check the file %s: %v", volume.VolumeSource.ContainerDisk.Path, err)
+		}
+		return file, nil
+	}
+	fullPath := filepath.Join(c.procfs, strconv.Itoa(pid), "/root", DiskSourceFallbackPath)
+	files, err := os.ReadDir(fullPath)
+	if err != nil {
+		return "", err
+	}
+	if len(files) == 0 {
+		return "", fmt.Errorf("no file found in folder %s, no disk present", DiskSourceFallbackPath)
+	} else if len(files) > 1 {
+		return "", fmt.Errorf("more than one file found in folder %s, only one disk is allowed", DiskSourceFallbackPath)
+	}
+
+	return filepath.Join(fullPath, files[0].Name()), nil
+}
+
+func createSymlink(oldpath, newpath string) error {
+	if _, err := os.Stat(newpath); err == nil {
+		return fmt.Errorf("new path %s for the symlink already exists", newpath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return os.Symlink(oldpath, newpath)
+}
+
+func checkExistingSymlink(symlink, backingFile string) (bool, error) {
+	fileInfo, err := os.Lstat(symlink)
+	if err == nil {
+		if fileInfo.Mode()&fs.ModeSymlink == 0 {
+			return true, fmt.Errorf("the file %s isn't a symlink to the disk image", symlink)
+		}
+		link, err := os.Readlink(symlink)
+		if err != nil {
+			return true, fmt.Errorf("failed checking the symlink for %s: %v", link, err)
+		}
+		if link != backingFile {
+			return true, fmt.Errorf("failed checking the symlink for %s, doesn't match with %s", link, backingFile)
+		}
+		return true, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	return false, nil
+}
+
+func (c *ContainerDiskManager) AccessKernelBoot(vmi *v1.VirtualMachineInstance) error {
+	if !util.HasKernelBootContainerImage(vmi) {
+		return nil
+	}
+	pid, err := c.readPidfile(KernelBootVolumeName)
+	if err != nil {
+		return err
+	}
+
+	kbc := vmi.Spec.Domain.Firmware.KernelBoot.Container
+	if kbc.KernelPath != "" {
+		// Create symlink for kernel path
+		kernelPath := c.GetKernelBootArtifactPathFromLauncherView(kbc.KernelPath)
+		contkernelPath := filepath.Join(c.procfs, strconv.Itoa(pid), "/root", kbc.KernelPath)
+		exist, err := checkExistingSymlink(kernelPath, contkernelPath)
+		if err != nil {
+			return err
+		}
+		if !exist {
+			if err := createSymlink(contkernelPath, kernelPath); err != nil {
 				return err
 			}
 		}
 	}
 
+	if kbc.InitrdPath != "" {
+		// Create symlink for the initrd path
+		initrdPath := c.GetKernelBootArtifactPathFromLauncherView(kbc.InitrdPath)
+		contInitrdPath := filepath.Join(c.procfs, strconv.Itoa(pid), "/root", kbc.InitrdPath)
+		exist, err := checkExistingSymlink(initrdPath, contInitrdPath)
+		if err != nil {
+			return err
+		}
+		if !exist {
+			if err := createSymlink(contInitrdPath, initrdPath); err != nil {
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
-func getContainerDiskSocketBasePath(baseDir, podUID string) string {
-	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
+// TODO: should move this
+type ImgInfo struct {
+	// Format contains the format of the image
+	Format string `json:"format"`
+	// BackingFile is the file name of the backing file
+	BackingFile string `json:"backing-filename"`
+	// VirtualSize is the disk size of the image which will be read by vm
+	VirtualSize int64 `json:"virtual-size"`
+	// ActualSize is the size of the qcow2 image
+	ActualSize int64 `json:"actual-size"`
+}
+
+func GetImageInfo(img string) (*ImgInfo, error) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("qemu-img", "info", "--output=json", img)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("qemu-img failed stdout:%s stderr:%s err:%v", string(stdout.Bytes()),
+			string(stderr.Bytes()), err)
+	}
+	var info ImgInfo
+	if err := json.Unmarshal(stdout.Bytes(), &info); err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
+func (c *ContainerDiskManager) CreateEphemeralImages(
+	vmi *v1.VirtualMachineInstance,
+	diskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
+) error {
+	for i, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.ContainerDisk == nil {
+			continue
+		}
+		backingFile, err := c.GetContainerDiksPath(&volume)
+		if err != nil {
+			return err
+		}
+		// Create symlink to the old location for containerdisk alpha2 where the backing image was created.
+		// Using a constant path will faciliate upgraded and migrations
+		symlink := c.GetDiskTargetPathFromLauncherView(i)
+		exist, err := checkExistingSymlink(symlink, backingFile)
+		if err != nil {
+			return err
+		}
+		if !exist {
+			if err := createSymlink(backingFile, symlink); err != nil {
+				return err
+			}
+		}
+		info, err := c.getImageInfo(backingFile)
+		if err != nil {
+			return err
+		}
+		if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
@@ -455,4 +531,92 @@ func toContainerName(volumeName string) string {
 
 func toVolumeName(containerName string) string {
 	return strings.TrimPrefix(containerName, "volume")
+}
+
+func (c *ContainerDiskManager) WaitContainerDisksToBecomeReady(vmi *v1.VirtualMachineInstance, timeout time.Duration) error {
+	errChan := make(chan error, 1)
+	cds := make(map[string]bool)
+	for _, v := range vmi.Spec.Volumes {
+		if v.ContainerDisk != nil {
+			cds[v.Name] = true
+			c.cdVolumes = append(c.cdVolumes, v.Name)
+		}
+
+	}
+	if util.HasKernelBootContainerImage(vmi) {
+		cds[KernelBootVolumeName] = true
+		c.cdVolumes = append(c.cdVolumes, KernelBootVolumeName)
+	}
+	go func() {
+		for {
+			for v, _ := range cds {
+				path := c.GetPidfilePath(v)
+				_, err := os.Stat(path)
+				switch {
+				case errors.Is(err, os.ErrNotExist):
+					break
+				case err != nil:
+					errChan <- err
+					return
+				default:
+					delete(cds, v)
+				}
+			}
+			if len(cds) == 0 {
+				errChan <- nil
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+	select {
+	case err := <-errChan:
+		return err
+	case <-time.After(timeout * time.Second):
+		return fmt.Errorf("timeout waiting for container disks to become ready")
+	}
+}
+
+type errorWrapper struct {
+	msg string
+}
+
+func (w *errorWrapper) wrapError(e1, e2 error) error {
+	var errRes error
+	if e1 == nil {
+		errRes = fmt.Errorf("%s: %w", w.msg, e2)
+	} else {
+		errRes = fmt.Errorf("%w, %w", e1, e2)
+	}
+	return errRes
+}
+
+func (c *ContainerDiskManager) killContainerdisk(name string) error {
+	pid, err := c.readPidfile(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	proc, err := c.findProcess(pid)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if err := proc.Signal(os.Interrupt); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *ContainerDiskManager) StopContainerDiskContainers() error {
+	w := &errorWrapper{msg: "failed to stop container disks"}
+	var retErr error
+	for _, v := range c.cdVolumes {
+		if err := c.killContainerdisk(v); err != nil {
+			retErr = w.wrapError(retErr, err)
+		}
+	}
+	return retErr
 }
