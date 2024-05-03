@@ -717,7 +717,7 @@ func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv
 		}
 
 	} else {
-		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/nodeSelector" }`))
+		ops = append(ops, `{ "op": "remove", "path": "/spec/nodeSelector" }`)
 	}
 	generatedPatch := controller.GeneratePatchBytes(ops)
 
@@ -745,7 +745,7 @@ func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		}
 
 	} else {
-		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/affinity" }`))
+		ops = append(ops, `{ "op": "remove", "path": "/spec/affinity" }`)
 	}
 
 	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), metav1.PatchOptions{})
