@@ -2654,7 +2654,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
 	syncReadyConditionFromVMI(vm, vmi)
-	processFailureCondition(vm, vmi, syncErr)
+	processFailureCondition(vm, syncErr)
 
 	// nothing to do if vmi hasn't been created yet.
 	if vmi == nil {
@@ -2701,7 +2701,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	}
 }
 
-func processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+func processFailureCondition(vm *virtv1.VirtualMachine, syncErr syncError) {
 
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if syncErr == nil {
@@ -2720,8 +2720,6 @@ func processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		LastTransitionTime: metav1.Now(),
 		Status:             k8score.ConditionTrue,
 	})
-
-	return
 }
 
 func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (clearChangeRequest bool) {
@@ -3129,7 +3127,7 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *met
 func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
 	// Default to False if nil and return, otherwise return if input devices are already present
-	if autoAttachInput == nil || *autoAttachInput == false || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
+	if autoAttachInput == nil || !*autoAttachInput || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
 		return
 	}
 	// Only add the device with an alias here. Preferences for the bus and type might
