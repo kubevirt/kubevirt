@@ -173,6 +173,12 @@ var RequiredGuestAgentCommands = []string{
 }
 
 var SSHRelatedGuestAgentCommands = []string{
+	"guest-ssh-get-authorized-keys",
+	"guest-ssh-add-authorized-keys",
+	"guest-ssh-remove-authorized-keys",
+}
+
+var OldSSHRelatedGuestAgentCommands = []string{
 	"guest-exec-status",
 	"guest-exec",
 	"guest-file-open",
@@ -1519,7 +1525,7 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 		}
 	}
 
-	if checkSSH && !_guestAgentCommandSubsetSupported(SSHRelatedGuestAgentCommands, commands) {
+	if checkSSH && !sshRelatedCommandsSupported(commands) {
 		return false, "This guest agent doesn't support required public key commands"
 	}
 
@@ -1528,6 +1534,11 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 	}
 
 	return true, "This guest agent is supported"
+}
+
+func sshRelatedCommandsSupported(commands []v1.GuestAgentCommandInfo) bool {
+	return _guestAgentCommandSubsetSupported(SSHRelatedGuestAgentCommands, commands) ||
+		_guestAgentCommandSubsetSupported(OldSSHRelatedGuestAgentCommands, commands)
 }
 
 func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
