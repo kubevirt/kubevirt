@@ -583,7 +583,7 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int) error {
 
 	if source.ContainerDisk != nil {
-		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
+		return Convert_v1_ContainerDiskSource_To_api_Disk(source, source.ContainerDisk, disk, c, diskIndex)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
@@ -834,28 +834,34 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, c *ConverterContext, diskIndex int) error {
+func Convert_v1_ContainerDiskSource_To_api_Disk(source *v1.Volume, _ *v1.ContainerDiskSource, disk *api.Disk, c *ConverterContext, diskIndex int) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
+	}
+	containerDiksManager := containerdisk.NewContainerDiskManager()
+	// Get the source path separately from the overlay file as it might not be have created yet
+	sourcePath, err := containerDiksManager.GetContainerDiksPath(source)
+	if err != nil {
+		return err
+	}
+	info, err := containerdisk.GetImageInfo(sourcePath)
+	if err != nil {
+		return err
 	}
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Driver.Discard = "unmap"
-	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
+	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(source.Name)
 	disk.BackingStore = &api.BackingStore{
-		Format: &api.BackingStoreFormat{},
-		Source: &api.DiskSource{},
+		Format: &api.BackingStoreFormat{
+			Type: info.Format,
+		},
+		Source: &api.DiskSource{
+			File: containerDiksManager.GetDiskTargetPathFromLauncherView(diskIndex),
+		},
+		Type: "file",
 	}
-
-	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
-	if info := c.DisksInfo[volumeName]; info != nil {
-		disk.BackingStore.Format.Type = info.Format
-	} else {
-		return fmt.Errorf("no disk info provided for volume %s", volumeName)
-	}
-	disk.BackingStore.Source.File = source
-	disk.BackingStore.Type = "file"
 
 	return nil
 }
@@ -1240,16 +1246,16 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 
 	if util.HasKernelBootContainerImage(vmi) {
 		kb := firmware.KernelBoot
-
+		containerDiskManager := containerdisk.NewContainerDiskManager()
 		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
 		if kb.Container.KernelPath != "" {
-			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
+			kernelPath := containerDiskManager.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
 			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: " + kernelPath)
 			domain.Spec.OS.Kernel = kernelPath
 		}
 
 		if kb.Container.InitrdPath != "" {
-			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
+			initrdPath := containerDiskManager.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
 			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: " + initrdPath)
 			domain.Spec.OS.Initrd = initrdPath
 		}
@@ -1916,7 +1922,7 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 	return toString(*value)
 }
 
-func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
+func GetImageInfo(imagePath string) (*containerdisk.ImgInfo, error) {
 
 	// #nosec No risk for attacket injection. Only get information about an image
 	out, err := exec.Command(
@@ -1925,7 +1931,7 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
 	}
-	info := &containerdisk.DiskInfo{}
+	info := &containerdisk.ImgInfo{}
 	err = json.Unmarshal(out, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
