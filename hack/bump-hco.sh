@@ -54,6 +54,7 @@ sed -i -E "s|(quay.io/kubevirt/hyperconverged-cluster-bundle:).*|\1${NEXT_VERSIO
 sed -i -E "s|(HCO_CHANNEL:-candidate-v)[0-9\.]+|\1${SHORT_NEXT}|g;s|(HCO_INDEX_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-index:)[0-9\.]+(-unstable)|\1${NEXT_VERSION}\2|g" deploy/kustomize/deploy_kustomize.sh
 sed -i -E "s|(quay.io/kubevirt/hyperconverged-cluster-functest:)[0-9.]+(-unstable)|\1${NEXT_VERSION}\2|g" docs/functest-container.md
 sed -i -E "s|(Version = \")[^\"]+|\1${NEXT_VERSION}|" version/version.go
+sed -i -E "s|(MID_VERSION=).+$|\1${NEXT_VERSION}|" hack/consecutive-upgrades-test.sh
 
 mkdir -p "${PACKAGE_DIR}/${NEXT_VERSION}"
 make build-manifests
