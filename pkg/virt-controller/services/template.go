@@ -580,6 +580,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			},
 		},
 		Spec: k8sv1.PodSpec{
+			ShareProcessNamespace:         pointer.Bool(true),
 			Hostname:                      hostName,
 			Subdomain:                     vmi.Spec.Subdomain,
 			SecurityContext:               computePodSecurityContext(vmi, podSeccompProfile),
@@ -782,6 +783,10 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		volumeOpts = append(volumeOpts, withVirioFS())
+	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		volumeOpts = append(volumeOpts, withKernelBootVolume())
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
