@@ -67,7 +67,6 @@ import (
 	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
@@ -202,17 +201,6 @@ func (app *virtHandlerApp) Run() {
 	logger.V(1).Infof("hostname %s", app.HostOverride)
 	var err error
 
-	// Copy container-disk binary
-	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")
-	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-	err = copy("/usr/bin/container-disk", targetFile)
-	if err != nil {
-		panic(err)
-	}
-
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtHandlerQPS, virtconfig.DefaultVirtHandlerBurst))
 	clientmetrics.RegisterRestConfigHooks()
 	clientConfig, err := kubecli.GetKubevirtClientConfig()
@@ -270,7 +258,6 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	cmdclient.SetPodsBaseDir("/pods")
-	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
 	if err := app.prepareCertManager(); err != nil {
 		glog.Fatalf("Error preparing the certificate manager: %v", err)
