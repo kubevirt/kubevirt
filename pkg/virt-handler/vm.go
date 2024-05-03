@@ -80,7 +80,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
-	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
@@ -90,7 +89,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/executor"
@@ -247,7 +245,6 @@ func NewController(
 		heartBeatInterval:                1 * time.Minute,
 		migrationProxy:                   migrationProxy,
 		podIsolationDetector:             podIsolationDetector,
-		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
@@ -342,7 +339,6 @@ type VirtualMachineController struct {
 	deviceManagerController  *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
-	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
@@ -970,54 +966,6 @@ func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func (d *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInstance, syncError error) error {
-
-	if syncError != nil || vmi.DeletionTimestamp != nil || !needToComputeChecksums(vmi) {
-		return nil
-	}
-
-	diskChecksums, err := d.containerDiskMounter.ComputeChecksums(vmi)
-	if goerror.Is(err, container_disk.ErrDiskContainerGone) {
-		log.Log.Errorf("cannot compute checksums as containerdisk/kernelboot containers seem to have been terminated")
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	// containerdisks
-	for i := range vmi.Status.VolumeStatus {
-		checksum, exists := diskChecksums.ContainerDiskChecksums[vmi.Status.VolumeStatus[i].Name]
-		if !exists {
-			// not a containerdisk
-			continue
-		}
-
-		vmi.Status.VolumeStatus[i].ContainerDiskVolume = &v1.ContainerDiskInfo{
-			Checksum: checksum,
-		}
-	}
-
-	// kernelboot
-	if util.HasKernelBootContainerImage(vmi) {
-		vmi.Status.KernelBootStatus = &v1.KernelBootStatus{}
-
-		if diskChecksums.KernelBootChecksum.Kernel != nil {
-			vmi.Status.KernelBootStatus.KernelInfo = &v1.KernelInfo{
-				Checksum: *diskChecksums.KernelBootChecksum.Kernel,
-			}
-		}
-
-		if diskChecksums.KernelBootChecksum.Initrd != nil {
-			vmi.Status.KernelBootStatus.InitrdInfo = &v1.InitrdInfo{
-				Checksum: *diskChecksums.KernelBootChecksum.Initrd,
-			}
-		}
-	}
-
-	return nil
-}
-
 func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	// used by unit test
 	hasHotplug := false
@@ -1463,11 +1411,6 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	// Update conditions on VMI Status
 	err = d.updateVMIConditions(vmi, domain, condManager)
 	if err != nil {
-		return err
-	}
-
-	// Store containerdisks and kernelboot checksums
-	if err := d.updateChecksumInfo(vmi, syncError); err != nil {
 		return err
 	}
 
@@ -2262,11 +2205,6 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.downwardMetricsManager.StopServer(vmi)
 
-	// Unmount container disks and clean up remaining files
-	if err := d.containerDiskMounter.Unmount(vmi); err != nil {
-		return err
-	}
-
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
 	cgroupManager, _ := getCgroupManager(vmi)
@@ -2862,36 +2800,6 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		return err
 	}
 
-	// give containerDisks some time to become ready before throwing errors on retries
-	info := d.getLauncherClientInfo(vmi)
-	if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
-		if err != nil {
-			return err
-		}
-		d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return nil
-	}
-
-	// Verify container disks checksum
-	err = container_disk.VerifyChecksums(d.containerDiskMounter, vmi)
-	switch {
-	case goerror.Is(err, container_disk.ErrChecksumMissing):
-		// wait for checksum to be computed by the source virt-handler
-		return err
-	case goerror.Is(err, container_disk.ErrChecksumMismatch):
-		log.Log.Object(vmi).Infof("Containerdisk checksum mismatch, terminating target pod: %s", err)
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, "ContainerDiskFailedChecksum", "Aborting migration as the source and target containerdisks/kernelboot do not match")
-		return client.SignalTargetPodCleanup(vmi)
-	case err != nil:
-		return err
-	}
-
-	// Mount container disks
-	disksInfo, err := d.containerDiskMounter.MountAndVerify(vmi)
-	if err != nil {
-		return err
-	}
-
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
 		cgroupManager, err := getCgroupManager(vmi)
@@ -2943,7 +2851,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
-	options := virtualMachineOptions(nil, 0, nil, d.capabilities, disksInfo, d.clusterConfig)
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, d.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
 
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
@@ -3098,23 +3006,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 	var errorTolerantFeaturesError []error
-	disksInfo := map[string]*containerdisk.DiskInfo{}
 	if !vmi.IsRunning() && !vmi.IsFinal() {
-		// give containerDisks some time to become ready before throwing errors on retries
-		info := d.getLauncherClientInfo(vmi)
-		if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
-			if err != nil {
-				return err
-			}
-			d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-			return nil
-		}
-
-		disksInfo, err = d.containerDiskMounter.MountAndVerify(vmi)
-		if err != nil {
-			return err
-		}
-
 		// Try to mount hotplug volume if there is any during startup.
 		if err := d.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
 			return err
@@ -3242,7 +3134,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	smbios := d.clusterConfig.GetSMBIOS()
 	period := d.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig)
+	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, d.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, d.clusterConfig.GetNetworkBindings())
 
 	err = client.SyncVirtualMachine(vmi, options)
@@ -3607,7 +3499,7 @@ func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 }
 
 func (d *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	options := virtualMachineOptions(nil, 0, nil, d.capabilities, map[string]*containerdisk.DiskInfo{}, d.clusterConfig)
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, d.clusterConfig)
 	topology, err := json.Marshal(options.Topology)
 	if err != nil {
 		return err
@@ -3680,7 +3572,6 @@ func (d *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, cl
 		0,
 		nil,
 		d.capabilities,
-		nil,
 		d.clusterConfig)
 
 	if err := client.SyncVirtualMachineCPUs(vmi, options); err != nil {
@@ -3731,7 +3622,7 @@ func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 		return fmt.Errorf("amount of requested guest memory (%s) exceeds the launcher memory request (%s)", vmi.Spec.Domain.Memory.Guest.String(), podMemReqStr)
 	}
 
-	options := virtualMachineOptions(nil, 0, nil, d.capabilities, nil, d.clusterConfig)
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, d.clusterConfig)
 
 	if err := client.SyncVirtualMachineMemory(vmi, options); err != nil {
 		// mark hotplug as failed
