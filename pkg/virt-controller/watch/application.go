@@ -32,7 +32,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -593,7 +592,6 @@ func (vca *VirtControllerApp) initCommon() {
 		golog.Fatal(err)
 	}
 
-	containerdisk.SetLocalDirectoryOnly(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
 		vca.virtShareDir,
