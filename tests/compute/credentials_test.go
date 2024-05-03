@@ -153,7 +153,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			vmi := libvmi.NewFedora(
 				withSSHPK(secretID, withQuestAgentPropagationMethod),
 				libvmi.WithCloudInitNoCloudUserData(
-					tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec"), false,
+					tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-ssh-add-authorized-keys"), false,
 				),
 			)
 
