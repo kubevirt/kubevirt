@@ -204,7 +204,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			)
 			vmi.Namespace = util.NamespaceTestDefault
 			vm = libvmi.NewVirtualMachine(vmi)
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v12.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm = tests.StartVirtualMachine(vm)
 		})
@@ -292,7 +292,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("Checking status of VM")
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &v12.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.Ready
 				}, 300*time.Second, 1*time.Second).Should(BeFalse())

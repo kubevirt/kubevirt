@@ -70,7 +70,7 @@ func (k *KubeVirtDeletionAdmitter) Admit(review *admissionv1.AdmissionReview) *a
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf(uninstallErrorMsg, "Virtual Machine Instances"))
 	}
 
-	vms, err := k.client.VirtualMachine(metav1.NamespaceAll).List(context.Background(), &metav1.ListOptions{Limit: 2})
+	vms, err := k.client.VirtualMachine(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{Limit: 2})
 
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)

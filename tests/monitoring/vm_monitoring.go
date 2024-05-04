@@ -68,7 +68,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			for i := 0; i < 5; i++ {
 				vmi := tests.NewRandomVMI()
 				vm := libvmi.NewVirtualMachine(vmi)
-				_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -89,7 +89,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			vm = libvmi.NewVirtualMachine(vmi)
 
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 

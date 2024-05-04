@@ -536,10 +536,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedVM.Finalizers = []string{}
 				updatedVM.ResourceVersion = "1"
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), updatedVM).Return(updatedVM, nil).Times(1)
+				vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil).Times(1)
 				statusUpdate := updatedVM.DeepCopy()
 				statusUpdate.Status.SnapshotInProgress = nil
-				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate).Return(statusUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate, metav1.UpdateOptions{}).Return(statusUpdate, nil).Times(1)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -573,7 +573,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				statusUpdate.ResourceVersion = "1"
 				statusUpdate.Status.SnapshotInProgress = nil
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate).Return(statusUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate, metav1.UpdateOptions{}).Return(statusUpdate, nil).Times(1)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -658,7 +658,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -684,7 +684,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -708,7 +708,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().Update(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -740,7 +740,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
 
 				vmSnapshotSource.Add(vmSnapshot)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 				addVM(vm)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -754,7 +754,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -782,7 +782,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().Update(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -812,7 +812,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -844,7 +844,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.VirtualMachineRevisionName = vmRevisionName
 				vmiSource.Add(vmi)
 				vmSource.Add(vm)
-				vmInterface.EXPECT().Update(context.Background(), vmUpdate).Return(vmUpdate, nil).Times(1)
+				vmInterface.EXPECT().Update(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -895,7 +895,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmStatusUpdate := vm.DeepCopy()
 				vmStatusUpdate.ResourceVersion = "1"
 				vmStatusUpdate.Status.SnapshotInProgress = &vmSnapshotName
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmStatusUpdate).Return(vmStatusUpdate, nil).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), vmStatusUpdate, metav1.UpdateOptions{}).Return(vmStatusUpdate, nil).Times(1)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -1695,9 +1695,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updateCalled := false
 				vmInterface.EXPECT().
-					UpdateStatus(context.Background(), gomock.Any()).
-					Do(func(ctx context.Context, objs ...interface{}) {
-						vm := objs[0].(*v1.VirtualMachine)
+					UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
+					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
+						vm := obj.(*v1.VirtualMachine)
 
 						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(2))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
@@ -1760,9 +1760,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updateCalled := false
 				vmInterface.EXPECT().
-					UpdateStatus(context.Background(), gomock.Any()).
-					Do(func(ctx context.Context, objs ...interface{}) {
-						vm := objs[0].(*v1.VirtualMachine)
+					UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
+					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
+						vm := obj.(*v1.VirtualMachine)
 
 						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(2))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
@@ -1965,9 +1965,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updateCalled := false
 				vmInterface.EXPECT().
-					UpdateStatus(context.Background(), gomock.Any()).
-					Do(func(ctx context.Context, objs ...interface{}) {
-						vm := objs[0].(*v1.VirtualMachine)
+					UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
+					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
+						vm := obj.(*v1.VirtualMachine)
 
 						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(8))
 
@@ -2054,9 +2054,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updateCalled := false
 				vmInterface.EXPECT().
-					UpdateStatus(context.Background(), gomock.Any()).
-					Do(func(ctx context.Context, objs ...interface{}) {
-						vm := objs[0].(*v1.VirtualMachine)
+					UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
+					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
+						vm := obj.(*v1.VirtualMachine)
 
 						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(1))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
@@ -2073,9 +2073,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				updateCalled = false
 				vmInterface.EXPECT().
-					UpdateStatus(context.Background(), gomock.Any()).
-					Do(func(ctx context.Context, objs ...interface{}) {
-						vm := objs[0].(*v1.VirtualMachine)
+					UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
+					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
+						vm := obj.(*v1.VirtualMachine)
 
 						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(1))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
@@ -2139,9 +2139,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updateCalled := false
 				vmInterface.EXPECT().
-					UpdateStatus(context.Background(), gomock.Any()).
-					Do(func(ctx context.Context, objs ...interface{}) {
-						vm := objs[0].(*v1.VirtualMachine)
+					UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
+					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
+						vm := obj.(*v1.VirtualMachine)
 
 						Expect(vm.Status.VolumeSnapshotStatuses).To(HaveLen(2))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())

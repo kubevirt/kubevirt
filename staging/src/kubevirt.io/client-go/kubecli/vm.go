@@ -57,20 +57,16 @@ type vm struct {
 }
 
 // Create new VirtualMachine in the cluster to specified namespace
-func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	newVm, err := v.VirtualMachineInterface.Create(ctx, vm, k8smetav1.CreateOptions{})
+func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine, opts k8smetav1.CreateOptions) (*v1.VirtualMachine, error) {
+	newVm, err := v.VirtualMachineInterface.Create(ctx, vm, opts)
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return newVm, err
 }
 
 // Get the Virtual machine from the cluster by its name and namespace
-func (v *vm) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
-	opts := k8smetav1.GetOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVm, err := v.VirtualMachineInterface.Get(ctx, name, opts)
+func (v *vm) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
+	newVm, err := v.VirtualMachineInterface.Get(ctx, name, options)
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return newVm, err
@@ -90,29 +86,21 @@ func (v *vm) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualM
 }
 
 // Update the VirtualMachine instance in the cluster in given namespace
-func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	updatedVm, err := v.VirtualMachineInterface.Update(ctx, vm, k8smetav1.UpdateOptions{})
+func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine, opts k8smetav1.UpdateOptions) (*v1.VirtualMachine, error) {
+	updatedVm, err := v.VirtualMachineInterface.Update(ctx, vm, opts)
 	updatedVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
 	return updatedVm, err
 }
 
 // Delete the defined VirtualMachine in the cluster in defined namespace
-func (v *vm) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
-	opts := k8smetav1.DeleteOptions{}
-	if options != nil {
-		opts = *options
-	}
-	return v.VirtualMachineInterface.Delete(ctx, name, opts)
+func (v *vm) Delete(ctx context.Context, name string, options k8smetav1.DeleteOptions) error {
+	return v.VirtualMachineInterface.Delete(ctx, name, options)
 }
 
 // List all VirtualMachines in given namespace
-func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
-	opts := k8smetav1.ListOptions{}
-	if options != nil {
-		opts = *options
-	}
-	newVmList, err := v.VirtualMachineInterface.List(ctx, opts)
+func (v *vm) List(ctx context.Context, options k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
+	newVmList, err := v.VirtualMachineInterface.List(ctx, options)
 	for i := range newVmList.Items {
 		newVmList.Items[i].SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	}
@@ -120,20 +108,16 @@ func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.Virt
 	return newVmList, err
 }
 
-func (v *vm) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
-	opts := k8smetav1.PatchOptions{}
-	if patchOptions != nil {
-		opts = *patchOptions
-	}
-	return v.VirtualMachineInterface.Patch(ctx, name, pt, data, opts, subresources...)
+func (v *vm) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
+	return v.VirtualMachineInterface.Patch(ctx, name, pt, data, patchOptions, subresources...)
 }
 
-func (v *vm) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v1.VirtualMachine, err error) {
+func (v *vm) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions) (result *v1.VirtualMachine, err error) {
 	return v.Patch(ctx, name, pt, data, patchOptions, "status")
 }
 
-func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
-	result, err = v.VirtualMachineInterface.UpdateStatus(ctx, vmi, k8smetav1.UpdateOptions{})
+func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachine, err error) {
+	result, err = v.VirtualMachineInterface.UpdateStatus(ctx, vmi, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
 }

@@ -233,7 +233,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				By("Start VM")
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(vm.Namespace).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 				vm = tests.StartVirtualMachine(vm)

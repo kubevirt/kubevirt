@@ -1152,7 +1152,7 @@ var _ = SIGDescribe("Export", func() {
 	}
 
 	createVM := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		waitForDisksComplete(vm)
 		return vm
@@ -1163,12 +1163,12 @@ var _ = SIGDescribe("Export", func() {
 		vmNamespace := vm.Namespace
 		var err error
 		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			vm.Spec.Running = pointer.Bool(false)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			return err
 		}, 15*time.Second, time.Second).Should(BeNil())
 		return vm
@@ -1183,10 +1183,10 @@ var _ = SIGDescribe("Export", func() {
 		vmName := vm.Name
 		vmNamespace := vm.Namespace
 		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm.Spec.Running = pointer.Bool(true)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 			return err
 		}, 15*time.Second, time.Second).Should(Succeed())
 		return vm
@@ -1704,7 +1704,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resCM).ToNot(BeNil())
 		Expect(resVM.Spec.Running).ToNot(BeNil())
 		*resVM.Spec.Running = true
-		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM)
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
 		waitForDisksComplete(resVM)
@@ -1768,7 +1768,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resCM).ToNot(BeNil())
 		Expect(resVM.Spec.Running).ToNot(BeNil())
 		*resVM.Spec.Running = true
-		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM)
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
 		waitForDisksComplete(resVM)
@@ -1985,7 +1985,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resCM).ToNot(BeNil())
 		Expect(resVM.Spec.Running).ToNot(BeNil())
 		*resVM.Spec.Running = true
-		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM)
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), resVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resVM).ToNot(BeNil())
 		waitForDisksComplete(resVM)
@@ -2012,10 +2012,10 @@ var _ = SIGDescribe("Export", func() {
 		dv = createDataVolume(dv)
 		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
 
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.AddDataVolume(vm, "blank-disk", dv)
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// With WFFC we expect the volume to not be populated and the condition to be not ready and reason populating

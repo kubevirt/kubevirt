@@ -544,7 +544,7 @@ func (c *PoolController) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.
 			vm := deleteList[idx]
 
 			foreGround := metav1.DeletePropagationForeground
-			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{PropagationPolicy: &foreGround})
+			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
 			if err != nil {
 				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
@@ -771,7 +771,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 
-			vm, err = c.clientset.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err = c.clientset.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 
 			if err != nil {
 				c.expectations.CreationObserved(poolKey)
@@ -851,7 +851,7 @@ func (c *PoolController) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vm
 			vmCopy.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
-			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 			if err != nil {
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error updating virtual machine %s/%s: %v", vm.Name, vm.Namespace, err)
 				log.Log.Object(pool).Reason(err).Errorf("Error encountered during update of vm %s/%s in pool", vmCopy.Namespace, vmCopy.Name)

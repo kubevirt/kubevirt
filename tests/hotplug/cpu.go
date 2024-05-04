@@ -100,7 +100,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -122,7 +122,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			By("Enabling the second socket")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for hot change CPU condition to appear")
@@ -162,14 +162,14 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 
 			By("Ensuring the vm doesn't have a RestartRequired condition")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 
 			By("Changing the number of CPU cores")
 			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/cores", 2, 4)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the vm has a RestartRequired condition")
@@ -199,7 +199,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -228,7 +228,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			By("Enabling the second socket")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for hot change CPU condition to appear")

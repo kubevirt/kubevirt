@@ -308,7 +308,7 @@ func (c *VMController) execute(key string) error {
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
 		controller.SetLatestApiVersionAnnotation(vm)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
+		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
 
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
@@ -325,7 +325,7 @@ func (c *VMController) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, &v1.GetOptions{})
+		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -1031,7 +1031,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				} else {
 					vmCopy.Spec.Running = &running
 				}
-				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 				return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 			}
 			return vm, nil
@@ -2285,7 +2285,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Vir
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 	return vm, err
 }
 
@@ -2305,7 +2305,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Virtua
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 }
 
 // parseGeneration will parse for the last value after a '-'. It is assumed the
@@ -3079,7 +3079,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 		if syncErr == nil {
 			if !equality.Semantic.DeepEqual(vm, vmCopy) {
-				updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
+				updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 				if err != nil {
 					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}
 				} else {

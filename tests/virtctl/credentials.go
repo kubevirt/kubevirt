@@ -79,10 +79,10 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			},
 		}}
 
-		vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			err := cli.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			err := cli.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				Satisfy(errors.IsNotFound),
@@ -193,7 +193,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err := cli.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			var newSecretName string

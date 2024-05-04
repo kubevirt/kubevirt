@@ -559,7 +559,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		} else {
 			patchString := getRunningJson(vm, true)
 			log.Log.Object(vm).V(4).Infof(patchingVMFmt, patchString)
-			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.MergePatchType, []byte(patchString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.MergePatchType, []byte(patchString), k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		}
 
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
@@ -694,7 +694,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		bodyString := getRunningJson(vm, false)
 		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
-		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), patchType, []byte(bodyString), k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	}
 
 	if patchErr != nil {
@@ -841,7 +841,7 @@ func (app *SubresourceAPIApp) SoftRebootVMIRequestHandler(request *restful.Reque
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
 
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
@@ -866,7 +866,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string
 
 // FetchVirtualMachineInstanceForVM by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)

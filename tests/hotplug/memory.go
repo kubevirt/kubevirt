@@ -75,7 +75,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
 			}
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			EventuallyWithOffset(1, ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -111,7 +111,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			By("Hotplug 128Mi of memory")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", "128Mi", "256Mi")
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for HotMemoryChange condition to appear")
@@ -163,7 +163,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			newGuestMemory := resource.MustParse("256Mi")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/memory/guest", guest.String(), newGuestMemory.String())
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that hotplug was successful")
@@ -187,7 +187,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Checking the new guest memory base value")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
@@ -226,7 +226,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 				},
 			)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that Memory hotplug was successful")

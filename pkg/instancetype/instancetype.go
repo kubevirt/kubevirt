@@ -292,7 +292,7 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 		return err
 	}
 	if len(revisionPatch) > 0 {
-		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, &metav1.PatchOptions{}); err != nil {
+		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, metav1.PatchOptions{}); err != nil {
 			logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
 			return err
 		}
