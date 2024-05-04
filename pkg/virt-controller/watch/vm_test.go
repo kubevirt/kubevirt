@@ -5865,6 +5865,76 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		})
 	})
+
+	Context("Live updates", func() {
+		createPVCVol := func(volName, claimName string, hotpluggable bool) virtv1.Volume {
+			return virtv1.Volume{
+				Name: volName,
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						Hotpluggable: hotpluggable,
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: claimName,
+						},
+					},
+				}}
+		}
+		createDisk := func(name string) virtv1.Disk {
+			return virtv1.Disk{
+				Name: name,
+			}
+		}
+		DescribeTable("should be validated for volume updates", func(oldVols, newVols []virtv1.Volume, expectValid bool) {
+			oldVm, _ := DefaultVirtualMachine(true)
+			newVm := oldVm.DeepCopy()
+			oldVm.Spec.Template.Spec.Volumes = oldVols
+			newVm.Spec.Template.Spec.Volumes = newVols
+
+			Expect(validLiveUpdateVolumes(&oldVm.Spec, newVm)).To(Equal(expectValid))
+		},
+			Entry("without changes", []virtv1.Volume{createPVCVol("vol1", "test1", false)}, []virtv1.Volume{createPVCVol("vol1", "test1", false)}, true),
+			Entry("for container disks", []virtv1.Volume{{Name: "vol1", VolumeSource: virtv1.VolumeSource{ContainerDisk: &virtv1.ContainerDiskSource{Image: "test1"}}}},
+				[]virtv1.Volume{{Name: "vol1", VolumeSource: virtv1.VolumeSource{ContainerDisk: &virtv1.ContainerDiskSource{Image: "test2"}}}}, false),
+			Entry("for a replaced pvc", []virtv1.Volume{createPVCVol("vol1", "test1", false)}, []virtv1.Volume{createPVCVol("vol1", "test2", false)}, false),
+			Entry("for an added pvc", []virtv1.Volume{}, []virtv1.Volume{createPVCVol("vol1", "test1", false)}, false),
+			Entry("for a removed pvc", []virtv1.Volume{createPVCVol("vol1", "test1", false)}, []virtv1.Volume{}, false),
+			Entry("for an updated hotpluggable pvc", []virtv1.Volume{createPVCVol("vol1", "test1", true)}, []virtv1.Volume{createPVCVol("vol1", "test2", true)}, true),
+			Entry("for an added hotpluggable pvc", []virtv1.Volume{}, []virtv1.Volume{createPVCVol("vol1", "test1", true)}, true),
+			Entry("for an added hotpluggable pvc as first volume", []virtv1.Volume{createPVCVol("vol2", "test2", false)}, []virtv1.Volume{createPVCVol("vol1", "test1", true),
+				createPVCVol("vol2", "test2", false)}, true),
+			Entry("for a replaced hotpluggable pvc", []virtv1.Volume{createPVCVol("vol1", "test1", true)}, []virtv1.Volume{createPVCVol("vol1", "test2", true)}, true),
+			Entry("for a removed hotpluggable pvc", []virtv1.Volume{createPVCVol("vol1", "test1", true)}, []virtv1.Volume{}, true),
+		)
+		DescribeTable("should be validated for disk updates", func(oldVols, newVols []virtv1.Volume, oldDisks, newDisks []virtv1.Disk, expectValid bool) {
+			oldVm, _ := DefaultVirtualMachine(true)
+			newVm := oldVm.DeepCopy()
+			oldVm.Spec.Template.Spec.Volumes = oldVols
+			newVm.Spec.Template.Spec.Volumes = newVols
+			oldVm.Spec.Template.Spec.Domain.Devices.Disks = oldDisks
+			newVm.Spec.Template.Spec.Domain.Devices.Disks = newDisks
+			Expect(validLiveUpdateDisks(&oldVm.Spec, newVm)).To(Equal(expectValid))
+		},
+			Entry("without changes", []virtv1.Volume{createPVCVol("vol1", "test1", false)}, []virtv1.Volume{createPVCVol("vol1", "test1", false)}, []virtv1.Disk{createDisk("vol1")}, []virtv1.Disk{createDisk("vol1")}, true),
+			Entry("for container disks", []virtv1.Volume{{Name: "vol1", VolumeSource: virtv1.VolumeSource{ContainerDisk: &virtv1.ContainerDiskSource{Image: "test1"}}}},
+				[]virtv1.Volume{{Name: "vol1", VolumeSource: virtv1.VolumeSource{ContainerDisk: &virtv1.ContainerDiskSource{Image: "test2"}}}},
+				[]virtv1.Disk{createDisk("vol1")}, []virtv1.Disk{createDisk("vol2")}, false),
+			Entry("for a replaced pvc", []virtv1.Volume{createPVCVol("vol1", "test1", false)}, []virtv1.Volume{createPVCVol("vol2", "test2", false)},
+				[]virtv1.Disk{createDisk("vol1")}, []virtv1.Disk{createDisk("vol2")}, false),
+			Entry("for an added pvc", []virtv1.Volume{}, []virtv1.Volume{createPVCVol("vol1", "test1", false)},
+				[]virtv1.Disk{}, []virtv1.Disk{createDisk("vol1")}, false),
+			Entry("for a removed pvc", []virtv1.Volume{createPVCVol("vol1", "test1", false)}, []virtv1.Volume{}, []virtv1.Disk{createDisk("vol1")}, []virtv1.Disk{}, false),
+			Entry("for a replaced hotpluggable pvc", []virtv1.Volume{createPVCVol("vol1", "test1", true)}, []virtv1.Volume{createPVCVol("vol2", "test2", true)},
+				[]virtv1.Disk{createDisk("vol1")}, []virtv1.Disk{createDisk("vol2")}, true),
+			Entry("for an updated hotpluggable pvc", []virtv1.Volume{createPVCVol("vol1", "test1", true)}, []virtv1.Volume{createPVCVol("vol1", "test2", true)},
+				[]virtv1.Disk{createDisk("vol1")}, []virtv1.Disk{createDisk("vol1")}, true),
+			Entry("for an added hotpluggable pvc", []virtv1.Volume{}, []virtv1.Volume{createPVCVol("vol1", "test1", true)},
+				[]virtv1.Disk{}, []virtv1.Disk{createDisk("vol1")}, true),
+			Entry("for an added hotpluggable pvc as first volume", []virtv1.Volume{createPVCVol("vol2", "test2", false)}, []virtv1.Volume{createPVCVol("vol1", "test1", true),
+				createPVCVol("vol2", "test2", false)}, []virtv1.Disk{createDisk("vol2")}, []virtv1.Disk{createDisk("vol1"), createDisk("vol2")}, true),
+			Entry("for a removed hotpluggable pvc", []virtv1.Volume{createPVCVol("vol1", "test1", true)}, []virtv1.Volume{},
+				[]virtv1.Disk{createDisk("vol1")}, []virtv1.Disk{}, true),
+		)
+	})
 })
 
 func VirtualMachineFromVMI(name string, vmi *virtv1.VirtualMachineInstance, started bool) *virtv1.VirtualMachine {
