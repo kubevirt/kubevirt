@@ -45,7 +45,6 @@ import (
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -198,7 +197,7 @@ type authProxy struct {
 }
 
 func (p *authProxy) CreateSar(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
-	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, v1.CreateOptions{})
+	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
 func (p *authProxy) GetNamespace(name string) (*k8score.Namespace, error) {
@@ -332,8 +331,8 @@ func (c *VMController) execute(key string) error {
 
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
-	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, v1.GetOptions{})
+	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
+		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -492,7 +491,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			}
 
 			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
-			curDataVolume, err = c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume, v1.CreateOptions{})
+			curDataVolume, err = c.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume, metav1.CreateOptions{})
 			if err != nil {
 				c.dataVolumeExpectations.CreationObserved(vmKey)
 				if pvc != nil && strings.Contains(err.Error(), "already exists") {
@@ -597,7 +596,7 @@ func (c *VMController) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachi
 	update := fmt.Sprintf(`{ "op": "%s", "path": "/spec/volumes", "value": %s}`, patchVerb, string(newJson))
 	patch := fmt.Sprintf("[%s, %s]", test, update)
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 	return err
 }
 
@@ -630,7 +629,7 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) 
 		} else if request.Phase == virtv1.MemoryDumpFailed {
 			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = failedMemoryDump
 		}
-		if _, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, v1.UpdateOptions{}); err != nil {
+		if _, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -643,7 +642,7 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	update := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vm.Spec.Template.Spec.Domain.CPU.Sockets), 10))
 	patch := fmt.Sprintf("[%s, %s]", test, update)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 
 	return err
 }
@@ -677,7 +676,7 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Status:             k8score.ConditionTrue,
 			Message:            "CPU sockets updated in template spec to a value higher than what's available",
 		})
@@ -718,11 +717,11 @@ func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv
 		}
 
 	} else {
-		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/nodeSelector" }`))
+		ops = append(ops, `{ "op": "remove", "path": "/spec/nodeSelector" }`)
 	}
 	generatedPatch := controller.GeneratePatchBytes(ops)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, v1.PatchOptions{})
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
 	return err
 }
 
@@ -746,10 +745,10 @@ func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		}
 
 	} else {
-		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/affinity" }`))
+		ops = append(ops, `{ "op": "remove", "path": "/spec/affinity" }`)
 	}
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), metav1.PatchOptions{})
 	return err
 }
 
@@ -886,7 +885,7 @@ func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
 		return err
 	}
 	patch := fmt.Sprintf(`{ "status":{ "stateChangeRequests":%s } }`, string(req))
-	err = c.statusUpdater.PatchStatus(vm, types.MergePatchType, []byte(patch), &v1.PatchOptions{})
+	err = c.statusUpdater.PatchStatus(vm, types.MergePatchType, []byte(patch), &metav1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -1237,7 +1236,7 @@ func (c *VMController) patchVmGenerationAnnotationOnVmi(generation int64, vmi *v
 	}
 	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
 	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
-	_, err = c.clientset.VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -1455,9 +1454,9 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			count = vm.Status.StartFailure.ConsecutiveFailCount + 1
 		}
 
-		now := v1.NewTime(time.Now())
+		now := metav1.NewTime(time.Now())
 		delaySeconds := calculateStartBackoffTime(count, defaultMaxCrashLoopBackoffDelaySeconds)
-		retryAfter := v1.NewTime(now.Time.Add(time.Duration(int64(delaySeconds)) * time.Second))
+		retryAfter := metav1.NewTime(now.Time.Add(time.Duration(int64(delaySeconds)) * time.Second))
 
 		vm.Status.StartFailure = &virtv1.VirtualMachineStartFailure{
 			LastFailedVMIUID:     vmi.UID,
@@ -1492,7 +1491,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 		}
 	}
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
-	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
+	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 
 	// Don't log an error if it is already deleted
 	if err != nil {
@@ -1565,7 +1564,7 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 			createNotNeeded = true
 			continue
 		}
-		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
+		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -1594,7 +1593,7 @@ func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
 			return fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, v1.DeleteOptions{})
+		err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), cr.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -1606,7 +1605,7 @@ func (c *VMController) deleteVMRevisions(vm *virtv1.VirtualMachine) error {
 // getControllerRevision attempts to get the controller revision by name and
 // namespace. It will return (nil, nil) if the controller revision is not found.
 func (c *VMController) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
-	cr, err := c.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, v1.GetOptions{})
+	cr, err := c.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
 			return nil, nil
@@ -1693,15 +1692,15 @@ func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, erro
 		return "", err
 	}
 	cr := &appsv1.ControllerRevision{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:            vmRevisionName,
 			Namespace:       vm.Namespace,
-			OwnerReferences: []v1.OwnerReference{*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
 		},
 		Data:     runtime.RawExtension{Raw: patch},
 		Revision: vm.ObjectMeta.Generation,
 	}
-	_, err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
+	_, err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -1736,8 +1735,8 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
-	vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{
-		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+	vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
 	VMIDefaults := &virtv1.VirtualMachineInstance{}
@@ -1876,36 +1875,6 @@ func (c *VMController) setupMemoryHotplug(vmi *virtv1.VirtualMachineInstance, ma
 	}
 }
 
-// filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
-// TODO +pkotas unify with replicaset this code is the same without dependency
-func (c *VMController) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return !vmi.IsFinal()
-	})
-}
-
-// filterReadyVMIs takes a list of VMIs and returns all VMIs which are in ready state.
-// TODO +pkotas unify with replicaset this code is the same
-func (c *VMController) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
-	})
-}
-
-// listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
-// TODO +pkotas unify this code with replicaset
-func (c *VMController) listVMIsFromNamespace(namespace string) ([]*virtv1.VirtualMachineInstance, error) {
-	objs, err := c.vmiIndexer.ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-	var vmis []*virtv1.VirtualMachineInstance
-	for _, obj := range objs {
-		vmis = append(vmis, obj.(*virtv1.VirtualMachineInstance))
-	}
-	return vmis, nil
-}
-
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
 // from the VirtualMachine cache which run in this namespace
 func (c *VMController) listControllerFromNamespace(namespace string) ([]*virtv1.VirtualMachine, error) {
@@ -1954,7 +1923,7 @@ func (c *VMController) addVirtualMachineInstance(obj interface{}) {
 	}
 
 	// If it has a ControllerRef, that's all that matters.
-	if controllerRef := v1.GetControllerOf(vmi); controllerRef != nil {
+	if controllerRef := metav1.GetControllerOf(vmi); controllerRef != nil {
 		log.Log.Object(vmi).V(4).Info("Looking for VirtualMachineInstance Ref")
 		vm := c.resolveControllerRef(vmi.Namespace, controllerRef)
 		if vm == nil {
@@ -2014,8 +1983,8 @@ func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
 		return
 	}
 
-	curControllerRef := v1.GetControllerOf(curVMI)
-	oldControllerRef := v1.GetControllerOf(oldVMI)
+	curControllerRef := metav1.GetControllerOf(curVMI)
+	oldControllerRef := metav1.GetControllerOf(oldVMI)
 	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -2075,7 +2044,7 @@ func (c *VMController) deleteVirtualMachineInstance(obj interface{}) {
 		}
 	}
 
-	controllerRef := v1.GetControllerOf(vmi)
+	controllerRef := metav1.GetControllerOf(vmi)
 	if controllerRef == nil {
 		// No controller should care about orphans being deleted.
 		return
@@ -2098,7 +2067,7 @@ func (c *VMController) addDataVolume(obj interface{}) {
 		c.deleteDataVolume(dataVolume)
 		return
 	}
-	controllerRef := v1.GetControllerOf(dataVolume)
+	controllerRef := metav1.GetControllerOf(dataVolume)
 	if controllerRef != nil {
 		log.Log.Object(dataVolume).Info("Looking for DataVolume Ref")
 		vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
@@ -2137,8 +2106,8 @@ func (c *VMController) updateDataVolume(old, cur interface{}) {
 		}
 		return
 	}
-	curControllerRef := v1.GetControllerOf(curDataVolume)
-	oldControllerRef := v1.GetControllerOf(oldDataVolume)
+	curControllerRef := metav1.GetControllerOf(curDataVolume)
+	oldControllerRef := metav1.GetControllerOf(oldDataVolume)
 	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -2167,7 +2136,7 @@ func (c *VMController) deleteDataVolume(obj interface{}) {
 			return
 		}
 	}
-	if controllerRef := v1.GetControllerOf(dataVolume); controllerRef != nil {
+	if controllerRef := metav1.GetControllerOf(dataVolume); controllerRef != nil {
 		if vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef); vm != nil {
 			if vmKey, err := controller.KeyFunc(vm); err == nil {
 				c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(dataVolume))
@@ -2179,7 +2148,7 @@ func (c *VMController) deleteDataVolume(obj interface{}) {
 
 func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 	var vmOwner string
-	if controllerRef := v1.GetControllerOf(dataVolume); controllerRef != nil {
+	if controllerRef := metav1.GetControllerOf(dataVolume); controllerRef != nil {
 		if vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef); vm != nil {
 			vmOwner = vm.Name
 			log.Log.V(4).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
@@ -2269,7 +2238,7 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 		return err
 	}
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), metav1.PatchOptions{})
 	return err
 }
 
@@ -2293,7 +2262,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Vir
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), metav1.PatchOptions{})
 	return vm, err
 }
 
@@ -2313,7 +2282,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine) (*virtv1.Virtua
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
+	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), metav1.PatchOptions{})
 }
 
 // parseGeneration will parse for the last value after a '-'. It is assumed the
@@ -2617,7 +2586,7 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
 		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
 
-	now := v1.Now()
+	now := metav1.Now()
 	if vmi == nil {
 		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineReady,
@@ -2655,7 +2624,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
 	syncReadyConditionFromVMI(vm, vmi)
-	processFailureCondition(vm, vmi, syncErr)
+	processFailureCondition(vm, syncErr)
 
 	// nothing to do if vmi hasn't been created yet.
 	if vmi == nil {
@@ -2702,7 +2671,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	}
 }
 
-func processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) {
+func processFailureCondition(vm *virtv1.VirtualMachine, syncErr syncError) {
 
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if syncErr == nil {
@@ -2718,11 +2687,9 @@ func processFailureCondition(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		Type:               virtv1.VirtualMachineFailure,
 		Reason:             syncErr.Reason(),
 		Message:            syncErr.Error(),
-		LastTransitionTime: v1.Now(),
+		LastTransitionTime: metav1.Now(),
 		Status:             k8score.ConditionTrue,
 	})
-
-	return
 }
 
 func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (clearChangeRequest bool) {
@@ -2738,7 +2705,7 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 		if vmi == nil {
 			// because either the VM or VMI informers can trigger processing here
 			// double check the state of the cluster before taking action
-			_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), v1.GetOptions{})
+			_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
 			if err != nil && apiErrors.IsNotFound(err) {
 				// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
 				log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
@@ -2990,7 +2957,7 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 		vmConditionManager := controller.NewVirtualMachineConditionManager()
 		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Status:             k8score.ConditionTrue,
 			Message:            "a non-live-updatable field was changed in the template spec",
 		})
@@ -3038,7 +3005,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	}
 
 	if vm.DeletionTimestamp != nil {
-		if vmi == nil || controller.HasFinalizer(vm, v1.FinalizerOrphanDependents) {
+		if vmi == nil || controller.HasFinalizer(vm, metav1.FinalizerOrphanDependents) {
 			vm, err = c.removeVMFinalizer(vm)
 			if err != nil {
 				return vm, nil, err
@@ -3171,7 +3138,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachine {
+func (c *VMController) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *virtv1.VirtualMachine {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
@@ -3196,7 +3163,7 @@ func (c *VMController) resolveControllerRef(namespace string, controllerRef *v1.
 func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
 	// Default to False if nil and return, otherwise return if input devices are already present
-	if autoAttachInput == nil || *autoAttachInput == false || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
+	if autoAttachInput == nil || !*autoAttachInput || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
 		return
 	}
 	// Only add the device with an alias here. Preferences for the bus and type might
@@ -3268,7 +3235,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Status:             k8score.ConditionTrue,
 			Message:            "memory updated in template spec to a value lower than what the VM started with",
 		})
@@ -3283,7 +3250,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 		vmConditions := controller.NewVirtualMachineConditionManager()
 		vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Status:             k8score.ConditionTrue,
 			Message:            "memory updated in template spec to a value higher than what's available",
 		})
@@ -3320,7 +3287,7 @@ func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi
 
 	memoryPatch := controller.GeneratePatchBytes(patches)
 
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, memoryPatch, v1.PatchOptions{})
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, memoryPatch, metav1.PatchOptions{})
 	if err != nil {
 		return err
 	}
@@ -3364,7 +3331,7 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 
 	patch := fmt.Sprintf("[%s, %s, %s, %s]", testNetworks, testInterfaces, updateNetworks, updateInterfaces)
 
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), v1.PatchOptions{})
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 
 	return err
 }
@@ -3385,6 +3352,6 @@ func (c *VMController) patchVMITerminationGracePeriod(gracePeriod *int64, vmi *v
 		return nil
 	}
 	patch := fmt.Sprintf(`{"spec":{"terminationGracePeriodSeconds": %d }}`, *gracePeriod)
-	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), v1.PatchOptions{})
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{})
 	return err
 }
