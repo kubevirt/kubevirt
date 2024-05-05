@@ -80,7 +80,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).List(context.Background(), v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
+		Expect(libreplicaset.NotDeleted(vmis)).To(HaveLen(int(scale)))
 	}
 
 	doScaleWithHPA := func(name string, min int32, max int32, expected int32) {
@@ -114,7 +114,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), v12.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(min)))
+		ExpectWithOffset(1, libreplicaset.NotDeleted(vmis)).To(HaveLen(int(min)))
 		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, v12.DeleteOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}

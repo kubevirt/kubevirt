@@ -519,15 +519,6 @@ func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, er
 	return jsonFile, nil
 }
 
-func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMachineInstance) {
-	for _, vmi := range vmis.Items {
-		if vmi.DeletionTimestamp == nil {
-			notDeleted = append(notDeleted, vmi)
-		}
-	}
-	return
-}
-
 func NotDeletedVMs(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
 	for _, vm := range vms.Items {
 		if vm.DeletionTimestamp == nil {
