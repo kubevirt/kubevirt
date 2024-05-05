@@ -194,6 +194,8 @@ var (
 		"qemu32",
 		"kvm64",
 		"kvm32",
+		"Opteron_G1",
+		"Opteron_G2",
 	}
 )
 
