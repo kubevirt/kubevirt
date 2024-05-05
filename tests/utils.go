@@ -519,15 +519,6 @@ func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, er
 	return jsonFile, nil
 }
 
-func NotDeletedVMs(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
-	for _, vm := range vms.Items {
-		if vm.DeletionTimestamp == nil {
-			notDeleted = append(notDeleted, vm)
-		}
-	}
-	return
-}
-
 func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions {
 	virtClient := kubevirt.Client()
 

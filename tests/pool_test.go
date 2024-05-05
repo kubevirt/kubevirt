@@ -54,7 +54,6 @@ import (
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -624,12 +623,21 @@ func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 }
 
 func notDeletedVMs(poolName string, vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
-	nonDeletedVms := tests.NotDeletedVMs(vms)
+	nonDeletedVms := NotDeletedVMs(vms)
 	for _, vm := range nonDeletedVms {
 		for _, ref := range vm.OwnerReferences {
 			if ref.Name == poolName {
 				notDeleted = append(notDeleted, vm)
 			}
+		}
+	}
+	return
+}
+
+func NotDeletedVMs(vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
+	for _, vm := range vms.Items {
+		if vm.DeletionTimestamp == nil {
+			notDeleted = append(notDeleted, vm)
 		}
 	}
 	return
