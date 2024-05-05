@@ -106,7 +106,8 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 200m CPU")
-			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err := libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu := compute.Resources.Requests.Cpu().Value()
@@ -155,7 +156,9 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("Ensuring the virt-launcher pod now has 400m CPU")
-			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err = libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu = compute.Resources.Requests.Cpu().Value()
 			expCpu = resource.MustParse("400m")
@@ -205,7 +208,8 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring the compute container has 2 CPU")
-			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err := libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu := compute.Resources.Requests.Cpu().Value()
@@ -252,7 +256,8 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			}))
 
 			By("Ensuring the virt-launcher pod now has 4 CPU")
-			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err = libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqCpu = compute.Resources.Requests.Cpu().Value()

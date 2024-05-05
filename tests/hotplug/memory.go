@@ -107,7 +107,8 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			migration.CreateMigrationPolicy(virtClient, migration.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
 			By("Ensuring the compute container has at least 128Mi of memory")
-			compute := libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err := libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory := compute.Resources.Requests.Memory().Value()
@@ -152,7 +153,8 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
 
 			By("Ensuring the virt-launcher pod now has at least more than 256Mi of memory")
-			compute = libpod.LookupComputeContainer(tests.GetVmiPod(virtClient, vmi))
+			compute, err = libpod.LookupComputeContainerFromVmi(vmi)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(compute).NotTo(BeNil(), "failed to find compute container")
 			reqMemory = compute.Resources.Requests.Memory().Value()
 			Expect(reqMemory).To(BeNumerically(">=", maxGuest.Value()))

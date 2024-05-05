@@ -569,22 +569,16 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func GetVmiPod(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+// RunCommandOnVmiPod runs specified command on the virt-launcher pod
+func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
+	virtClient := kubevirt.Client()
 	pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), UnfinishedVMIPodSelector(vmi))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	vmiPod := pods.Items[0]
 
-	return &vmiPod
-}
-
-// RunCommandOnVmiPod runs specified command on the virt-launcher pod
-func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
-	virtClient := kubevirt.Client()
-	vmiPod := GetVmiPod(virtClient, vmi)
-
 	output, err := exec.ExecuteCommandOnPod(
-		vmiPod,
+		&vmiPod,
 		"compute",
 		command,
 	)
