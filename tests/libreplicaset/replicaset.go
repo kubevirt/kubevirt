@@ -40,14 +40,15 @@ func DoScaleWithScaleSubresource(virtClient kubecli.KubevirtClient, name string,
 
 	vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), v12.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	ExpectWithOffset(1, NotDeleted(vmis)).To(HaveLen(int(scale)))
+	ExpectWithOffset(1, FilterNotDeletedVMIs(vmis)).To(HaveLen(int(scale)))
 }
 
-func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMachineInstance) {
+func FilterNotDeletedVMIs(vmis *v1.VirtualMachineInstanceList) []v1.VirtualMachineInstance {
+	var notDeleted []v1.VirtualMachineInstance
 	for _, vmi := range vmis.Items {
 		if vmi.DeletionTimestamp == nil {
 			notDeleted = append(notDeleted, vmi)
 		}
 	}
-	return
+	return notDeleted
 }
