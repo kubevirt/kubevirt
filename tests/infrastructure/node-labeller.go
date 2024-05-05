@@ -203,15 +203,23 @@ var _ = DescribeInfra("Node-labeller", func() {
 		})
 
 		It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", func() {
+			kvConfig := util.GetCurrentKv(virtClient)
+			kvConfig.Spec.Configuration.ObsoleteCPUModels = nil
+			tests.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
 			node := nodesWithKVM[0]
-
-			for key := range node.Labels {
-				if strings.Contains(key, v1.CPUModelLabel) {
-					model := strings.TrimPrefix(key, v1.CPUModelLabel)
-					Expect(nodelabellerutil.DefaultObsoleteCPUModels).ToNot(HaveKey(model),
-						"Node can't contain label with cpu model, which is in default obsolete filter")
+			Eventually(func() error {
+				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for key := range node.Labels {
+					if strings.Contains(key, v1.CPUModelLabel) {
+						model := strings.TrimPrefix(key, v1.CPUModelLabel)
+						if _, ok := nodelabellerutil.DefaultObsoleteCPUModels[model]; ok {
+							return fmt.Errorf("node can't contain label with cpu model, which is in default obsolete filter")
+						}
+					}
 				}
-			}
+				return nil
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
 		})
 
 		It("[test_id:6995]should expose tsc frequency and tsc scalability", func() {
