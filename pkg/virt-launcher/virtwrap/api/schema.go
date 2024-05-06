@@ -273,9 +273,16 @@ type VCPUs struct {
 	VCPU []VCPUsVCPU `xml:"vcpu"`
 }
 
+type CPUModel struct {
+	Fallback string `xml:"fallback,attr,omitempty"`
+	VendorID string `xml:"vendor_id,attr,omitempty"`
+	Value    string `xml:",chardata"`
+}
+
 type CPU struct {
+	Check    string       `xml:"check,attr,omitempty"`
 	Mode     string       `xml:"mode,attr,omitempty"`
-	Model    string       `xml:"model,omitempty"`
+	Model    *CPUModel    `xml:"model,omitempty"`
 	Features []CPUFeature `xml:"feature"`
 	Topology *CPUTopology `xml:"topology"`
 	NUMA     *NUMA        `xml:"numa,omitempty"`

@@ -1825,7 +1825,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
 			} else {
 				domain.Spec.CPU.Mode = "custom"
-				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+				domain.Spec.CPU.Model = &api.CPUModel{Value: vmi.Spec.Domain.CPU.Model}
 			}
 		}
 

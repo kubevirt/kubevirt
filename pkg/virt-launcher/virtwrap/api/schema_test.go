@@ -178,7 +178,7 @@ var _ = ginkgo.Describe("Schema", func() {
 			CPUs:      2,
 		}
 		exampleDomain.Spec.CPU.Mode = "custom"
-		exampleDomain.Spec.CPU.Model = "Conroe"
+		exampleDomain.Spec.CPU.Model = &CPUModel{Value: "Conroe"}
 		exampleDomain.Spec.CPU.Features = []CPUFeature{
 			{
 				Name:   "pcid",

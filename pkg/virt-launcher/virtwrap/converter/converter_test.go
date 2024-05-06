@@ -755,7 +755,7 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(2)), "Expect sockets")
 				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(2)), "Expect threads")
 				Expect(domainSpec.CPU.Mode).To(Equal("custom"), "Expect cpu mode")
-				Expect(domainSpec.CPU.Model).To(Equal("Conroe"), "Expect cpu model")
+				Expect(domainSpec.CPU.Model.Value).To(Equal("Conroe"), "Expect cpu model")
 				Expect(domainSpec.CPU.Features[0].Name).To(Equal("lahf_lm"), "Expect cpu feature name")
 				Expect(domainSpec.CPU.Features[0].Policy).To(Equal("require"), "Expect cpu feature policy")
 				Expect(domainSpec.CPU.Features[1].Name).To(Equal("mmx"), "Expect cpu feature name")
