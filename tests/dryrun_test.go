@@ -331,7 +331,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7640]delete a VMI preset", func() {
 			By("Create a VMI preset")
-			_, err := virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			_, err := virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a VMI preset")
@@ -350,7 +350,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7641]update a VMI preset", func() {
 			By("Create a VMI preset")
-			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			_, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a VMI preset")
@@ -375,7 +375,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 
 		It("[test_id:7642]patch a VMI preset", func() {
 			By("Create a VMI preset")
-			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(preset)
+			preset, err = virtClient.VirtualMachineInstancePreset(preset.Namespace).Create(context.Background(), preset, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a VMI preset")

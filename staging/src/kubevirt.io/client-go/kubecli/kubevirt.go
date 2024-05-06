@@ -277,7 +277,7 @@ type ReplicaSetInterface interface {
 type VirtualMachineInstancePresetInterface interface {
 	Get(name string, options metav1.GetOptions) (*v1.VirtualMachineInstancePreset, error)
 	List(opts metav1.ListOptions) (*v1.VirtualMachineInstancePresetList, error)
-	Create(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
+	Create(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts metav1.CreateOptions) (*v1.VirtualMachineInstancePreset, error)
 	Update(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error)
