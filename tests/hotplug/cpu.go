@@ -8,9 +8,10 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libnet"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -38,6 +39,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libwait"
+	testsmig "kubevirt.io/kubevirt/tests/migration"
 )
 
 var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
@@ -263,6 +265,84 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			reqCpu = compute.Resources.Requests.Cpu().Value()
 			expCpu = resource.MustParse("4")
 			Expect(reqCpu).To(Equal(expCpu.Value()))
+		})
+	})
+
+	Context("Abort CPU change", func() {
+		It("should cancel the automated workload update", func() {
+			vmi := libvmifact.NewAlpineWithTestTooling(
+				libnet.WithMasqueradeNetworking()...,
+			)
+			vmi.Namespace = testsuite.GetTestNamespace(vmi)
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Sockets:    1,
+				Cores:      2,
+				Threads:    1,
+				MaxSockets: 2,
+			}
+			By("Limiting the bandwidth of migrations in the test namespace")
+			policy := testsmig.PreparePolicyAndVMIWithBandwidthLimitation(vmi, resource.MustParse("1Ki"))
+			testsmig.CreateMigrationPolicy(virtClient, policy)
+			Eventually(func() *migrationsv1.MigrationPolicy {
+				policy, err := virtClient.MigrationPolicy().Get(context.Background(), policy.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil
+				}
+				return policy
+			}, 30*time.Second, time.Second).ShouldNot(BeNil())
+
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+
+			// Update the CPU number and trigger the workload update
+			// and migration
+			By("Enabling the second socket to trigger the migration update")
+			p, err := patch.New(patch.WithReplace("/spec/template/spec/domain/cpu/sockets", 2)).GeneratePayload()
+			Expect(err).NotTo(HaveOccurred())
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, k8smetav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, mig := range migrations.Items {
+					if mig.Spec.VMIName == vmi.Name {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeTrue())
+
+			// Add annotation to cancel the workload update
+			By("Patching the workload migration abortion annotation")
+			vmi.ObjectMeta.Annotations[v1.WorkloadUpdateMigrationAbortionAnnotation] = ""
+			p, err = patch.New(patch.WithAdd("/metadata/annotations", vmi.ObjectMeta.Annotations)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return metav1.HasAnnotation(vmi.ObjectMeta, v1.WorkloadUpdateMigrationAbortionAnnotation)
+			}, 30*time.Second, time.Second).Should(BeTrue())
+
+			// Wait until the migration is cancelled by the workload
+			// updater
+			Eventually(func() bool {
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, mig := range migrations.Items {
+					if mig.Spec.VMIName == vmi.Name {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeFalse())
+
 		})
 	})
 })

@@ -25,6 +25,7 @@ import (
 
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -43,6 +44,12 @@ const (
 	FailedEvictVirtualMachineInstanceReason = "FailedEvict"
 	// SuccessfulEvictVirtualMachineInstanceReason is added in an event if a deletion of a VMI Succeeds
 	SuccessfulEvictVirtualMachineInstanceReason = "SuccessfulEvict"
+	// SuccessfulChangeAbortionReason is added in an event if a deletion of a
+	// migration succeeds
+	SuccessfulChangeAbortionReason = "SuccessfulChangeAbortion"
+	// FailedChangeAbortionReason is added in an event if a deletion of a
+	// migration succeeds
+	FailedChangeAbortionReason = "FailedChangeAbortion"
 )
 
 // time to wait before re-enqueing when outdated VMIs are still detected
@@ -74,6 +81,7 @@ type updateData struct {
 	allOutdatedVMIs        []*virtv1.VirtualMachineInstance
 	migratableOutdatedVMIs []*virtv1.VirtualMachineInstance
 	evictOutdatedVMIs      []*virtv1.VirtualMachineInstance
+	abortChangeVMIs        []*virtv1.VirtualMachineInstance
 
 	numActiveMigrations int
 }
@@ -313,12 +321,25 @@ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachi
 	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
 		return false
 	}
-
+	if metav1.HasAnnotation(vmi.ObjectMeta, v1.WorkloadUpdateMigrationAbortionAnnotation) {
+		return false
+	}
 	if isHotplugInProgress(vmi) {
 		return true
 	}
 
 	return false
+}
+
+func (c *WorkloadUpdateController) shouldAbortMigration(vmi *virtv1.VirtualMachineInstance) bool {
+	numMig := len(migrationutils.ListWorkloadUpdateMigrations(c.migrationInformer.GetStore(), vmi.Name, vmi.Namespace))
+	if metav1.HasAnnotation(vmi.ObjectMeta, virtv1.WorkloadUpdateMigrationAbortionAnnotation) {
+		return numMig > 0
+	}
+	if isHotplugInProgress(vmi) {
+		return false
+	}
+	return numMig > 0
 }
 
 func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateData {
@@ -349,10 +370,14 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 	objs := c.vmiInformer.GetStore().List()
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
-		if !vmi.IsRunning() || vmi.IsFinal() || vmi.DeletionTimestamp != nil {
+		switch {
+		case !vmi.IsRunning() || vmi.IsFinal() || vmi.DeletionTimestamp != nil:
 			// only consider running VMIs that aren't being shutdown
 			continue
-		} else if !c.isOutdated(vmi) && !c.doesRequireMigration(vmi) {
+		case c.shouldAbortMigration(vmi) && !c.isOutdated(vmi):
+			data.abortChangeVMIs = append(data.abortChangeVMIs, vmi)
+			continue
+		case !c.isOutdated(vmi) && !c.doesRequireMigration(vmi):
 			continue
 		}
 
@@ -453,7 +478,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	// Rather than enqueing based on VMI activity, we keep periodically poping the loop
 	// until all VMIs are updated. Watching all VMI activity is chatty for this controller
 	// when we don't need to be that efficent in how quickly the updates are being processed.
-	if len(data.evictOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 {
+	if len(data.evictOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 || len(data.abortChangeVMIs) != 0 {
 		c.queue.AddAfter(key, periodicReEnqueueIntervalSeconds)
 	}
 
@@ -507,7 +532,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		evictionCandidates = data.evictOutdatedVMIs[0:batchDeletionCount]
 	}
 
-	wgLen := len(migrationCandidates) + len(evictionCandidates)
+	wgLen := len(migrationCandidates) + len(evictionCandidates) + len(data.abortChangeVMIs)
 	wg := &sync.WaitGroup{}
 	wg.Add(wgLen)
 	errChan := make(chan error, wgLen)
@@ -572,6 +597,25 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		}(vmi)
 	}
 
+	for _, vmi := range data.abortChangeVMIs {
+		go func(vmi *virtv1.VirtualMachineInstance) {
+			defer wg.Done()
+			migList := migrationutils.ListWorkloadUpdateMigrations(c.migrationInformer.GetStore(), vmi.Name, vmi.Namespace)
+			for _, mig := range migList {
+				err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
+				if err != nil && !errors.IsNotFound(err) {
+					log.Log.Object(vmi).Reason(err).Errorf("Failed to delete the migration due to a migration abortion")
+					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedChangeAbortionReason, "Failed to abort change for vmi: %s: %v", vmi.Name, err)
+					errChan <- err
+				} else if err == nil {
+					log.Log.Infof("Delete migration %s due to an update change abortion", mig.Name)
+					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulChangeAbortionReason, "Aborted change for vmi: %s", vmi.Name)
+
+				}
+			}
+
+		}(vmi)
+	}
 	wg.Wait()
 
 	select {

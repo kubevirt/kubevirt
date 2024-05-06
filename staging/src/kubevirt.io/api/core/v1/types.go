@@ -853,6 +853,9 @@ const (
 	// This annotation indicates that a migration is the result of an
 	// automated workload update
 	WorkloadUpdateMigrationAnnotation string = "kubevirt.io/workloadUpdateMigration"
+	// This annotation indicates to abort any migration due to an automated
+	// workload update. It should only be used for testing purposes.
+	WorkloadUpdateMigrationAbortionAnnotation string = "kubevirt.io/testWorkloadUpdateMigrationAbortion"
 	// This label declares whether a particular node is available for
 	// scheduling virtual machine instances on it. Used on Node.
 	NodeSchedulable string = "kubevirt.io/schedulable"

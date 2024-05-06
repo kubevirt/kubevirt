@@ -4,6 +4,7 @@ import (
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -21,6 +22,29 @@ func ListUnfinishedMigrations(store cache.Store) []*v1.VirtualMachineInstanceMig
 			migrations = append(migrations, migration)
 		}
 	}
+	return migrations
+}
+
+func ListWorkloadUpdateMigrations(store cache.Store, vmiName, ns string) []v1.VirtualMachineInstanceMigration {
+	objs := store.List()
+	migrations := []v1.VirtualMachineInstanceMigration{}
+	for _, obj := range objs {
+		migration := obj.(*v1.VirtualMachineInstanceMigration)
+		if migration.IsFinal() {
+			continue
+		}
+		if migration.Namespace != ns {
+			continue
+		}
+		if migration.Spec.VMIName != vmiName {
+			continue
+		}
+		if !metav1.HasAnnotation(migration.ObjectMeta, v1.WorkloadUpdateMigrationAnnotation) {
+			continue
+		}
+		migrations = append(migrations, *migration)
+	}
+
 	return migrations
 }
 
