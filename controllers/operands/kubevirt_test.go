@@ -3711,7 +3711,6 @@ Version: 1.2.3`)
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(getKvFeatureGateList(&hco.Spec.FeatureGates))))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVGate))
 				Expect(kv.Spec.Configuration.CPURequest).To(BeNil())
 
 			})

@@ -194,10 +194,7 @@ var _ = Describe("HyperconvergedController", func() {
 				verifySystemHealthStatusError(foundResource)
 
 				expectedFeatureGates := []string{
-					"DataVolumes",
-					"SRIOV",
 					"CPUManager",
-					"CPUNodeDiscovery",
 					"Snapshot",
 					"HotplugVolumes",
 					"GPU",

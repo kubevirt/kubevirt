@@ -61,22 +61,9 @@ func init() {
 // KubeVirt hard coded FeatureGates
 // These feature gates are set by HCO in the KubeVirt CR and can't be modified by the end user.
 const (
-	// indicates that we support turning on DataVolume workflows. This means using DataVolumes in the VM and VMI
-	// definitions. There was a period of time where this was in alpha and needed to be explicility enabled.
-	// It also means that someone is using KubeVirt with CDI. So by not enabling this feature gate, someone can safely
-	// use kubevirt without CDI and know that users of kubevirt will not be able to post VM/VMIs that use CDI workflows
-	// that aren't available to them
-	kvDataVolumesGate = "DataVolumes"
-
-	// Enable Single-root input/output virtualization
-	kvSRIOVGate = "SRIOV"
-
 	// Enables the CPUManager feature gate to label the nodes which have the Kubernetes CPUManager running. VMIs that
 	// require dedicated CPU resources will automatically be scheduled on the labeled nodes
 	kvCPUManagerGate = "CPUManager"
-
-	// Enables schedule VMIs according to their CPU model
-	kvCPUNodeDiscoveryGate = "CPUNodeDiscovery"
 
 	// Enables the alpha offline snapshot functionality
 	kvSnapshotGate = "Snapshot"
@@ -125,10 +112,7 @@ const (
 
 var (
 	hardCodeKvFgs = []string{
-		kvDataVolumesGate,
-		kvSRIOVGate,
 		kvCPUManagerGate,
-		kvCPUNodeDiscoveryGate,
 		kvSnapshotGate,
 		kvHotplugVolumesGate,
 		kvExpandDisksGate,
