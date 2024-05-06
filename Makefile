@@ -5,7 +5,7 @@ ifeq (${TIMESTAMP}, 1)
   SHELL = ./hack/timestamps.sh
 endif
 
-all: format bazel-build manifests
+all: format bazel-build manifests update-generate-api-testdata
 
 go-all: go-build manifests-no-bazel
 
@@ -232,6 +232,11 @@ lint-metrics:
 	./hack/prom-metric-linter/metric_name_linter.sh --operator-name="kubevirt" --sub-operator-name="kubevirt" --metrics-file=metrics.json
 	rm metrics.json
 
+update-generate-api-testdata:
+	rm -f staging/src/kubevirt.io/api/testdata/HEAD/*.{yaml,json}
+	UPDATE_COMPATIBILITY_FIXTURE_DATA=true go test kubevirt.io/api -run //HEAD >/dev/null 2>&1 || true
+	go test kubevirt.io/api -run //HEAD -count=1 
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -269,4 +274,5 @@ lint-metrics:
 	fmt \
 	lint \
 	lint-metrics\
+	update-generate-api-testdata\
 	$(NULL)
