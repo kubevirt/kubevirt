@@ -1,0 +1,5 @@
+{
+  "kind": "GetOptions",
+  "apiVersion": "kubevirt.io/v1",
+  "resourceVersion": "resourceVersionValue"
+}
