@@ -446,11 +446,8 @@ func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
 	return hostModel
 }
 
-func ExecuteCommandOnNodeThroughVirtHandler(
-	virtCli kubecli.KubevirtClient,
-	nodeName string,
-	command []string) (stdout string, stderr string, err error) {
-	virtHandlerPod, err := GetVirtHandlerPod(virtCli, nodeName)
+func ExecuteCommandOnNodeThroughVirtHandler(nodeName string, command []string) (stdout string, stderr string, err error) {
+	virtHandlerPod, err := GetVirtHandlerPod(kubevirt.Client(), nodeName)
 	if err != nil {
 		return "", "", err
 	}

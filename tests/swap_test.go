@@ -224,7 +224,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 })
 
 func getMemInfoByString(node v1.Node, field string) int {
-	stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(kubevirt.Client(), node.Name, []string{"grep", field, "/proc/meminfo"})
+	stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(node.Name, []string{"grep", field, "/proc/meminfo"})
 	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
 	fields := strings.Fields(stdout)
 	size, err := strconv.Atoi(fields[1])
