@@ -16,6 +16,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -47,9 +48,7 @@ var _ = Describe("Replicaset", func() {
 	Context("One valid ReplicaSet controller given", func() {
 
 		var ctrl *gomock.Controller
-		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 		var virtClientset *fake.Clientset
-		var rsInterface *kubecli.MockReplicaSetInterface
 		var vmiSource *framework.FakeControllerSource
 		var rsSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
@@ -71,8 +70,6 @@ var _ = Describe("Replicaset", func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient := kubecli.NewMockKubevirtClient(ctrl)
 			virtClientset = fake.NewSimpleClientset()
-			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-			rsInterface = kubecli.NewMockReplicaSetInterface(ctrl)
 
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			rsInformer, rsSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
@@ -90,6 +87,12 @@ var _ = Describe("Replicaset", func() {
 
 			testing.PrependGenerateNameCreateReactor(&virtClientset.Fake, "virtualmachineinstances")
 			syncCaches(stop)
+		})
+
+		AfterEach(func() {
+			close(stop)
+			// Ensure that we add checks for expected events to every test
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		addReplicaSet := func(rs *v1.VirtualMachineInstanceReplicaSet) {
@@ -729,12 +732,6 @@ var _ = Describe("Replicaset", func() {
 			Expect(updatedRS.Status.Replicas).To(Equal(int32(1)))
 			Expect(updatedRS.Status.Conditions).To(BeEmpty())
 		})
-
-		AfterEach(func() {
-			close(stop)
-			// Ensure that we add checks for expected events to every test
-			Expect(recorder.Events).To(BeEmpty())
-		})
 	})
 })
 
@@ -744,7 +741,7 @@ func ReplicaSetFromVMI(name string, vmi *v1.VirtualMachineInstance, replicas int
 	})
 	Expect(err).ToNot(HaveOccurred())
 	rs := &v1.VirtualMachineInstanceReplicaSet{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: types.UID(name)},
 		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
