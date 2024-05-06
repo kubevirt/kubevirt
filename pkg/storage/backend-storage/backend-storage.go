@@ -107,21 +107,28 @@ func (bs *BackendStorage) getStorageClass() (string, error) {
 }
 
 func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentVolumeMode) v1.PersistentVolumeAccessMode {
+	// The default access mode should be RWX if the storage class was manually specified.
+	// However, if we're using the cluster default storage class, default to access mode RWO.
+	accessMode := v1.ReadWriteMany
+	if bs.clusterConfig.GetVMStateStorageClass() == "" {
+		accessMode = v1.ReadWriteOnce
+	}
+
 	// Storage profiles are guaranteed to have the same name as their storage class
 	obj, exists, err := bs.spStore.GetByKey(storageClass)
 	if err != nil {
-		log.Log.Reason(err).Info("couldn't access storage profiles, defaulting to RWX")
-		return v1.ReadWriteMany
+		log.Log.Reason(err).Infof("couldn't access storage profiles, defaulting to %s", accessMode)
+		return accessMode
 	}
 	if !exists {
-		log.Log.Infof("no storage profile found for %s, defaulting to RWX", storageClass)
-		return v1.ReadWriteMany
+		log.Log.Infof("no storage profile found for %s, defaulting to %s", storageClass, accessMode)
+		return accessMode
 	}
 	storageProfile := obj.(*v1beta1.StorageProfile)
 
 	if storageProfile.Status.ClaimPropertySets == nil || len(storageProfile.Status.ClaimPropertySets) == 0 {
-		log.Log.Infof("no ClaimPropertySets in storage profile %s, defaulting to RWX", storageProfile.Name)
-		return v1.ReadWriteMany
+		log.Log.Infof("no ClaimPropertySets in storage profile %s, defaulting to %s", storageProfile.Name, accessMode)
+		return accessMode
 	}
 
 	foundrwo := false
@@ -142,7 +149,7 @@ func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentV
 		return v1.ReadWriteOnce
 	}
 
-	return v1.ReadWriteMany
+	return accessMode
 }
 
 func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.PersistentVolumeAccessMode) {
