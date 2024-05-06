@@ -204,7 +204,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(migration, &metav1.CreateOptions{})
+				migration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until we have two available pods")
@@ -225,7 +225,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
 				getOptions := metav1.GetOptions{}
 				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, &getOptions)
+					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(context.Background(), migration.Name, getOptions)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
 					for _, p := range pods.Items {
@@ -336,7 +336,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					expectVMIMigratedToAnotherNode(vmi.Name, node)
 
 					Consistently(func() error {
-						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(&metav1.ListOptions{})
+						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 						if err != nil {
 							return err
 						}
@@ -530,7 +530,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				By("waiting until migration kicks in")
 				Eventually(func() int {
-					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					runningMigrations := filterRunningMigrations(migrationList.Items)
@@ -546,7 +546,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						nodes = append(nodes, vmi.Status.NodeName)
 					}
 
-					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					runningMigrations := filterRunningMigrations(migrationList.Items)

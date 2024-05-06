@@ -20,6 +20,7 @@
 package vm_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -74,8 +75,8 @@ var _ = Describe("Migrate cancel command", func() {
 			VirtualMachineInstanceMigration(k8smetav1.NamespaceDefault).
 			Return(migrationInterface).Times(2)
 
-		migrationInterface.EXPECT().List(&listoptions).Return(&migList, nil).Times(1)
-		migrationInterface.EXPECT().Delete(vmiMigration.Name, &k8smetav1.DeleteOptions{}).Return(nil).Times(1)
+		migrationInterface.EXPECT().List(context.Background(), listoptions).Return(&migList, nil).Times(1)
+		migrationInterface.EXPECT().Delete(context.Background(), vmiMigration.Name, k8smetav1.DeleteOptions{}).Return(nil).Times(1)
 
 		Expect(cmd()).To(Succeed())
 	})
@@ -94,7 +95,7 @@ var _ = Describe("Migrate cancel command", func() {
 			VirtualMachineInstanceMigration(k8smetav1.NamespaceDefault).
 			Return(migrationInterface).Times(1)
 
-		migrationInterface.EXPECT().List(&listoptions).Return(&migList, nil).Times(1)
+		migrationInterface.EXPECT().List(context.Background(), listoptions).Return(&migList, nil).Times(1)
 
 		err := cmd()
 		Expect(err).To(HaveOccurred())

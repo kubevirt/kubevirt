@@ -268,25 +268,14 @@ type VirtualMachineInstanceInterface interface {
 }
 
 type ReplicaSetInterface interface {
-	Get(name string, options metav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
-	List(opts metav1.ListOptions) (*v1.VirtualMachineInstanceReplicaSetList, error)
-	Create(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
-	Update(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	GetScale(replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
-	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
-	UpdateStatus(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error)
+	kvcorev1.VirtualMachineInstanceReplicaSetInterface
+	GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
+	UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
 type VirtualMachineInstancePresetInterface interface {
-	Get(name string, options metav1.GetOptions) (*v1.VirtualMachineInstancePreset, error)
-	List(opts metav1.ListOptions) (*v1.VirtualMachineInstancePresetList, error)
-	Create(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
-	Update(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error)
+	kvcorev1.VirtualMachineInstancePresetInterface
 }
 
 // VirtualMachineInterface provides convenience methods to work with
@@ -309,25 +298,13 @@ type VirtualMachineInterface interface {
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
-	Get(name string, options *metav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error)
-	List(opts *metav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error)
-	Create(migration *v1.VirtualMachineInstanceMigration, options *metav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
-	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
-	UpdateStatus(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
-	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error)
+	kvcorev1.VirtualMachineInstanceMigrationInterface
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error)
 }
 
 type KubeVirtInterface interface {
-	Get(name string, options *metav1.GetOptions) (*v1.KubeVirt, error)
-	List(opts *metav1.ListOptions) (*v1.KubeVirtList, error)
-	Create(instance *v1.KubeVirt) (*v1.KubeVirt, error)
-	Update(*v1.KubeVirt) (*v1.KubeVirt, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error)
-	UpdateStatus(*v1.KubeVirt) (*v1.KubeVirt, error)
-	PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.KubeVirt, err error)
+	kvcorev1.KubeVirtInterface
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.KubeVirt, err error)
 }
 
 type ServerVersionInterface interface {

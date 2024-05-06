@@ -673,7 +673,7 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 }
 
 func (r *KubernetesReporter) logKubeVirtCR(virtCli kubecli.KubevirtClient) {
-	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
+	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch kubevirts: %v\n", err)
 		return
@@ -928,7 +928,7 @@ func getVMIList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceList 
 
 func getVMIMList(virtCli kubecli.KubevirtClient) *v12.VirtualMachineInstanceMigrationList {
 
-	vmims, err := virtCli.VirtualMachineInstanceMigration(v1.NamespaceAll).List(&metav1.ListOptions{})
+	vmims, err := virtCli.VirtualMachineInstanceMigration(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vmims: %v\n", err)
 		return nil

@@ -174,7 +174,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(rs) {
 		rs := rs.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(rs)
-		_, err = c.clientset.ReplicaSet(rs.Namespace).Update(rs)
+		_, err = c.clientset.ReplicaSet(rs.Namespace).Update(context.Background(), rs, metav1.UpdateOptions{})
 		return err
 	}
 
@@ -208,7 +208,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(rs.ObjectMeta.Name, metav1.GetOptions{})
+		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(context.Background(), rs.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}

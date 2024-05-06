@@ -117,7 +117,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 	Context("System Alerts", func() {
 		disableVirtHandler := func() *v1.KubeVirt {
 			originalKv := util.GetCurrentKv(virtClient)
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
 				Patches: []v1.CustomizeComponentsPatch{
@@ -131,7 +131,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			}
 
 			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -152,13 +152,13 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 
 		restoreVirtHandler := func(kv *v1.KubeVirt) {
 			originalKv := util.GetCurrentKv(virtClient)
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
 
 			Eventually(func() error {
-				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}

@@ -132,7 +132,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			By("Ensuring live-migration started")
 			var migration *v1.VirtualMachineInstanceMigration
 			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(&k8smetav1.ListOptions{})
+				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(context.Background(), k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, mig := range migrations.Items {
 					if mig.Spec.VMIName == vmi.Name {
@@ -220,7 +220,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 
 			By("starting the migration")
 			migration := libmigration.New(vm.Name, vm.Namespace)
-			migration, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Create(migration, &metav1.CreateOptions{})
+			migration, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
@@ -273,7 +273,7 @@ func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 	data := []byte(fmt.Sprintf(`[%s, %s]`, data1, data2))
 
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kvName, types.JSONPatchType, data, &k8smetav1.PatchOptions{})
+		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, k8smetav1.PatchOptions{})
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }

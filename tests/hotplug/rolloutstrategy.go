@@ -47,7 +47,7 @@ var _ = Describe("[Serial][sig-compute]VM Rollout Strategy", decorators.SigCompu
 
 			kv := util2.GetCurrentKv(virtClient)
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(kv.Name, types.JSONPatchType, []byte(data), &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(data), metav1.PatchOptions{})
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		})
