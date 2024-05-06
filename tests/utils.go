@@ -311,12 +311,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	return vmi
 }
 
-func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
-	return fmt.Sprintf(`#!/bin/bash
-            echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
-`, commands)
-}
-
 // NewRandomVMIWithEphemeralDiskAndUserdata
 //
 // Deprecated: Use libvmi directly
