@@ -5,7 +5,7 @@ google-auth==2.29.0
 graphviz==0.20.3
 idna==3.7
 kubernetes==29.0.0
-marshmallow==3.21.1
+marshmallow==3.21.2
 marshmallow-dataclass==8.6.1
 mypy-extensions==1.0.0
 oauthlib==3.2.2
