@@ -1927,6 +1927,42 @@ var _ = Describe("Validating VM Admitter", func() {
 			})
 		})
 
+		Context("CPU Unplug", func() {
+			It("should reject VM update when socket count is decreased", func() {
+				originalVM := &v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-vm",
+						Namespace: "default",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.P(true),
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Sockets: 2,
+										Cores:   4,
+										Threads: 1,
+									},
+								},
+							},
+						},
+					},
+				}
+
+				updatedVM := originalVM.DeepCopy()
+				updatedVM.Spec.Template.Spec.Domain.CPU.Sockets = updatedVM.Spec.Template.Spec.Domain.CPU.Sockets - 1
+
+				admissionReview, err := newUpdateAdmissionReview(updatedVM, originalVM)
+				Expect(err).NotTo(HaveOccurred())
+
+				admissionResponse := vmsAdmitter.Admit(admissionReview)
+				Expect(admissionResponse.Allowed).To(BeFalse())
+				Expect(admissionResponse.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+				Expect(admissionResponse.Result.Details.Causes[0].Message).To(Equal("CPU hotunplug is unsupported"))
+			})
+		})
+
 		Context("Memory", func() {
 			var maxGuest resource.Quantity
 
@@ -2117,4 +2153,36 @@ func makeCloneAdmitFailFunc(message string, err error) CloneAuthFunc {
 	return func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
 		return false, message, err
 	}
+}
+
+func newUpdateAdmissionReview(vm, oldVM *v1.VirtualMachine) (*admissionv1.AdmissionReview, error) {
+	objectBytes, err := json.Marshal(vm)
+	if err != nil {
+		return nil, err
+	}
+
+	oldObjectBytes, err := json.Marshal(oldVM)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: metav1.GroupVersionResource{
+				Group:    "kubevirt.io",
+				Version:  "v1",
+				Resource: "virtualmachines",
+			},
+			Name:      vm.Name,
+			Namespace: vm.Namespace,
+			Operation: admissionv1.Update,
+			Object: runtime.RawExtension{
+				Raw: objectBytes,
+			},
+			OldObject: runtime.RawExtension{
+				Raw: oldObjectBytes,
+			},
+			DryRun: pointer.P(false),
+		},
+	}, nil
 }

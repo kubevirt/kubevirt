@@ -127,11 +127,20 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 
 	raw := ar.Request.Object.Raw
 	accountName := ar.Request.UserInfo.Username
-	vm := v1.VirtualMachine{}
+	var (
+		vm    v1.VirtualMachine
+		oldVM v1.VirtualMachine
+	)
 
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	if ar.Request.Operation == admissionv1.Update {
+		if err := json.Unmarshal(ar.Request.OldObject.Raw, &oldVM); err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
 	}
 
 	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
@@ -192,6 +201,11 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	}
 
 	causes = validateRestoreStatus(ar.Request, &vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateCPUHotUnplug(&vm, &oldVM)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -789,6 +803,27 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("Cannot update VM spec until snapshot %q completes", *vm.Status.SnapshotInProgress),
 			Field:   k8sfield.NewPath("spec").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateCPUHotUnplug(vm, oldVM *v1.VirtualMachine) []metav1.StatusCause {
+	if vm.Spec.Template == nil ||
+		vm.Spec.Template.Spec.Domain.CPU == nil ||
+		oldVM.Spec.Template == nil ||
+		oldVM.Spec.Template.Spec.Domain.CPU == nil {
+		return nil
+	}
+
+	oldSocketCount := oldVM.Spec.Template.Spec.Domain.CPU.Sockets
+	newSocketCount := vm.Spec.Template.Spec.Domain.CPU.Sockets
+
+	if newSocketCount < oldSocketCount {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "CPU hotunplug is unsupported",
 		}}
 	}
 
