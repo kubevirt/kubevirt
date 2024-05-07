@@ -2052,7 +2052,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("with automatic resource limits FG enabled", decorators.AutoResourceLimitsGate, func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
-			It("should not automatically set memory limits in the virt-launcher pod", func() {
+			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
 				vmi := libvmifact.NewCirros()
 				By("Creating a running VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -2110,7 +2110,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should set a memory limit in the virt-launcher pod", func() {
+			It("[test_id:11214]should set cpu and memory limit in the virt-launcher pod", func() {
 				By("Starting the VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
