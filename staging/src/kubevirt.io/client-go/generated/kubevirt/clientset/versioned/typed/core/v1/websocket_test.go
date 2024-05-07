@@ -1,4 +1,23 @@
-package kubecli
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors
+ *
+ */
+
+package v1
 
 import (
 	"crypto/sha256"
@@ -10,29 +29,29 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-var _ = Describe("Websocket", func() {
+var _ = ginkgo.Describe("Websocket", func() {
 
-	Context("data proxied through our websocket proxy", func() {
+	ginkgo.Context("data proxied through our websocket proxy", func() {
 		var proxy *httptest.Server
 		var target *httptest.Server
 		var receivedDataHash hash.Hash
 		var done chan error
-		BeforeEach(func() {
+		ginkgo.BeforeEach(func() {
 			done = make(chan error)
 			receivedDataHash = sha256.New()
 			target = newTargetServer(receivedDataHash, done)
 			proxy = newProxyServer(target)
 		})
-		AfterEach(func() {
+		ginkgo.AfterEach(func() {
 			proxy.Close()
 			target.Close()
 		})
-		It("should transfer arbitrary sized packets which are bigger and smaller than the websocket buffer", func() {
+		ginkgo.It("should transfer arbitrary sized packets which are bigger and smaller than the websocket buffer", func() {
 			proxyCon := dial(proxy)
 			defer proxyCon.Close()
 			messages := [][]byte{
@@ -47,13 +66,13 @@ var _ = Describe("Websocket", func() {
 			for _, msg := range messages {
 				expectedDataHash.Write(msg)
 				_, err := writer.Write(msg)
-				Expect(err).ToNot(HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			}
 			err := proxyCon.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			Expect(err).ToNot(HaveOccurred(), "failed to write close message")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to write close message")
 			err = <-done
-			Expect(err).ToNot(HaveOccurred(), "target server did not receive a propler close message")
-			Expect(fmt.Sprintf("%x", expectedDataHash.Sum(nil))).To(Equal(fmt.Sprintf("%x", receivedDataHash.Sum(nil))))
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "target server did not receive a propler close message")
+			gomega.Expect(fmt.Sprintf("%x", expectedDataHash.Sum(nil))).To(gomega.Equal(fmt.Sprintf("%x", receivedDataHash.Sum(nil))))
 		})
 	})
 
@@ -61,10 +80,10 @@ var _ = Describe("Websocket", func() {
 
 func newTargetServer(writer io.Writer, done chan error) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer GinkgoRecover()
+		defer ginkgo.GinkgoRecover()
 		upgrader := NewUpgrader()
 		targetCon, err := upgrader.Upgrade(w, r, nil)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		_, err = CopyFrom(writer, targetCon)
 		done <- err
 	}))
@@ -72,13 +91,13 @@ func newTargetServer(writer io.Writer, done chan error) *httptest.Server {
 
 func newProxyServer(target *httptest.Server) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer GinkgoRecover()
+		defer ginkgo.GinkgoRecover()
 		upgrader := NewUpgrader()
 		src, err := upgrader.Upgrade(w, r, nil)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		targetURL := "ws" + strings.TrimPrefix(target.URL, "http")
 		dst, _, err := Dial(targetURL, nil)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		defer dst.Close()
 		_, _ = Copy(dst, src)
 	}))
@@ -87,6 +106,6 @@ func newProxyServer(target *httptest.Server) *httptest.Server {
 func dial(proxy *httptest.Server) *websocket.Conn {
 	u := "ws" + strings.TrimPrefix(proxy.URL, "http")
 	proxyCon, _, err := Dial(u, nil)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	return proxyCon
 }

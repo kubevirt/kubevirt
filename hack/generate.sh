@@ -7,7 +7,6 @@ source $(dirname "$0")/config.sh
 
 # generate clients
 CLIENT_GEN_BASE=kubevirt.io/client-go/generated
-rm -rf ${KUBEVIRT_DIR}/staging/src/${CLIENT_GEN_BASE}
 
 # KubeVirt stuff
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go

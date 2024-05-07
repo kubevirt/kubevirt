@@ -26,9 +26,6 @@ package kubecli
 */
 
 import (
-	"context"
-	"io"
-	"net"
 	"time"
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
@@ -36,10 +33,7 @@ import (
 	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
-	autov1 "k8s.io/api/autoscaling/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -233,45 +227,12 @@ func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
 }
 
-type StreamOptions struct {
-	In  io.Reader
-	Out io.Writer
-}
-
-type StreamInterface interface {
-	Stream(options StreamOptions) error
-	AsConn() net.Conn
-}
-
 type VirtualMachineInstanceInterface interface {
 	kvcorev1.VirtualMachineInstanceInterface
-	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
-	USBRedir(vmiName string) (StreamInterface, error)
-	VNC(name string) (StreamInterface, error)
-	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
-	PortForward(name string, port int, protocol string) (StreamInterface, error)
-	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
-	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
-	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
-	Unfreeze(ctx context.Context, name string) error
-	SoftReboot(ctx context.Context, name string) error
-	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
-	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
-	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
-	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
-	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
-	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
-	SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error)
-	SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error)
-	SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error
-	SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error
 }
 
 type ReplicaSetInterface interface {
 	kvcorev1.VirtualMachineInstanceReplicaSetInterface
-	GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error)
-	UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
 type VirtualMachineInstancePresetInterface interface {
@@ -282,29 +243,14 @@ type VirtualMachineInstancePresetInterface interface {
 // virtual machines inside the cluster
 type VirtualMachineInterface interface {
 	kvcorev1.VirtualMachineInterface
-	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.VirtualMachine, err error)
-	Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
-	ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
-	Start(ctx context.Context, name string, startOptions *v1.StartOptions) error
-	Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
-	ForceStop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
-	Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error
-	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
-	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
-	PortForward(name string, port int, protocol string) (StreamInterface, error)
-	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
-	RemoveMemoryDump(ctx context.Context, name string) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
 	kvcorev1.VirtualMachineInstanceMigrationInterface
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (result *v1.VirtualMachineInstanceMigration, err error)
 }
 
 type KubeVirtInterface interface {
 	kvcorev1.KubeVirtInterface
-	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) (result *v1.KubeVirt, err error)
 }
 
 type ServerVersionInterface interface {

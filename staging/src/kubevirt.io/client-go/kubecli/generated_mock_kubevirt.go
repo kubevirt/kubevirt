@@ -5,7 +5,6 @@ package kubecli
 
 import (
 	context "context"
-	net "net"
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
@@ -74,6 +73,7 @@ import (
 	versioned0 "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	versioned1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	v1alpha19 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+	v121 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	v1alpha110 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	v1beta116 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 	v1alpha111 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
@@ -966,47 +966,6 @@ func (_mr *_MockKubevirtClientRecorder) SetRestTimeout(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetRestTimeout", arg0)
 }
 
-// Mock of StreamInterface interface
-type MockStreamInterface struct {
-	ctrl     *gomock.Controller
-	recorder *_MockStreamInterfaceRecorder
-}
-
-// Recorder for MockStreamInterface (not exported)
-type _MockStreamInterfaceRecorder struct {
-	mock *MockStreamInterface
-}
-
-func NewMockStreamInterface(ctrl *gomock.Controller) *MockStreamInterface {
-	mock := &MockStreamInterface{ctrl: ctrl}
-	mock.recorder = &_MockStreamInterfaceRecorder{mock}
-	return mock
-}
-
-func (_m *MockStreamInterface) EXPECT() *_MockStreamInterfaceRecorder {
-	return _m.recorder
-}
-
-func (_m *MockStreamInterface) Stream(options StreamOptions) error {
-	ret := _m.ctrl.Call(_m, "Stream", options)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockStreamInterfaceRecorder) Stream(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stream", arg0)
-}
-
-func (_m *MockStreamInterface) AsConn() net.Conn {
-	ret := _m.ctrl.Call(_m, "AsConn")
-	ret0, _ := ret[0].(net.Conn)
-	return ret0
-}
-
-func (_mr *_MockStreamInterfaceRecorder) AsConn() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AsConn")
-}
-
 // Mock of VirtualMachineInstanceInterface interface
 type MockVirtualMachineInstanceInterface struct {
 	ctrl     *gomock.Controller
@@ -1130,9 +1089,9 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Patch(arg0, arg1, arg2,
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
+func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *v121.SerialConsoleOptions) (v121.StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "SerialConsole", name, options)
-	ret0, _ := ret[0].(StreamInterface)
+	ret0, _ := ret[0].(v121.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1141,9 +1100,9 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SerialConsole(arg0, arg
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SerialConsole", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) USBRedir(vmiName string) (StreamInterface, error) {
+func (_m *MockVirtualMachineInstanceInterface) USBRedir(vmiName string) (v121.StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "USBRedir", vmiName)
-	ret0, _ := ret[0].(StreamInterface)
+	ret0, _ := ret[0].(v121.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1152,9 +1111,9 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) USBRedir(arg0 interface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "USBRedir", arg0)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) VNC(name string) (StreamInterface, error) {
+func (_m *MockVirtualMachineInstanceInterface) VNC(name string) (v121.StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "VNC", name)
-	ret0, _ := ret[0].(StreamInterface)
+	ret0, _ := ret[0].(v121.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1174,9 +1133,9 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Screenshot(arg0, arg1, 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Screenshot", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) PortForward(name string, port int, protocol string) (StreamInterface, error) {
+func (_m *MockVirtualMachineInstanceInterface) PortForward(name string, port int, protocol string) (v121.StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "PortForward", name, port, protocol)
-	ret0, _ := ret[0].(StreamInterface)
+	ret0, _ := ret[0].(v121.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1288,9 +1247,9 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveVolume(arg0, arg1
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v120.VSOCKOptions) (StreamInterface, error) {
+func (_m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v120.VSOCKOptions) (v121.StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "VSOCK", name, options)
-	ret0, _ := ret[0].(StreamInterface)
+	ret0, _ := ret[0].(v121.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1299,46 +1258,46 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VSOCK(arg0, arg1 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VSOCK", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SEVFetchCertChain(name string) (v120.SEVPlatformInfo, error) {
-	ret := _m.ctrl.Call(_m, "SEVFetchCertChain", name)
+func (_m *MockVirtualMachineInstanceInterface) SEVFetchCertChain(ctx context.Context, name string) (v120.SEVPlatformInfo, error) {
+	ret := _m.ctrl.Call(_m, "SEVFetchCertChain", ctx, name)
 	ret0, _ := ret[0].(v120.SEVPlatformInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVFetchCertChain(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVFetchCertChain", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVFetchCertChain(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVFetchCertChain", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SEVQueryLaunchMeasurement(name string) (v120.SEVMeasurementInfo, error) {
-	ret := _m.ctrl.Call(_m, "SEVQueryLaunchMeasurement", name)
+func (_m *MockVirtualMachineInstanceInterface) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v120.SEVMeasurementInfo, error) {
+	ret := _m.ctrl.Call(_m, "SEVQueryLaunchMeasurement", ctx, name)
 	ret0, _ := ret[0].(v120.SEVMeasurementInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVQueryLaunchMeasurement(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVQueryLaunchMeasurement", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVQueryLaunchMeasurement(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVQueryLaunchMeasurement", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SEVSetupSession(name string, sevSessionOptions *v120.SEVSessionOptions) error {
-	ret := _m.ctrl.Call(_m, "SEVSetupSession", name, sevSessionOptions)
+func (_m *MockVirtualMachineInstanceInterface) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v120.SEVSessionOptions) error {
+	ret := _m.ctrl.Call(_m, "SEVSetupSession", ctx, name, sevSessionOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVSetupSession(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVSetupSession", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVSetupSession(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVSetupSession", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SEVInjectLaunchSecret(name string, sevSecretOptions *v120.SEVSecretOptions) error {
-	ret := _m.ctrl.Call(_m, "SEVInjectLaunchSecret", name, sevSecretOptions)
+func (_m *MockVirtualMachineInstanceInterface) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v120.SEVSecretOptions) error {
+	ret := _m.ctrl.Call(_m, "SEVInjectLaunchSecret", ctx, name, sevSecretOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVInjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVInjectLaunchSecret", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVInjectLaunchSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVInjectLaunchSecret", arg0, arg1, arg2)
 }
 
 // Mock of ReplicaSetInterface interface
@@ -1834,9 +1793,9 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveVolume(arg0, arg1, arg2 i
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInterface) PortForward(name string, port int, protocol string) (StreamInterface, error) {
+func (_m *MockVirtualMachineInterface) PortForward(name string, port int, protocol string) (v121.StreamInterface, error) {
 	ret := _m.ctrl.Call(_m, "PortForward", name, port, protocol)
-	ret0, _ := ret[0].(StreamInterface)
+	ret0, _ := ret[0].(v121.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

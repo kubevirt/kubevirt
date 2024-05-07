@@ -23,16 +23,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -42,7 +38,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/client-go/subresources"
 )
 
 const vmiSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s"
@@ -69,110 +64,16 @@ type vmis struct {
 	kubeconfig string
 }
 
-type RoundTripCallback func(conn *websocket.Conn, resp *http.Response, err error) error
-
-type WebsocketRoundTripper struct {
-	Dialer *websocket.Dialer
-	Do     RoundTripCallback
+func (v *vmis) USBRedir(name string) (kvcorev1.StreamInterface, error) {
+	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
 }
 
-func (d *WebsocketRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	conn, resp, err := d.Dialer.Dial(r.URL.String(), r.Header)
-	if err == nil {
-		defer conn.Close()
-	}
-	return resp, d.Do(conn, resp, err)
+func (v *vmis) VNC(name string) (kvcorev1.StreamInterface, error) {
+	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
 }
 
-type asyncWSRoundTripper struct {
-	Done       chan struct{}
-	Connection chan *websocket.Conn
-}
-
-func (aws *asyncWSRoundTripper) WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
-
-	if err != nil {
-		if resp != nil && resp.StatusCode != http.StatusOK {
-			return enrichError(err, resp)
-		}
-		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
-	}
-	aws.Connection <- ws
-
-	// Keep the roundtripper open until we are done with the stream
-	<-aws.Done
-	return nil
-}
-
-func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (http.RoundTripper, error) {
-
-	// Configure TLS
-	tlsConfig, err := rest.TLSConfigFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	// Configure the websocket dialer
-	dialer := &websocket.Dialer{
-		Proxy:           http.ProxyFromEnvironment,
-		TLSClientConfig: tlsConfig,
-		WriteBufferSize: WebsocketMessageBufferSize,
-		ReadBufferSize:  WebsocketMessageBufferSize,
-		Subprotocols:    []string{subresources.PlainStreamProtocolName},
-	}
-
-	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
-	rt := &WebsocketRoundTripper{
-		Do:     callback,
-		Dialer: dialer,
-	}
-
-	// Make sure we inherit all relevant security headers
-	return rest.HTTPWrappersForConfig(config, rt)
-}
-
-func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string, queryParams url.Values) (*http.Request, error) {
-
-	u, err := url.Parse(config.Host)
-	if err != nil {
-		return nil, err
-	}
-
-	switch u.Scheme {
-	case "https":
-		u.Scheme = "wss"
-	case "http":
-		u.Scheme = "ws"
-	default:
-		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
-	}
-
-	u.Path = path.Join(
-		u.Path,
-		fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/%s/%s/%s", v1.ApiStorageVersion, namespace, resource, name, subresource),
-	)
-	if len(queryParams) > 0 {
-		u.RawQuery = queryParams.Encode()
-	}
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    u,
-		Header: map[string][]string{},
-	}
-
-	return req, nil
-}
-
-func (v *vmis) USBRedir(name string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "usbredir", url.Values{})
-}
-
-func (v *vmis) VNC(name string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
-}
-
-func (v *vmis) PortForward(name string, port int, protocol string) (StreamInterface, error) {
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
+func (v *vmis) PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error) {
+	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
 }
 
 func buildPortForwardResourcePath(port int, protocol string) string {
@@ -189,15 +90,11 @@ func buildPortForwardResourcePath(port int, protocol string) string {
 }
 
 type connectionStruct struct {
-	con StreamInterface
+	con kvcorev1.StreamInterface
 	err error
 }
 
-type SerialConsoleOptions struct {
-	ConnectionTimeout time.Duration
-}
-
-func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
+func (v *vmis) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
 
 	if options != nil && options.ConnectionTimeout != 0 {
 		timeoutChan := time.Tick(options.ConnectionTimeout)
@@ -216,9 +113,9 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 				default:
 				}
 
-				con, err := asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
+				con, err := kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
 				if err != nil {
-					asyncSubresourceError, ok := err.(*AsyncSubresourceError)
+					asyncSubresourceError, ok := err.(*kvcorev1.AsyncSubresourceError)
 					// return if response status code does not equal to 400
 					if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
 						connectionChan <- connectionStruct{con: nil, err: err}
@@ -236,7 +133,7 @@ func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (Stream
 		conStruct := <-connectionChan
 		return conStruct.con, conStruct.err
 	} else {
-		return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
+		return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
 	}
 }
 
@@ -326,38 +223,6 @@ func (v *vmis) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interf
 	return v.VirtualMachineInstanceInterface.Watch(ctx, opts)
 }
 
-// enrichError checks the response body for a k8s Status object and extracts the error from it.
-// TODO the k8s http REST client has very sophisticated handling, investigate on how we can reuse it
-func enrichError(httpErr error, resp *http.Response) error {
-	if resp == nil {
-		return httpErr
-	}
-	httpErr = fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, httpErr)
-	status := &metav1.Status{}
-
-	if resp.Header.Get("Content-Type") != "application/json" {
-		return httpErr
-	}
-	// decode, but if the result is Status return that as an error instead.
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if len(body) == 0 {
-		return httpErr
-	}
-	err = json.Unmarshal(body, status)
-	if err != nil {
-		return err
-	}
-	if status.Kind == "Status" && status.APIVersion == "v1" {
-		if status.Status != metav1.StatusSuccess {
-			return errors.FromObject(status)
-		}
-	}
-	return httpErr
-}
-
 func (v *vmis) GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error) {
 	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "guestosinfo")
@@ -445,7 +310,7 @@ func (v *vmis) RemoveVolume(ctx context.Context, name string, removeVolumeOption
 	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
-func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error) {
+func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (kvcorev1.StreamInterface, error) {
 	if options == nil || options.TargetPort == 0 {
 		return nil, fmt.Errorf("target port is required but not provided")
 	}
@@ -456,37 +321,37 @@ func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, er
 		useTLS = *options.UseTLS
 	}
 	queryParams.Add("tls", strconv.FormatBool(useTLS))
-	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
+	return kvcorev1.AsyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vsock", queryParams)
 }
 
-func (v *vmis) SEVFetchCertChain(name string) (v1.SEVPlatformInfo, error) {
+func (v *vmis) SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error) {
 	sevPlatformInfo := v1.SEVPlatformInfo{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/fetchcertchain")
-	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevPlatformInfo)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&sevPlatformInfo)
 	return sevPlatformInfo, err
 }
 
-func (v *vmis) SEVQueryLaunchMeasurement(name string) (v1.SEVMeasurementInfo, error) {
+func (v *vmis) SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error) {
 	sevMeasurementInfo := v1.SEVMeasurementInfo{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/querylaunchmeasurement")
-	err := v.restClient.Get().RequestURI(uri).Do(context.Background()).Into(&sevMeasurementInfo)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&sevMeasurementInfo)
 	return sevMeasurementInfo, err
 }
 
-func (v *vmis) SEVSetupSession(name string, sevSessionOptions *v1.SEVSessionOptions) error {
+func (v *vmis) SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error {
 	body, err := json.Marshal(sevSessionOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/setupsession")
-	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vmis) SEVInjectLaunchSecret(name string, sevSecretOptions *v1.SEVSecretOptions) error {
+func (v *vmis) SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error {
 	body, err := json.Marshal(sevSecretOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "sev/injectlaunchsecret")
-	return v.restClient.Put().RequestURI(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
