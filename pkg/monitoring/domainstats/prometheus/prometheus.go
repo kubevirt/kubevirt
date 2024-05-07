@@ -288,7 +288,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 				"kubevirt_vmi_vcpu_seconds_total",
 				"Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`].",
 				prometheus.CounterValue,
-				float64(vcpu.Time/1000000000),
+				float64(vcpu.Time/1000000),
 				[]string{"id", "state"},
 				[]string{stringVcpuIdx, humanReadableState(vcpu.State)},
 			)
@@ -299,7 +299,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 				"kubevirt_vmi_vcpu_wait_seconds_total",
 				"Amount of time spent by each vcpu while waiting on I/O.",
 				prometheus.CounterValue,
-				float64(vcpu.Wait)/float64(1000000000),
+				float64(vcpu.Wait)/float64(1000000),
 				[]string{"id"},
 				[]string{stringVcpuIdx},
 			)
