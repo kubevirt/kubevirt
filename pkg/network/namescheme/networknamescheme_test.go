@@ -259,6 +259,22 @@ var _ = Describe("Network Name Scheme", func() {
 				},
 				"net2",
 			),
+			Entry("given secondary network name with different order",
+				"multus01",
+				[]virtv1.Network{
+					createMultusSecondaryNetwork("blue", "test-br"),
+					createMultusSecondaryNetwork("multus01", "test-br"),
+					newPodNetwork("default"),
+				},
+				"net2",
+			),
+			Entry("given secondary network name, only one secondary network",
+				"multus01",
+				[]virtv1.Network{
+					createMultusSecondaryNetwork("multus01", "test-br"),
+				},
+				"net1",
+			),
 		)
 	})
 })
