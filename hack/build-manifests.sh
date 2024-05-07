@@ -65,6 +65,9 @@ CSV_EXT="clusterserviceversion.yaml"
 CSV_CRD_EXT="csv_crds.yaml"
 CRD_EXT="crd.yaml"
 
+readonly amd64_machinetype=q35
+readonly arm64_machinetype=virt
+
 function gen_csv() {
   # Handle arguments
   local csvGeneratorPath="$1" && shift
@@ -310,6 +313,8 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
   --smbios="${SMBIOS}" \
+  --amd64-machinetype="${amd64_machinetype}" \
+  --arm64-machinetype="${arm64_machinetype}" \
   --hco-kv-io-version="${CSV_VERSION}" \
   --kubevirt-version="${KUBEVIRT_VERSION}" \
   --cdi-version="${CDI_VERSION}" \
@@ -351,6 +356,8 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --metadata-description="A unified operator deploying and controlling KubeVirt and its supporting operators with opinionated defaults" \
   --crd-display="HyperConverged Cluster Operator" \
   --smbios="${SMBIOS}" \
+  --amd64-machinetype="${amd64_machinetype}" \
+  --arm64-machinetype="${arm64_machinetype}" \
   --csv-overrides="$(<${csvOverrides})" \
   --enable-unique-version=${ENABLE_UNIQUE} \
   --kubevirt-version="${KUBEVIRT_VERSION}" \

@@ -3307,7 +3307,9 @@ spec:
                     Product: None
                 - name: MACHINETYPE
                 - name: AMD64_MACHINETYPE
+                  value: q35
                 - name: ARM64_MACHINETYPE
+                  value: virt
                 - name: HCO_KV_IO_VERSION
                   value: 1.13.0
                 - name: KUBEVIRT_VERSION

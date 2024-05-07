@@ -490,6 +490,20 @@ Version: 1.2.3`)
 			Expect(kv.Spec.Configuration.ArchitectureConfiguration.Arm64).To(BeNil())
 		})
 
+		It("should not use legacy MACHINETYPE env if empty", func() {
+			os.Setenv(machineTypeEnvName, "")
+			os.Setenv(amd64MachineTypeEnvName, "q35")
+			os.Unsetenv(arm64MachineTypeEnvName)
+
+			kv, err := NewKubeVirt(hco, commontestutils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(kv.Spec.Configuration.MachineType).To(BeEmpty())
+			Expect(kv.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).To(Equal("q35"))
+			Expect(kv.Spec.Configuration.ArchitectureConfiguration.Amd64.OVMFPath).To(Equal(DefaultAMD64OVMFPath))
+			Expect(kv.Spec.Configuration.ArchitectureConfiguration.Arm64).To(BeNil())
+		})
+
 		It("should fail if the SMBIOS is wrongly formatted mandatory configurations", func() {
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 				WithHostPassthroughCPU: ptr.To(true),

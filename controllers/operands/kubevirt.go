@@ -449,7 +449,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 
 	var amd64MachineType string
 	// Remain backwards compatibility with the original env variable for a release before removing
-	if machineTypeEnvValue, ok := os.LookupEnv(machineTypeEnvName); ok {
+	if machineTypeEnvValue, _ := os.LookupEnv(machineTypeEnvName); machineTypeEnvValue != "" {
 		amd64MachineType = machineTypeEnvValue
 	} else if machineTypeEnvValue, ok := os.LookupEnv(amd64MachineTypeEnvName); ok {
 		amd64MachineType = machineTypeEnvValue
