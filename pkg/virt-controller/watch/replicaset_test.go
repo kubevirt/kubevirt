@@ -144,20 +144,37 @@ var _ = Describe("Replicaset", func() {
 			})
 		}
 
+		expectReplicasAndReadyReplicas := func(replicaName string, replicas, readyReplicas int) {
+			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), replicaName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedRS).ToNot(BeNil())
+			Expect(updatedRS.Status.Replicas).To(Equal(int32(replicas)))
+			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(readyReplicas)))
+		}
+
+		expectConditions := func(replicaName string, matcher gomegaTypes.GomegaMatcher) {
+			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), replicaName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedRS).ToNot(BeNil())
+			Expect(updatedRS.Status.Conditions).To(matcher)
+		}
+
 		It("should create missing VMIs", func() {
-			rs, _ := DefaultReplicaSet(3)
+			rs, _ := defaultReplicaSet(3)
 			addReplicaSet(rs)
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectVMIReplicas(rs, HaveLen(3))
+			testutils.ExpectEvents(recorder,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulCreateVirtualMachineReason,
+			)
 		})
 
 		It("should create missing VMIs when it gets unpaused", func() {
-			rs, _ := DefaultReplicaSet(3)
+			rs, _ := defaultReplicaSet(3)
 			rs.Spec.Paused = false
 			rs.Status.Conditions = []v1.VirtualMachineInstanceReplicaSetCondition{
 				{
@@ -169,21 +186,19 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulResumedReplicaSetReason)
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.Conditions).To(BeNil())
 			expectVMIReplicas(rs, HaveLen(3))
+			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
+			expectConditions(rs.Name, BeNil())
+			testutils.ExpectEvents(recorder,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulResumedReplicaSetReason,
+			)
 		})
 
 		It("should not create missing VMIs when it is paused and add paused condition", func() {
-			rs, _ := DefaultReplicaSet(3)
+			rs, _ := defaultReplicaSet(3)
 			rs.Spec.Paused = true
 			// This will trigger a status update, since there are no replicas present
 			rs.Status.Replicas = 1
@@ -191,42 +206,33 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulPausedReplicaSetReason)
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.Conditions).To(ContainElement(
+			expectVMIReplicas(rs, BeEmpty())
+			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
+			expectConditions(rs.Name, ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceReplicaSetReplicaPaused),
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
 			))
-			expectVMIReplicas(rs, BeEmpty())
+			testutils.ExpectEvent(recorder, SuccessfulPausedReplicaSetReason)
 		})
 
 		It("should create missing VMIs in batches of a maximum of 10 VMIs at once", func() {
-			rs, _ := DefaultReplicaSet(15)
+			rs, _ := defaultReplicaSet(15)
 			addReplicaSet(rs)
 
 			controller.Execute()
 
+			expectVMIReplicas(rs, HaveLen(10))
+			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			}
-			expectVMIReplicas(rs, HaveLen(10))
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(0)))
-
 			// TODO test for missing 5
 		})
 
 		It("should already create replacement VMIs once it discovers that a VMI is marked for deletion", func() {
-			rs, _ := DefaultReplicaSet(10)
+			rs, _ := defaultReplicaSet(10)
 			addReplicaSet(rs)
 			// Add 3 VMIs to the cache which are already running
 			for x := 0; x < 3; x++ {
@@ -248,16 +254,16 @@ var _ = Describe("Replicaset", func() {
 			virtClientset.ClearActions()
 			controller.Execute()
 
-			for x := 0; x < 7; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			}
 			// There will be 7 created vms, 3 are already there and 3 are there but marked for deletion
 			expectVMIReplicas(rs, HaveLen(13))
 			Expect(testing.FilterActions(&virtClientset.Fake, "create", "virtualmachineinstances")).To(HaveLen(7))
+			for x := 0; x < 7; x++ {
+				testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			}
 		})
 
 		It("should delete missing VMIs in batches of a maximum of 10 VMIs at once", func() {
-			rs, _ := DefaultReplicaSet(0)
+			rs, _ := defaultReplicaSet(0)
 			addReplicaSet(rs)
 
 			// Add 15 VMIs to the cache
@@ -270,15 +276,15 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
+			expectVMIReplicas(rs, HaveLen(5))
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			}
-			expectVMIReplicas(rs, HaveLen(5))
 			// TODO test for missing 5
 		})
 
 		It("should not delete vmis which are already marked deleted", func() {
-			rs, _ := DefaultReplicaSet(3)
+			rs, _ := defaultReplicaSet(3)
 			addReplicaSet(rs)
 
 			// Add 5 VMIs without deletion timestamp
@@ -301,16 +307,16 @@ var _ = Describe("Replicaset", func() {
 			virtClientset.ClearActions()
 			controller.Execute()
 
-			for x := 0; x < 2; x++ {
-				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
-			}
 			// There will be 3 are already there and 4 are there but marked for deletion
 			expectVMIReplicas(rs, HaveLen(7))
 			Expect(testing.FilterActions(&virtClientset.Fake, "delete", "virtualmachineinstances")).To(HaveLen(2))
+			for x := 0; x < 2; x++ {
+				testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			}
 		})
 
 		It("should ignore non-matching VMIs", func() {
-			rs, _ := DefaultReplicaSet(3)
+			rs, _ := defaultReplicaSet(3)
 			addReplicaSet(rs)
 
 			nonMatchingVMI := api.NewMinimalVMI("testvmi1")
@@ -322,31 +328,30 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectVMIReplicas(rs, HaveLen(3))
 			Expect(testing.FilterActions(&virtClientset.Fake, "create", "virtualmachineinstances")).To(HaveLen(3))
+			testutils.ExpectEvents(recorder,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulCreateVirtualMachineReason,
+			)
 		})
 
 		It("should delete a VirtualMachineInstance and increase the replica count", func() {
-			rs, vmi := DefaultReplicaSet(0)
+			rs, vmi := defaultReplicaSet(0)
 			rs.Status.Replicas = 0
 			addReplicaSet(rs)
 			addVMI(vmi)
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			expectVMIReplicas(rs, BeEmpty())
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(1)))
+			expectReplicasAndReadyReplicas(rs.Name, 1, 0)
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
 		It("should detect that a VirtualMachineInstance already exists and adopt it", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			vmi.OwnerReferences = []metav1.OwnerReference{}
 			rs.Status.Replicas = 1
 			addReplicaSet(rs)
@@ -364,7 +369,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should detect that it has nothing to do", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 
 			addReplicaSet(rs)
@@ -378,7 +383,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should detect that it has to update the labelSelector in the status", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			rs.Status.LabelSelector = ""
 			s, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
@@ -398,7 +403,7 @@ var _ = Describe("Replicaset", func() {
 		})
 
 		It("should be woken by a stopped VirtualMachineInstance and create a new one", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
@@ -422,19 +427,15 @@ var _ = Describe("Replicaset", func() {
 			// Run the controller again
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, SuccessfulCreateVirtualMachineReason)
 			_, err := virtClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.ObjectMeta.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			expectVMIReplicas(rs, HaveLen(1))
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(0)))
+			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
+			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should be woken by a ready VirtualMachineInstance and update the readyReplicas counter", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 0
 			addReplicaSet(rs)
@@ -457,15 +458,11 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			expectVMIReplicas(rs, HaveLen(1))
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(1)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(1)))
+			expectReplicasAndReadyReplicas(rs.Name, 1, 1)
 		})
 
 		It("should be woken by a not ready but running VirtualMachineInstance and update the readyReplicas counter", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
@@ -489,15 +486,11 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			expectVMIReplicas(rs, HaveLen(1))
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(1)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(0)))
+			expectReplicasAndReadyReplicas(rs.Name, 1, 0)
 		})
 
 		It("should be woken by a deleted VirtualMachineInstance and create a new one", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			addReplicaSet(rs)
 			addVMI(vmi)
@@ -516,17 +509,13 @@ var _ = Describe("Replicaset", func() {
 			// Run the controller again
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			expectVMIReplicas(rs, HaveLen(1))
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			// The count stays at zero, since we just experienced the delete when we create the new VirtualMachineInstance
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(0)))
+			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
 		It("should delete VirtualMachineInstance in the final state", func() {
-			rs, vmi := DefaultReplicaSet(1)
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
@@ -549,20 +538,18 @@ var _ = Describe("Replicaset", func() {
 			// Run the cleanFinishedVmis method
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 			_, err := virtClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.ObjectMeta.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			expectVMIReplicas(rs, HaveLen(1))
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(0)))
+			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
+			testutils.ExpectEvents(recorder,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulDeleteVirtualMachineReason,
+			)
 		})
 
-		It("should delete VirtualMachineIstance in unknown state", func() {
-			rs, vmi := DefaultReplicaSet(1)
+		It("should delete VirtualMachineInstance in unknown state", func() {
+			rs, vmi := defaultReplicaSet(1)
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
@@ -584,21 +571,19 @@ var _ = Describe("Replicaset", func() {
 
 			// Run the cleanFinishedVmis method
 			controller.Execute()
+
 			_, err := virtClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.ObjectMeta.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			expectVMIReplicas(rs, HaveLen(1))
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(0)))
-			Expect(updatedRS.Status.ReadyReplicas).To(Equal(int32(0)))
-
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+			expectReplicasAndReadyReplicas(rs.Name, 0, 0)
+			testutils.ExpectEvents(recorder,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulDeleteVirtualMachineReason,
+			)
 		})
 
 		It("should add a fail condition if scaling up fails", func() {
-			rs, vmi := DefaultReplicaSet(3)
+			rs, vmi := defaultReplicaSet(3)
 			addReplicaSet(rs)
 			addVMI(vmi)
 
@@ -606,12 +591,8 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(1)))
-			Expect(updatedRS.Status.Conditions).To(ContainElement(
+			expectReplicasAndReadyReplicas(rs.Name, 1, 0)
+			expectConditions(rs.Name, ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Reason":  Equal("FailedCreate"),
@@ -619,10 +600,11 @@ var _ = Describe("Replicaset", func() {
 					"Status":  Equal(k8sv1.ConditionTrue)},
 				),
 			))
+			testutils.ExpectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
 		})
 
 		It("should add a fail condition if scaling down fails", func() {
-			rs, vmi := DefaultReplicaSet(0)
+			rs, vmi := defaultReplicaSet(0)
 			vmi1 := vmi.DeepCopy()
 			vmi1.ObjectMeta.Name = "test1"
 			addReplicaSet(rs)
@@ -633,13 +615,8 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, FailedDeleteVirtualMachineReason)
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			// We should see the failed condition, replicas should stay at 2
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(2)))
-			Expect(updatedRS.Status.Conditions).To(ContainElement(
+			expectReplicasAndReadyReplicas(rs.Name, 2, 0)
+			expectConditions(rs.Name, ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Reason":  Equal("FailedDelete"),
@@ -647,10 +624,14 @@ var _ = Describe("Replicaset", func() {
 					"Status":  Equal(k8sv1.ConditionTrue)},
 				),
 			))
+			testutils.ExpectEvents(recorder,
+				SuccessfulDeleteVirtualMachineReason,
+				FailedDeleteVirtualMachineReason,
+			)
 		})
 
 		It("should back off if a sync error occurs", func() {
-			rs, vmi := DefaultReplicaSet(0)
+			rs, vmi := defaultReplicaSet(0)
 			vmi1 := vmi.DeepCopy()
 			vmi1.ObjectMeta.Name = "test1"
 			addReplicaSet(rs)
@@ -663,13 +644,8 @@ var _ = Describe("Replicaset", func() {
 
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			Expect(mockQueue.Len()).To(Equal(0))
-			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, FailedDeleteVirtualMachineReason)
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			// We should see the failed condition, replicas should stay at 2
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(2)))
-			Expect(updatedRS.Status.Conditions).To(ContainElement(
+			expectReplicasAndReadyReplicas(rs.Name, 2, 0)
+			expectConditions(rs.Name, ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Reason":  Equal("FailedDelete"),
@@ -677,10 +653,14 @@ var _ = Describe("Replicaset", func() {
 					"Status":  Equal(k8sv1.ConditionTrue)},
 				),
 			))
+			testutils.ExpectEvents(recorder,
+				SuccessfulDeleteVirtualMachineReason,
+				FailedDeleteVirtualMachineReason,
+			)
 		})
 
 		It("should update the replica count but keep the failed state", func() {
-			rs, vmi := DefaultReplicaSet(3)
+			rs, vmi := defaultReplicaSet(3)
 			rs.Status.Conditions = []v1.VirtualMachineInstanceReplicaSetCondition{
 				{
 					Type:               v1.VirtualMachineInstanceReplicaSetReplicaFailure,
@@ -695,22 +675,22 @@ var _ = Describe("Replicaset", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, SuccessfulCreateVirtualMachineReason, FailedCreateVirtualMachineReason)
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(1)))
-			Expect(updatedRS.Status.Conditions).To(ContainElement(
+			expectReplicasAndReadyReplicas(rs.Name, 1, 0)
+			expectConditions(rs.Name, ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":               Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Message":            Equal(rs.Status.Conditions[0].Message),
 					"LastTransitionTime": Equal(rs.Status.Conditions[0].LastTransitionTime)},
 				),
 			))
+			testutils.ExpectEvents(recorder,
+				SuccessfulCreateVirtualMachineReason,
+				FailedCreateVirtualMachineReason,
+			)
 		})
 
 		It("should update the replica count and remove the failed condition", func() {
-			rs, vmi := DefaultReplicaSet(3)
+			rs, vmi := defaultReplicaSet(3)
 			rs.Status.Conditions = []v1.VirtualMachineInstanceReplicaSetCondition{
 				{
 					Type:               v1.VirtualMachineInstanceReplicaSetReplicaFailure,
@@ -724,18 +704,17 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
-			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedRS).ToNot(BeNil())
-			Expect(updatedRS.Status.Replicas).To(Equal(int32(1)))
-			Expect(updatedRS.Status.Conditions).To(BeEmpty())
+			expectReplicasAndReadyReplicas(rs.Name, 1, 0)
+			expectConditions(rs.Name, BeEmpty())
+			testutils.ExpectEvents(recorder,
+				SuccessfulCreateVirtualMachineReason,
+				SuccessfulCreateVirtualMachineReason,
+			)
 		})
 	})
 })
 
-func ReplicaSetFromVMI(name string, vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
+func replicaSetFromVMI(name string, vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	s, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
 		MatchLabels: vmi.ObjectMeta.Labels,
 	})
@@ -760,10 +739,10 @@ func ReplicaSetFromVMI(name string, vmi *v1.VirtualMachineInstance, replicas int
 	return rs
 }
 
-func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstance) {
+func defaultReplicaSet(replicas int32) (*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstance) {
 	vmi := api.NewMinimalVMI("testvmi")
 	vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
-	rs := ReplicaSetFromVMI("rs", vmi, replicas)
+	rs := replicaSetFromVMI("rs", vmi, replicas)
 	vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 	virtcontroller.SetLatestApiVersionAnnotation(vmi)
 	virtcontroller.SetLatestApiVersionAnnotation(rs)
