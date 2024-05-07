@@ -2,6 +2,7 @@ package admitters
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,6 +53,29 @@ var _ = Describe("Validating Preference Admitter", func() {
 
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
+	})
+
+	It("should reject unsupported SpreadOptions Across value", func() {
+		var unsupportedAcrossValue instancetypev1beta1.SpreadAcross = "foobar"
+		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
+			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+				PreferSpreadSocketToCoreRatio: uint32(3),
+				CPU: &instancetypev1beta1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+					SpreadOptions: &instancetypev1beta1.SpreadOptions{
+						Across: pointer.P(unsupportedAcrossValue),
+					},
+				},
+			},
+		}
+		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
+		response := admitter.Admit(ar)
+
+		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(spreadAcrossUnsupportedErrFmt, unsupportedAcrossValue)))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
 	})
 
 	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through", func(preferenceObj instancetypev1beta1.VirtualMachinePreference) {
@@ -127,6 +151,29 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
+	})
+
+	It("should reject unsupported SpreadOptions Across value", func() {
+		var unsupportedAcrossValue instancetypev1beta1.SpreadAcross = "foobar"
+		clusterPreferenceObj = &instancetypev1beta1.VirtualMachineClusterPreference{
+			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+				PreferSpreadSocketToCoreRatio: uint32(3),
+				CPU: &instancetypev1beta1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+					SpreadOptions: &instancetypev1beta1.SpreadOptions{
+						Across: pointer.P(unsupportedAcrossValue),
+					},
+				},
+			},
+		}
+		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
+		response := admitter.Admit(ar)
+
+		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(spreadAcrossUnsupportedErrFmt, unsupportedAcrossValue)))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
 	})
 
 	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through", func(clusterPreferenceObj instancetypev1beta1.VirtualMachineClusterPreference) {
