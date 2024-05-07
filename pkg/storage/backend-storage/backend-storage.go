@@ -79,14 +79,16 @@ type BackendStorage struct {
 	clusterConfig *virtconfig.ClusterConfig
 	scStore       cache.Store
 	spStore       cache.Store
+	pvcIndexer    cache.Indexer
 }
 
-func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store) *BackendStorage {
+func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store, pvcIndexer cache.Indexer) *BackendStorage {
 	return &BackendStorage{
 		client:        client,
 		clusterConfig: clusterConfig,
 		scStore:       scStore,
 		spStore:       spStore,
+		pvcIndexer:    pvcIndexer,
 	}
 }
 
@@ -178,13 +180,14 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 		return nil
 	}
 
-	pvc, err := bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), PVCForVMI(vmi), metav1.GetOptions{})
-	if err == nil {
+	obj, exists, err := bs.pvcIndexer.GetByKey(vmi.Namespace + "/" + PVCForVMI(vmi))
+	if err != nil {
+		return err
+	}
+	if exists {
+		pvc := obj.(*v1.PersistentVolumeClaim)
 		updateVolumeStatus(vmi, pvc.Spec.AccessModes[0])
 		return nil
-	}
-	if !errors.IsNotFound(err) {
-		return err
 	}
 
 	storageClass, err := bs.getStorageClass()
@@ -203,7 +206,7 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
-	pvc = &v1.PersistentVolumeClaim{
+	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            PVCForVMI(vmi),
 			OwnerReferences: ownerReferences,

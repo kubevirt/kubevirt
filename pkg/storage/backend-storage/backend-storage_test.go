@@ -52,8 +52,9 @@ var _ = Describe("Backend Storage", func() {
 		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		storageProfileInformer, _ = testutils.NewFakeInformerFor(&v1beta1.StorageProfile{})
+		pvcInformer, _ := testutils.NewFakeInformerFor(&v1.PersistentVolumeClaim{})
 
-		backendStorage = NewBackendStorage(virtClient, config, storageClassInformer.GetStore(), storageProfileInformer.GetStore())
+		backendStorage = NewBackendStorage(virtClient, config, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer())
 	})
 
 	Context("Storage class", func() {
