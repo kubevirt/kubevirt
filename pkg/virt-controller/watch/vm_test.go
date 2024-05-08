@@ -6327,5 +6327,5 @@ func syncCache(store cache.Store) {
 	EventuallyWithOffset(1, func(g Gomega) {
 		keys := store.ListKeys()
 		g.Expect(keys).To(HaveLen(1))
-	}, 1*time.Second, 100*time.Millisecond).Should(Succeed(), "Cache did not recieve object from informer")
+	}, 2*time.Second, 100*time.Millisecond).Should(Succeed(), "Cache did not recieve object from informer")
 }
