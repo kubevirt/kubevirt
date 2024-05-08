@@ -580,6 +580,8 @@ const (
 	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
 	// Indicates that the VMI is hot(un)plugging memory
 	VirtualMachineInstanceMemoryChange = "HotMemoryChange"
+	// Indicates that the VMI has an updates in its volume set
+	VirtualMachineInstanceVolumesChange = "VolumesChange"
 
 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
 	VirtualMachineInstanceDataVolumesReady = "DataVolumesReady"
