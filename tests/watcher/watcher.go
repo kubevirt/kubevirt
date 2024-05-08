@@ -21,6 +21,7 @@ package watcher
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -110,6 +111,12 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 	Expect(w.startType).ToNot(Equal(invalidWatch))
 	resourceVersion := ""
 
+	if w.timeout != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *w.timeout)
+		defer cancel()
+	}
+
 	switch w.startType {
 	case watchSinceNow:
 		resourceVersion = ""
@@ -138,7 +145,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 	}
 
 	eventWatcher, err := cli.CoreV1().Events(v1.NamespaceAll).
-		Watch(context.Background(), metav1.ListOptions{
+		Watch(ctx, metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie(strings.Join(selector, ",")).String(),
 			ResourceVersion: resourceVersion,
 		})
@@ -158,9 +165,8 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 					break
 				}
 			} else {
-				switch watchEvent.Object.(type) {
+				switch status := watchEvent.Object.(type) {
 				case *metav1.Status:
-					status := watchEvent.Object.(*metav1.Status)
 					//api server sometimes closes connections to Watch() client command
 					//ignore this error, because it will reconnect automatically
 					if status.Message != "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding" {
@@ -173,19 +179,11 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		}
 	}()
 
-	if w.timeout != nil {
-		select {
-		case <-done:
-		case <-ctx.Done():
-		case <-time.After(*w.timeout):
-			if !w.dontFailOnMissingEvent {
-				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
-			}
-		}
-	} else {
-		select {
-		case <-ctx.Done():
-		case <-done:
+	select {
+	case <-done:
+	case <-ctx.Done():
+		if goerrors.Is(ctx.Err(), context.DeadlineExceeded) && !w.dontFailOnMissingEvent {
+			Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
 		}
 	}
 }
@@ -201,7 +199,7 @@ func (w *ObjectEventWatcher) WaitFor(ctx context.Context, eventType EventType, r
 	return
 }
 
-func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType, reason interface{}) (e *v1.Event) {
+func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType, reason any) (e *v1.Event) {
 	w.dontFailOnMissingEvent = true
 	w.Watch(ctx, func(event *v1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
