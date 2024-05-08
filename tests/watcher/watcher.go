@@ -125,22 +125,6 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 
 	f := processFunc
 
-	objectRefOption := func(obj *v1.ObjectReference) []interface{} {
-		logParams := make([]interface{}, 0)
-		if obj == nil {
-			return logParams
-		}
-
-		if obj.Namespace != "" {
-			logParams = append(logParams, "namespace", obj.Namespace)
-		}
-		logParams = append(logParams, "name", obj.Name)
-		logParams = append(logParams, "kind", obj.Kind)
-		logParams = append(logParams, "uid", obj.UID)
-
-		return logParams
-	}
-
 	if w.warningPolicy.FailOnWarnings {
 		f = func(event *v1.Event) bool {
 			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
@@ -290,3 +274,19 @@ const (
 	// Watch since the resourceVersion passed in to the builder
 	watchSinceResourceVersion startType = "watchSinceResourceVersion"
 )
+
+func objectRefOption(obj *v1.ObjectReference) []any {
+	logParams := make([]interface{}, 0)
+	if obj == nil {
+		return logParams
+	}
+
+	if obj.Namespace != "" {
+		logParams = append(logParams, "namespace", obj.Namespace)
+	}
+	logParams = append(logParams, "name", obj.Name)
+	logParams = append(logParams, "kind", obj.Kind)
+	logParams = append(logParams, "uid", obj.UID)
+
+	return logParams
+}
