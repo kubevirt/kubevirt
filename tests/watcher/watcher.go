@@ -123,29 +123,6 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 
 	cli := kubevirt.Client()
 
-	f := processFunc
-
-	if w.warningPolicy.FailOnWarnings {
-		f = func(event *v1.Event) bool {
-			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
-			if !w.warningPolicy.shouldIgnoreWarning(event) {
-				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
-			}
-			log.Log.With(objectRefOption(&event.InvolvedObject)).Info(msg)
-
-			return processFunc(event)
-		}
-	} else {
-		f = func(event *v1.Event) bool {
-			if event.Type == string(WarningEvent) {
-				log.Log.With(objectRefOption(&event.InvolvedObject)).Reason(fmt.Errorf("warning event received")).Error(event.Message)
-			} else {
-				log.Log.With(objectRefOption(&event.InvolvedObject)).Infof(event.Message)
-			}
-			return processFunc(event)
-		}
-	}
-
 	var selector []string
 	objectMeta := w.object.(metav1.ObjectMetaAccessor)
 	name := objectMeta.GetObjectMeta().GetName()
@@ -176,7 +153,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		for watchEvent := range eventWatcher.ResultChan() {
 			if watchEvent.Type != watch.Error {
 				event := watchEvent.Object.(*v1.Event)
-				if f(event) {
+				if w.checkEvent(event, processFunc) {
 					close(done)
 					break
 				}
@@ -289,4 +266,31 @@ func objectRefOption(obj *v1.ObjectReference) []any {
 	logParams = append(logParams, "uid", obj.UID)
 
 	return logParams
+}
+
+func (w *ObjectEventWatcher) checkEventFailOnWarnings(event *v1.Event, processFunc ProcessFunc) bool {
+	msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
+	if !w.warningPolicy.shouldIgnoreWarning(event) {
+		ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
+	}
+	log.Log.With(objectRefOption(&event.InvolvedObject)).Info(msg)
+
+	return processFunc(event)
+}
+
+func (w *ObjectEventWatcher) checkEventIgnoreWarnings(event *v1.Event, processFunc ProcessFunc) bool {
+	if event.Type == string(WarningEvent) {
+		log.Log.With(objectRefOption(&event.InvolvedObject)).Reason(fmt.Errorf("warning event received")).Error(event.Message)
+	} else {
+		log.Log.With(objectRefOption(&event.InvolvedObject)).Info(event.Message)
+	}
+	return processFunc(event)
+}
+
+func (w *ObjectEventWatcher) checkEvent(event *v1.Event, processFunc ProcessFunc) bool {
+	if w.warningPolicy.FailOnWarnings {
+		return w.checkEventFailOnWarnings(event, processFunc)
+	} else {
+		return w.checkEventIgnoreWarnings(event, processFunc)
+	}
 }
