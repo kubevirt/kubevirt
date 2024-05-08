@@ -31,6 +31,7 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
@@ -45,7 +46,6 @@ import (
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
@@ -786,7 +786,7 @@ func (app *virtAPIApp) Compose() {
 func (app *virtAPIApp) ConfigureOpenAPIService() {
 	config := openapi.CreateConfig()
 	config.GetDefinitions = v12.GetOpenAPIDefinitions
-	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
+	spec, err := builder.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
 	if err != nil {
 		panic(err)
 	}

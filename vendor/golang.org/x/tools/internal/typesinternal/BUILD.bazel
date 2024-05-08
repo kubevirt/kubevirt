@@ -5,10 +5,16 @@ go_library(
     srcs = [
         "errorcode.go",
         "errorcode_string.go",
+        "recv.go",
+        "toonew.go",
         "types.go",
-        "types_118.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/internal/typesinternal",
     importpath = "golang.org/x/tools/internal/typesinternal",
     visibility = ["//vendor/golang.org/x/tools:__subpackages__"],
+    deps = [
+        "//vendor/golang.org/x/tools/internal/aliases:go_default_library",
+        "//vendor/golang.org/x/tools/internal/stdlib:go_default_library",
+        "//vendor/golang.org/x/tools/internal/versions:go_default_library",
+    ],
 )

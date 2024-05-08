@@ -49,11 +49,6 @@ func decodeBlock(dst, src, dict []byte) (ret int) {
 					if offset := u16(src[si:]); mLen <= offset && offset < di {
 						i := di - offset
 						end := i + 18
-						if end > uint(len(dst)) {
-							// The remaining buffer may not hold 18 bytes.
-							// See https://github.com/pierrec/lz4/issues/51.
-							end = uint(len(dst))
-						}
 						copy(dst[di:], dst[i:end])
 						si += 2
 						di += mLen
@@ -78,9 +73,11 @@ func decodeBlock(dst, src, dict []byte) (ret int) {
 				di += lLen
 			}
 		}
-		if si == uint(len(src)) {
+
+		mLen := b & 0xF
+		if si == uint(len(src)) && mLen == 0 {
 			break
-		} else if si > uint(len(src)) {
+		} else if si >= uint(len(src)) {
 			return hasError
 		}
 
@@ -91,7 +88,7 @@ func decodeBlock(dst, src, dict []byte) (ret int) {
 		si += 2
 
 		// Match.
-		mLen := minMatch + b&0xF
+		mLen += minMatch
 		if mLen == minMatch+0xF {
 			for {
 				x := uint(src[si])

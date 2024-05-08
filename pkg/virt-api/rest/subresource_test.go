@@ -1193,7 +1193,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Namespace: k8smetav1.NamespaceDefault,
 				},
 				Spec: k8sv1.PersistentVolumeClaimSpec{
-					Resources: k8sv1.ResourceRequirements{
+					Resources: k8sv1.VolumeResourceRequirements{
 						Requests: k8sv1.ResourceList{
 							k8sv1.ResourceStorage: quantity,
 						},

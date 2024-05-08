@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "compile.go",
+        "gocovmerge.go",
         "profiles_and_reports.go",
         "run.go",
         "test_suite.go",
@@ -20,5 +21,6 @@ go_library(
         "//vendor/github.com/onsi/ginkgo/v2/internal/parallel_support:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
+        "//vendor/golang.org/x/tools/cover:go_default_library",
     ],
 )
