@@ -1493,7 +1493,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 							defer wg.Done()
 							stopChan := make(chan struct{})
 							defer close(stopChan)
-							Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
+							Expect(libpod.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
 							_, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
 							Expect(err).To(HaveOccurred())
 							errors <- err
@@ -1573,7 +1573,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 							defer wg.Done()
 							stopChan := make(chan struct{})
 							defer close(stopChan)
-							Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
+							Expect(libpod.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
 							conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
 							if conn != nil {
 								b := make([]byte, 1)
