@@ -3325,7 +3325,7 @@ spec:
                 - name: MTQ_VERSION
                   value: v1.2.1
                 - name: AAQ_VERSION
-                  value: v1.2.0
+                  value: v1.2.1
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:4ed1f37116cbaf883edd8783201d091fbbe121fcb84e7184ee531d3b1abd77ab
                 - name: KV_CONSOLE_PROXY_IMAGE
@@ -4096,17 +4096,17 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v1.2.0
+                  value: v1.2.1
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/aaq-controller@sha256:9b128f99693eaeed0204569b9288870586919e262550f88e7a2dfa97953addb9
+                  value: quay.io/kubevirt/aaq-controller@sha256:057ad4cd8bcf193332b954c8eb12af532aa0bb3b0762342370ca9f7145282c2e
                 - name: AAQ_SERVER_IMAGE
-                  value: quay.io/kubevirt/aaq-server@sha256:597baaffeda9983fc5be941da4bfcff395bdf4b5c9b2a69ce5e6b77da49a1cfd
+                  value: quay.io/kubevirt/aaq-server@sha256:9fbcfe87be72b38ed94951e80b7f2c849b31852a83180ff8694d2a375e7488e5
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
                 - name: MONITORING_NAMESPACE
-                image: quay.io/kubevirt/aaq-operator@sha256:8cf980922faae46533fb5442fb201af12c1a11b5525d45fc7ec9c064874e1101
+                image: quay.io/kubevirt/aaq-operator@sha256:2cbc69d5ca289555cbfe0b723a02f56f74bb8a13941f59dcdfda6c5430fc5278
                 imagePullPolicy: IfNotPresent
                 name: aaq-operator
                 ports:
@@ -4832,11 +4832,11 @@ spec:
   provider:
     name: KubeVirt project
   relatedImages:
-  - image: quay.io/kubevirt/aaq-controller@sha256:9b128f99693eaeed0204569b9288870586919e262550f88e7a2dfa97953addb9
+  - image: quay.io/kubevirt/aaq-controller@sha256:057ad4cd8bcf193332b954c8eb12af532aa0bb3b0762342370ca9f7145282c2e
     name: aaq-controller
-  - image: quay.io/kubevirt/aaq-operator@sha256:8cf980922faae46533fb5442fb201af12c1a11b5525d45fc7ec9c064874e1101
+  - image: quay.io/kubevirt/aaq-operator@sha256:2cbc69d5ca289555cbfe0b723a02f56f74bb8a13941f59dcdfda6c5430fc5278
     name: aaq-operator
-  - image: quay.io/kubevirt/aaq-server@sha256:597baaffeda9983fc5be941da4bfcff395bdf4b5c9b2a69ce5e6b77da49a1cfd
+  - image: quay.io/kubevirt/aaq-server@sha256:9fbcfe87be72b38ed94951e80b7f2c849b31852a83180ff8694d2a375e7488e5
     name: aaq-server
   - image: quay.io/kubevirt/bridge-marker@sha256:bba066e3b5ff3fb8c5e20861fe8abe51e3c9b50ad6ce3b2616af9cb5479a06d0
     name: bridge-marker

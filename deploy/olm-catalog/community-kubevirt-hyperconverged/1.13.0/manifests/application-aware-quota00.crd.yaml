@@ -2363,7 +2363,8 @@ spec:
                 type: object
               namespaceSelector:
                 description: namespaces where pods should be gated before scheduling
-                  Default to the empty LabelSelector, which matches everything.
+                  Defaults to targeting namespaces with an "application-aware-quota/enable"
+                  label key.
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
