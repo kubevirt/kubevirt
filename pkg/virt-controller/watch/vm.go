@@ -45,6 +45,7 @@ import (
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -114,6 +115,7 @@ const (
 	HotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 	AffinityChangeErrorReason          = "AffinityChangeError"
 	HotPlugMemoryErrorReason           = "HotPlugMemoryError"
+	VolumesUpdateErrorReason           = "VolumesUpdateError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -873,6 +875,35 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if !c.clusterConfig.VolumesUpdateStrategyEnabled() {
+		return nil
+	}
+	if vmi == nil {
+		return nil
+	}
+	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vm.Spec.Template.Spec.Volumes) {
+		return nil
+	}
+	vmConditions := controller.NewVirtualMachineConditionManager()
+	switch {
+	case vm.Spec.UpdateVolumesStrategy == nil ||
+		*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyReplacement:
+		if !vmConditions.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+			vmConditions.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:               virtv1.VirtualMachineRestartRequired,
+				LastTransitionTime: v1.Now(),
+				Status:             k8score.ConditionTrue,
+				Message:            "the volumes replacement is effective only after restart",
+			})
+		}
+	default:
+		return fmt.Errorf("updateVolumes strategy not recognized: %s", *vm.Spec.UpdateVolumesStrategy)
 	}
 
 	return nil
@@ -3114,6 +3145,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 				syncErr = &syncErrorImpl{
 					err:    fmt.Errorf("error encountered while handling memory hotplug requests: %v", err),
 					reason: HotPlugMemoryErrorReason,
+				}
+			}
+
+			if err := c.handleVolumeUpdateRequest(vmCopy, vmi); err != nil {
+				syncErr = &syncErrorImpl{
+					err:    fmt.Errorf("error encountered while handling volumes update requests: %v", err),
+					reason: VolumesUpdateErrorReason,
 				}
 			}
 		}

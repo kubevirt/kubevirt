@@ -5772,6 +5772,11 @@ func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.UpdateVolumesStrategy != nil {
+		in, out := &in.UpdateVolumesStrategy, &out.UpdateVolumesStrategy
+		*out = new(UpdateVolumesStrategy)
+		**out = **in
+	}
 	return
 }
 

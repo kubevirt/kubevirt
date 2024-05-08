@@ -78,6 +78,9 @@ const (
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
+
+	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
+	VolumesUpdateStrategy = "VolumesUpdateStrategy"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -245,4 +248,8 @@ func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(AlignCPUsGate)
+}
+
+func (config *ClusterConfig) VolumesUpdateStrategyEnabled() bool {
+	return config.isFeatureGateEnabled(VolumesUpdateStrategy)
 }
