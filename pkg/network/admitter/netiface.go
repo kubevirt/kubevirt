@@ -131,6 +131,7 @@ func validateInterfaceNameFormat(field *k8sfield.Path, idx int, iface v1.Interfa
 var validInterfaceModels = map[string]struct{}{
 	"e1000":    {},
 	"e1000e":   {},
+	"igb":      {},
 	"ne2k_pci": {},
 	"pcnet":    {},
 	"rtl8139":  {},
