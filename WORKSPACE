@@ -4409,6 +4409,14 @@ rpm(
 )
 
 rpm(
+    name = "qemu-kvm-device-usb-redirect-17__8.2.0-11.el9.aarch64",
+    sha256 = "a7f7224ea096e1b5ddb18409725f210946005078b86d2f007347b03ee488f2af",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-redirect-8.2.0-11.el9.aarch64.rpm",
+    ],
+)
+
+rpm(
     name = "qemu-kvm-device-usb-redirect-17__8.2.0-11.el9.x86_64",
     sha256 = "498adf3f4c9bd72dea7146a55dadf06075111caa57ee5528d2a72ceb8cda7a0a",
     urls = [
@@ -4923,6 +4931,14 @@ rpm(
     sha256 = "7e7836a8c710f7d10a594086ba7f3c6eb4a8402bb811a525c66407427262b947",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/unbound-libs-1.16.2-8.el9.x86_64.rpm",
+    ],
+)
+
+rpm(
+    name = "usbredir-0__0.13.0-2.el9.aarch64",
+    sha256 = "3cbb5cb71c942e2f0a5780cba9f8ca69741b1b877c0835ed7ddfca85f9b3ddda",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/usbredir-0.13.0-2.el9.aarch64.rpm",
     ],
 )
 
