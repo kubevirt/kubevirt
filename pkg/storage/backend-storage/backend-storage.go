@@ -23,11 +23,14 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/tools/cache"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "kubevirt.io/api/core/v1"
@@ -89,7 +92,7 @@ func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfi
 	ownerReferences := vmi.OwnerReferences
 	if len(vmi.OwnerReferences) == 0 {
 		// If the VMI has no owner, then it did not originate from a VM.
-		// In that case, we tie the PVC to the VMI, rendering it quite useless since it wont actually persist.
+		// In that case, we tie the PVC to the VMI, rendering it quite useless since it won't actually persist.
 		// The alternative is to remove this `if` block, allowing the PVC to persist after the VMI is deleted.
 		// However, that would pose security and littering concerns.
 		ownerReferences = []metav1.OwnerReference{
@@ -117,4 +120,43 @@ func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfi
 	}
 
 	return err
+}
+
+// IsPVCReady returns true if either:
+// - No PVC is needed for the VMI since it doesn't use backend storage
+// - The backend storage PVC is bound
+// - The backend storage PVC is pending uses a WaitForFirstConsumer storage class
+func IsPVCReady(vmi *corev1.VirtualMachineInstance, client kubecli.KubevirtClient, scStore cache.Store) (bool, error) {
+	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
+		return true, nil
+	}
+
+	pvc, err := client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), PVCForVMI(vmi), metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	switch pvc.Status.Phase {
+	case v1.ClaimBound:
+		return true, nil
+	case v1.ClaimLost:
+		return false, fmt.Errorf("backend storage PVC lost")
+	case v1.ClaimPending:
+		if pvc.Spec.StorageClassName == nil {
+			return false, fmt.Errorf("no storage class name")
+		}
+		obj, exists, err := scStore.GetByKey(*pvc.Spec.StorageClassName)
+		if err != nil {
+			return false, err
+		}
+		if !exists {
+			return false, fmt.Errorf("storage class %s not found", *pvc.Spec.StorageClassName)
+		}
+		sc := obj.(*storagev1.StorageClass)
+		if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

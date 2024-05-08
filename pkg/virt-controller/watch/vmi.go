@@ -84,9 +84,12 @@ const (
 	// FailedHandOverPodReason is added in an event and in a vmi controller condition
 	// when transferring the pod ownership from the controller to virt-hander fails.
 	FailedHandOverPodReason = "FailedHandOver"
-	// FailedBackendStorageCreateReason is added in an event when posting a dynamically
-	// generated dataVolume to the cluster fails.
+	// FailedBackendStorageCreateReason is added when the creation of the backend storage PVC fails.
 	FailedBackendStorageCreateReason = "FailedBackendStorageCreate"
+	// FailedBackendStorageProbeReason is added when probing the backend storage PVC fails.
+	FailedBackendStorageProbeReason = "FailedBackendStorageProbe"
+	// BackendStorageNotReadyReason is added when the backend storage PVC is pending.
+	BackendStorageNotReadyReason = "BackendStorageNotReady"
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
@@ -139,6 +142,7 @@ func NewVMIController(templateService services.TemplateService,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
@@ -149,22 +153,23 @@ func NewVMIController(templateService services.TemplateService,
 ) (*VMIController, error) {
 
 	c := &VMIController{
-		templateService:    templateService,
-		Queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
-		vmiInformer:        vmiInformer,
-		vmInformer:         vmInformer,
-		podInformer:        podInformer,
-		pvcInformer:        pvcInformer,
-		recorder:           recorder,
-		clientset:          clientset,
-		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeInformer: dataVolumeInformer,
-		cdiInformer:        cdiInformer,
-		cdiConfigInformer:  cdiConfigInformer,
-		clusterConfig:      clusterConfig,
-		topologyHinter:     topologyHinter,
-		cidsMap:            newCIDsMap(),
+		templateService:      templateService,
+		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
+		vmiInformer:          vmiInformer,
+		vmInformer:           vmInformer,
+		podInformer:          podInformer,
+		pvcInformer:          pvcInformer,
+		storageClassInformer: storageClassInformer,
+		recorder:             recorder,
+		clientset:            clientset,
+		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeInformer:   dataVolumeInformer,
+		cdiInformer:          cdiInformer,
+		cdiConfigInformer:    cdiConfigInformer,
+		clusterConfig:        clusterConfig,
+		topologyHinter:       topologyHinter,
+		cidsMap:              newCIDsMap(),
 	}
 
 	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -249,22 +254,23 @@ func (i informalSyncError) RequiresRequeue() bool {
 }
 
 type VMIController struct {
-	templateService    services.TemplateService
-	clientset          kubecli.KubevirtClient
-	Queue              workqueue.RateLimitingInterface
-	vmiInformer        cache.SharedIndexInformer
-	vmInformer         cache.SharedIndexInformer
-	podInformer        cache.SharedIndexInformer
-	pvcInformer        cache.SharedIndexInformer
-	topologyHinter     topology.Hinter
-	recorder           record.EventRecorder
-	podExpectations    *controller.UIDTrackingControllerExpectations
-	vmiExpectations    *controller.UIDTrackingControllerExpectations
-	dataVolumeInformer cache.SharedIndexInformer
-	cdiInformer        cache.SharedIndexInformer
-	cdiConfigInformer  cache.SharedIndexInformer
-	clusterConfig      *virtconfig.ClusterConfig
-	cidsMap            *cidsMap
+	templateService      services.TemplateService
+	clientset            kubecli.KubevirtClient
+	Queue                workqueue.RateLimitingInterface
+	vmiInformer          cache.SharedIndexInformer
+	vmInformer           cache.SharedIndexInformer
+	podInformer          cache.SharedIndexInformer
+	pvcInformer          cache.SharedIndexInformer
+	storageClassInformer cache.SharedIndexInformer
+	topologyHinter       topology.Hinter
+	recorder             record.EventRecorder
+	podExpectations      *controller.UIDTrackingControllerExpectations
+	vmiExpectations      *controller.UIDTrackingControllerExpectations
+	dataVolumeInformer   cache.SharedIndexInformer
+	cdiInformer          cache.SharedIndexInformer
+	cdiConfigInformer    cache.SharedIndexInformer
+	clusterConfig        *virtconfig.ClusterConfig
+	cidsMap              *cidsMap
 }
 
 func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -281,6 +287,7 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 		c.cdiConfigInformer.HasSynced,
 		c.cdiInformer.HasSynced,
 		c.pvcInformer.HasSynced,
+		c.storageClassInformer.HasSynced,
 	)
 	// Sync the CIDs from exist VMIs
 	var vmis []*virtv1.VirtualMachineInstance
@@ -1178,17 +1185,14 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		// do not return; just log the error
 	}
 
+	err := backendstorage.CreateIfNeeded(vmi, c.clusterConfig, c.clientset)
+	if err != nil {
+		return &syncErrorImpl{err, FailedBackendStorageCreateReason}
+	}
+
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
 	if syncErr != nil {
 		return syncErr
-	}
-
-	err := backendstorage.CreateIfNeeded(vmi, c.clusterConfig, c.clientset)
-	if err != nil {
-		return &syncErrorImpl{
-			err:    err,
-			reason: FailedBackendStorageCreateReason,
-		}
 	}
 
 	if !podExists(pod) {
@@ -1206,6 +1210,17 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		if !dataVolumesReady {
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates or while we wait for PVCs to appear.")
 			return nil
+		}
+
+		// Ensure the backend storage PVC is ready
+		var backendStorageReady bool
+		backendStorageReady, err = backendstorage.IsPVCReady(vmi, c.clientset, c.storageClassInformer.GetStore())
+		if err != nil {
+			return &syncErrorImpl{err, FailedBackendStorageProbeReason}
+		}
+		if !backendStorageReady {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while backend storage populates.")
+			return &syncErrorImpl{fmt.Errorf("PVC pending"), BackendStorageNotReadyReason}
 		}
 
 		var templatePod *k8sv1.Pod
