@@ -1503,6 +1503,7 @@ const (
 type UpdateVolumesStrategy string
 
 const (
+	UpdateVolumesStrategyMigration   UpdateVolumesStrategy = "Migration"
 	UpdateVolumesStrategyReplacement UpdateVolumesStrategy = "Replacement"
 )
 
