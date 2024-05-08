@@ -119,8 +119,7 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 	}
 
 	const finish = true
-	err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-		var err error
+	poller := func(context.Context) (done bool, err error) {
 		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 		if err != nil {
 			return finish, err
@@ -135,14 +134,14 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 				if c.Status == k8sv1.ConditionTrue {
 					return finish, jobFailedError(job)
 				}
-			case batchv1.JobSuspended:
-				break
-			case batchv1.JobFailureTarget:
+			case batchv1.JobSuspended, batchv1.JobFailureTarget, batchv1.JobSuccessCriteriaMet:
 				break
 			}
 		}
 		return !finish, nil
-	})
+	}
+
+	err := wait.PollUntilContextTimeout(context.Background(), time.Second, timeout, true, poller)
 	if err != nil {
 		return fmt.Errorf("job %s timeout reached, status: %+v, err: %v", job.Name, job.Status, err)
 	}

@@ -109,7 +109,7 @@ var _ = Describe("ImageUpload", func() {
 				Annotations: map[string]string{},
 			},
 			Spec: v1.PersistentVolumeClaimSpec{
-				Resources: v1.ResourceRequirements{
+				Resources: v1.VolumeResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceStorage: quantity,
 					},
@@ -129,7 +129,7 @@ var _ = Describe("ImageUpload", func() {
 				Namespace: "default",
 			},
 			Spec: v1.PersistentVolumeClaimSpec{
-				Resources: v1.ResourceRequirements{
+				Resources: v1.VolumeResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceStorage: quantity,
 					},

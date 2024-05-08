@@ -241,7 +241,7 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 			VolumeMode:       pv.Spec.VolumeMode,
 			StorageClassName: &storageClass,
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: map[corev1.ResourceName]resource.Quantity{corev1.ResourceStorage: pv.Spec.Capacity["storage"]},
 			},
 		},

@@ -12,7 +12,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
-        "//vendor/k8s.io/kube-openapi/pkg/openapiconv:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/spec3:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/validation/spec:go_default_library",
     ],

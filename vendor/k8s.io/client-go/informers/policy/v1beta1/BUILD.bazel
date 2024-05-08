@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "interface.go",
         "poddisruptionbudget.go",
-        "podsecuritypolicy.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/informers/policy/v1beta1",
     importpath = "k8s.io/client-go/informers/policy/v1beta1",
