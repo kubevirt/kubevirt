@@ -87,7 +87,7 @@ func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfi
 	modeFile := v1.PersistentVolumeFilesystem
 	storageClass := clusterConfig.GetVMStateStorageClass()
 	if storageClass == "" {
-		return fmt.Errorf("backend VM storage requires a backend storage class defined in the custom resource")
+		return fmt.Errorf("backend VM state storage requires a RWX FS mode storage class defined in the KubeVirt custom resource under spec.configuration.vmStateStorageClass")
 	}
 	ownerReferences := vmi.OwnerReferences
 	if len(vmi.OwnerReferences) == 0 {
