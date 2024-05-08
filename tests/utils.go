@@ -969,14 +969,6 @@ func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
 	}
 }
 
-func ExecuteCommandOnNodeThroughVirtHandler(virtCli kubecli.KubevirtClient, nodeName string, command []string) (stdout string, stderr string, err error) {
-	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtCli, nodeName)
-	if err != nil {
-		return "", "", err
-	}
-	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
-}
-
 func RunVMAndExpectLaunchWithRunStrategy(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
 	By("Starting the VirtualMachine")
 
