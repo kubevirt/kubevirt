@@ -530,9 +530,7 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 }
 
 func enablePasswordAuth() string {
-	sedCmd := "sed -ri 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config"
-
-	return "#!/bin/sh\n" + sedCmd + "\n"
+	return "#cloud-config\nssh_pwauth: true\n"
 }
 
 func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {

@@ -1257,10 +1257,10 @@ kubevirt.io/controller-lifecycle-operator-sdk/api
 ## explicit; go 1.16
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# libvirt.org/go/libvirt v1.9004.0
+# libvirt.org/go/libvirt v1.10000.0
 ## explicit; go 1.11
 libvirt.org/go/libvirt
-# libvirt.org/go/libvirtxml v1.9008.0
+# libvirt.org/go/libvirtxml v1.10000.0
 ## explicit; go 1.11
 libvirt.org/go/libvirtxml
 # mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157

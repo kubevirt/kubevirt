@@ -87,11 +87,11 @@ type typedParamsFieldInfo struct {
 
 func typedParamsUnpackRaw(prefix string, cparams *C.virTypedParameter, cnparams C.int) ([]TypedParamValue, error) {
 	ret := []TypedParamValue{}
-	for i := 0; i < int(cnparams); i++ {
+	for n := 0; n < int(cnparams); n++ {
 		var param TypedParamValue
 		var cparam *C.virTypedParameter
 		cparam = (*C.virTypedParameter)(unsafe.Pointer(uintptr(unsafe.Pointer(cparams)) +
-			(unsafe.Sizeof(*cparam) * uintptr(i))))
+			(unsafe.Sizeof(*cparam) * uintptr(n))))
 
 		name := C.GoString(&cparam.field[0])
 

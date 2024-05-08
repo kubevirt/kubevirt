@@ -2008,6 +2008,13 @@ virNetworkGetDHCPLeasesWrapper(virNetworkPtr network,
                                unsigned int flags,
                                virErrorPtr err);
 
+char *
+virNetworkGetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err);
+
 const char *
 virNetworkGetNameWrapper(virNetworkPtr network,
                          virErrorPtr err);
@@ -2126,6 +2133,15 @@ int
 virNetworkSetAutostartWrapper(virNetworkPtr network,
                               int autostart,
                               virErrorPtr err);
+
+int
+virNetworkSetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * metadata,
+                             const char * key,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err);
 
 int
 virNetworkUndefineWrapper(virNetworkPtr network,
