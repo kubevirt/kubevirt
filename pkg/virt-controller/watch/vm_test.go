@@ -432,48 +432,10 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
 
 		})
+		Context("Disk un/hotplug", func() {
+			DescribeTable("should hotplug a vm", func(isRunning bool) {
 
-		DescribeTable("should hotplug a vm", func(isRunning bool) {
-
-			vm, vmi := DefaultVirtualMachine(isRunning)
-			vm.Status.Created = true
-			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-				{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
-					},
-				},
-			}
-
-			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			addVirtualMachine(vm)
-
-			if isRunning {
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
-			}
-
-			sanityExecute(vm)
-
-			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
-			Expect(vm.Status.VolumeRequests).To(BeEmpty())
-		},
-
-			Entry("that is running", true),
-			Entry("that is not running", false),
-		)
-
-		Context("add volume request", func() {
-			It("should not be cleared when hotplug fails on Running VM", func() {
-				By("Running VM")
-				vm, vmi := DefaultVirtualMachine(true)
+				vm, vmi := DefaultVirtualMachine(isRunning)
 				vm.Status.Created = true
 				vm.Status.Ready = true
 				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -489,241 +451,402 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
 
-				By("Simulate a failure in hotplug")
-				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(fmt.Errorf("error"))
-
-				By("Not expecting to see a status update")
-				sanityExecute(vm)
-
-				By("Expecting to not clear volume requests")
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.VolumeRequests).To(HaveLen(1), "Volume request should stay, otherwise hotplug will not retry")
-			})
-
-			It("should not be cleared when VM update fails on Running VM", func() {
-				By("Running VM")
-				vm, vmi := DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-					{
-						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol1",
-							Disk:         &v1.Disk{},
-							VolumeSource: &v1.HotplugVolumeSource{},
-						},
-					},
-				}
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-				By("Simulate hotplug")
-				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(nil)
-
-				By("Simulate update failure")
-				failVMSpecUpdate(virtFakeClient)
-
-				sanityExecute(vm)
-
-				By("Expecting Volume request not to be cleared")
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.VolumeRequests).To(HaveLen(1), "Volume request should stay, otherwise hotplug will not retry")
-			})
-
-			It("should be cleared when hotplug on Stopped VM", func() {
-				By("Stopped VM")
-				vm, _ := DefaultVirtualMachine(false)
-				vm.Status.Created = false
-				vm.Status.Ready = false
-				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-					{
-						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol1",
-							Disk:         &v1.Disk{},
-							VolumeSource: &v1.HotplugVolumeSource{},
-						},
-					},
+				if isRunning {
+					markAsReady(vmi)
+					vmiFeeder.Add(vmi)
+					vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
 				}
 
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
 				sanityExecute(vm)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				By("Expecting Volume to be added to VM")
 				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
-				By("Expecting Volume request to be cleared")
-				Expect(vm.Status.VolumeRequests).To(BeEmpty(),
-					"Volume request should stay, otherwise hotplug will not retry",
-				)
+				Expect(vm.Status.VolumeRequests).To(BeEmpty())
+			},
+
+				Entry("that is running", true),
+				Entry("that is not running", false),
+			)
+
+			Context("add volume request", func() {
+				It("should not be cleared when hotplug fails on Running VM", func() {
+					By("Running VM")
+					vm, vmi := DefaultVirtualMachine(true)
+					vm.Status.Created = true
+					vm.Status.Ready = true
+					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+						{
+							AddVolumeOptions: &v1.AddVolumeOptions{
+								Name:         "vol1",
+								Disk:         &v1.Disk{},
+								VolumeSource: &v1.HotplugVolumeSource{},
+							},
+						},
+					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+					markAsReady(vmi)
+					vmiFeeder.Add(vmi)
+
+					By("Simulate a failure in hotplug")
+					vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(fmt.Errorf("error"))
+
+					By("Not expecting to see a status update")
+					sanityExecute(vm)
+
+					By("Expecting to not clear volume requests")
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1), "Volume request should stay, otherwise hotplug will not retry")
+				})
+
+				It("should not be cleared when VM update fails on Running VM", func() {
+					By("Running VM")
+					vm, vmi := DefaultVirtualMachine(true)
+					vm.Status.Created = true
+					vm.Status.Ready = true
+					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+						{
+							AddVolumeOptions: &v1.AddVolumeOptions{
+								Name:         "vol1",
+								Disk:         &v1.Disk{},
+								VolumeSource: &v1.HotplugVolumeSource{},
+							},
+						},
+					}
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					markAsReady(vmi)
+					vmiFeeder.Add(vmi)
+					By("Simulate hotplug")
+					vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(nil)
+
+					By("Simulate update failure")
+					failVMSpecUpdate(virtFakeClient)
+
+					sanityExecute(vm)
+
+					By("Expecting Volume request not to be cleared")
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1), "Volume request should stay, otherwise hotplug will not retry")
+				})
+
+				It("should be cleared when hotplug on Stopped VM", func() {
+					By("Stopped VM")
+					vm, _ := DefaultVirtualMachine(false)
+					vm.Status.Created = false
+					vm.Status.Ready = false
+					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+						{
+							AddVolumeOptions: &v1.AddVolumeOptions{
+								Name:         "vol1",
+								Disk:         &v1.Disk{},
+								VolumeSource: &v1.HotplugVolumeSource{},
+							},
+						},
+					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					By("Expecting Volume to be added to VM")
+					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+					By("Expecting Volume request to be cleared")
+					Expect(vm.Status.VolumeRequests).To(BeEmpty(),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				})
+
+				It("should not be cleared when hotplug fails on Stopped VM", func() {
+					By("Stopped VM")
+					vm, _ := DefaultVirtualMachine(false)
+					vm.Status.Created = false
+					vm.Status.Ready = false
+					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+						{
+							AddVolumeOptions: &v1.AddVolumeOptions{
+								Name:         "vol1",
+								Disk:         &v1.Disk{},
+								VolumeSource: &v1.HotplugVolumeSource{},
+							},
+						},
+					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					By("Simulate a conflict on Update")
+					failVMSpecUpdate(virtFakeClient)
+
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					By("Expecting Volume request to not be cleared")
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				})
 			})
 
-			It("should not be cleared when hotplug fails on Stopped VM", func() {
-				By("Stopped VM")
-				vm, _ := DefaultVirtualMachine(false)
-				vm.Status.Created = false
-				vm.Status.Ready = false
+			Context("remove volume request", func() {
+				It("should not be cleared when hotplug fails on Running VM", func() {
+					By("Running VM with a disk and matching volume")
+					vm, vmi := DefaultVirtualMachine(true)
+					vm.Status.Created = true
+					vm.Status.Ready = true
+					volume := v1.Volume{
+						Name: "vol1",
+						VolumeSource: v1.VolumeSource{
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "random",
+							},
+						},
+					}
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
+					vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+
+					disk := v1.Disk{
+						Name: "vol1",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{},
+						},
+					}
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
+					vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+
+					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+						{
+							RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+								Name: "vol1",
+							},
+						},
+					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					markAsReady(vmi)
+					vmiFeeder.Add(vmi)
+					By("Simulate a un-hotplug failure")
+					vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions).Return(fmt.Errorf("error"))
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					By("Expecting Volume request to not be cleared")
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				})
+
+				It("should be cleared when hotplug on Stopped VM", func() {
+					By("Stopped VM with a disk and matching volume")
+					vm, _ := DefaultVirtualMachine(false)
+					vm.Status.Created = false
+					vm.Status.Ready = false
+
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+						v1.Volume{
+							Name: "vol1",
+							VolumeSource: v1.VolumeSource{
+								ContainerDisk: &v1.ContainerDiskSource{
+									Image: "random",
+								},
+							},
+						},
+					)
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+						v1.Disk{
+							Name: "vol1",
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{},
+							},
+						},
+					)
+					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+						{
+							RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+								Name: "vol1",
+							},
+						},
+					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					By("Expect the volume to be cleared")
+					Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+					By("Expecting Volume request to not be cleared")
+					Expect(vm.Status.VolumeRequests).To(BeEmpty())
+				})
+
+				It("should not be cleared when hotplug fails on Stopped VM", func() {
+					By("Stopped VM with a disk and matching volume")
+					vm, _ := DefaultVirtualMachine(false)
+					vm.Status.Created = false
+					vm.Status.Ready = false
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+						v1.Volume{
+							Name: "vol1",
+							VolumeSource: v1.VolumeSource{
+								ContainerDisk: &v1.ContainerDiskSource{
+									Image: "random",
+								},
+							},
+						},
+					)
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+						v1.Disk{
+							Name: "vol1",
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{},
+							},
+						},
+					)
+					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+						{
+							RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+								Name: "vol1",
+							},
+						},
+					}
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					By("Simulate a conflict on VM update")
+					failVMSpecUpdate(virtFakeClient)
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					By("Expecting a Volume request to not be cleared")
+					Expect(vm.Status.VolumeRequests).To(HaveLen(1),
+						"Volume request should stay, otherwise hotplug will not retry",
+					)
+				})
+			})
+
+			DescribeTable("should unhotplug a vm", func(isRunning bool) {
+				vm, vmi := DefaultVirtualMachine(isRunning)
+				vm.Status.Created = true
+				vm.Status.Ready = true
 				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
 					{
-						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol1",
-							Disk:         &v1.Disk{},
-							VolumeSource: &v1.HotplugVolumeSource{},
+						RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+							Name: "vol1",
 						},
 					},
 				}
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				By("Simulate a conflict on Update")
-				failVMSpecUpdate(virtFakeClient)
-
-				sanityExecute(vm)
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
-				By("Expecting Volume request to not be cleared")
-				Expect(vm.Status.VolumeRequests).To(HaveLen(1),
-					"Volume request should stay, otherwise hotplug will not retry",
-				)
-			})
-		})
-
-		Context("remove volume request", func() {
-			It("should not be cleared when hotplug fails on Running VM", func() {
-				By("Running VM with a disk and matching volume")
-				vm, vmi := DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				volume := v1.Volume{
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "vol1",
+				})
+				vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "vol1",
 					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{
-							Image: "random",
-						},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim",
+						}},
 					},
-				}
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
-
-				disk := v1.Disk{
-					Name: "vol1",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{},
-					},
-				}
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
-
-				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-					{
-						RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-							Name: "vol1",
-						},
-					},
-				}
+				})
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-				By("Simulate a un-hotplug failure")
-				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions).Return(fmt.Errorf("error"))
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				By("Expecting Volume request to not be cleared")
-				Expect(vm.Status.VolumeRequests).To(HaveLen(1),
-					"Volume request should stay, otherwise hotplug will not retry",
-				)
-			})
-
-			It("should be cleared when hotplug on Stopped VM", func() {
-				By("Stopped VM with a disk and matching volume")
-				vm, _ := DefaultVirtualMachine(false)
-				vm.Status.Created = false
-				vm.Status.Ready = false
-
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
-					v1.Volume{
-						Name: "vol1",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "random",
-							},
-						},
-					},
-				)
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
-					v1.Disk{
-						Name: "vol1",
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{},
-						},
-					},
-				)
-				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-					{
-						RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-							Name: "vol1",
-						},
-					},
+				if isRunning {
+					vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+					vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+					markAsReady(vmi)
+					vmiFeeder.Add(vmi)
+					vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
 				}
 
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
 				sanityExecute(vm)
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				By("Expect the volume to be cleared")
-				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
-				By("Expecting Volume request to not be cleared")
 				Expect(vm.Status.VolumeRequests).To(BeEmpty())
-			})
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
+			},
 
-			It("should not be cleared when hotplug fails on Stopped VM", func() {
-				By("Stopped VM with a disk and matching volume")
-				vm, _ := DefaultVirtualMachine(false)
-				vm.Status.Created = false
-				vm.Status.Ready = false
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
-					v1.Volume{
-						Name: "vol1",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "random",
-							},
+				Entry("that is running", true),
+				Entry("that is not running", false),
+			)
+
+			DescribeTable("should clear VolumeRequests for added volumes that are satisfied", func(isRunning bool) {
+				vm, vmi := DefaultVirtualMachine(isRunning)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &v1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &v1.Disk{},
+							VolumeSource: &v1.HotplugVolumeSource{},
 						},
 					},
-				)
-				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
-					v1.Disk{
-						Name: "vol1",
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{},
-						},
+				}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "vol1",
+				})
+				vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "vol1",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim",
+						}},
 					},
-				)
+				})
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				if isRunning {
+					vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+					vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+					markAsReady(vmi)
+					vmiFeeder.Add(vmi)
+				}
+
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.VolumeRequests).To(BeEmpty())
+			},
+
+				Entry("that is running", true),
+				Entry("that is not running", false),
+			)
+
+			DescribeTable("should clear VolumeRequests for removed volumes that are satisfied", func(isRunning bool) {
+				vm, vmi := DefaultVirtualMachine(isRunning)
+				vm.Status.Created = true
+				vm.Status.Ready = true
 				vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
 					{
 						RemoveVolumeOptions: &v1.RemoveVolumeOptions{
@@ -731,150 +854,28 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					},
 				}
+				vm.Spec.Template.Spec.Volumes = []v1.Volume{}
+				vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{}
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				By("Simulate a conflict on VM update")
-				failVMSpecUpdate(virtFakeClient)
+				if isRunning {
+					markAsReady(vmi)
+					vmiFeeder.Add(vmi)
+				}
 
 				sanityExecute(vm)
-
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				By("Expecting a Volume request to not be cleared")
-				Expect(vm.Status.VolumeRequests).To(HaveLen(1),
-					"Volume request should stay, otherwise hotplug will not retry",
-				)
-			})
+				Expect(vm.Status.VolumeRequests).To(BeEmpty())
+			},
+
+				Entry("that is running", true),
+				Entry("that is not running", false),
+			)
 		})
-
-		DescribeTable("should unhotplug a vm", func(isRunning bool) {
-			vm, vmi := DefaultVirtualMachine(isRunning)
-			vm.Status.Created = true
-			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-				{
-					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-						Name: "vol1",
-					},
-				},
-			}
-			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "vol1",
-			})
-			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "vol1",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "testpvcdiskclaim",
-					}},
-				},
-			})
-
-			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			addVirtualMachine(vm)
-
-			if isRunning {
-				vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
-				vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
-			}
-
-			sanityExecute(vm)
-
-			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
-			Expect(vm.Status.VolumeRequests).To(BeEmpty())
-			Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
-		},
-
-			Entry("that is running", true),
-			Entry("that is not running", false),
-		)
-
-		DescribeTable("should clear VolumeRequests for added volumes that are satisfied", func(isRunning bool) {
-			vm, vmi := DefaultVirtualMachine(isRunning)
-			vm.Status.Created = true
-			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-				{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
-					},
-				},
-			}
-			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "vol1",
-			})
-			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "vol1",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "testpvcdiskclaim",
-					}},
-				},
-			})
-
-			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			addVirtualMachine(vm)
-
-			if isRunning {
-				vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
-				vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-			}
-
-			sanityExecute(vm)
-			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
-			Expect(vm.Status.VolumeRequests).To(BeEmpty())
-		},
-
-			Entry("that is running", true),
-			Entry("that is not running", false),
-		)
-
-		DescribeTable("should clear VolumeRequests for removed volumes that are satisfied", func(isRunning bool) {
-			vm, vmi := DefaultVirtualMachine(isRunning)
-			vm.Status.Created = true
-			vm.Status.Ready = true
-			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
-				{
-					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-						Name: "vol1",
-					},
-				},
-			}
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{}
-			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{}
-
-			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			addVirtualMachine(vm)
-
-			if isRunning {
-				markAsReady(vmi)
-				vmiFeeder.Add(vmi)
-			}
-
-			sanityExecute(vm)
-			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
-			Expect(vm.Status.VolumeRequests).To(BeEmpty())
-		},
-
-			Entry("that is running", true),
-			Entry("that is not running", false),
-		)
 
 		It("should not delete failed DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
