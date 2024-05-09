@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -24,21 +25,21 @@ type PodEvictionAdmitter struct {
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	launcher, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
+	pod, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	if value, exists := launcher.GetLabels()[virtv1.AppLabel]; !exists || value != "virt-launcher" {
+	if !isVirtLauncher(pod) {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	domainName, exists := launcher.GetAnnotations()[virtv1.DomainAnnotation]
+	vmiName, exists := pod.GetAnnotations()[virtv1.DomainAnnotation]
 	if !exists {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), domainName, metav1.GetOptions{})
+	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
@@ -65,13 +66,15 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		markForEviction = true
 	}
 
-	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == launcher.Spec.NodeName {
+	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == pod.Spec.NodeName {
 		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
-		err := admitter.markVMI(ar, vmi.Name, vmi.Status.NodeName, dryRun)
+		err := admitter.markVMI(vmi.Namespace, vmi.Name, vmi.Status.NodeName, dryRun)
 		if err != nil {
 			// As with the previous case, it is up to the user to issue a retry.
 			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
 		}
+
+		return denied(fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name))
 	}
 
 	// We can let the request go through because the pod is protected by a PDB if the VMI wants to be live-migrated on
@@ -79,19 +82,23 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 	return validating_webhooks.NewPassingAdmissionResponse()
 }
 
-func (admitter *PodEvictionAdmitter) markVMI(ar *admissionv1.AdmissionReview, vmiName, nodeName string, dryRun bool) (err error) {
+func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName string, dryRun bool) error {
 	data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 
-	if !dryRun {
-		_, err = admitter.
-			VirtClient.
-			VirtualMachineInstance(ar.Request.Namespace).
-			Patch(context.Background(),
-				vmiName,
-				types.JSONPatchType,
-				[]byte(data),
-				metav1.PatchOptions{})
+	var patchOptions metav1.PatchOptions
+	if dryRun {
+		patchOptions.DryRun = []string{metav1.DryRunAll}
 	}
+
+	_, err := admitter.
+		VirtClient.
+		VirtualMachineInstance(vmiNamespace).
+		Patch(context.Background(),
+			vmiName,
+			types.JSONPatchType,
+			[]byte(data),
+			patchOptions,
+		)
 
 	return err
 }
@@ -104,4 +111,8 @@ func denied(message string) *admissionv1.AdmissionResponse {
 			Code:    http.StatusTooManyRequests,
 		},
 	}
+}
+
+func isVirtLauncher(pod *k8scorev1.Pod) bool {
+	return pod.Labels[virtv1.AppLabel] == "virt-launcher"
 }
