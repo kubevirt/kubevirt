@@ -377,6 +377,15 @@ container_push(
     tag = "$(container_tag)",
 )
 
+container_push(
+    name = "push-example-qemu-args-sidecar",
+    format = "Docker",
+    image = "//cmd/sidecars/qemu-args:example-qemu-args-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)example-example-qemu-args-sidecar",
+    tag = "$(container_tag)",
+)
+
 # container-disk images
 container_push(
     name = "push-alpine-container-disk-demo",
