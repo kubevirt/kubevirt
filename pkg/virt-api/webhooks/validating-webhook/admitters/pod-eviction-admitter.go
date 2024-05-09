@@ -83,17 +83,20 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName string, dryRun bool) error {
 	data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 
-	var err error
-	if !dryRun {
-		_, err = admitter.
-			VirtClient.
-			VirtualMachineInstance(vmiNamespace).
-			Patch(context.Background(),
-				vmiName,
-				types.JSONPatchType,
-				[]byte(data),
-				metav1.PatchOptions{})
+	var patchOptions metav1.PatchOptions
+	if dryRun {
+		patchOptions.DryRun = []string{metav1.DryRunAll}
 	}
+
+	_, err := admitter.
+		VirtClient.
+		VirtualMachineInstance(vmiNamespace).
+		Patch(context.Background(),
+			vmiName,
+			types.JSONPatchType,
+			[]byte(data),
+			patchOptions,
+		)
 
 	return err
 }

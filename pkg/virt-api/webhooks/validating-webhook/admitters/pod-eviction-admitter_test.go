@@ -388,7 +388,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 	})
 
-	It("should allow the request and not patch the VMI when the request is a dry run", func() {
+	It("should allow the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
 		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
 		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
 
@@ -404,6 +404,17 @@ var _ = Describe("Pod eviction admitter", func() {
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
 		vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
+
+		expectedPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, testNodeName)
+		vmiClient.
+			EXPECT().
+			Patch(context.Background(),
+				migratableVMI.Name,
+				types.JSONPatchType,
+				[]byte(expectedPatchData),
+				metav1.PatchOptions{
+					DryRun: []string{metav1.DryRunAll},
+				}).Return(migratableVMI, nil)
 
 		admitter := admitters.PodEvictionAdmitter{
 			ClusterConfig: newClusterConfig(nil),
