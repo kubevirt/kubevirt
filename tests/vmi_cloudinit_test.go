@@ -324,9 +324,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				// Store userdata as k8s secret
 				By("Creating a user-data secret")
-				secret := libsecret.New(secretID, map[string][]byte{
-					"userdata": []byte(userData),
-				})
+				secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
 				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				break
@@ -394,9 +392,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				)
 
 				By("Creating a secret with network data")
-				secret := libsecret.New(secretID, map[string][]byte{
-					"networkdata": []byte(testNetworkData),
-				})
+				secret := libsecret.New(secretID, libsecret.DataString{"networkdata": testNetworkData})
 				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -525,9 +521,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Store cloudinit data as k8s secret
 					By("Creating a secret with user and network data")
-					secret := libsecret.New(secretID, map[string][]byte{
-						"networkdata": []byte(testNetworkData),
-					})
+					secret := libsecret.New(secretID, libsecret.DataString{"networkdata": testNetworkData})
 
 					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -573,14 +567,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Store cloudinit data as k8s secret
 					By("Creating a secret with userdata")
-					uSecret := libsecret.New(uSecretID, map[string][]byte{
-						userDataLabel: []byte(testUserData),
-					})
+					uSecret := libsecret.New(uSecretID, libsecret.DataString{userDataLabel: testUserData})
 
 					By("Creating a secret with network data")
-					nSecret := libsecret.New(nSecretID, map[string][]byte{
-						networkDataLabel: []byte(testNetworkData),
-					})
+					nSecret := libsecret.New(nSecretID, libsecret.DataString{networkDataLabel: testNetworkData})
 
 					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), uSecret, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())

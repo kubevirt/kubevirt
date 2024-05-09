@@ -24,8 +24,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type secretData interface {
+	Data() map[string][]byte
+	StringData() map[string]string
+}
+
 // New return Secret of Opaque type with "kubevirt.io/secret" label
-func New(name string, data map[string][]byte) *kubev1.Secret {
+func New(name string, data secretData) *kubev1.Secret {
 	// secretLabel set this label to make the test suite namespace clean-up delete the secret on teardown
 	const secretLabel = "kubevirt.io/secret" // #nosec G101
 	return &kubev1.Secret{
@@ -35,6 +40,27 @@ func New(name string, data map[string][]byte) *kubev1.Secret {
 				secretLabel: name,
 			},
 		},
-		Data: data,
+		Data:       data.Data(),
+		StringData: data.StringData(),
 	}
+}
+
+type DataBytes map[string][]byte
+
+func (s DataBytes) Data() map[string][]byte {
+	return s
+}
+
+func (DataBytes) StringData() map[string]string {
+	return nil
+}
+
+type DataString map[string]string
+
+func (DataString) Data() map[string][]byte {
+	return nil
+}
+
+func (s DataString) StringData() map[string]string {
+	return s
 }
