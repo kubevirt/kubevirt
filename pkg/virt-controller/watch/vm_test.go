@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+	kubeclifake "kubevirt.io/client-go/kubecli/fake"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -434,6 +435,79 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 		Context("Disk un/hotplug", func() {
+			addVolumeReactor := func(virtFakeClient *fake.Clientset) {
+				virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					switch action := action.(type) {
+					case kubeclifake.PutAction[*v1.AddVolumeOptions]:
+						obj, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
+						Expect(err).NotTo(HaveOccurred())
+						vmi := obj.(*v1.VirtualMachineInstance)
+						option := action.GetOptions()
+						spec := virtcontroller.ApplyVolumeRequestOnVMISpec(&vmi.Spec, &v1.VirtualMachineVolumeRequest{
+							AddVolumeOptions: option,
+						})
+
+						vmi.Spec = *spec
+						return true, nil, virtFakeClient.Tracker().Update(action.GetResource(), vmi, action.GetNamespace())
+					default:
+						Fail("unexpected action type on addvolume")
+						return false, nil, nil
+					}
+
+				})
+			}
+
+			removeVolumeReactor := func(virtFakeClient *fake.Clientset) {
+				virtFakeClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					switch action := action.(type) {
+					case kubeclifake.PutAction[*v1.RemoveVolumeOptions]:
+						obj, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
+						Expect(err).NotTo(HaveOccurred())
+						vmi := obj.(*v1.VirtualMachineInstance)
+						option := action.GetOptions()
+						spec := virtcontroller.ApplyVolumeRequestOnVMISpec(&vmi.Spec, &v1.VirtualMachineVolumeRequest{
+							RemoveVolumeOptions: option,
+						})
+
+						vmi.Spec = *spec
+						return true, nil, virtFakeClient.Tracker().Update(action.GetResource(), vmi, action.GetNamespace())
+					default:
+						Fail("unexpected action type on removevolume")
+						return false, nil, nil
+					}
+
+				})
+			}
+
+			addVolumeFailureReactor := func(virtFakeClient *fake.Clientset) {
+				virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					switch action := action.(type) {
+					case kubeclifake.PutAction[*v1.AddVolumeOptions]:
+						_, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
+						Expect(err).NotTo(HaveOccurred())
+						return true, nil, fmt.Errorf("conflict")
+					default:
+						Fail("unexpected action type on addvolume")
+						return false, nil, nil
+					}
+				})
+			}
+
+			removeVolumeFailureReactor := func(virtFakeClient *fake.Clientset) {
+				virtFakeClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					switch action := action.(type) {
+					case kubeclifake.PutAction[*v1.RemoveVolumeOptions]:
+						_, err := virtFakeClient.Tracker().Get(action.GetResource(), action.GetNamespace(), action.GetName())
+						Expect(err).NotTo(HaveOccurred())
+						return true, nil, fmt.Errorf("conflict")
+					default:
+						Fail("unexpected action type on removevolume")
+						return false, nil, nil
+					}
+
+				})
+			}
+
 			DescribeTable("should hotplug a vm", func(isRunning bool) {
 
 				vm, vmi := DefaultVirtualMachine(isRunning)
@@ -455,8 +529,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				if isRunning {
 					markAsReady(vmi)
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					vmiFeeder.Add(vmi)
-					vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
+
+					addVolumeReactor(virtFakeClient)
 				}
 
 				sanityExecute(vm)
@@ -465,6 +542,12 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
 				Expect(vm.Status.VolumeRequests).To(BeEmpty())
+
+				if isRunning {
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Volumes[0].Name).To(Equal("vol1"))
+				}
 			},
 
 				Entry("that is running", true),
@@ -490,11 +573,14 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
+
 					markAsReady(vmi)
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					vmiFeeder.Add(vmi)
 
 					By("Simulate a failure in hotplug")
-					vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(fmt.Errorf("error"))
+					addVolumeFailureReactor(virtFakeClient)
 
 					By("Not expecting to see a status update")
 					sanityExecute(vm)
@@ -524,9 +610,12 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					markAsReady(vmi)
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					vmiFeeder.Add(vmi)
+
 					By("Simulate hotplug")
-					vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions).Return(nil)
+					addVolumeReactor(virtFakeClient)
 
 					By("Simulate update failure")
 					failVMSpecUpdate(virtFakeClient)
@@ -537,6 +626,10 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					Expect(vm.Status.VolumeRequests).To(HaveLen(1), "Volume request should stay, otherwise hotplug will not retry")
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Volumes[0].Name).To(Equal("vol1"))
 				})
 
 				It("should be cleared when hotplug on Stopped VM", func() {
@@ -642,9 +735,12 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					markAsReady(vmi)
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					vmiFeeder.Add(vmi)
+
 					By("Simulate a un-hotplug failure")
-					vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions).Return(fmt.Errorf("error"))
+					removeVolumeFailureReactor(virtFakeClient)
 
 					sanityExecute(vm)
 
@@ -782,8 +878,11 @@ var _ = Describe("VirtualMachine", func() {
 					vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
 					vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
 					markAsReady(vmi)
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					vmiFeeder.Add(vmi)
-					vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
+
+					removeVolumeReactor(virtFakeClient)
 				}
 
 				sanityExecute(vm)
@@ -831,7 +930,14 @@ var _ = Describe("VirtualMachine", func() {
 					vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
 					vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
 					markAsReady(vmi)
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					vmiFeeder.Add(vmi)
+
+					virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+						Fail("add volume should not be called")
+						return false, nil, nil
+					})
 				}
 
 				sanityExecute(vm)
@@ -864,7 +970,14 @@ var _ = Describe("VirtualMachine", func() {
 
 				if isRunning {
 					markAsReady(vmi)
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
 					vmiFeeder.Add(vmi)
+
+					virtFakeClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+						Fail("remove volume should not be called")
+						return false, nil, nil
+					})
 				}
 
 				sanityExecute(vm)
