@@ -137,7 +137,7 @@ func (vc *VirtCommand) Run(args []string) error {
 				if errors.IsNotFound(err) {
 					runningStrategy, err := vm.RunStrategy()
 					if err != nil {
-						return fmt.Errorf("Error pausing VirutalMachineInstance %s: %v", vmiName, err)
+						return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vmiName, err)
 					}
 					if runningStrategy == kubevirtV1.RunStrategyHalted {
 						return fmt.Errorf("Error pausing VirtualMachineInstance %s. VirtualMachine %s is not set to run", vmiName, vm.Name)
@@ -145,7 +145,7 @@ func (vc *VirtCommand) Run(args []string) error {
 					return fmt.Errorf("Error pausing VirtualMachineInstance %s, it was not found", vmiName)
 
 				}
-				return fmt.Errorf("Error pausing VirutalMachineInstance %s: %v", vmiName, err)
+				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vmiName, err)
 			}
 			printLog(vmiName, vc.command)
 
