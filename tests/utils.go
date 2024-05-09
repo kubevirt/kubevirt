@@ -194,24 +194,6 @@ func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, acc
 	), dv
 }
 
-// NewRandomVirtualMachineInstanceWithFileDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVirtualMachineInstanceWithFileDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	if !libstorage.HasCDI() {
-		Skip("Skip DataVolume tests when CDI is not present")
-	}
-	sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
-	if accessMode == k8sv1.ReadWriteMany {
-		sc, foundSC = libstorage.GetRWXFileSystemStorageClass()
-	}
-	if !foundSC {
-		Skip("Skip test when Filesystem storage is not present")
-	}
-
-	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeFilesystem)
-}
-
 // NewRandomVirtualMachineInstanceWithBlockDisk
 //
 // Deprecated: Use libvmi directly
