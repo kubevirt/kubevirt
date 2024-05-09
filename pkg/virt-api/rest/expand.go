@@ -13,8 +13,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 func (app *SubresourceAPIApp) ExpandSpecRequestHandler(request *restful.Request, response *restful.Response) {
@@ -63,7 +65,7 @@ func (app *SubresourceAPIApp) ExpandSpecRequestHandler(request *restful.Request,
 	}
 	vm.Namespace = request.PathParameter("namespace")
 
-	expandSpecResponse(vm, app.instancetypeMethods, func(err error) *errors.StatusError {
+	app.expandSpecResponse(vm, func(err error) *errors.StatusError {
 		return errors.NewBadRequest(err.Error())
 	}, response)
 }
@@ -78,16 +80,16 @@ func (app *SubresourceAPIApp) ExpandSpecVMRequestHandler(request *restful.Reques
 		return
 	}
 
-	expandSpecResponse(vm, app.instancetypeMethods, errors.NewInternalError, response)
+	app.expandSpecResponse(vm, errors.NewInternalError, response)
 }
 
-func expandSpecResponse(vm *v1.VirtualMachine, instancetypeMethods instancetype.Methods, errorFunc func(error) *errors.StatusError, response *restful.Response) {
-	instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
+func (app *SubresourceAPIApp) expandSpecResponse(vm *v1.VirtualMachine, errorFunc func(error) *errors.StatusError, response *restful.Response) {
+	instancetypeSpec, err := app.instancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
 		writeError(errorFunc(err), response)
 		return
 	}
-	preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
+	preferenceSpec, err := app.instancetypeMethods.FindPreferenceSpec(vm)
 	if err != nil {
 		writeError(errorFunc(err), response)
 		return
@@ -101,9 +103,22 @@ func expandSpecResponse(vm *v1.VirtualMachine, instancetypeMethods instancetype.
 		return
 	}
 
-	conflicts := instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
+	util.SetDefaultVolumeDisk(&vm.Spec.Template.Spec)
+
+	if err := vmispec.SetDefaultNetworkInterface(app.clusterConfig, &vm.Spec.Template.Spec); err != nil {
+		writeError(errorFunc(err), response)
+		return
+	}
+
+	conflicts := app.instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
 	if len(conflicts) > 0 {
 		writeError(errorFunc(fmt.Errorf("cannot expand instancetype to VM")), response)
+		return
+	}
+
+	// Apply defaults to VM after applying instance types to ensure we don't conflict
+	if err := webhooks.SetDefaultVirtualMachine(app.clusterConfig, vm); err != nil {
+		writeError(errorFunc(err), response)
 		return
 	}
 
