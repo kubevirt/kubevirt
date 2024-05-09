@@ -39,7 +39,6 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/libvmi:go_default_library",
-        "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/testutils:go_default_library",

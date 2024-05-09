@@ -123,7 +123,6 @@ go_test(
         "//pkg/controller:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
-        "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",

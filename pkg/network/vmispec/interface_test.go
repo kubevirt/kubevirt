@@ -228,17 +228,36 @@ var _ = Describe("VMI network spec", func() {
 		})
 	})
 
+	const (
+		deviceInfoPlugin    = "deviceinfo"
+		nonDeviceInfoPlugin = "non_deviceinfo"
+	)
+
+	bindingPlugins := map[string]v1.InterfaceBindingPlugin{
+		deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
+		nonDeviceInfoPlugin: {},
+	}
+	Context("binding plugin network with device info", func() {
+		It("returns false given non binding-plugin interface", func() {
+			Expect(netvmispec.HasBindingPluginDeviceInfo(
+				libvmi.InterfaceDeviceWithBridgeBinding("net1"),
+				bindingPlugins,
+			)).To(BeFalse())
+		})
+		It("returns false when interface binding is not plugin with device-info", func() {
+			Expect(netvmispec.HasBindingPluginDeviceInfo(
+				interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin),
+				bindingPlugins,
+			)).To(BeFalse())
+		})
+		It("returns true when interface binding is plugin with device-info", func() {
+			Expect(netvmispec.HasBindingPluginDeviceInfo(
+				interfaceWithBindingPlugin("net2", deviceInfoPlugin),
+				bindingPlugins,
+			)).To(BeTrue())
+		})
+	})
 	Context("binding plugin network with device info exist", func() {
-		const (
-			deviceInfoPlugin    = "deviceinfo"
-			nonDeviceInfoPlugin = "non_deviceinfo"
-		)
-
-		bindingPlugins := map[string]v1.InterfaceBindingPlugin{
-			deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
-			nonDeviceInfoPlugin: {},
-		}
-
 		It("returns false when there is no network with device info plugin", func() {
 			ifaces := []v1.Interface{interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin)}
 			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeFalse())

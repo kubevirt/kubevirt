@@ -56,7 +56,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -782,7 +781,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			selectedPCIAddress = "0000:04:02.5"
 		)
 
-		It("should not patch network-pci-map and network-info when no SR-IOV/binding plugin networks exist", func() {
+		It("should not patch network-info annotation when no SR-IOV/binding plugin networks exist", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
 			vmi = addDefaultNetwork(vmi, defaultNetworkName)
@@ -805,11 +804,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
-			expectPodAnnotations(pod, Not(HaveKey(deviceinfo.NetworkPCIMapAnnot)))
 			expectPodAnnotations(pod, Not(HaveKey(downwardapi.NetworkInfoAnnot)))
 		})
 
-		It("should patch network-pci-map when SR-IOV networks exist", func() {
+		It("should patch network-info annotation when SR-IOV networks exist", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Running
 			vmi = addDefaultNetwork(vmi, defaultNetworkName)
@@ -847,7 +845,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
-			expectPodAnnotations(pod, HaveKeyWithValue(deviceinfo.NetworkPCIMapAnnot, `{"`+sriovNetworkName+`":"`+selectedPCIAddress+`"}`))
+
+			Expect(pod.Annotations).To(HaveKey(downwardapi.NetworkInfoAnnot))
 		})
 	})
 

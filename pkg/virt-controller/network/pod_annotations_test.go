@@ -20,13 +20,16 @@
 package network_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 )
@@ -74,6 +77,12 @@ var _ = Describe("pod annotations", func() {
             "pci-address": "0000:65:00.3"
           }
         }
+      },
+      {
+        "name": "default/br-net",
+        "interface": "podeeea394806a",
+        "mac": "6a:1f:28:23:58:40",
+        "dns": {}
       }
   ]`
 
@@ -108,7 +117,7 @@ var _ = Describe("pod annotations", func() {
 			podAnnotationMap := network.GeneratePodAnnotations(networks, interfaces, networkStatus, bindingPlugins)
 			Expect(podAnnotationMap).To(BeEmpty())
 		})
-		It("should have network-info entry when there is one non SRIOV interface with device info", func() {
+		It("should have network-info entry when there is one binding plugin with device info", func() {
 			networks := []virtv1.Network{
 				*libvmi.MultusNetwork("foo", "default/with-device-info"),
 			}
@@ -123,10 +132,25 @@ var _ = Describe("pod annotations", func() {
 				downwardapi.NetworkInfoAnnot: `{"interfaces":[{"network":"foo","deviceInfo":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:65:00.2"}}}]}`,
 			}))
 		})
-		It("should have both network-pci-map, network-info entries when there is SRIOV interface and binding plugin interface with device-info", func() {
+		It("should have network-info entry when there is one SR-IOV interface", func() {
+			networks := []virtv1.Network{
+				*libvmi.MultusNetwork("doo", "default/sriov"),
+			}
+
+			interfaces := []virtv1.Interface{
+				libvmi.InterfaceDeviceWithSRIOVBinding("doo"),
+			}
+			podAnnotationMap := network.GeneratePodAnnotations(networks, interfaces, networkStatus, bindingPlugins)
+			Expect(podAnnotationMap).To(Equal(map[string]string{
+				downwardapi.NetworkInfoAnnot: `{"interfaces":[{"network":"doo","deviceInfo":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:65:00.3"}}}]}`,
+			}))
+		})
+		It("should have network-info entry when there is SR-IOV interface and binding plugin interface with device-info", func() {
 			networks := []virtv1.Network{
 				*libvmi.MultusNetwork("foo", "default/with-device-info"),
 				*libvmi.MultusNetwork("doo", "default/sriov"),
+				*libvmi.MultusNetwork("boo", "default/no-device-info"),
+				*libvmi.MultusNetwork("goo", "default/br-net"),
 			}
 
 			interfaces := []virtv1.Interface{
@@ -134,11 +158,22 @@ var _ = Describe("pod annotations", func() {
 					"foo", virtv1.PluginBinding{Name: deviceInfoPlugin},
 				),
 				libvmi.InterfaceDeviceWithSRIOVBinding("doo"),
+				libvmi.InterfaceWithBindingPlugin(
+					"boo", virtv1.PluginBinding{Name: nonDeviceInfoPlugin},
+				),
+				libvmi.InterfaceDeviceWithBridgeBinding("goo"),
 			}
 			podAnnotationMap := network.GeneratePodAnnotations(networks, interfaces, networkStatus, bindingPlugins)
-			Expect(podAnnotationMap).To(Equal(map[string]string{
-				downwardapi.NetworkInfoAnnot:  `{"interfaces":[{"network":"foo","deviceInfo":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:65:00.2"}}}]}`,
-				deviceinfo.NetworkPCIMapAnnot: `{"doo":"0000:65:00.3"}`,
+			Expect(podAnnotationMap).To(HaveLen(1))
+			Expect(podAnnotationMap).To(HaveKey(downwardapi.NetworkInfoAnnot))
+
+			var actualNetInfo downwardapi.NetworkInfo
+			Expect(json.Unmarshal([]byte(podAnnotationMap[downwardapi.NetworkInfoAnnot]), &actualNetInfo)).To(Succeed())
+			Expect(actualNetInfo.Interfaces).To(ConsistOf([]downwardapi.Interface{
+				{Network: "foo", DeviceInfo: &networkv1.DeviceInfo{Type: "pci", Version: "1.0.0",
+					Pci: &networkv1.PciDevice{PciAddress: "0000:65:00.2"}}},
+				{Network: "doo", DeviceInfo: &networkv1.DeviceInfo{Type: "pci", Version: "1.0.0",
+					Pci: &networkv1.PciDevice{PciAddress: "0000:65:00.3"}}},
 			}))
 		})
 	})

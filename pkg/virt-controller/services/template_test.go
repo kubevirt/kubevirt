@@ -49,6 +49,7 @@ import (
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -4965,7 +4966,124 @@ var _ = Describe("Template", func() {
 		)
 	})
 
+	Context("network-info", func() {
+		const (
+			noDeviceInfoPlugin = "no_deviceinfo"
+			deviceInfoPlugin   = "deviceinfo"
+		)
+		BeforeEach(func() {
+			bindingPlugins := map[string]v1.InterfaceBindingPlugin{
+				deviceInfoPlugin:   {DownwardAPI: v1.DeviceInfo},
+				noDeviceInfoPlugin: {},
+			}
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{Binding: bindingPlugins}
+			_, kvInformer, svc = configFactory(defaultArch)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		})
+		It("has no downward-api for network-info when missing supported network-binding", func() {
+			vmi := libvmi.New(libvmi.WithNamespace("default"),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(libvmi.MultusNetwork("network1", "default/default")),
+				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("network1", v1.PluginBinding{Name: noDeviceInfoPlugin})),
+			)
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Volumes).ToNot(ContainElement(networkInfoAnnotVolume()),
+				"pod should not have network-info annotation volume")
+
+			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+			Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(ContainElement(networkInfoAnnotVolumeMount()),
+				"pod should not have network-info annotation volume mount")
+		})
+
+		DescribeTable("downward api for network-info is defined",
+			func(interfaces []v1.Interface, networks []v1.Network) {
+				vmi := libvmi.New(libvmi.WithNamespace("default"))
+				vmi.Spec.Domain.Devices.Interfaces = interfaces
+				vmi.Spec.Networks = networks
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				const netInfoAnnotVolName = "network-info-annotation"
+				netInfoVolumes := filterDownwardAPIVolumeByName(pod.Spec.Volumes, netInfoAnnotVolName)
+				Expect(netInfoVolumes).To(ConsistOf(networkInfoAnnotVolume()),
+					"should have single network-info annotation volume")
+
+				const computeContainerName = "compute"
+				Expect(pod.Spec.Containers[0].Name).To(Equal(computeContainerName))
+				netInfoVolumeMounts := filterVolumeMountByName(pod.Spec.Containers[0].VolumeMounts, netInfoAnnotVolName)
+				Expect(netInfoVolumeMounts).To(ConsistOf(networkInfoAnnotVolumeMount()),
+					"should have single network-info annotation volume mount")
+			},
+			Entry("with SR-IOV interface",
+				[]v1.Interface{libvmi.InterfaceDeviceWithSRIOVBinding("network1")},
+				[]v1.Network{*libvmi.MultusNetwork("network1", "default/default")},
+			),
+			Entry("with binding plugin device-info interface",
+				[]v1.Interface{libvmi.InterfaceWithBindingPlugin("network1", v1.PluginBinding{Name: deviceInfoPlugin})},
+				[]v1.Network{*libvmi.MultusNetwork("network1", "default/default")},
+			),
+			Entry("with binding plugin device-info and SR-IOV interfaces",
+				[]v1.Interface{
+					libvmi.InterfaceDeviceWithSRIOVBinding("network1"),
+					libvmi.InterfaceWithBindingPlugin("network2", v1.PluginBinding{Name: deviceInfoPlugin}),
+				},
+				[]v1.Network{
+					*libvmi.MultusNetwork("network1", "default/default"),
+					*libvmi.MultusNetwork("network2", "default/default"),
+				},
+			),
+		)
+	})
 })
+
+func networkInfoAnnotVolume() k8sv1.Volume {
+	netInfoAnnotFile := k8sv1.DownwardAPIVolumeFile{
+		Path: "network-info",
+		FieldRef: &k8sv1.ObjectFieldSelector{
+			FieldPath: "metadata.annotations['kubevirt.io/network-info']",
+		},
+	}
+	return k8sv1.Volume{
+		Name: "network-info-annotation",
+		VolumeSource: k8sv1.VolumeSource{
+			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+				Items: []k8sv1.DownwardAPIVolumeFile{netInfoAnnotFile},
+			},
+		},
+	}
+}
+
+func networkInfoAnnotVolumeMount() k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      "network-info-annotation",
+		MountPath: "/etc/podinfo",
+	}
+}
+
+func filterDownwardAPIVolumeByName(volumes []k8sv1.Volume, name string) []k8sv1.Volume {
+	var filteredVolumes []k8sv1.Volume
+	for _, vol := range volumes {
+		if vol.Name == name && vol.VolumeSource.DownwardAPI != nil {
+			filteredVolumes = append(filteredVolumes, vol)
+		}
+	}
+	return filteredVolumes
+}
+
+func filterVolumeMountByName(mounts []k8sv1.VolumeMount, name string) []k8sv1.VolumeMount {
+	var filteredVolumesMounts []k8sv1.VolumeMount
+	for _, mount := range mounts {
+		if mount.Name == name {
+			filteredVolumesMounts = append(filteredVolumesMounts, mount)
+		}
+	}
+	return filteredVolumesMounts
+}
 
 func testSidecarCreator(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 	return []hooks.HookSidecar{testHookSidecar}, nil

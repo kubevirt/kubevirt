@@ -20,7 +20,6 @@ go_library(
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
-        "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/namescheme:go_default_library",
@@ -69,6 +68,7 @@ go_test(
     deps = [
         "//pkg/config:go_default_library",
         "//pkg/hooks:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",

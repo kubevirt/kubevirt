@@ -764,10 +764,12 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		volumeOpts = append(volumeOpts, withHotplugSupport(t.hotplugDiskDir))
 	}
 
-	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
-		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
-	}
-	if vmispec.BindingPluginNetworkWithDeviceInfoExist(vmi.Spec.Domain.Devices.Interfaces, t.clusterConfig.GetNetworkBindings()) {
+	if vmispec.BindingPluginNetworkWithDeviceInfoExist(vmi.Spec.Domain.Devices.Interfaces, t.clusterConfig.GetNetworkBindings()) ||
+		vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
+		volumeOpts = append(volumeOpts, func(renderer *VolumeRenderer) error {
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
+			return nil
+		})
 		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
 	}
 
