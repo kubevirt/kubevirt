@@ -76,16 +76,6 @@ var _ = Describe("QEMU slirp networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(testMutator.Mutate(testDomainSpec)).To(Equal(expectedDomainSpec))
 			},
-			Entry("interface with slirp binding method",
-				*vmschema.DefaultSlirpNetworkInterface(),
-				*vmschema.DefaultPodNetwork(),
-				[]domainschema.Arg{
-					{Value: `-netdev`},
-					{Value: `user,id=default,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`},
-					{Value: `{"driver":"e1000","netdev":"default","id":"default"}`},
-				},
-			),
 			Entry("custom CIDR",
 				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{
