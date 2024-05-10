@@ -7,6 +7,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -86,17 +87,29 @@ func NewClusterInstancetypeFromVMI(vmi *v1.VirtualMachineInstance) *instancetype
 	)
 }
 
-func NewPreference() *instancetypev1beta1.VirtualMachinePreference {
-	return &instancetypev1beta1.VirtualMachinePreference{
+type PreferenceSpecOption func(*instancetypev1beta1.VirtualMachinePreferenceSpec)
+
+func newPreferenceSpec(opts ...PreferenceSpecOption) instancetypev1beta1.VirtualMachinePreferenceSpec {
+	spec := &instancetypev1beta1.VirtualMachinePreferenceSpec{}
+	for _, f := range opts {
+		f(spec)
+	}
+	return *spec
+}
+
+func NewPreference(opts ...PreferenceSpecOption) *instancetypev1beta1.VirtualMachinePreference {
+	preference := &instancetypev1beta1.VirtualMachinePreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "preference-",
 			Namespace:    testsuite.GetTestNamespace(nil),
 		},
+		Spec: newPreferenceSpec(opts...),
 	}
+	return preference
 }
 
-func NewClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference {
-	return &instancetypev1beta1.VirtualMachineClusterPreference{
+func NewClusterPreference(opts ...PreferenceSpecOption) *instancetypev1beta1.VirtualMachineClusterPreference {
+	preference := &instancetypev1beta1.VirtualMachineClusterPreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "clusterpreference-",
 			Namespace:    testsuite.GetTestNamespace(nil),
@@ -104,5 +117,16 @@ func NewClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference
 				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
 			},
 		},
+		Spec: newPreferenceSpec(opts...),
+	}
+	return preference
+}
+
+func WithPreferredCPUTopology(topology instancetypev1beta1.PreferredCPUTopology) PreferenceSpecOption {
+	return func(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+		if spec.CPU == nil {
+			spec.CPU = &instancetypev1beta1.CPUPreferences{}
+		}
+		spec.CPU.PreferredCPUTopology = pointer.P(topology)
 	}
 }

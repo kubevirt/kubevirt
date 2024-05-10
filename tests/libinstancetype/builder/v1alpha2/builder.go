@@ -86,17 +86,29 @@ func NewClusterInstancetypeFromVMI(vmi *v1.VirtualMachineInstance) *instancetype
 	)
 }
 
-func NewPreference() *instancetypev1alpha2.VirtualMachinePreference {
-	return &instancetypev1alpha2.VirtualMachinePreference{
+type PreferenceSpecOption func(*instancetypev1alpha2.VirtualMachinePreferenceSpec)
+
+func newPreferenceSpec(opts ...PreferenceSpecOption) instancetypev1alpha2.VirtualMachinePreferenceSpec {
+	spec := &instancetypev1alpha2.VirtualMachinePreferenceSpec{}
+	for _, f := range opts {
+		f(spec)
+	}
+	return *spec
+}
+
+func NewPreference(opts ...PreferenceSpecOption) *instancetypev1alpha2.VirtualMachinePreference {
+	preference := &instancetypev1alpha2.VirtualMachinePreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "preference-",
 			Namespace:    testsuite.GetTestNamespace(nil),
 		},
+		Spec: newPreferenceSpec(opts...),
 	}
+	return preference
 }
 
-func NewClusterPreference() *instancetypev1alpha2.VirtualMachineClusterPreference {
-	return &instancetypev1alpha2.VirtualMachineClusterPreference{
+func NewClusterPreference(opts ...PreferenceSpecOption) *instancetypev1alpha2.VirtualMachineClusterPreference {
+	preference := &instancetypev1alpha2.VirtualMachineClusterPreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "clusterpreference-",
 			Namespace:    testsuite.GetTestNamespace(nil),
@@ -104,5 +116,16 @@ func NewClusterPreference() *instancetypev1alpha2.VirtualMachineClusterPreferenc
 				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
 			},
 		},
+		Spec: newPreferenceSpec(opts...),
+	}
+	return preference
+}
+
+func WithPreferredCPUTopology(topology instancetypev1alpha2.PreferredCPUTopology) PreferenceSpecOption {
+	return func(spec *instancetypev1alpha2.VirtualMachinePreferenceSpec) {
+		if spec.CPU == nil {
+			spec.CPU = &instancetypev1alpha2.CPUPreferences{}
+		}
+		spec.CPU.PreferredCPUTopology = topology
 	}
 }
