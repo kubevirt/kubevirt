@@ -203,6 +203,7 @@ go_test(
         "//tests/libdv:go_default_library",
         "//tests/libinfra:go_default_library",
         "//tests/libinstancetype:go_default_library",
+        "//tests/libinstancetype/builder:go_default_library",
         "//tests/libmigration:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnet/cloudinit:go_default_library",

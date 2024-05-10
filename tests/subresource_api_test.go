@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libinstancetype"
+	instancetypebuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -436,8 +436,9 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				instancetype = libinstancetype.NewInstancetypeFromVMI(nil)
-				instancetype.Spec.CPU.Guest = 2
+				instancetype = instancetypebuilder.NewInstancetype(
+					instancetypebuilder.WithCPUs(uint32(2)),
+				)
 				instancetype, err = virtCli.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 					Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -446,8 +447,9 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Kind: instancetypeapi.SingularResourceName,
 				}
 
-				clusterInstancetype = libinstancetype.NewClusterInstancetypeFromVMI(nil)
-				clusterInstancetype.Spec.CPU.Guest = 2
+				clusterInstancetype = instancetypebuilder.NewClusterInstancetype(
+					instancetypebuilder.WithCPUs(uint32(2)),
+				)
 				clusterInstancetype, err = virtCli.VirtualMachineClusterInstancetype().
 					Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -581,7 +583,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				preference = libinstancetype.NewPreference()
+				preference = instancetypebuilder.NewPreference()
 				preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 				}
@@ -593,7 +595,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
-				clusterPreference = libinstancetype.NewClusterPreference()
+				clusterPreference = instancetypebuilder.NewClusterPreference()
 				clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 				}

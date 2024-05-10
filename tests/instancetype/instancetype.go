@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdv"
-	"kubevirt.io/kubevirt/tests/libinstancetype"
+	builder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
 
 	//nolint:all
 	. "github.com/onsi/ginkgo/v2"
@@ -62,7 +62,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Instancetype validation", func() {
 		It("[test_id:CNV-9082] should allow valid instancetype", func() {
-			instancetype := libinstancetype.NewInstancetypeFromVMI(nil)
+			instancetype := builder.NewInstancetypeFromVMI(nil)
 			_, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -113,7 +113,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("Preference validation", func() {
 		It("[test_id:CNV-9084] should allow valid preference", func() {
-			preference := libinstancetype.NewPreference()
+			preference := builder.NewPreference()
 			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -203,14 +203,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			// Use an Alpine VMI so we have enough memory in the eventual instance type and launched VMI to get past validation checks
 			vmi := libvmifact.NewAlpine()
 
-			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
 
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := libinstancetype.NewPreference()
+			preference := builder.NewPreference()
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -246,12 +246,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9094] should find and apply cluster instancetype and preferences when kind isn't provided", func() {
-			clusterInstancetype := libinstancetype.NewClusterInstancetypeFromVMI(vmi)
+			clusterInstancetype := builder.NewClusterInstancetypeFromVMI(vmi)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			clusterPreference := libinstancetype.NewClusterPreference()
+			clusterPreference := builder.NewClusterPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			clusterPreference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
@@ -275,7 +275,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9095] should apply instancetype and preferences to VMI", func() {
-			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Annotations = map[string]string{
 				"required-annotation-1": "1",
 				"required-annotation-2": "2",
@@ -284,7 +284,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preference := libinstancetype.NewPreference()
+			preference := builder.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			preference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
@@ -368,7 +368,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("should apply memory overcommit instancetype to VMI", func() {
 			// Use an Alpine VMI so we have enough memory in the eventual instance type and launched VMI to get past validation checks
 			vmi = libvmifact.NewAlpine()
-			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype.Spec.Memory.OvercommitPercent = 15
 
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
@@ -394,7 +394,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", func() {
-			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -428,7 +428,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
-			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -469,7 +469,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {
-			clusterPreference := libinstancetype.NewClusterPreference()
+			clusterPreference := builder.NewClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 				PreferredInterfaceModel: virtv1.VirtIO,
 			}
@@ -491,7 +491,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("[test_id:CNV-9303] should apply preferences to default volume disks", func() {
-			clusterPreference := libinstancetype.NewClusterPreference()
+			clusterPreference := builder.NewClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 				PreferredDiskBus: virtv1.DiskBusVirtio,
 			}
@@ -517,14 +517,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		It("[test_id:CNV-9098] should store and use ControllerRevisions of VirtualMachineInstancetypeSpec and VirtualMachinePreferenceSpec", func() {
 			By("Creating a VirtualMachineInstancetype")
-			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			originalInstancetypeCPUGuest := instancetype.Spec.CPU.Guest
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachinePreference")
-			preference := libinstancetype.NewPreference()
+			preference := builder.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferSockets
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
@@ -630,7 +630,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		It("[test_id:CNV-9304] should fail if stored ControllerRevisions are different", func() {
 			By("Creating a VirtualMachineInstancetype")
-			instancetype := libinstancetype.NewInstancetypeFromVMI(vmi)
+			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1026,13 +1026,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			namespace = testsuite.GetTestNamespace(nil)
 
 			By("Creating a VirtualMachineInstancetype")
-			instancetype = libinstancetype.NewInstancetypeFromVMI(nil)
+			instancetype = builder.NewInstancetypeFromVMI(nil)
 			var err error
 			instancetype, err = virtClient.VirtualMachineInstancetype(namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachinePreference")
-			preference = libinstancetype.NewPreference()
+			preference = builder.NewPreference()
 			preferredCPUTopology := instancetypev1beta1.PreferCores
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
@@ -1299,7 +1299,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		It("should be accepted and result in running VirtualMachineInstance", func() {
 			vmi := libvmifact.NewGuestless()
 
-			clusterInstancetype := libinstancetype.NewClusterInstancetypeFromVMI(vmi)
+			clusterInstancetype := builder.NewClusterInstancetypeFromVMI(vmi)
 			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
