@@ -34,7 +34,7 @@ import (
 )
 
 var _ = Describe("Multus annotations", func() {
-	var multusAnnotationPool multusNetworkAnnotationPool
+	var multusAnnotationPool MultusNetworkAnnotationPool
 	var vmi v1.VirtualMachineInstance
 	var network1, network2 v1.Network
 
@@ -58,7 +58,7 @@ var _ = Describe("Multus annotations", func() {
 
 	Context("a multus annotation pool with no elements", func() {
 		BeforeEach(func() {
-			multusAnnotationPool = multusNetworkAnnotationPool{}
+			multusAnnotationPool = MultusNetworkAnnotationPool{}
 		})
 
 		It("is empty", func() {
@@ -78,7 +78,7 @@ var _ = Describe("Multus annotations", func() {
 
 	Context("a multus annotation pool with elements", func() {
 		BeforeEach(func() {
-			multusAnnotationPool = multusNetworkAnnotationPool{
+			multusAnnotationPool = MultusNetworkAnnotationPool{
 				pool: []networkv1.NetworkSelectionElement{
 					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network1, "net1"),
 					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network2, "net2"),

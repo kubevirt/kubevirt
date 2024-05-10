@@ -36,19 +36,21 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-type multusNetworkAnnotationPool struct {
+type MultusNetworkAnnotationPool struct {
 	pool []networkv1.NetworkSelectionElement
 }
 
-func (mnap *multusNetworkAnnotationPool) add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
+type Option func(MultusNetworkAnnotationPool, string, []v1.Network) MultusNetworkAnnotationPool
+
+func (mnap *MultusNetworkAnnotationPool) add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
 	mnap.pool = append(mnap.pool, multusNetworkAnnotation)
 }
 
-func (mnap multusNetworkAnnotationPool) isEmpty() bool {
+func (mnap MultusNetworkAnnotationPool) isEmpty() bool {
 	return len(mnap.pool) == 0
 }
 
-func (mnap multusNetworkAnnotationPool) toString() (string, error) {
+func (mnap MultusNetworkAnnotationPool) toString() (string, error) {
 	multusNetworksAnnotation, err := json.Marshal(mnap.pool)
 	if err != nil {
 		return "", fmt.Errorf("failed to create JSON list from multus interface pool %v", mnap.pool)
@@ -56,12 +58,26 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, config *virtconfig.ClusterConfig) (string, error) {
-	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
+func (mnap MultusNetworkAnnotationPool) FindMultusAnnotation(namespace, networkName, interfaceName string) (int, *networkv1.NetworkSelectionElement) {
+	for i, element := range mnap.pool {
+		if element.Namespace == namespace && element.Name == networkName && element.InterfaceRequest == interfaceName {
+			result := element
+			return i, &result
+		}
+	}
+	return 0, nil
 }
 
-func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string, config *virtconfig.ClusterConfig) (string, error) {
-	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
+func (mnap *MultusNetworkAnnotationPool) Set(i int, multusNetworkAnnotation networkv1.NetworkSelectionElement) {
+	mnap.pool[i] = multusNetworkAnnotation
+}
+
+func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, config *virtconfig.ClusterConfig, options ...Option) (string, error) {
+	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config, options...)
+}
+
+func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string, config *virtconfig.ClusterConfig, options ...Option) (string, error) {
+	multusNetworkAnnotationPool := MultusNetworkAnnotationPool{}
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
@@ -82,6 +98,10 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 				}
 			}
 		}
+	}
+
+	for _, option := range options {
+		multusNetworkAnnotationPool = option(multusNetworkAnnotationPool, namespace, networks)
 	}
 
 	if !multusNetworkAnnotationPool.isEmpty() {
