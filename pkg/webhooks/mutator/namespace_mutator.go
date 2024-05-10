@@ -26,12 +26,12 @@ var (
 
 // NsMutator mutates Ns requests
 type NsMutator struct {
-	decoder   *admission.Decoder
+	decoder   admission.Decoder
 	cli       client.Client
 	namespace string
 }
 
-func NewNsMutator(cli client.Client, decoder *admission.Decoder, namespace string) *NsMutator {
+func NewNsMutator(cli client.Client, decoder admission.Decoder, namespace string) *NsMutator {
 	return &NsMutator{
 		cli:       cli,
 		namespace: namespace,

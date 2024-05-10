@@ -15,9 +15,9 @@
 package handler
 
 import (
-	"github.com/operator-framework/operator-lib/internal/annotation"
-
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+
+	"github.com/operator-framework/operator-lib/internal/annotation"
 )
 
 // NewPause returns an event handler that filters out objects with a truthy "paused" annotation.

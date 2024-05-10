@@ -4,6 +4,9 @@ set -ex
 K8S_VER=$(grep "k8s.io/api => k8s.io/api" go.mod | xargs | cut -d" " -f4)
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../)"
 
+# TODO: fix me!
+K8S_VER=v0.29.3
+
 go install \
 k8s.io/code-generator/cmd/deepcopy-gen@${K8S_VER} \
 k8s.io/code-generator/cmd/defaulter-gen@${K8S_VER} \

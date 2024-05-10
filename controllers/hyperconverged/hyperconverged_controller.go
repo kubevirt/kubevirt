@@ -160,9 +160,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 
 	// Watch for changes to primary resource HyperConverged
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &hcov1beta1.HyperConverged{}),
-		&operatorhandler.InstrumentedEnqueueRequestForObject{},
-		predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))
+		source.Kind(
+			mgr.GetCache(), client.Object(&hcov1beta1.HyperConverged{}),
+			&operatorhandler.InstrumentedEnqueueRequestForObject{},
+			predicate.Or[client.Object](predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}),
+		))
 	if err != nil {
 		return err
 	}
@@ -212,17 +214,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	for _, resource := range secondaryResources {
 		msg := fmt.Sprintf("Reconciling for %T", resource)
 		err = c.Watch(
-			source.Kind(mgr.GetCache(), resource),
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
-				// enqueue using a placeholder to be able to discriminate request triggered
-				// by changes on the HyperConverged object from request triggered by changes
-				// on a secondary CR controlled by HCO
-				log.Info(msg)
-				return []reconcile.Request{
-					{NamespacedName: secCRPlaceholder},
-				}
-			}),
-		)
+			source.Kind(mgr.GetCache(), resource,
+				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+					// enqueue using a placeholder to be able to discriminate request triggered
+					// by changes on the HyperConverged object from request triggered by changes
+					// on a secondary CR controlled by HCO
+					log.Info(msg)
+					return []reconcile.Request{
+						{NamespacedName: secCRPlaceholder},
+					}
+				}),
+			))
 		if err != nil {
 			return err
 		}
@@ -236,18 +238,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	if ci.IsOpenshift() {
 		// Watch openshiftconfigv1.APIServer separately
 		msg := "Reconciling for openshiftconfigv1.APIServer"
+
 		err = c.Watch(
-			source.Kind(mgr.GetCache(), &openshiftconfigv1.APIServer{}),
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
-				// enqueue using a placeholder to signal that the change is not
-				// directly on HCO CR but on the APIServer CR that we want to reload
-				// only if really changed
-				log.Info(msg)
-				return []reconcile.Request{
-					{NamespacedName: apiServerCRPlaceholder},
-				}
-			}),
-		)
+			source.Kind(
+				mgr.GetCache(),
+				client.Object(&openshiftconfigv1.APIServer{}),
+				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+					// enqueue using a placeholder to signal that the change is not
+					// directly on HCO CR but on the APIServer CR that we want to reload
+					// only if really changed
+					log.Info(msg)
+					return []reconcile.Request{
+						{NamespacedName: apiServerCRPlaceholder},
+					}
+				}),
+			))
 		if err != nil {
 			return err
 		}

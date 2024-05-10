@@ -26,11 +26,11 @@ var (
 
 // HyperConvergedMutator mutates HyperConverged requests
 type HyperConvergedMutator struct {
-	decoder *admission.Decoder
+	decoder admission.Decoder
 	cli     client.Client
 }
 
-func NewHyperConvergedMutator(cli client.Client, decoder *admission.Decoder) *HyperConvergedMutator {
+func NewHyperConvergedMutator(cli client.Client, decoder admission.Decoder) *HyperConvergedMutator {
 	return &HyperConvergedMutator{
 		cli:     cli,
 		decoder: decoder,

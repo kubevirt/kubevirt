@@ -39,12 +39,12 @@ type WebhookHandler struct {
 	cli         client.Client
 	namespace   string
 	isOpenshift bool
-	decoder     *admission.Decoder
+	decoder     admission.Decoder
 }
 
 var hcoTLSConfigCache *openshiftconfigv1.TLSSecurityProfile
 
-func NewWebhookHandler(logger logr.Logger, cli client.Client, decoder *admission.Decoder, namespace string, isOpenshift bool, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
+func NewWebhookHandler(logger logr.Logger, cli client.Client, decoder admission.Decoder, namespace string, isOpenshift bool, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
 	hcoTLSConfigCache = hcoTLSSecurityProfile
 	return &WebhookHandler{
 		logger:      logger,

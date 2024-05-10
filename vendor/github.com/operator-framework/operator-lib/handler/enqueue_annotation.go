@@ -164,7 +164,7 @@ func SetOwnerAnnotations(owner, object client.Object) error {
 	ownerGK := owner.GetObjectKind().GroupVersionKind().GroupKind()
 
 	if ownerGK.Kind == "" {
-		return fmt.Errorf("Owner %s Kind not found, cannot call SetOwnerAnnotations", owner.GetName())
+		return fmt.Errorf("owner %s Kind not found, cannot call SetOwnerAnnotations", owner.GetName())
 	}
 
 	annotations := object.GetAnnotations()

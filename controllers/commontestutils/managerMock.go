@@ -40,6 +40,11 @@ type ManagerMock struct {
 	webhookServer *webhook.Server
 }
 
+// AddMetricsServerExtraHandler adds extra handler served on path to the http server that serves metrics.
+func (mm *ManagerMock) AddMetricsServerExtraHandler(path string, handler http.Handler) error {
+	return mm.AddMetricsExtraHandler(path, handler)
+}
+
 // Add sets dependencies on i, and adds it to the list of Runnables to start.
 func (mm *ManagerMock) Add(r manager.Runnable) error {
 	mm.runnables = append(mm.runnables, r)

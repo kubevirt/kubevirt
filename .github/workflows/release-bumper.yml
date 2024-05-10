@@ -43,7 +43,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21' # The Go version to download (if necessary) and use.
+          go-version: '1.22' # The Go version to download (if necessary) and use.
 
       - name: Check for new releases and update
         env:
