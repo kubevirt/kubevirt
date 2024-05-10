@@ -4622,6 +4622,7 @@ rpm(
     sha256 = "a7f7224ea096e1b5ddb18409725f210946005078b86d2f007347b03ee488f2af",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-redirect-8.2.0-11.el9.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/a7f7224ea096e1b5ddb18409725f210946005078b86d2f007347b03ee488f2af",
     ],
 )
 
@@ -5188,6 +5189,7 @@ rpm(
     sha256 = "3cbb5cb71c942e2f0a5780cba9f8ca69741b1b877c0835ed7ddfca85f9b3ddda",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/usbredir-0.13.0-2.el9.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/3cbb5cb71c942e2f0a5780cba9f8ca69741b1b877c0835ed7ddfca85f9b3ddda",
     ],
 )
 
