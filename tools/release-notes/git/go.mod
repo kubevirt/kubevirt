@@ -2,8 +2,6 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tools/release-notes/g
 
 go 1.22
 
-toolchain go1.22.2
-
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/go-git/go-git/v5 v5.11.0

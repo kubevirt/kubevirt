@@ -2,8 +2,6 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tools/digester
 
 go 1.22
 
-toolchain go1.22.2
-
 require (
 	github.com/containers/image/v5 v5.29.0
 	github.com/opencontainers/go-digest v1.0.0
