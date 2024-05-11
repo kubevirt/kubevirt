@@ -281,14 +281,14 @@ container_deps()
 # Pull go_image_base
 container_pull(
     name = "go_image_base",
-    digest = "sha256:9d6c97c160bff0f78a443b583811dd0c8dde5c5086fe8fd2aaf2c23ee7e9590a",
+    digest = "sha256:1f957e6333e5df53de1b470837789ffa8c6e4c375ffbd5caddd40b22a226b68d",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
 
 container_pull(
     name = "go_image_base_aarch64",
-    digest = "sha256:b251ebd844116427f92523668ca5e9f8d803e479eef44705b62090176d5e8cc7",
+    digest = "sha256:02e08b836ad99a1de187da19278c5058dc6bf2c62b857d313b6076e0c68c5099",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
