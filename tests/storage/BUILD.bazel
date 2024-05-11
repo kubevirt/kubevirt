@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "backendstorage.go",
         "datavolume.go",
         "events.go",
         "export.go",
@@ -22,9 +23,11 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
+        "//pkg/controller:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/virt-config:go_default_library",

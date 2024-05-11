@@ -147,6 +147,7 @@ func NewVMIController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
+	storageProfileInformer cache.SharedIndexInformer,
 	cdiInformer cache.SharedIndexInformer,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -160,7 +161,6 @@ func NewVMIController(templateService services.TemplateService,
 		vmStore:           vmInformer.GetStore(),
 		podIndexer:        podInformer.GetIndexer(),
 		pvcIndexer:        pvcInformer.GetIndexer(),
-		storageClassStore: storageClassInformer.GetStore(),
 		recorder:          recorder,
 		clientset:         clientset,
 		podExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -171,10 +171,13 @@ func NewVMIController(templateService services.TemplateService,
 		clusterConfig:     clusterConfig,
 		topologyHinter:    topologyHinter,
 		cidsMap:           newCIDsMap(),
+		backendStorage:    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 	}
 
 	c.hasSynced = func() bool {
-		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() && dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() && pvcInformer.HasSynced() && storageClassInformer.HasSynced()
+		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
+			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
+			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -276,6 +279,7 @@ type VMIController struct {
 	cdiConfigStore    cache.Store
 	clusterConfig     *virtconfig.ClusterConfig
 	cidsMap           *cidsMap
+	backendStorage    *backendstorage.BackendStorage
 	hasSynced         func() bool
 }
 
@@ -758,7 +762,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		if len(patchBytes) > 0 {
-			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patchBytes), v1.PatchOptions{})
+			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 			// So just retry like with any other errors
 			if err != nil {
@@ -1183,7 +1187,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		// do not return; just log the error
 	}
 
-	err := backendstorage.CreateIfNeeded(vmi, c.clusterConfig, c.clientset)
+	err := c.backendStorage.CreateIfNeededAndUpdateVolumeStatus(vmi)
 	if err != nil {
 		return &syncErrorImpl{err, FailedBackendStorageCreateReason}
 	}
@@ -1212,7 +1216,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		// Ensure the backend storage PVC is ready
 		var backendStorageReady bool
-		backendStorageReady, err = backendstorage.IsPVCReady(vmi, c.clientset, c.storageClassStore)
+		backendStorageReady, err = c.backendStorage.IsPVCReady(vmi)
 		if err != nil {
 			return &syncErrorImpl{err, FailedBackendStorageProbeReason}
 		}
@@ -2203,6 +2207,11 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	attachmentPod, _ := c.getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
+
+	if backendStorage, ok := oldStatusMap[backendstorage.PVCForVMI(vmi)]; ok {
+		newStatus = append(newStatus, backendStorage)
+	}
+
 	for i, volume := range vmi.Spec.Volumes {
 		status := virtv1.VolumeStatus{}
 		if _, ok := oldStatusMap[volume.Name]; ok {
