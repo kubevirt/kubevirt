@@ -1150,8 +1150,8 @@ To configure AAQ, set the fields of the `applicationAwareConfig` object in the H
      does not allocate resources for the standard `requests/limits.cpu` and `requests/limits.memory`.
   * `IgnoreVmiCalculator` - avoids allocating VM-associated pods differently from normal pods, maintaining uniform
      resource allocation.
-* `namespaceSelector` - determines in which namespaces scheduling gate will be added to pods. This field is a standard 
-                        kubernetes selector.
+    * `namespaceSelector` - determines in which namespaces AAQ's scheduling gate will be added to pods at creation time. 
+     This field follows the standard Kubernetes selector format.
 * `allowApplicationAwareClusterResourceQuota` (default = false) - set to true, to allow creation and management of ClusterAppsResourceQuota
   
   **note**: this setting cause some performance cost. Only set to true if there is a good reason.
@@ -1171,7 +1171,7 @@ spec:
     allowApplicationAwareClusterResourceQuota: true
 ```
 
-**Note**: if a namespace selector is not being defined, AAQ would target namespaces with the `application-aware-quota/enable` key.
+**Note**: if a namespace selector is not being defined, AAQ would target namespaces with the `application-aware-quota/enable-gating` key.
 It is also possible to target every namespace by defining an empty (non-nil) namespaceSelector as follows:
 ```yaml
 spec:
