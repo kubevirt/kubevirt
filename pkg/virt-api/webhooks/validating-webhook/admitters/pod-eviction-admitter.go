@@ -20,19 +20,19 @@ import (
 )
 
 type PodEvictionAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
-	VirtClient    kubecli.KubevirtClient
+	clusterConfig *virtconfig.ClusterConfig
+	virtClient    kubecli.KubevirtClient
 }
 
 func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) *PodEvictionAdmitter {
 	return &PodEvictionAdmitter{
-		ClusterConfig: clusterConfig,
-		VirtClient:    virtClient,
+		clusterConfig: clusterConfig,
+		virtClient:    virtClient,
 	}
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	pod, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
+	pod, err := admitter.virtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
@@ -46,12 +46,12 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
+	vmi, err := admitter.virtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
 
-	evictionStrategy := migrations.VMIEvictionStrategy(admitter.ClusterConfig, vmi)
+	evictionStrategy := migrations.VMIEvictionStrategy(admitter.clusterConfig, vmi)
 	if evictionStrategy == nil {
 		// we don't act on VMIs without an eviction strategy
 		return validating_webhooks.NewPassingAdmissionResponse()
@@ -98,7 +98,7 @@ func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName str
 	}
 
 	_, err := admitter.
-		VirtClient.
+		virtClient.
 		VirtualMachineInstance(vmiNamespace).
 		Patch(context.Background(),
 			vmiName,
