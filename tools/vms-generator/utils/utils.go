@@ -78,7 +78,6 @@ const (
 	VmiHostDisk                 = "vmi-host-disk"
 	VmiGPU                      = "vmi-gpu"
 	VmiARM                      = "vmi-arm"
-	VmiMacvtap                  = "vmi-macvtap"
 	VmiUSB                      = "vmi-usb"
 	VmTemplateFedora            = "vm-template-fedora"
 	VmTemplateRHEL7             = "vm-template-rhel7"
@@ -1207,19 +1206,6 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.GPUs = GPUs
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-	return vmi
-}
-
-func GetVMIMacvtap() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiMacvtap)
-	macvtapNetworkName := "macvtap"
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vmi.Spec.Networks = []v1.Network{{Name: macvtapNetworkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "macvtapnetwork"}}}}
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
-
-	macvtap := &v1.DeprecatedInterfaceMacvtap{}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: macvtap}}}
 	return vmi
 }
 
