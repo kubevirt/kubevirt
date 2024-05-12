@@ -183,3 +183,18 @@ func filterNonAbsentNetworks(interfaces []virtv1.Interface, networks []virtv1.Ne
 
 	return vmispec.FilterNetworksByInterfaces(networks, nonAbsentIfaces)
 }
+
+func WithIPAMClaimRef(networkToIPAMClaimParams map[string]libipam.IPAMClaimParams, networkToPodIfaceMap map[string]string) network.Option {
+	return func(mnap network.MultusNetworkAnnotationPool, namespace string, networks []virtv1.Network) network.MultusNetworkAnnotationPool {
+		for _, net := range vmispec.FilterMultusNonDefaultNetworks(networks) {
+			namespace, networkName := vmispec.GetNamespaceAndNetworkName(namespace, net.Multus.NetworkName)
+			i, element := mnap.FindMultusAnnotation(namespace, networkName, networkToPodIfaceMap[net.Name])
+			if element == nil {
+				continue
+			}
+			element.IPAMClaimReference = networkToIPAMClaimParams[net.Name].ClaimName
+			mnap.Set(i, *element)
+		}
+		return mnap
+	}
+}

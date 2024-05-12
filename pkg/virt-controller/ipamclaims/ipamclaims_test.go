@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims"
 	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims/libipam"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 
@@ -272,6 +273,37 @@ var _ = Describe("ExtractNetworkToIPAMClaimParams", func() {
 		_, err := ipamclaims.ExtractNetworkToIPAMClaimParams(nadMap, vmiName)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(Equal("failed retrieving netConf: failed to obtain network name: missing required field"))
+	})
+})
+
+var _ = Describe("WithIPAMClaimRef", func() {
+	It("should add ipam-claim-reference to multus annotation according networkToIPAMClaimParams", func() {
+		vmi := libvmi.New(
+			libvmi.WithNamespace("default"),
+			libvmi.WithInterface(virtv1.Interface{Name: "blue"}),
+			libvmi.WithInterface(virtv1.Interface{Name: "red"}),
+			libvmi.WithNetwork(libvmi.MultusNetwork("blue", "test1")),
+			libvmi.WithNetwork(libvmi.MultusNetwork("red", "other-namespace/test2")),
+		)
+		vmi.Name = "testvmi"
+
+		networkToIPAMClaimParams := map[string]libipam.IPAMClaimParams{
+			"red": {
+				ClaimName:   "testvmi.red",
+				NetworkName: "network_name",
+			}}
+		networkToPodIfaceMap := map[string]string{"red": "podb1f51a511f1"}
+		Expect(network.GenerateMultusCNIAnnotation(
+			vmi.Namespace,
+			vmi.Spec.Domain.Devices.Interfaces,
+			vmi.Spec.Networks,
+			nil,
+			ipamclaims.WithIPAMClaimRef(networkToIPAMClaimParams, networkToPodIfaceMap))).To(MatchJSON(
+			`[
+				{"name": "test1","namespace": "default","interface": "pod16477688c0e"},
+				{"name": "test2","namespace": "other-namespace","interface": "podb1f51a511f1","ipam-claim-reference": "testvmi.red"}
+			]`,
+		))
 	})
 })
 
