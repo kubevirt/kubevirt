@@ -56,7 +56,7 @@ func main() {
 			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices"},
 		},
 		NetworkConfiguration: &v1.NetworkConfiguration{
-			PermitSlirpInterface:              &permit,
+			DeprecatedPermitSlirpInterface:    &permit,
 			PermitBridgeInterfaceOnPodNetwork: &permit,
 		},
 		PermittedHostDevices: &v1.PermittedHostDevices{
@@ -114,7 +114,6 @@ func main() {
 		utils.VmiNoCloud:                  utils.GetVMINoCloud(),
 		utils.VmiPVC:                      utils.GetVMIPvc(),
 		utils.VmiWindows:                  utils.GetVMIWindows(),
-		utils.VmiSlirp:                    utils.GetVMISlirp(),
 		utils.VmiSRIOV:                    utils.GetVMISRIOV(),
 		utils.VmiWithHookSidecar:          utils.GetVMIWithHookSidecar(),
 		utils.VmiWithHookSidecarConfigMap: utils.GetVmiWithHookSidecarConfigMap(),

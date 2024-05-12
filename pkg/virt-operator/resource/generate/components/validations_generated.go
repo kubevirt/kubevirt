@@ -1304,6 +1304,9 @@ var CRDsValidation map[string]string = map[string]string{
                 permitBridgeInterfaceOnPodNetwork:
                   type: boolean
                 permitSlirpInterface:
+                  description: |-
+                    DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface.
+                    Deprecated: Removed in v1.3.
                   type: boolean
               type: object
             obsoleteCPUModels:
@@ -5928,8 +5931,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 type: array
                               slirp:
-                                description: InterfaceSlirp connects to a given network
-                                  using QEMU user networking mode.
+                                description: |-
+                                  DeprecatedSlirp is an alias to the deprecated Slirp interface
+                                  Deprecated: Removed in v1.3
                                 type: object
                               sriov:
                                 description: InterfaceSRIOV connects to a given network
@@ -10773,8 +10777,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         type: array
                       slirp:
-                        description: InterfaceSlirp connects to a given network using
-                          QEMU user networking mode.
+                        description: |-
+                          DeprecatedSlirp is an alias to the deprecated Slirp interface
+                          Deprecated: Removed in v1.3
                         type: object
                       sriov:
                         description: InterfaceSRIOV connects to a given network by
@@ -13784,8 +13789,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type: object
                         type: array
                       slirp:
-                        description: InterfaceSlirp connects to a given network using
-                          QEMU user networking mode.
+                        description: |-
+                          DeprecatedSlirp is an alias to the deprecated Slirp interface
+                          Deprecated: Removed in v1.3
                         type: object
                       sriov:
                         description: InterfaceSRIOV connects to a given network by
@@ -16020,8 +16026,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: object
                                 type: array
                               slirp:
-                                description: InterfaceSlirp connects to a given network
-                                  using QEMU user networking mode.
+                                description: |-
+                                  DeprecatedSlirp is an alias to the deprecated Slirp interface
+                                  Deprecated: Removed in v1.3
                                 type: object
                               sriov:
                                 description: InterfaceSRIOV connects to a given network
@@ -20332,9 +20339,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           type: object
                                         type: array
                                       slirp:
-                                        description: InterfaceSlirp connects to a
-                                          given network using QEMU user networking
-                                          mode.
+                                        description: |-
+                                          DeprecatedSlirp is an alias to the deprecated Slirp interface
+                                          Deprecated: Removed in v1.3
                                         type: object
                                       sriov:
                                         description: InterfaceSRIOV connects to a
@@ -25312,9 +25319,9 @@ var CRDsValidation map[string]string = map[string]string{
                                               type: object
                                             type: array
                                           slirp:
-                                            description: InterfaceSlirp connects to
-                                              a given network using QEMU user networking
-                                              mode.
+                                            description: |-
+                                              DeprecatedSlirp is an alias to the deprecated Slirp interface
+                                              Deprecated: Removed in v1.3
                                             type: object
                                           sriov:
                                             description: InterfaceSRIOV connects to

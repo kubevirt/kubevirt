@@ -3791,8 +3791,6 @@ var _ = Describe("Template", func() {
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			case "masquerade":
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-			case "slirp":
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultSlirpNetworkInterface()}
 			}
 
 			pod, err := svc.RenderLaunchManifest(vmi)
@@ -3808,7 +3806,6 @@ var _ = Describe("Template", func() {
 		},
 			Entry("when there is bridge interface", "bridge"),
 			Entry("when there is masquerade interface", "masquerade"),
-			Entry("when there is slirp interface", "slirp"),
 		)
 
 		It("should require capabilites which we set on virt-launcher binary", func() {

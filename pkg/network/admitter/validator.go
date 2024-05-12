@@ -70,3 +70,11 @@ func (v Validator) Validate() []metav1.StatusCause {
 
 	return causes
 }
+
+func (v Validator) ValidateCreation() []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	causes = append(causes, validateCreationSlirpBinding(v.field, v.vmiSpec)...)
+
+	return causes
+}

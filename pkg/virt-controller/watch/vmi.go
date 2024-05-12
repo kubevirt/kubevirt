@@ -40,6 +40,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -53,6 +54,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -1238,6 +1240,15 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return &informalSyncError{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedPvcNotFoundReason}
 		} else if err != nil {
 			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedCreatePodReason}
+		}
+
+		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
+		var validateErrors []error
+		for _, cause := range netValidator.ValidateCreation() {
+			validateErrors = append(validateErrors, errors.New(cause.String()))
+		}
+		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
+			return &syncErrorImpl{fmt.Errorf("failed create validation: %v", validateErr), "FailedCreateValidation"}
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)

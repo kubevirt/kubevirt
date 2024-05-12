@@ -51,7 +51,7 @@ var _ = Describe("test configuration", func() {
 	DescribeTable(" when permitSlirpInterface", func(value *bool, result bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			NetworkConfiguration: &v1.NetworkConfiguration{
-				PermitSlirpInterface: value,
+				DeprecatedPermitSlirpInterface: value,
 			},
 		})
 
@@ -714,7 +714,7 @@ var _ = Describe("test configuration", func() {
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
 					NetworkInterface:                  "test",
-					PermitSlirpInterface:              pointer.P(true),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
 					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},
@@ -725,8 +725,8 @@ var _ = Describe("test configuration", func() {
 		Entry("when networkConfiguration set, should equal to result",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
-					NetworkInterface:                  string(v1.SlirpInterface),
-					PermitSlirpInterface:              pointer.P(true),
+					NetworkInterface:                  string(v1.DeprecatedSlirpInterface),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
 					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},
@@ -737,7 +737,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when networkConfiguration set with empty NetworkInterface, should use the default",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
-					PermitSlirpInterface:              pointer.P(true),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
 					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},

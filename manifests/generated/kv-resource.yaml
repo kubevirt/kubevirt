@@ -676,6 +676,9 @@ spec:
                       permitBridgeInterfaceOnPodNetwork:
                         type: boolean
                       permitSlirpInterface:
+                        description: |-
+                          DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface.
+                          Deprecated: Removed in v1.3.
                         type: boolean
                     type: object
                   obsoleteCPUModels:
@@ -3580,6 +3583,9 @@ spec:
                       permitBridgeInterfaceOnPodNetwork:
                         type: boolean
                       permitSlirpInterface:
+                        description: |-
+                          DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface.
+                          Deprecated: Removed in v1.3.
                         type: boolean
                     type: object
                   obsoleteCPUModels:

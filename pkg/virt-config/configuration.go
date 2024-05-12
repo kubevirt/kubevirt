@@ -214,7 +214,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		CPURequest: &cpuRequestDefault,
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			NetworkInterface:                  defaultNetworkInterface,
-			PermitSlirpInterface:              pointer.P(DefaultPermitSlirpInterface),
+			DeprecatedPermitSlirpInterface:    pointer.P(DefaultPermitSlirpInterface),
 			PermitBridgeInterfaceOnPodNetwork: pointer.P(DefaultPermitBridgeInterfaceOnPodNetwork),
 		},
 		SMBIOSConfig:                SmbiosDefaultConfig,
@@ -486,7 +486,7 @@ func validateConfig(config *v1.KubeVirtConfiguration) error {
 
 	// set default network interface
 	switch config.NetworkConfiguration.NetworkInterface {
-	case "", string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
+	case "", string(v1.BridgeInterface), string(v1.DeprecatedSlirpInterface), string(v1.MasqueradeInterface):
 		break
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", config.NetworkConfiguration.NetworkInterface)
