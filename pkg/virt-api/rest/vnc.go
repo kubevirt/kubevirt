@@ -27,6 +27,8 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 	activeConnectionMetric := apimetrics.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
 
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
+
 	streamer := NewRawStreamer(
 		app.FetchVirtualMachineInstance,
 		validateVMIForVNC,
@@ -44,6 +46,8 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Request, response *restful.Response) {
 	activeConnectionMetric := apimetrics.NewActiveVNCConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
+
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
 
 	dialer := NewDirectDialer(
 		app.FetchVirtualMachineInstance,

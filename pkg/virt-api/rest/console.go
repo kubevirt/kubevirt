@@ -17,6 +17,8 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 	activeConnectionMetric := apimetrics.NewActiveConsoleConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
 
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
+
 	streamer := NewRawStreamer(
 		app.FetchVirtualMachineInstance,
 		validateVMIForConsole,

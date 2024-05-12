@@ -17,6 +17,8 @@ func (app *SubresourceAPIApp) PortForwardRequestHandler(fetcher vmiFetcher) rest
 		activeTunnelMetric := apimetrics.NewActivePortForwardTunnel(request.PathParameter("namespace"), request.PathParameter("name"))
 		defer activeTunnelMetric.Dec()
 
+		defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
+
 		streamer := NewWebsocketStreamer(
 			fetcher,
 			validateVMIForPortForward,
