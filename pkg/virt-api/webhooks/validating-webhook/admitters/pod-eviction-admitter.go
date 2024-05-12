@@ -24,6 +24,13 @@ type PodEvictionAdmitter struct {
 	VirtClient    kubecli.KubevirtClient
 }
 
+func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) *PodEvictionAdmitter {
+	return &PodEvictionAdmitter{
+		ClusterConfig: clusterConfig,
+		VirtClient:    virtClient,
+	}
+}
+
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	pod, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {

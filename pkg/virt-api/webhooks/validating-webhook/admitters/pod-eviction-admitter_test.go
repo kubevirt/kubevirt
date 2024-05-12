@@ -68,10 +68,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedPod.Namespace, evictedPod.Name, !isDryRun),
@@ -88,10 +88,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(testNamespace, "does-not-exist", !isDryRun),
@@ -125,10 +125,10 @@ var _ = Describe("Pod eviction admitter", func() {
 				metav1.PatchOptions{}).
 			Return(nil, nil)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(clusterWideEvictionStrategy),
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name),
@@ -195,10 +195,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
 		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(clusterWideEvictionStrategy),
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
@@ -258,10 +258,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
 		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(clusterWideEvictionStrategy),
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name),
@@ -300,10 +300,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		expectedError := errors.New("some error")
 		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(nil, expectedError)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("kubevirt failed getting the vmi: %s", expectedError.Error()),
@@ -345,10 +345,10 @@ var _ = Describe("Pod eviction admitter", func() {
 				metav1.PatchOptions{}).
 			Return(nil, expectedError)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", expectedError.Error()),
@@ -379,10 +379,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
 		vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
@@ -424,10 +424,10 @@ var _ = Describe("Pod eviction admitter", func() {
 			fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", migratableVMI.Namespace, migratableVMI.Name),
 		)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, isDryRun),
