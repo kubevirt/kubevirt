@@ -15,7 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
+
+	kubevirt "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
@@ -25,10 +26,10 @@ import (
 type PodEvictionAdmitter struct {
 	clusterConfig *virtconfig.ClusterConfig
 	kubeClient    kubernetes.Interface
-	virtClient    kubecli.KubevirtClient
+	virtClient    kubevirt.Interface
 }
 
-func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, kubeClient kubernetes.Interface, virtClient kubecli.KubevirtClient) *PodEvictionAdmitter {
+func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, kubeClient kubernetes.Interface, virtClient kubevirt.Interface) *PodEvictionAdmitter {
 	return &PodEvictionAdmitter{
 		clusterConfig: clusterConfig,
 		kubeClient:    kubeClient,
@@ -51,7 +52,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmi, err := admitter.virtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
+	vmi, err := admitter.virtClient.KubevirtV1().VirtualMachineInstances(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
@@ -104,7 +105,8 @@ func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName str
 
 	_, err := admitter.
 		virtClient.
-		VirtualMachineInstance(vmiNamespace).
+		KubevirtV1().
+		VirtualMachineInstances(vmiNamespace).
 		Patch(context.Background(),
 			vmiName,
 			types.JSONPatchType,
