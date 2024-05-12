@@ -9,7 +9,10 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8scorev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/client-go/kubernetes"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -21,18 +24,20 @@ import (
 
 type PodEvictionAdmitter struct {
 	clusterConfig *virtconfig.ClusterConfig
+	kubeClient    kubernetes.Interface
 	virtClient    kubecli.KubevirtClient
 }
 
-func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) *PodEvictionAdmitter {
+func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, kubeClient kubernetes.Interface, virtClient kubecli.KubevirtClient) *PodEvictionAdmitter {
 	return &PodEvictionAdmitter{
 		clusterConfig: clusterConfig,
+		kubeClient:    kubeClient,
 		virtClient:    virtClient,
 	}
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	pod, err := admitter.virtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
+	pod, err := admitter.kubeClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}

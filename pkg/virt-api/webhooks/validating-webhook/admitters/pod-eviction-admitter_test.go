@@ -66,10 +66,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		kubeClient := fake.NewSimpleClientset(evictedPod)
 
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(nil),
+			kubeClient,
 			virtClient,
 		)
 
@@ -86,10 +86,10 @@ var _ = Describe("Pod eviction admitter", func() {
 		Expect(kubeClient.Fake.Resources).To(BeEmpty())
 
 		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(nil),
+			kubeClient,
 			virtClient,
 		)
 
@@ -109,7 +109,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
@@ -127,6 +126,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(clusterWideEvictionStrategy),
+			kubeClient,
 			virtClient,
 		)
 
@@ -189,7 +189,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
@@ -197,6 +196,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(clusterWideEvictionStrategy),
+			kubeClient,
 			virtClient,
 		)
 
@@ -252,7 +252,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
@@ -260,6 +259,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(clusterWideEvictionStrategy),
+			kubeClient,
 			virtClient,
 		)
 
@@ -292,7 +292,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
@@ -302,6 +301,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(nil),
+			kubeClient,
 			virtClient,
 		)
 
@@ -328,7 +328,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
@@ -347,6 +346,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(nil),
+			kubeClient,
 			virtClient,
 		)
 
@@ -373,7 +373,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
@@ -381,6 +380,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(nil),
+			kubeClient,
 			virtClient,
 		)
 
@@ -403,7 +403,6 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
@@ -426,6 +425,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		admitter := admitters.NewPodEvictionAdmitter(
 			newClusterConfig(nil),
+			kubeClient,
 			virtClient,
 		)
 
