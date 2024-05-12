@@ -333,6 +333,8 @@ EOL`, inetSuffix, serverIP, serverPort)
 			By("Starting another VMI")
 			anotherVMI := startPasstVMI(libvmifact.NewAlpine, console.LoginToAlpine)
 
+			Expect(false).To(BeTrue())
+
 			By("Verify the VMIs can ping each other")
 			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
 			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
