@@ -64,7 +64,15 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, Serial, func() {
 
 		const macvtapNetName = "test-macvtap"
 		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultMacvtapNetworkInterface(macvtapNetName), mac)),
+			libvmi.WithInterface(
+				v1.Interface{
+					Name:       macvtapNetName,
+					MacAddress: mac,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{},
+					},
+				},
+			),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetName, macvtapNetAttachDefName)),
 		)
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
