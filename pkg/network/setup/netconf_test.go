@@ -102,6 +102,8 @@ var _ = Describe("netconf", func() {
 		Expect(stateCache.stateCache).To(BeEmpty())
 	},
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
+
+		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		Entry("macvtap", v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}),
 	)
 

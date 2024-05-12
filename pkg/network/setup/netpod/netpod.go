@@ -274,14 +274,15 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			if nmstate.AnyInterface(ifacesSpec, hasIP6GlobalUnicast) {
 				spec.LinuxStack.IPv6.Forwarding = pointer.P(true)
 			}
+		case iface.SRIOV != nil:
+		case iface.Binding != nil:
 		case iface.Passt != nil:
 			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
 			spec.LinuxStack.IPv4.UnprivilegedPortStart = pointer.P(0)
+		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedMacvtap != nil:
-		case iface.SRIOV != nil:
 		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedSlirp != nil:
-		case iface.Binding != nil:
 		default:
 			return nil, fmt.Errorf("undefined binding method: %v", iface)
 		}
@@ -550,6 +551,7 @@ func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []
 			return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 		}
 
+		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		if iface.SRIOV != nil || iface.DeprecatedMacvtap != nil {
 			continue
 		}
