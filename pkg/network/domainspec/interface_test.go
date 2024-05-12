@@ -79,7 +79,7 @@ var _ = Describe("VMI interfaces", func() {
 		},
 		{
 			Name:                   iface4,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
 		},
 		{
 			Name:    iface5,

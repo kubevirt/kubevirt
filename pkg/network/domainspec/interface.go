@@ -46,7 +46,7 @@ func DomainAttachmentByInterfaceName(vmiSpecIfaces []v1.Interface, networkBindin
 
 	domainAttachmentByInterfaceName := map[string]string{}
 	for _, iface := range vmiSpecIfaces {
-		if iface.Masquerade != nil || iface.Bridge != nil || iface.Macvtap != nil {
+		if iface.Masquerade != nil || iface.Bridge != nil || iface.DeprecatedMacvtap != nil {
 			domainAttachmentByInterfaceName[iface.Name] = string(v1.Tap)
 		} else if iface.Binding != nil {
 			if domainAttachmentType, exist := domainAttachmentByPluginName[iface.Binding.Name]; exist {

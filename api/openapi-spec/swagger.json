@@ -16555,6 +16555,10 @@
      }
     }
    },
+   "v1.DeprecatedInterfaceMacvtap": {
+    "description": "DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface. Deprecated: Removed in v1.3",
+    "type": "object"
+   },
    "v1.DeprecatedInterfaceSlirp": {
     "description": "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp that connects to a given network using QEMU user networking mode. Deprecated: Removed in v1.3",
     "type": "object"
@@ -17522,8 +17526,8 @@
       "type": "string"
      },
      "macvtap": {
-      "description": "Deprecated, please refer to Kubevirt user guide for alternatives.",
-      "$ref": "#/definitions/v1.InterfaceMacvtap"
+      "description": "DeprecatedMacvtap is an alias to the deprecated Macvtap interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
+      "$ref": "#/definitions/v1.DeprecatedInterfaceMacvtap"
      },
      "masquerade": {
       "$ref": "#/definitions/v1.InterfaceMasquerade"
@@ -17606,10 +17610,6 @@
    },
    "v1.InterfaceBridge": {
     "description": "InterfaceBridge connects to a given network via a linux bridge.",
-    "type": "object"
-   },
-   "v1.InterfaceMacvtap": {
-    "description": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
     "type": "object"
    },
    "v1.InterfaceMasquerade": {

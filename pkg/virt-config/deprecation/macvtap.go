@@ -23,11 +23,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const MacvtapDeprecationMessage = "Macvtap network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
+const MacvtapDeprecationMessage = "Macvtap network binding is deprecated (and removed). Please refer to Kubevirt user guide for alternatives."
 
 func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
 	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.Macvtap != nil {
+		if net.DeprecatedMacvtap != nil {
 			return true
 		}
 	}

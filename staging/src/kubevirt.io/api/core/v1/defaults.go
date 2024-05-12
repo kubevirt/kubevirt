@@ -205,7 +205,7 @@ func DefaultMacvtapNetworkInterface(ifaceName string) *Interface {
 	iface := &Interface{
 		Name: ifaceName,
 		InterfaceBindingMethod: InterfaceBindingMethod{
-			Macvtap: &InterfaceMacvtap{},
+			DeprecatedMacvtap: &DeprecatedInterfaceMacvtap{},
 		},
 	}
 	return iface

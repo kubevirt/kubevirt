@@ -36,7 +36,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
 		}}
 		spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
@@ -55,7 +55,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
 		}}
 		spec.Networks = []v1.Network{{
 			Name:          "default",
@@ -76,7 +76,7 @@ var _ = Describe("Validating macvtap core binding", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "default",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
 		}}
 		spec.Networks = []v1.Network{{
 			Name:          "default",

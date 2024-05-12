@@ -106,7 +106,7 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 			}
 
 		// Skip the discovery for all other known network interface bindings.
-		case vmiSpecIface.Macvtap != nil:
+		case vmiSpecIface.DeprecatedMacvtap != nil:
 		case vmiSpecIface.SRIOV != nil:
 		default:
 			return fmt.Errorf("undefined binding method: %v", vmiSpecIface)

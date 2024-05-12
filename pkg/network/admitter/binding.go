@@ -62,7 +62,7 @@ func hasInterfaceBindingMethod(iface v1.Interface) bool {
 		iface.InterfaceBindingMethod.DeprecatedSlirp != nil ||
 		iface.InterfaceBindingMethod.Masquerade != nil ||
 		iface.InterfaceBindingMethod.SRIOV != nil ||
-		iface.InterfaceBindingMethod.Macvtap != nil ||
+		iface.InterfaceBindingMethod.DeprecatedMacvtap != nil ||
 		iface.InterfaceBindingMethod.Passt != nil
 }
 

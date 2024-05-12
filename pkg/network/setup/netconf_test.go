@@ -102,7 +102,7 @@ var _ = Describe("netconf", func() {
 		Expect(stateCache.stateCache).To(BeEmpty())
 	},
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
-		Entry("macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}),
+		Entry("macvtap", v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}),
 	)
 
 	It("fails the pre-setup run", func() {

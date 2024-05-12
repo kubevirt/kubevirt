@@ -203,7 +203,7 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			!ordinal),
 		Entry("when an interface has to be hotplugged but it has no SRIOV or bridge binding",
 			libvmi.New(
-				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}}),
 				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 			),
 			libvmi.New(),

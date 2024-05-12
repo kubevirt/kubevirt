@@ -1524,7 +1524,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			multusNetworkName := "multusNet"
 
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}}
 
 			multusNetwork := v1.Network{
 				Name: netName1,
@@ -1543,7 +1543,7 @@ var _ = Describe("Converter", func() {
 		It("Should create network configuration for the default pod network plus a secondary macvtap network interface using multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}}
 
 			defaultPodNetwork := v1.DefaultPodNetwork()
 			multusNetwork := v1.Network{
@@ -1598,8 +1598,8 @@ var _ = Describe("Converter", func() {
 
 			firstToBoot := uint(1)
 			lastToBoot := uint(2)
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &lastToBoot}
-			iface2 := v1.Interface{Name: netName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &firstToBoot}
+			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}, BootOrder: &lastToBoot}
+			iface2 := v1.Interface{Name: netName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}, BootOrder: &firstToBoot}
 
 			firstMacvtapNetwork := v1.Network{
 				Name: netName1,

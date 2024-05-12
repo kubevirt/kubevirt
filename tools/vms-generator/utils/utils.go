@@ -1218,8 +1218,8 @@ func GetVMIMacvtap() *v1.VirtualMachineInstance {
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
 
-	macvtap := &v1.InterfaceMacvtap{}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
+	macvtap := &v1.DeprecatedInterfaceMacvtap{}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: macvtap}}}
 	return vmi
 }
 

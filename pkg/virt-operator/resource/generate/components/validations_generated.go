@@ -5872,8 +5872,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
                               macvtap:
-                                description: Deprecated, please refer to Kubevirt
-                                  user guide for alternatives.
+                                description: |-
+                                  DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+                                  please refer to Kubevirt user guide for alternatives.
+                                  Deprecated: Removed in v1.3
                                 type: object
                               masquerade:
                                 description: InterfaceMasquerade connects to a given
@@ -10718,8 +10720,10 @@ var CRDsValidation map[string]string = map[string]string{
                           or DE-AD-00-00-BE-AF.'
                         type: string
                       macvtap:
-                        description: Deprecated, please refer to Kubevirt user guide
-                          for alternatives.
+                        description: |-
+                          DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+                          please refer to Kubevirt user guide for alternatives.
+                          Deprecated: Removed in v1.3
                         type: object
                       masquerade:
                         description: InterfaceMasquerade connects to a given network
@@ -13730,8 +13734,10 @@ var CRDsValidation map[string]string = map[string]string{
                           or DE-AD-00-00-BE-AF.'
                         type: string
                       macvtap:
-                        description: Deprecated, please refer to Kubevirt user guide
-                          for alternatives.
+                        description: |-
+                          DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+                          please refer to Kubevirt user guide for alternatives.
+                          Deprecated: Removed in v1.3
                         type: object
                       masquerade:
                         description: InterfaceMasquerade connects to a given network
@@ -15967,8 +15973,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
                               macvtap:
-                                description: Deprecated, please refer to Kubevirt
-                                  user guide for alternatives.
+                                description: |-
+                                  DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+                                  please refer to Kubevirt user guide for alternatives.
+                                  Deprecated: Removed in v1.3
                                 type: object
                               masquerade:
                                 description: InterfaceMasquerade connects to a given
@@ -20278,8 +20286,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                         type: string
                                       macvtap:
-                                        description: Deprecated, please refer to Kubevirt
-                                          user guide for alternatives.
+                                        description: |-
+                                          DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+                                          please refer to Kubevirt user guide for alternatives.
+                                          Deprecated: Removed in v1.3
                                         type: object
                                       masquerade:
                                         description: InterfaceMasquerade connects
@@ -25258,8 +25268,10 @@ var CRDsValidation map[string]string = map[string]string{
                                               example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                             type: string
                                           macvtap:
-                                            description: Deprecated, please refer
-                                              to Kubevirt user guide for alternatives.
+                                            description: |-
+                                              DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+                                              please refer to Kubevirt user guide for alternatives.
+                                              Deprecated: Removed in v1.3
                                             type: object
                                           masquerade:
                                             description: InterfaceMasquerade connects
