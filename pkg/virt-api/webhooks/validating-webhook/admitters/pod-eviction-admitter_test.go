@@ -297,8 +297,8 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should deny the request when the admitter fails to patch the VMI", func() {
-		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
+		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition()}
 
 		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
@@ -333,8 +333,8 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
-		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition(), withEvacuationNodeName(testNodeName)}
+		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition(), withEvacuationNodeName(testNodeName)}
 
 		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
@@ -358,8 +358,8 @@ var _ = Describe("Pod eviction admitter", func() {
 	})
 
 	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
-		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
+		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition()}
 
 		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
 		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
