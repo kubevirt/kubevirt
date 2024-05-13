@@ -43,14 +43,24 @@ The webhook admits eviction requests **before** `kube-api` checks them against [
 In case the pod is not a `virt-launcher` pod - the eviction request is approved.
 Otherwise, depending on the VMI's eviction strategy and whether it is migratable - the webhook will potentially mark the VMI for evacuation and approve or deny the eviction request: 
 
-| Eviction Strategy     | Is VMI migratable | Is VMI marked for eviction | Does Webhook approve eviction | Webhook Response       |
-|-----------------------|-------------------|----------------------------|-------------------------------|------------------------|
-| None                  | True/False        | False                      | True                          | 200 - Eviction granted |
-| LiveMigrate           | True              | True                       | True                          | 200 - Eviction granted |
-| LiveMigrate           | False             | False                      | False                         | 429 - Eviction denied  |
-| LiveMigrateIfPossible | True              | True                       | True                          | 200 - Eviction granted |
-| LiveMigrateIfPossible | False             | False                      | True                          | 200 - Eviction granted |
-| External              | True/False        | True                       | True                          | 200 - Eviction granted |
+| Eviction Strategy     | Is VMI migratable | Is VMI marked for evacuation | Does Webhook approve eviction | Webhook Response                                 |
+|-----------------------|-------------------|------------------------------|-------------------------------|--------------------------------------------------|
+| None                  | True/False        | False                        | True                          | 200 - Eviction granted                           |
+| LiveMigrate           | True              | True                         | False                         | 429 - Eviction denied (evacuation was triggered) |
+| LiveMigrate           | False             | False                        | False                         | 429 - Eviction denied                            |
+| LiveMigrateIfPossible | True              | True                         | False                         | 429 - Eviction denied (evacuation was triggered) |
+| LiveMigrateIfPossible | False             | False                        | True                          | 200 - Eviction granted                           |
+| External              | True/False        | True                         | False                         | 429 - Eviction denied (evacuation was triggered) |
+
+The webhook will approve additional eviction requests on a virt-launcher pod owned by a VMI which had previously been marked for evacuation:
+
+| Eviction Strategy     | Is VMI migratable | Does Webhook approve eviction | Webhook Response       |
+|-----------------------|-------------------|-------------------------------|------------------------|
+| LiveMigrate           | True              | True                          | 200 - Eviction granted |
+| LiveMigrateIfPossible | True              | True                          | 200 - Eviction granted |
+| External              | True/False        | True                          | 200 - Eviction granted |
+
+In these cases, a PDB will protect the virt-launcher pod (see explanation bellow).
 
 > **Note**  
 > Since the webhook intercepts all eviction requests in the cluster, it is configured to be [ignored](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#failure-policy) in case kube-api fails to get a response from it.
@@ -80,18 +90,43 @@ In order for the evacuation of VMIs to happen in a controlled manner, KubeVirt p
 
 The eviction request's initiator will observe one of the following responses:
 
-| Eviction Strategy     | Is VMI migratable | Is VMI marked for eviction | Does Webhook approve eviction | Does PDB allow eviction | Final Response                   |
-|-----------------------|-------------------|----------------------------|-------------------------------|-------------------------|----------------------------------|
-| None                  | True/False        | False                      | True                          | True                    | 200 - Eviction granted           |
-| LiveMigrate           | True              | True                       | True                          | False                   | 429 - Eviction blocked by PDB    |
-| LiveMigrate           | False             | False                      | False                         | False                   | 429 - Eviction denied by webhook |
-| LiveMigrateIfPossible | True              | True                       | True                          | False                   | 429 - Eviction blocked by PDB    |
-| LiveMigrateIfPossible | False             | False                      | True                          | True                    | 200 - Eviction granted           |
-| External              | True/False        | True                       | True                          | False                   | 429 - Eviction blocked by PDB    |
+| Eviction Strategy     | Is VMI migratable | Is VMI marked for evacuation | Does Webhook approve eviction | Does PDB allow eviction | Final Response                                   |
+|-----------------------|-------------------|------------------------------|-------------------------------|-------------------------|--------------------------------------------------|
+| None                  | True/False        | False                        | True                          | True                    | 200 - Eviction granted                           |
+| LiveMigrate           | True              | True                         | False                         | False                   | 429 - Eviction denied (evacuation was triggered) |
+| LiveMigrate           | False             | False                        | False                         | False                   | 429 - Eviction denied by webhook                 |
+| LiveMigrateIfPossible | True              | True                         | False                         | False                   | 429 - Eviction denied (evacuation was triggered) |
+| LiveMigrateIfPossible | False             | False                        | True                          | True                    | 200 - Eviction granted                           |
+| External              | True/False        | True                         | False                         | False                   | 429 - Eviction denied (evacuation was triggered) |
+
+For additional requests on virt-launcher pods owned by a VMI which had previously been marked for evacuation:
+
+| Eviction Strategy     | Is VMI migratable | Does Webhook approve eviction | Does PDB allow eviction | Final Response                |
+|-----------------------|-------------------|-------------------------------|-------------------------|-------------------------------|
+| LiveMigrate           | True              | True                          | False                   | 429 - Eviction blocked by PDB |
+| LiveMigrateIfPossible | True              | True                          | False                   | 429 - Eviction blocked by PDB |
+| External              | True/False        | True                          | False                   | 429 - Eviction blocked by PDB |
 
 To summarize:
 1. The eviction request is granted only if both the webhook and the PDB allow them.
-2. The eviction request's initiator might get a 429 response, but the VMI will be migrated in the background.
+2. When the eviction request's initiator gets a 429 response, they can check the (first) response message whether the VMI will be evacuated.
+
+## Example kubectl drain Output
+The following output depicts the eviction of a `virt-launcher` pod owned by a migratable VMI (with the `LiveMigrate` eviction strategy):
+```shell
+$ kubectl drain node01 --ignore-daemonsets --delete-emptydir-data
+...
+evicting pod default/virt-launcher-vm-cirros-wn5v4
+error when evicting pods/"virt-launcher-vm-cirros-wn5v4" -n "default" (will retry after 5s): admission webhook "virt-launcher-eviction-interceptor.kubevirt.io" denied the request: Eviction triggered evacuation of VMI "default/vm-cirros"
+...
+evicting pod default/virt-launcher-vm-cirros-wn5v4
+error when evicting pods/"virt-launcher-vm-cirros-wn5v4" -n "default" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+...
+evicting pod default/virt-launcher-vm-cirros-wn5v4
+pod/virt-launcher-vm-cirros-wn5v4 evicted
+node/node01 drained
+```
+
 
 # Evacuation Controller
 `virt-controller` has an evacuation controller which looks for potential VMIs to evict and tries to migrate them to another node.
