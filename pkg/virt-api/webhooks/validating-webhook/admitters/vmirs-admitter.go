@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -58,6 +60,14 @@ func (admitter *VMIRSAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 	}
 
 	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec, admitter.ClusterConfig)
+
+	if ar.Request.Operation == admissionv1.Create {
+		clusterCfg := admitter.ClusterConfig.GetConfig()
+		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
+			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmirs.Spec.Template.Spec)...)
+		}
+	}
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}

@@ -20,16 +20,23 @@
 package deprecation
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const MacvtapDiscontinueMessage = "Macvtap network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
-
-func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedMacvtap != nil {
-			return true
+func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	for _, fgName := range featureGates {
+		fg := FeatureGateInfo(fgName)
+		if fg != nil && fg.State == Discontinued && fg.VmiSpecUsed != nil {
+			if used := fg.VmiSpecUsed(vmiSpec); used {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fg.Message,
+				})
+			}
 		}
 	}
-	return false
+	return causes
 }

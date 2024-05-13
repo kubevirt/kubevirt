@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,6 +78,17 @@ func (admitter *VMPoolAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissio
 	}
 
 	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig)
+
+	if ar.Request.Operation == admissionv1.Create {
+		clusterCfg := admitter.ClusterConfig.GetConfig()
+		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
+			causes = append(
+				causes,
+				deprecation.ValidateFeatureGates(devCfg.FeatureGates, &pool.Spec.VirtualMachineTemplate.Spec.Template.Spec)...,
+			)
+		}
+	}
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}

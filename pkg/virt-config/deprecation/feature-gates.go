@@ -61,7 +61,7 @@ var featureGates = [...]FeatureGate{
 	{Name: PSA, State: GA},
 	{Name: CPUNodeDiscoveryGate, State: GA},
 	{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed},
-	{Name: MacvtapGate, State: Deprecated, Message: MacvtapDeprecationMessage, VmiSpecUsed: macvtapApiUsed},
+	{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed},
 }
 
 func init() {
