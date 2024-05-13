@@ -87,6 +87,9 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
 				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
 
+			virtFakeClient.PrependReactor("patch", "virtualmachineinstances",
+				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVMI))
+
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())

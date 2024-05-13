@@ -56,6 +56,17 @@ func ModifyVM(new, old runtime.Object) runtime.Object {
 	return oldVM
 }
 
+// ModifyVMI ignores updates to status
+func ModifyVMI(new, old runtime.Object) runtime.Object {
+	vmi := new.(*v1.VirtualMachineInstance)
+	oldVMI := old.(*v1.VirtualMachineInstance)
+
+	oldVMI = oldVMI.DeepCopy()
+	oldVMI.Spec = *vmi.Spec.DeepCopy()
+	oldVMI.ObjectMeta = *vmi.ObjectMeta.DeepCopy()
+	return oldVMI
+}
+
 // UpdateReactor should be used to replace default reactor
 // handle - takes subresources and should return if the request should be handled, e.g /status
 // modify - takes new and old object and should return object that should be stored
