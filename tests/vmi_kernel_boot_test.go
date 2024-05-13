@@ -26,9 +26,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,7 +35,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -48,7 +44,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -71,8 +66,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
 			By("Creating VMI with disk and kernel boot")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+			vmi := libvmifact.NewAlpine()
 			utils.AddKernelBootToVMI(vmi)
 
 			Expect(vmi.Spec.Volumes).ToNot(BeEmpty())
