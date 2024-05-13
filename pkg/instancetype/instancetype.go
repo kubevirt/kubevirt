@@ -1332,7 +1332,7 @@ func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePr
 	}
 
 	applyDiskPreferences(preferenceSpec, vmiSpec)
-	applyInterfacePreferences(preferenceSpec, vmiSpec)
+	ApplyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
 }
 
@@ -1389,7 +1389,7 @@ func isInterfaceOnPodNetwork(interfaceName string, vmiSpec *virtv1.VirtualMachin
 	return false
 }
 
-func applyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
 		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
