@@ -37,80 +37,12 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("VMI Stats Collector", func() {
+	Context("VMI info", func() {
+		setupTestVMICollector()
 
-	Context("VMI Eviction blocker", func() {
-
-		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
-		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
-			vmiInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
-			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
-
-			ch := make(chan prometheus.Metric, 1)
-			defer close(ch)
-
-			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
-
-			evictionBlockerResults := getEvictionBlocker(vmis)
-			Expect(evictionBlockerResults).To(HaveLen(1), "Expected 1 metric")
-
-			evictionBlockerResultMetric := evictionBlockerResults[0]
-			Expect(evictionBlockerResultMetric).ToNot(BeNil())
-			Expect(evictionBlockerResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_non_evictable"))
-			Expect(evictionBlockerResultMetric.Value).To(BeEquivalentTo(expectedVal))
-		},
-			Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", &liveMigrateEvictPolicy, k8sv1.ConditionFalse, 1.0),
-			Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known", &liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
-			Entry("VMI Eviction policy set to LiveMigration and vm is migratable", &liveMigrateEvictPolicy, k8sv1.ConditionTrue, 0.0),
-			Entry("VMI Eviction policy is not set and vm is not migratable", nil, k8sv1.ConditionFalse, 0.0),
-			Entry("VMI Eviction policy is not set and vm is migratable", nil, k8sv1.ConditionTrue, 0.0),
-			Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
-		)
-	})
-})
-
-func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
-
-	vmis := []*k6tv1.VirtualMachineInstance{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-ns",
-				Name:      "testvmi",
-			},
-			Status: k6tv1.VirtualMachineInstanceStatus{
-				NodeName: "testNode",
-			},
-		},
-	}
-
-	if migratableCondStatus != k8sv1.ConditionUnknown {
-		vmis[0].Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
-			{
-				Type:   k6tv1.VirtualMachineInstanceIsMigratable,
-				Status: migratableCondStatus,
-			},
-		}
-	}
-
-	vmis[0].Spec.EvictionStrategy = evictionStrategy
-
-	return vmis
-}
-
-var _ = Describe("Utility functions", func() {
-	setupTestVMICollector()
-
-	Context("VMI Count map reporting", func() {
-		It("should handle missing VMs", func() {
-			var countMap map[vmiCountMetric]uint64
-
-			countMap = makeVMICountMetricMap(nil)
-			Expect(countMap).NotTo(BeNil())
-			Expect(countMap).To(BeEmpty())
-
-			var vmis []*k6tv1.VirtualMachineInstance
-			countMap = makeVMICountMetricMap(vmis)
-			Expect(countMap).NotTo(BeNil())
-			Expect(countMap).To(BeEmpty())
+		It("should handle no VMIs", func() {
+			cr := collectVMIInfo([]*k6tv1.VirtualMachineInstance{})
+			Expect(cr).To(BeEmpty())
 		})
 
 		It("should handle different VMI phases", func() {
@@ -190,53 +122,21 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := makeVMICountMetricMap(vmis)
-			Expect(countMap).NotTo(BeNil())
-			Expect(countMap).To(HaveLen(3))
+			crs := collectVMIInfo(vmis)
+			Expect(crs).To(HaveLen(5))
 
-			running := vmiCountMetric{
-				Phase:                "running",
-				OS:                   "centos8",
-				Workload:             "server",
-				Flavor:               "tiny",
-				GuestOSKernelRelease: "<none>",
-				GuestOSMachine:       "<none>",
-				GuestOSName:          "<none>",
-				GuestOSVersionID:     "<none>",
-				InstanceType:         "<none>",
-				Preference:           "<none>",
+			for i, cr := range crs {
+				Expect(cr).ToNot(BeNil())
+				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
+				Expect(cr.Value).To(BeEquivalentTo(1))
+				Expect(cr.Labels).To(HaveLen(13))
+
+				Expect(cr.Labels[3]).To(Equal(getVMIPhase(vmis[i])))
+				os, workload, flavor := getVMISystemInfo(vmis[i])
+				Expect(cr.Labels[4]).To(Equal(os))
+				Expect(cr.Labels[5]).To(Equal(workload))
+				Expect(cr.Labels[6]).To(Equal(flavor))
 			}
-			pending := vmiCountMetric{
-				Phase:                "pending",
-				OS:                   "fedora33",
-				Workload:             "workstation",
-				Flavor:               "large",
-				InstanceType:         "<none>",
-				Preference:           "<none>",
-				GuestOSKernelRelease: "6.5.6-300.fc39.x86_64",
-				GuestOSMachine:       "x86_64",
-				GuestOSName:          "Fedora Linux",
-				GuestOSVersionID:     "39",
-			}
-			scheduling := vmiCountMetric{
-				Phase:                "scheduling",
-				OS:                   "centos7",
-				Workload:             "server",
-				Flavor:               "medium",
-				GuestOSKernelRelease: "<none>",
-				GuestOSMachine:       "<none>",
-				GuestOSName:          "<none>",
-				GuestOSVersionID:     "<none>",
-				InstanceType:         "<none>",
-				Preference:           "<none>",
-			}
-			bogus := vmiCountMetric{
-				Phase: "bogus",
-			}
-			Expect(countMap[running]).To(Equal(uint64(2)))
-			Expect(countMap[pending]).To(Equal(uint64(1)))
-			Expect(countMap[scheduling]).To(Equal(uint64(2)))
-			Expect(countMap[bogus]).To(Equal(uint64(0))) // intentionally bogus key
 		})
 
 		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey string, instanceType string, expected string) {
@@ -254,15 +154,15 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			phaseResults := getVmisPhase(vmis)
-			Expect(phaseResults).To(HaveLen(1), "Expected 1 metric")
+			crs := collectVMIInfo(vmis)
+			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
-			phaseResultMetric := phaseResults[0]
-			Expect(phaseResultMetric).ToNot(BeNil())
-			Expect(phaseResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_phase_count"))
-			Expect(phaseResultMetric.Value).To(BeEquivalentTo(1))
-			Expect(phaseResultMetric.Labels).To(HaveLen(11))
-			Expect(phaseResultMetric.Labels[5]).To(Equal(expected))
+			cr := crs[0]
+			Expect(cr).ToNot(BeNil())
+			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
+			Expect(cr.Value).To(BeEquivalentTo(1))
+			Expect(cr.Labels).To(HaveLen(13))
+			Expect(cr.Labels[7]).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
 			Entry("with managed instance type expect its name", k6tv1.InstancetypeAnnotation, "i-managed", "i-managed"),
@@ -287,15 +187,15 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			phaseResults := getVmisPhase(vmis)
-			Expect(phaseResults).To(HaveLen(1), "Expected 1 metric")
+			crs := collectVMIInfo(vmis)
+			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
-			phaseResultMetric := phaseResults[0]
+			cr := crs[0]
 
-			Expect(phaseResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_phase_count"))
-			Expect(phaseResultMetric.Value).To(BeEquivalentTo(1))
-			Expect(phaseResultMetric.Labels).To(HaveLen(11))
-			Expect(phaseResultMetric.Labels[6]).To(Equal(expected))
+			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
+			Expect(cr.Value).To(BeEquivalentTo(1))
+			Expect(cr.Labels).To(HaveLen(13))
+			Expect(cr.Labels[8]).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
 			Entry("with managed preference expect its name", k6tv1.PreferenceAnnotation, "p-managed", "p-managed"),
@@ -305,7 +205,64 @@ var _ = Describe("Utility functions", func() {
 			Entry("with custom cluster preference expect <other>", k6tv1.ClusterPreferenceAnnotation, "cp-unmanaged", "<other>"),
 		)
 	})
+
+	Context("VMI Eviction blocker", func() {
+
+		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
+		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
+			vmiInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
+
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
+
+			evictionBlockerResults := getEvictionBlocker(vmis)
+			Expect(evictionBlockerResults).To(HaveLen(1), "Expected 1 metric")
+
+			evictionBlockerResultMetric := evictionBlockerResults[0]
+			Expect(evictionBlockerResultMetric).ToNot(BeNil())
+			Expect(evictionBlockerResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_non_evictable"))
+			Expect(evictionBlockerResultMetric.Value).To(BeEquivalentTo(expectedVal))
+		},
+			Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", &liveMigrateEvictPolicy, k8sv1.ConditionFalse, 1.0),
+			Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known", &liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
+			Entry("VMI Eviction policy set to LiveMigration and vm is migratable", &liveMigrateEvictPolicy, k8sv1.ConditionTrue, 0.0),
+			Entry("VMI Eviction policy is not set and vm is not migratable", nil, k8sv1.ConditionFalse, 0.0),
+			Entry("VMI Eviction policy is not set and vm is migratable", nil, k8sv1.ConditionTrue, 0.0),
+			Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
+		)
+	})
 })
+
+func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
+
+	vmis := []*k6tv1.VirtualMachineInstance{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-ns",
+				Name:      "testvmi",
+			},
+			Status: k6tv1.VirtualMachineInstanceStatus{
+				NodeName: "testNode",
+			},
+		},
+	}
+
+	if migratableCondStatus != k8sv1.ConditionUnknown {
+		vmis[0].Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
+			{
+				Type:   k6tv1.VirtualMachineInstanceIsMigratable,
+				Status: migratableCondStatus,
+			},
+		}
+	}
+
+	vmis[0].Spec.EvictionStrategy = evictionStrategy
+
+	return vmis
+}
 
 func setupTestVMICollector() {
 	instanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})

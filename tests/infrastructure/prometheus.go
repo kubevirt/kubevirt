@@ -492,7 +492,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		for _, key := range keys {
 			// we don't care about the ordering of the labels
-			if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
+			if strings.HasPrefix(key, "kubevirt_vmi_info") {
 				// special case: namespace and name don't make sense for this metric
 				Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
 				continue

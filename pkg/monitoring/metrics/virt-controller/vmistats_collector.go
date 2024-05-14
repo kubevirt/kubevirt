@@ -50,18 +50,18 @@ var (
 
 	vmiStatsCollector = operatormetrics.Collector{
 		Metrics: []operatormetrics.Metric{
-			vmiCount,
+			vmiInfo,
 			vmiEvictionBlocker,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
 
-	vmiCount = operatormetrics.NewGaugeVec(
+	vmiInfo = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_phase_count",
-			Help: "Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
+			Name: "kubevirt_vmi_info",
+			Help: "Information about VirtualMachineInstances.",
 		},
-		[]string{"node", "phase", "os", "workload", "flavor", "instance_type", "preference", "guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id"},
+		[]string{"node", "namespace", "name", "phase", "os", "workload", "flavor", "instance_type", "preference", "guest_os_kernel_release", "guest_os_machine", "guest_os_name", "guest_os_version_id"},
 	)
 
 	vmiEvictionBlocker = operatormetrics.NewGaugeVec(
@@ -72,20 +72,6 @@ var (
 		[]string{"node", "namespace", "name"},
 	)
 )
-
-type vmiCountMetric struct {
-	Phase                string
-	OS                   string
-	Workload             string
-	Flavor               string
-	InstanceType         string
-	Preference           string
-	NodeName             string
-	GuestOSKernelRelease string
-	GuestOSMachine       string
-	GuestOSName          string
-	GuestOSVersionID     string
-}
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := vmiInformer.GetIndexer().List()
@@ -104,7 +90,7 @@ func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
 }
 
 func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
-	phaseResults := getVmisPhase(vmis)
+	phaseResults := collectVMIInfo(vmis)
 	evictionBlockerResults := getEvictionBlocker(vmis)
 
 	results := make([]operatormetrics.CollectorResult, 0, len(phaseResults)+len(evictionBlockerResults))
@@ -113,151 +99,144 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 	return results
 }
 
-func getVmisPhase(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+func collectVMIInfo(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
-	countMap := makeVMICountMetricMap(vmis)
+	for _, vmi := range vmis {
+		os, workload, flavor := getVMISystemInfo(vmi)
+		instanceType := getVMIInstancetype(vmi)
+		preference := getVMIPreference(vmi)
+		kernelRelease, machine, name, versionID := getGuestOSInfo(vmi)
 
-	for vmc, count := range countMap {
 		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmiCount,
-			Labels: []string{vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor, vmc.InstanceType, vmc.Preference,
-				vmc.GuestOSKernelRelease, vmc.GuestOSMachine, vmc.GuestOSName, vmc.GuestOSVersionID},
-			Value: float64(count),
+			Metric: vmiInfo,
+			Labels: []string{
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				getVMIPhase(vmi), os, workload, flavor, instanceType, preference,
+				kernelRelease, machine, name, versionID,
+			},
+			Value: 1.0,
 		})
 	}
 
 	return cr
 }
 
-func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMetric]uint64 {
-	countMap := make(map[vmiCountMetric]uint64)
-
-	for _, vmi := range vmis {
-		vmc := newVMICountMetric(vmi)
-		countMap[vmc]++
-	}
-	return countMap
+func getVMIPhase(vmi *k6tv1.VirtualMachineInstance) string {
+	return strings.ToLower(string(vmi.Status.Phase))
 }
 
-func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
-	vmc := vmiCountMetric{
-		Phase:                strings.ToLower(string(vmi.Status.Phase)),
-		OS:                   none,
-		Workload:             none,
-		Flavor:               none,
-		InstanceType:         none,
-		Preference:           none,
-		GuestOSKernelRelease: none,
-		GuestOSMachine:       none,
-		GuestOSName:          none,
-		GuestOSVersionID:     none,
-		NodeName:             vmi.Status.NodeName,
+func getVMISystemInfo(vmi *k6tv1.VirtualMachineInstance) (os, workload, flavor string) {
+	os = none
+	workload = none
+	flavor = none
+
+	if val, ok := vmi.Annotations[annotationPrefix+"os"]; ok {
+		os = val
 	}
 
-	updateFromAnnotations(&vmc, vmi.Annotations)
-	updateFromGuestOSInfo(&vmc, vmi.Status.GuestOSInfo)
+	if val, ok := vmi.Annotations[annotationPrefix+"workload"]; ok {
+		workload = val
+	}
 
-	return vmc
+	if val, ok := vmi.Annotations[annotationPrefix+"flavor"]; ok {
+		flavor = val
+	}
+
+	return
 }
 
-func updateFromAnnotations(vmc *vmiCountMetric, annotations map[string]string) {
-	if val, ok := annotations[annotationPrefix+"os"]; ok {
-		vmc.OS = val
+func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, machine, name, versionID string) {
+
+	if vmi.Status.GuestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
+		return
 	}
 
-	if val, ok := annotations[annotationPrefix+"workload"]; ok {
-		vmc.Workload = val
+	if vmi.Status.GuestOSInfo.KernelRelease != "" {
+		kernelRelease = vmi.Status.GuestOSInfo.KernelRelease
 	}
 
-	if val, ok := annotations[annotationPrefix+"flavor"]; ok {
-		vmc.Flavor = val
+	if vmi.Status.GuestOSInfo.Machine != "" {
+		machine = vmi.Status.GuestOSInfo.Machine
 	}
 
-	setInstancetypeFromAnnotations(vmc, annotations)
-	setPreferenceFromAnnotations(vmc, annotations)
+	if vmi.Status.GuestOSInfo.Name != "" {
+		name = vmi.Status.GuestOSInfo.Name
+	}
+
+	if vmi.Status.GuestOSInfo.VersionID != "" {
+		versionID = vmi.Status.GuestOSInfo.VersionID
+	}
+
+	return
 }
 
-func setInstancetypeFromAnnotations(vmc *vmiCountMetric, annotations map[string]string) {
-	if instancetypeName, ok := annotations[k6tv1.InstancetypeAnnotation]; ok {
-		vmc.InstanceType = other
+func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
+	instanceType := none
+
+	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
+		instanceType = other
 
 		obj, ok, err := instanceTypeInformer.GetIndexer().GetByKey(instancetypeName)
 		if err != nil || !ok {
-			return
+			return instanceType
 		}
 
 		vendorName := obj.(*instancetypev1beta1.VirtualMachineInstancetype).Labels[instancetypeVendorLabel]
 		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			vmc.InstanceType = instancetypeName
+			instanceType = instancetypeName
 		}
 	}
 
-	if instancetypeName, ok := annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		vmc.InstanceType = other
+	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
+		instanceType = other
 
 		obj, ok, err := clusterInstanceTypeInformer.GetIndexer().GetByKey(instancetypeName)
 		if err != nil || !ok {
-			return
+			return instanceType
 		}
 
 		vendorName := obj.(*instancetypev1beta1.VirtualMachineClusterInstancetype).Labels[instancetypeVendorLabel]
 		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			vmc.InstanceType = instancetypeName
+			instanceType = instancetypeName
 		}
 	}
+
+	return instanceType
 }
 
-func setPreferenceFromAnnotations(vmc *vmiCountMetric, annotations map[string]string) {
-	if instancetypeName, ok := annotations[k6tv1.PreferenceAnnotation]; ok {
-		vmc.Preference = other
+func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
+	preference := none
+
+	if instancetypeName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
+		preference = other
 
 		obj, ok, err := preferenceInformer.GetIndexer().GetByKey(instancetypeName)
 		if err != nil || !ok {
-			return
+			return preference
 		}
 
 		vendorName := obj.(*instancetypev1beta1.VirtualMachinePreference).Labels[instancetypeVendorLabel]
 		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			vmc.Preference = instancetypeName
+			preference = instancetypeName
 		}
 	}
 
-	if instancetypeName, ok := annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		vmc.Preference = other
+	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
+		preference = other
 
 		obj, ok, err := clusterPreferenceInformer.GetIndexer().GetByKey(instancetypeName)
 		if err != nil || !ok {
-			return
+			return preference
 		}
 
 		vendorName := obj.(*instancetypev1beta1.VirtualMachineClusterPreference).Labels[instancetypeVendorLabel]
 		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			vmc.Preference = instancetypeName
+			preference = instancetypeName
 		}
 	}
-}
 
-func updateFromGuestOSInfo(vmc *vmiCountMetric, guestOSInfo k6tv1.VirtualMachineInstanceGuestOSInfo) {
-	if guestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
-		return
-	}
-
-	if guestOSInfo.KernelRelease != "" {
-		vmc.GuestOSKernelRelease = guestOSInfo.KernelRelease
-	}
-
-	if guestOSInfo.Machine != "" {
-		vmc.GuestOSMachine = guestOSInfo.Machine
-	}
-
-	if guestOSInfo.Name != "" {
-		vmc.GuestOSName = guestOSInfo.Name
-	}
-
-	if guestOSInfo.VersionID != "" {
-		vmc.GuestOSVersionID = guestOSInfo.VersionID
-	}
+	return preference
 }
 
 func getEvictionBlocker(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
