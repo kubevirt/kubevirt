@@ -1683,7 +1683,7 @@ const (
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
 
-	// VirtualMachineInitialized means the virtual machine object has been seen by the VM controller
+	// VirtualMachineInitialized means the VMI object has been seen by the VM controller
 	VirtualMachineInitialized VirtualMachineConditionType = "Initialized"
 
 	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI

@@ -3027,10 +3027,14 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 				return vm, nil, err
 			}
 		}
-		vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
-			Type:   virtv1.VirtualMachineInitialized,
-			Status: k8score.ConditionTrue,
-		})
+
+		// only add the condition if the VM has been started at least once
+		if vmi != nil {
+			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+				Type:   virtv1.VirtualMachineInitialized,
+				Status: k8score.ConditionTrue,
+			})
+		}
 	}
 
 	if vm.DeletionTimestamp != nil {
