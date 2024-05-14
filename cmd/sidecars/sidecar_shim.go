@@ -20,10 +20,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -195,6 +197,11 @@ func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error
 
 	log.Log.Infof("Executing %s", preCloudInitIsoBin)
 	command := exec.Command(preCloudInitIsoBin, args...)
+	if reader, err := command.StderrPipe(); err != nil {
+		log.Log.Reason(err).Infof("Could not pipe stderr")
+	} else {
+		go logStderr(reader, "cloudInitData")
+	}
 	return command.Output()
 }
 
@@ -214,7 +221,24 @@ func runOnDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 
 	log.Log.Infof("Executing %s", onDefineDomainBin)
 	command := exec.Command(onDefineDomainBin, args...)
+	if reader, err := command.StderrPipe(); err != nil {
+		log.Log.Reason(err).Infof("Could not pipe stderr")
+	} else {
+		go logStderr(reader, "onDefineDomain")
+	}
 	return command.Output()
+}
+
+func logStderr(reader io.Reader, hookName string) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 1024), 512*1024)
+	for scanner.Scan() {
+		log.Log.With("hook", hookName).Info(scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Log.Reason(err).Error("failed to read hook logs")
+	}
 }
 
 func parseCommandLineArgs() (string, error) {
