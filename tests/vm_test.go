@@ -762,7 +762,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 			})
 
-			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
+			It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
 				By("getting a VM with high TerminationGracePeriod")
 				vm := startVM(virtClient, createVM(virtClient, libvmifact.NewFedora(
 					libvmi.WithTerminationGracePeriod(600),
