@@ -8478,6 +8478,27 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
               type: string
+            spreadOptions:
+              properties:
+                across:
+                  description: |-
+                    Across optionally defines how to spread vCPUs across the guest visible topology.
+                    Default: SocketsCores
+                  type: string
+                ratio:
+                  description: |-
+                    Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
+
+
+                    CoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.
+                    SocketsCores        - 1:N   - Controls the ratio of socket to cores.
+                    SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.
+
+
+                    Default: 2
+                  format: int32
+                  type: integer
+              type: object
           type: object
         devices:
           description: Devices optionally defines preferences associated with the
@@ -22144,6 +22165,27 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
               type: string
+            spreadOptions:
+              properties:
+                across:
+                  description: |-
+                    Across optionally defines how to spread vCPUs across the guest visible topology.
+                    Default: SocketsCores
+                  type: string
+                ratio:
+                  description: |-
+                    Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
+
+
+                    CoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.
+                    SocketsCores        - 1:N   - Controls the ratio of socket to cores.
+                    SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.
+
+
+                    Default: 2
+                  format: int32
+                  type: integer
+              type: object
           type: object
         devices:
           description: Devices optionally defines preferences associated with the

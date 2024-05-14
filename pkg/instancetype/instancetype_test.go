@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -1093,23 +1094,318 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})
 
-			DescribeTable("should spread between cores and sockets with PreferSpread selected", func(CPU, expectedCores, expectedSockets, spreadRatio int) {
-				preferredCPUTopology := instancetypev1beta1.PreferSpread
-				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
-				preferenceSpec.PreferSpreadSocketToCoreRatio = uint32(spreadRatio)
-				instancetypeSpec.CPU.Guest = uint32(CPU)
+			Context("with PreferSpread", func() {
+				DescribeTable("should spread", func(vCPUs uint32, preferenceSpec instancetypev1beta1.VirtualMachinePreferenceSpec, expectedCPU v1.CPU) {
+					instancetypeSpec.CPU.Guest = vCPUs
+					if preferenceSpec.CPU == nil {
+						preferenceSpec.CPU = &instancetypev1beta1.CPUPreferences{}
+					}
+					preferenceSpec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.PreferSpread)
 
-				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
-				Expect(conflicts).To(BeEmpty())
-
-				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(expectedCores)))
-				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(expectedSockets)))
-				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-			},
-				Entry("with default PreferSpreadSocketToCoreRatio", 4, 2, 2, 0),
-				Entry("with even PreferSpreadSocketToCoreRatio set", 8, 4, 2, 4),
-				Entry("with odd PreferSpreadSocketToCoreRatio set", 9, 3, 3, 3),
-			)
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, &preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(expectedCPU.Sockets))
+					Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(expectedCPU.Cores))
+					Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(expectedCPU.Threads))
+				},
+					Entry("by default to SocketsCores with a default topology for 1 vCPU",
+						uint32(1),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{},
+						v1.CPU{Sockets: 1, Cores: 1, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 2 vCPUs and a default ratio of 1:2:1",
+						uint32(2),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{},
+						v1.CPU{Sockets: 1, Cores: 2, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 4 vCPUs and a default ratio of 1:2:1",
+						uint32(4),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{},
+						v1.CPU{Sockets: 2, Cores: 2, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 6 vCPUs and a default ratio of 1:2:1",
+						uint32(6),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{},
+						v1.CPU{Sockets: 3, Cores: 2, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 8 vCPUs and a default ratio of 1:2:1",
+						uint32(8),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{},
+						v1.CPU{Sockets: 4, Cores: 2, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 3 vCPUs and a ratio of 1:3:1",
+						uint32(3),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 3, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 6 vCPUs and a ratio of 1:3:1",
+						uint32(6),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 2, Cores: 3, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 9 vCPUs and a ratio of 1:3:1",
+						uint32(9),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 3, Cores: 3, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 12 vCPUs and a ratio of 1:3:1",
+						uint32(12),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 4, Cores: 3, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 4 vCPUs and a ratio of 1:4:1",
+						uint32(4),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 4, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 8 vCPUs and a ratio of 1:4:1",
+						uint32(8),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 2, Cores: 4, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 12 vCPUs and a ratio of 1:4:1",
+						uint32(12),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 3, Cores: 4, Threads: 1},
+					),
+					Entry("by default to SocketsCores with 16 vCPUs and a ratio of 1:4:1",
+						uint32(16),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Ratio: pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 4, Cores: 4, Threads: 1},
+					),
+					Entry("to SocketsCoresThreads with 4 vCPUs and a default ratio of 1:2:2",
+						uint32(4),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 2, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 8 vCPUs and a default ratio of 1:2:2",
+						uint32(8),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 2, Cores: 2, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 12 vCPUs and a default ratio of 1:2:2",
+						uint32(12),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 3, Cores: 2, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 16 vCPUs and a default ratio of 1:2:2",
+						uint32(16),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 4, Cores: 2, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 6 vCPUs and a ratio of 1:3:2",
+						uint32(6),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 3, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 12 vCPUs and a ratio of 1:3:2",
+						uint32(12),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 2, Cores: 3, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 18 vCPUs and a ratio of 1:3:2",
+						uint32(18),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 3, Cores: 3, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 24 vCPUs and a ratio of 1:3:2",
+						uint32(24),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(3)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 4, Cores: 3, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 8 vCPUs and a ratio of 1:4:2",
+						uint32(8),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 4, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 16 vCPUs and a ratio of 1:4:2",
+						uint32(16),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 2, Cores: 4, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 24 vCPUs and a ratio of 1:4:2",
+						uint32(24),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 3, Cores: 4, Threads: 2},
+					),
+					Entry("to SocketsCoresThreads with 36 vCPUs and a ratio of 1:4:2",
+						uint32(36),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+									Ratio:  pointer.P(uint32(4)),
+								},
+							},
+						},
+						v1.CPU{Sockets: 4, Cores: 4, Threads: 2},
+					),
+					Entry("to CoresThreads with 2 vCPUs and a default ratio of 1:2",
+						uint32(2),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 1, Threads: 2},
+					),
+					Entry("to CoresThreads with 4 vCPUs and a default ratio of 1:2",
+						uint32(4),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 2, Threads: 2},
+					),
+					Entry("to CoresThreads with 6 vCPUs and a default ratio of 1:2",
+						uint32(6),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 3, Threads: 2},
+					),
+					Entry("to CoresThreads with 8 vCPUs and a default ratio of 1:2",
+						uint32(8),
+						instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								SpreadOptions: &instancetypev1beta1.SpreadOptions{
+									Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+								},
+							},
+						},
+						v1.CPU{Sockets: 1, Cores: 4, Threads: 2},
+					),
+				)
+			})
 
 			It("should return a conflict if vmi.Spec.Domain.CPU already defined", func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -2052,7 +2348,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 			),
-			Entry("by a VM for vCPUs using PreferSpread",
+			Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -2069,6 +2365,55 @@ var _ = Describe("Instancetype and Preferences", func() {
 						CPU: &v1.CPU{
 							Cores:   uint32(2),
 							Sockets: uint32(3),
+						},
+					},
+				},
+			),
+			Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferSpread,
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(6),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Threads: uint32(2),
+							Cores:   uint32(3),
+						},
+					},
+				},
+			),
+			Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferSpread,
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(8),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Threads: uint32(2),
+							Cores:   uint32(2),
+							Sockets: uint32(2),
 						},
 					},
 				},
@@ -2220,7 +2565,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
 				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
 			),
-			Entry("by a VM for vCPUs using PreferSpread",
+			Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
@@ -2240,8 +2585,61 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), "cores and sockets"),
+				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCores),
+			),
+			Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+						PreferredCPUTopology: &preferSpread,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(4),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Cores:   uint32(1),
+							Threads: uint32(1),
+						},
+					},
+				},
+				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossCoresThreads),
+			),
+			Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+						PreferredCPUTopology: &preferSpread,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(4),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Sockets: uint32(1),
+							Cores:   uint32(1),
+							Threads: uint32(1),
+						},
+					},
+				},
+				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferAny",
 				nil,

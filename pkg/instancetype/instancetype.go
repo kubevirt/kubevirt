@@ -39,7 +39,6 @@ const (
 	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"
 	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
 	NoVMCPUResourcesDefinedErrorFmt                 = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
-	DefaultSpreadRatio                              = 2
 )
 
 type Methods interface {
@@ -80,6 +79,25 @@ func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
 	}
 	return preferredTopology
+}
+
+const defaultSpreadRatio uint32 = 2
+
+func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
+	ratio := defaultSpreadRatio
+	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
+		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
+	}
+	across := instancetypev1beta1.SpreadAcrossSocketsCores
+	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
+		if preferenceSpec.CPU.SpreadOptions.Across != nil {
+			across = *preferenceSpec.CPU.SpreadOptions.Across
+		}
+		if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
+			ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
+		}
+	}
+	return ratio, across
 }
 
 func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourceGeneration int64) string {
@@ -374,9 +392,24 @@ func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.Virtua
 			return Conflicts{cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
 	case instancetypev1beta1.PreferSpread:
-		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets
-		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{cpuField.Child("cores"), cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores and sockets")
+		var (
+			vCPUs     uint32
+			conflicts Conflicts
+		)
+		_, across := GetSpreadOptions(preferenceSpec)
+		switch across {
+		case instancetypev1beta1.SpreadAcrossSocketsCores:
+			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores
+			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores")}
+		case instancetypev1beta1.SpreadAcrossCoresThreads:
+			vCPUs = vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
+			conflicts = Conflicts{cpuField.Child("cores"), cpuField.Child("threads")}
+		case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
+			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
+			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores"), cpuField.Child("threads")}
+		}
+		if vCPUs < preferenceSpec.Requirements.CPU.Guest {
+			return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, preferenceSpec.Requirements.CPU.Guest, across)
 		}
 	case instancetypev1beta1.PreferAny:
 		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
@@ -954,29 +987,44 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 		vmiSpec.Domain.CPU.Realtime = instancetypeSpec.CPU.Realtime.DeepCopy()
 	}
 
+	applyGuestCPUTopology(instancetypeSpec.CPU.Guest, preferenceSpec, vmiSpec)
+
+	return nil
+}
+
+func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	// Apply the default topology here to avoid duplication below
 	vmiSpec.Domain.CPU.Cores = 1
 	vmiSpec.Domain.CPU.Sockets = 1
 	vmiSpec.Domain.CPU.Threads = 1
 
-	switch GetPreferredTopology(preferenceSpec) {
-	case instancetypev1beta1.PreferCores:
-		vmiSpec.Domain.CPU.Cores = instancetypeSpec.CPU.Guest
-	case instancetypev1beta1.PreferSockets, instancetypev1beta1.PreferAny:
-		vmiSpec.Domain.CPU.Sockets = instancetypeSpec.CPU.Guest
-	case instancetypev1beta1.PreferThreads:
-		vmiSpec.Domain.CPU.Threads = instancetypeSpec.CPU.Guest
-	case instancetypev1beta1.PreferSpread:
-		spreadRatio := preferenceSpec.PreferSpreadSocketToCoreRatio
-		if spreadRatio == 0 {
-			spreadRatio = DefaultSpreadRatio
-		}
-
-		vmiSpec.Domain.CPU.Sockets = instancetypeSpec.CPU.Guest / spreadRatio
-		vmiSpec.Domain.CPU.Cores = spreadRatio
+	if vCPUs == 1 {
+		return
 	}
 
-	return nil
+	switch GetPreferredTopology(preferenceSpec) {
+	case instancetypev1beta1.PreferCores:
+		vmiSpec.Domain.CPU.Cores = vCPUs
+	case instancetypev1beta1.PreferSockets, instancetypev1beta1.PreferAny:
+		vmiSpec.Domain.CPU.Sockets = vCPUs
+	case instancetypev1beta1.PreferThreads:
+		vmiSpec.Domain.CPU.Threads = vCPUs
+	case instancetypev1beta1.PreferSpread:
+		ratio, across := GetSpreadOptions(preferenceSpec)
+		switch across {
+		case instancetypev1beta1.SpreadAcrossSocketsCores:
+			vmiSpec.Domain.CPU.Cores = ratio
+			vmiSpec.Domain.CPU.Sockets = vCPUs / ratio
+		case instancetypev1beta1.SpreadAcrossCoresThreads:
+			vmiSpec.Domain.CPU.Threads = ratio
+			vmiSpec.Domain.CPU.Cores = vCPUs / ratio
+		case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
+			const threadsPerCore = 2
+			vmiSpec.Domain.CPU.Threads = threadsPerCore
+			vmiSpec.Domain.CPU.Cores = ratio
+			vmiSpec.Domain.CPU.Sockets = vCPUs / threadsPerCore / ratio
+		}
+	}
 }
 
 func validateCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflicts Conflicts) {
