@@ -471,6 +471,11 @@ func archiveHandler(mountPoint string) http.Handler {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		if hasPermissions := checkDirectoryPermissions(mountPoint); !hasPermissions {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
 		tarReader, err := newTarReader(mountPoint)
 		if err != nil {
 			log.Log.Reason(err).Error("error creating tar reader")
@@ -488,6 +493,34 @@ func archiveHandler(mountPoint string) http.Handler {
 	})
 }
 
+func checkDirectoryPermissions(filePath string) bool {
+	dir, err := os.Open(filePath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("error opening %s", filePath)
+		return false
+	}
+	defer dir.Close()
+
+	// Read all filenames
+	contents, err := dir.Readdirnames(-1)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to read directory contents: %v", err)
+		return false
+	}
+
+	for _, item := range contents {
+		itemPath := filepath.Join(filePath, item)
+		// Check if export server has permissions to manipulate the file
+		file, err := os.Open(itemPath)
+		if err != nil {
+			log.Log.Reason(err).Errorf("unable to open %s, file may lack read permissions", itemPath)
+			return false
+		}
+		file.Close()
+	}
+	return true
+}
+
 func gzipHandler(filePath string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
@@ -497,7 +530,7 @@ func gzipHandler(filePath string) http.Handler {
 		f, err := os.Open(filePath)
 		if err != nil {
 			log.Log.Reason(err).Errorf("error opening %s", filePath)
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		defer f.Close()
