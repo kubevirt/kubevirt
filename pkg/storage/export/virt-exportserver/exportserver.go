@@ -476,7 +476,7 @@ func archiveHandler(mountPoint string) http.Handler {
 			return
 		}
 		if hasPermissions := checkDirectoryPermissions(mountPoint); !hasPermissions {
-			w.WriteHeader(http.StatusForbidden)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -534,7 +534,7 @@ func gzipHandler(filePath string) http.Handler {
 		f, err := os.Open(filePath)
 		if err != nil {
 			log.Log.Reason(err).Errorf("error opening %s", filePath)
-			w.WriteHeader(http.StatusForbidden)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		defer f.Close()
