@@ -207,7 +207,9 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 								libvmi.WithResourceMemory("3Gi"),
 								libvmi.WithRng())...,
 						)
-						vm := libvmi.NewVirtualMachine(vmi)
+						vm := libvmi.NewVirtualMachine(vmi,
+							libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure),
+						)
 
 						vm, err := virtClient.VirtualMachine(testsuite.NamespacePrivileged).Create(context.Background(), vm, metav1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
@@ -257,17 +259,14 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						}, 120*time.Second, 1*time.Second).Should(Succeed(), "Virt handler should come online")
 					}
 					It("should make sure that VM restarts after failure", func() {
-
-						By("creating a large VM with RunStrategyRerunOnFailure")
-						vm := createLargeVirtualMachine()
-
 						// update the migration policy to ensure slow pre-copy migration progress instead of an immidiate cancelation.
 						migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
 						migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
 						applyKubevirtCR()
 
-						By("Starting the VirtualMachine")
-						vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyRerunOnFailure)
+						By("creating a large VM with RunStrategyRerunOnFailure")
+						vm := createLargeVirtualMachine()
+						vm = tests.ExpectVMLaunch(virtClient, vm)
 						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
