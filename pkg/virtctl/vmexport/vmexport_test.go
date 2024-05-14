@@ -243,7 +243,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err.Error()).Should(ContainSubstring(expectedError))
 		})
 
-		It("VirtualMachineExport download fails if the server returns a bad status", func() {
+		It("VirtualMachineExport retries until failure if the server returns a bad status", func() {
 			testInit(http.StatusInternalServerError)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
 			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
@@ -258,7 +258,7 @@ var _ = Describe("vmexport", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal("bad status: 500 Internal Server Error"))
+			Expect(err.Error()).Should(Equal("retry count reached, exiting unsuccesfully"))
 		})
 
 		It("Bad flag combination", func() {
