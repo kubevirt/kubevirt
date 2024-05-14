@@ -164,7 +164,7 @@ func skipInput(scanner *bufio.Scanner) bool {
 // SecureBootExpecter should be called on a VMI that has EFI enabled
 // It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
 // The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
-func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
+func SecureBootExpecter(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
 	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
 	if err != nil {
@@ -173,7 +173,10 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	defer expecter.Close()
 
 	b := []expect.Batcher{&expect.BExp{R: "secureboot: Secure boot enabled"}}
-	const expectBatchTimeout = 180 * time.Second
+	expectBatchTimeout := 180 * time.Second
+	if len(timeout) > 0 {
+		expectBatchTimeout = timeout[0]
+	}
 	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)

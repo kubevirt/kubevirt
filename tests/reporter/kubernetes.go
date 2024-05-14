@@ -1092,7 +1092,8 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 
 	response, err := virtCli.RestClient().Get().RequestURI(requestURI).Do(context.Background()).Raw()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "dump %s: %v\n", entityName, err)
+		// If a cluster doesn't support network-attachment-definitions (the only thing this function is used for),
+		// logging an error here would spam the logs.
 		return
 	}
 
@@ -1188,13 +1189,15 @@ func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
 }
 
 func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
+	// 20 seconds is plenty here. If the VMI is not ready for login, there's a low chance it has interesting logs
+	timeout := 20 * time.Second
 	switch vmiType {
 	case "fedora":
-		return console.LoginToFedora(&vmi)
+		return console.LoginToFedora(&vmi, timeout)
 	case "cirros":
-		return console.LoginToCirros(&vmi)
+		return console.LoginToCirros(&vmi, timeout)
 	case "alpine":
-		return console.LoginToAlpine(&vmi)
+		return console.LoginToAlpine(&vmi, timeout)
 	default:
 		return fmt.Errorf("unknown vmi %s type", vmi.ObjectMeta.Name)
 	}

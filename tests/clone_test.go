@@ -45,8 +45,6 @@ const (
 	vmAPIGroup = "kubevirt.io"
 )
 
-type loginFunction func(*virtv1.VirtualMachineInstance) error
-
 var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -189,7 +187,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		}, 3*time.Minute, 3*time.Second).Should(Equal(clonev1alpha1.Succeeded), "clone should finish successfully")
 	}
 
-	expectVMRunnable := func(vm *virtv1.VirtualMachine, login loginFunction) *virtv1.VirtualMachine {
+	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
 		By(fmt.Sprintf("Starting VM %s", vm.Name))
 		vm = StartVirtualMachine(vm)
 		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, v1.GetOptions{})
