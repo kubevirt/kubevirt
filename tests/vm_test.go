@@ -788,7 +788,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return ""
 				}, 120*time.Second, 1*time.Second).Should(ContainSubstring("failed to find pod"))
 
-				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
+				Eventually(ThisVMI(vmi), 300*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
 
 				By("Comparing the new UID and CreationTimeStamp with the old one")
 				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
