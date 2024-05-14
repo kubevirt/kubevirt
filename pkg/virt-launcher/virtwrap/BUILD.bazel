@@ -86,6 +86,7 @@ go_test(
         "//pkg/host-disk:go_default_library",
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/vmispec:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-config:go_default_library",
