@@ -2147,6 +2147,24 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
 				}))
 			})
+			It("should accept the VM with the feature gate enabled for volume migration", func() {
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyMigration)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
+			})
+			It("should reject the VM creation if the volume migration feature gate isn't enabled", func() {
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyMigration)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "updateVolumesStrategy",
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
+				}))
+			})
 		})
 	})
 
