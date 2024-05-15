@@ -1995,7 +1995,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domainInterfaces, err := CreateDomainInterfaces(vmi, domain, c)
+	domainInterfaces, err := CreateDomainInterfaces(vmi, c)
 	if err != nil {
 		return err
 	}
