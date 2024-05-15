@@ -149,6 +149,10 @@ func isARM64(arch string) bool {
 	return arch == "arm64"
 }
 
+func isPPC64(arch string) bool {
+	return arch == "ppc64le"
+}
+
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
 	// Ensure we assign this disk to the correct scsi controller
 	if disk.Address == nil {
@@ -1196,39 +1200,6 @@ func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	}
 }
 
-func isUSBNeeded(c *ConverterContext, vmi *v1.VirtualMachineInstance) bool {
-	//In ppc64le usb devices like mouse / keyboard are set by default,
-	//so we can't disable the controller otherwise we run into the following error:
-	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
-	if !isAMD64(c.Architecture) {
-		return true
-	}
-
-	for i := range vmi.Spec.Domain.Devices.Inputs {
-		if vmi.Spec.Domain.Devices.Inputs[i].Bus == "usb" {
-			return true
-		}
-	}
-
-	for i := range vmi.Spec.Domain.Devices.Disks {
-		disk := vmi.Spec.Domain.Devices.Disks[i].Disk
-
-		if disk != nil && disk.Bus == v1.DiskBusUSB {
-			return true
-		}
-	}
-
-	if vmi.Spec.Domain.Devices.ClientPassthrough != nil {
-		return true
-	}
-
-	if device.USBDevicesFound(vmi.Spec.Domain.Devices.HostDevices) {
-		return true
-	}
-
-	return false
-}
-
 func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if vmi.Spec.Domain.Memory == nil ||
 		vmi.Spec.Domain.Memory.MaxGuest == nil ||
@@ -1765,7 +1736,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		Index: "0",
 		Model: "none",
 	}
-	if isUSBNeeded(c, vmi) {
+	if newArchConverter(c.Architecture).isUSBNeeded(vmi) {
 		usbController.Model = "qemu-xhci"
 	}
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
@@ -1923,58 +1894,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		var heads uint = 1
-		var vram uint = 16384
-		// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
-		// tablet and keyboard devices are necessary for control the VM via vnc connection
-		if isARM64(c.Architecture) {
-			domain.Spec.Devices.Video = []api.Video{
-				{
-					Model: api.VideoModel{
-						Type:  v1.VirtIO,
-						Heads: &heads,
-					},
-				},
-			}
-
-			if !hasTabletDevice(vmi) {
-				domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-					api.Input{
-						Bus:  "usb",
-						Type: "tablet",
-					},
-				)
-			}
-
-			domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-				api.Input{
-					Bus:  "usb",
-					Type: "keyboard",
-				},
-			)
-		} else {
-			// For AMD64 + EFI, use bochs. For BIOS, use VGA
-			if c.BochsForEFIGuests && util.IsEFIVMI(vmi) {
-				domain.Spec.Devices.Video = []api.Video{
-					{
-						Model: api.VideoModel{
-							Type:  "bochs",
-							Heads: &heads,
-						},
-					},
-				}
-			} else {
-				domain.Spec.Devices.Video = []api.Video{
-					{
-						Model: api.VideoModel{
-							Type:  "vga",
-							Heads: &heads,
-							VRam:  &vram,
-						},
-					},
-				}
-			}
-		}
+		newArchConverter(c.Architecture).addGraphicsDevice(vmi, domain, c)
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
 				Listen: &api.GraphicsListen{
