@@ -50,7 +50,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -152,16 +151,10 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var vm *v1.VirtualMachine
 		resource := "virtualmachines"
 
-		newVM := func() *v1.VirtualMachine {
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
-			vm := libvmi.NewVirtualMachine(vmi)
-			return vm
-		}
-
 		BeforeEach(func() {
-			vm = newVM()
-
+			vmi := libvmifact.NewCirros()
+			vm = libvmi.NewVirtualMachine(vmi)
+			vm.Namespace = testsuite.GetTestNamespace(vmi)
 		})
 
 		It("[test_id:7631]create a VirtualMachine", func() {
@@ -543,10 +536,9 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		BeforeEach(func() {
 			tests.EnableFeatureGate(virtconfig.SnapshotGate)
 
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			vmi := libvmifact.NewCirros()
 			vm := libvmi.NewVirtualMachine(vmi)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			snap = newVMSnapshot(vm)
@@ -634,10 +626,9 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		BeforeEach(func() {
 			tests.EnableFeatureGate(virtconfig.SnapshotGate)
 
-			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			vmi := libvmifact.NewCirros()
 			vm := libvmi.NewVirtualMachine(vmi)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			snap := newVMSnapshot(vm)
