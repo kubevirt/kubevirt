@@ -38,7 +38,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -57,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 const (
@@ -70,7 +68,6 @@ const (
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]CloudInit UserData", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var (
@@ -308,27 +305,23 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		It("[test_id:1618]should take user-data from k8s secret", func() {
+			secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "")
+
+			vmi := libvmifact.NewCirrosNoUserData(libvmi.WithCloudInitNoCloudUserDataSecretName(secretID))
 
 			idx := 0
-			for i, volume := range vmi.Spec.Volumes {
-				if volume.CloudInitNoCloud == nil {
-					continue
+			for idx = range vmi.Spec.Volumes {
+				if vmi.Spec.Volumes[idx].CloudInitNoCloud != nil {
+					break
 				}
-				idx = i
-
-				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
-				spec := volume.CloudInitNoCloud
-				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
-
-				// Store userdata as k8s secret
-				By("Creating a user-data secret")
-				secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
-				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				break
 			}
+
+			// Store userdata as k8s secret
+			By("Creating a user-data secret")
+			secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
+			_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
@@ -525,7 +518,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Creating a secret with user and network data")
 				secret := libsecret.New(secretID, libsecret.DataString{"networkdata": testNetworkData})
 
-				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = LaunchVMI(vmi)
@@ -569,10 +562,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Creating a secret with network data")
 				nSecret := libsecret.New(nSecretID, libsecret.DataString{networkDataLabel: testNetworkData})
 
-				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), uSecret, metav1.CreateOptions{})
+				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), uSecret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), nSecret, metav1.CreateOptions{})
+				_, err = virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), nSecret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = LaunchVMI(vmi)
