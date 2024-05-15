@@ -1452,6 +1452,20 @@ func deletePvAndPvc(name string) {
 	}
 }
 
+func runPodAndExpectCompletion(pod *k8sv1.Pod) *k8sv1.Pod {
+	virtClient := kubevirt.Client()
+
+	var err error
+	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+
+	pod, err = ThisPod(pod)()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pod).ToNot(BeNil())
+	return pod
+}
+
 func copyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	dstPath = testsuite.HostPathAlpine + "-nopriv"
 	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
@@ -1459,7 +1473,7 @@ func copyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
 	By("creating an image with without qemu permissions")
 	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-	nodeName = tests.RunPodAndExpectCompletion(pod).Spec.NodeName
+	nodeName = runPodAndExpectCompletion(pod).Spec.NodeName
 	return
 }
 
@@ -1469,5 +1483,5 @@ func deleteAlpineWithNonQEMUPermissions() {
 
 	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-	tests.RunPodAndExpectCompletion(pod)
+	runPodAndExpectCompletion(pod)
 }
