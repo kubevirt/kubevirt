@@ -37,6 +37,7 @@ func WithCloudInitNoCloudUserData(data string) Option {
 		volume := getVolume(vmi, cloudInitDiskName)
 		volume.CloudInitNoCloud.UserData = data
 		volume.CloudInitNoCloud.UserDataBase64 = ""
+		volume.CloudInitNoCloud.UserDataSecretRef = nil
 	}
 }
 
@@ -49,6 +50,19 @@ func WithCloudInitNoCloudEncodedUserData(data string) Option {
 		encodedData := base64.StdEncoding.EncodeToString([]byte(data))
 		volume.CloudInitNoCloud.UserData = ""
 		volume.CloudInitNoCloud.UserDataBase64 = encodedData
+		volume.CloudInitNoCloud.UserDataSecretRef = nil
+	}
+}
+
+// WithCloudInitNoCloudUserDataSecretName adds cloud-init no-cloud base64-encoded user data secret
+func WithCloudInitNoCloudUserDataSecretName(secretName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitNoCloud.UserData = ""
+		volume.CloudInitNoCloud.UserDataBase64 = ""
+		volume.CloudInitNoCloud.UserDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
 	}
 }
 
@@ -96,6 +110,67 @@ func WithCloudInitConfigDriveUserData(data string) Option {
 		volume := getVolume(vmi, cloudInitDiskName)
 		volume.CloudInitConfigDrive.UserData = data
 		volume.CloudInitConfigDrive.UserDataBase64 = ""
+		volume.CloudInitConfigDrive.UserDataSecretRef = nil
+	}
+}
+
+// WithCloudInitConfigDriveEncodedUserData adds cloud-init config-drive user data.
+func WithCloudInitConfigDriveEncodedUserData(data string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitConfigDrive.UserData = ""
+		volume.CloudInitConfigDrive.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
+		volume.CloudInitConfigDrive.UserDataSecretRef = nil
+	}
+}
+
+// WithCloudInitConfigDriveUserDataSecretName adds cloud-init config-drive user data secret.
+func WithCloudInitConfigDriveUserDataSecretName(secretName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitConfigDrive.UserData = ""
+		volume.CloudInitConfigDrive.UserDataBase64 = ""
+		volume.CloudInitConfigDrive.UserDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
+	}
+}
+
+// WithCloudInitConfigDriveNetworkData adds cloud-init config-drive network data.
+func WithCloudInitConfigDriveNetworkData(data string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitConfigDrive.NetworkData = data
+		volume.CloudInitConfigDrive.NetworkDataBase64 = ""
+		volume.CloudInitConfigDrive.NetworkDataSecretRef = nil
+	}
+}
+
+// WithCloudInitConfigDriveEncodedNetworkData adds cloud-init config-drive encoded network data.
+func WithCloudInitConfigDriveEncodedNetworkData(data string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitConfigDrive.NetworkData = ""
+		volume.CloudInitConfigDrive.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(data))
+		volume.CloudInitConfigDrive.NetworkDataSecretRef = nil
+	}
+}
+
+// WithCloudInitConfigDriveNetworkDataSecretName adds cloud-init config-drive encoded network secret.
+func WithCloudInitConfigDriveNetworkDataSecretName(secretName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+
+		volume := getVolume(vmi, cloudInitDiskName)
+		volume.CloudInitConfigDrive.NetworkData = ""
+		volume.CloudInitConfigDrive.NetworkDataBase64 = ""
+		volume.CloudInitConfigDrive.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
 	}
 }
 
