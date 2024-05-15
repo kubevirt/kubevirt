@@ -27,23 +27,22 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
-
 	expect "github.com/google/goexpect"
 
-	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = SIGDescribe("Guest Access Credentials", func() {
@@ -247,17 +246,8 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 	})
 })
 
-func createNewSecret(namespace string, secretID string, data map[string][]byte) {
-	secret := &kubev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: secretID,
-			Labels: map[string]string{
-				util.SecretLabel: secretID,
-			},
-		},
-		Type: "Opaque",
-		Data: data,
-	}
+func createNewSecret(namespace string, secretID string, data libsecret.DataBytes) {
+	secret := libsecret.New(secretID, data)
 	_, err := kubevirt.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 }

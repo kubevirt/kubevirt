@@ -80,6 +80,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -645,19 +646,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi := libvmifact.NewAlpine()
 
 				By("Creating a secret with the binary ACPI SLIC table")
-				secret, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(
-					context.Background(),
-					&k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      secretWithSlicName,
-							Namespace: testsuite.GetTestNamespace(vmi),
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"slic.bin": slicTable,
-						},
-					},
-					metav1.CreateOptions{})
+				secret := libsecret.New(secretWithSlicName, libsecret.DataBytes{"slic.bin": slicTable})
+				secret, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(secret).ToNot(BeNil())
 
