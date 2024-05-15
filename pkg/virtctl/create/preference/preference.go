@@ -27,6 +27,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
 
@@ -38,11 +39,7 @@ const (
 	MachineTypeFlag        = "machine-type"
 	NameFlag               = "name"
 	NamespacedFlag         = "namespaced"
-	CPUTopologyErr         = "CPU topology must have a value of preferCores, preferSockets or preferThreads"
-
-	stringPreferCores   = string(instancetypev1beta1.DeprecatedPreferCores)
-	stringPreferSockets = string(instancetypev1beta1.DeprecatedPreferSockets)
-	stringPreferThreads = string(instancetypev1beta1.DeprecatedPreferThreads)
+	CPUTopologyErr         = "CPU topology must have a value of sockets, cores, threads or spread"
 )
 
 type createPreference struct {
@@ -123,13 +120,10 @@ func withMachineType(c *createPreference, preferenceSpec *instancetypev1beta1.Vi
 }
 
 func withCPUTopology(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	if c.CPUTopology != stringPreferCores &&
-		c.CPUTopology != stringPreferSockets &&
-		c.CPUTopology != stringPreferThreads {
+	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.CPUTopology)
+	if !instancetype.IsPreferredTopologySupported(preferredCPUTopology) {
 		return params.FlagErr(CPUTopologyFlag, CPUTopologyErr)
 	}
-
-	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.CPUTopology)
 	preferenceSpec.CPU = &instancetypev1beta1.CPUPreferences{
 		PreferredCPUTopology: &preferredCPUTopology,
 	}
