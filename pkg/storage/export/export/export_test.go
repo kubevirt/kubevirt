@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -1288,6 +1289,11 @@ var _ = Describe("Export controller", func() {
 					Source: &cdiv1.DataVolumeSource{
 						Blank: &cdiv1.DataVolumeBlankImage{},
 					},
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Kind:      "",
+						Name:      "test",
+						Namespace: ptr.To("default"),
+					},
 				},
 			},
 		}
@@ -1321,6 +1327,7 @@ var _ = Describe("Export controller", func() {
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(BeEmpty())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.Blank).To(BeNil())
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(BeNil())
 	})
 
 	It("Should generate DataVolumes from VM", func() {
@@ -1335,6 +1342,7 @@ var _ = Describe("Export controller", func() {
 		Expect(dvs[0].Name).To((Equal("pvc")))
 		Expect(dvs[0].Spec.PVC.DataSource).To(BeNil())
 		Expect(dvs[0].Spec.PVC.DataSourceRef).To(BeNil())
+		Expect(dvs[0].Spec.SourceRef).To(BeNil())
 	})
 })
 
