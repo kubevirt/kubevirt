@@ -36,8 +36,26 @@ func (f *ClusterPreferenceAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 func validatePreferenceSpec(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
+	causes = append(causes, validatePreferredCPUTopology(field, spec)...)
 	causes = append(causes, validateSpreadOptions(field, spec)...)
 	return causes
+}
+
+const preferredCPUTopologyUnknownErrFmt = "unknown preferredCPUTopology %s"
+
+func validatePreferredCPUTopology(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
+	if spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
+		return nil
+	}
+	topology := *spec.CPU.PreferredCPUTopology
+	if !instancetype.IsPreferredTopologySupported(topology) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf(preferredCPUTopologyUnknownErrFmt, topology),
+			Field:   field.Child("cpu", "preferredCPUTopology").String(),
+		}}
+	}
+	return nil
 }
 
 const (

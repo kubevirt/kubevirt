@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"slices"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -99,6 +100,22 @@ func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
 	}
 	return preferredTopology
+}
+
+func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopology) bool {
+	supportedTopologies := []instancetypev1beta1.PreferredCPUTopology{
+		instancetypev1beta1.DeprecatedPreferSockets,
+		instancetypev1beta1.DeprecatedPreferCores,
+		instancetypev1beta1.DeprecatedPreferThreads,
+		instancetypev1beta1.DeprecatedPreferSpread,
+		instancetypev1beta1.DeprecatedPreferAny,
+		instancetypev1beta1.Sockets,
+		instancetypev1beta1.Cores,
+		instancetypev1beta1.Threads,
+		instancetypev1beta1.Spread,
+		instancetypev1beta1.Any,
+	}
+	return slices.Contains(supportedTopologies, topology)
 }
 
 const defaultSpreadRatio uint32 = 2
