@@ -246,7 +246,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			clusterPreference := builder.NewClusterPreference()
-			preferredCPUTopology := instancetypev1beta1.PreferSockets
+			preferredCPUTopology := instancetypev1beta1.Sockets
 			clusterPreference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
 			}
@@ -279,7 +279,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			preference := builder.NewPreference()
-			preferredCPUTopology := instancetypev1beta1.PreferSockets
+			preferredCPUTopology := instancetypev1beta1.Sockets
 			preference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
 			}
@@ -326,7 +326,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// Assert we've used sockets as instancetypev1beta1.PreferSockets was requested
+			// Assert we've used sockets as instancetypev1beta1.Sockets was requested
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetype.Spec.CPU.Guest))
 			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
 
@@ -518,7 +518,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a VirtualMachinePreference")
 			preference := builder.NewPreference()
-			preferredCPUTopology := instancetypev1beta1.PreferSockets
+			preferredCPUTopology := instancetypev1beta1.Sockets
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredCPUTopology,
@@ -768,7 +768,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a VirtualMachinePreference")
 			preference = builder.NewPreference()
-			preferredCPUTopology := instancetypev1beta1.PreferCores
+			preferredCPUTopology := instancetypev1beta1.Cores
 			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredCPUTopology,
@@ -1318,7 +1318,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachinePreferencev1beta1,
 			),
 			Entry("VirtualMachinePreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				preferredCPUTopology := instancetypev1beta1.PreferCores
+				preferredCPUTopology := instancetypev1beta1.Cores
 				createdObj, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -1385,7 +1385,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				fetchVirtualMachineClusterPreferencev1beta1,
 			),
 			Entry("VirtualMachineClusterPreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				preferredCPUTopology := instancetypev1beta1.PreferCores
+				preferredCPUTopology := instancetypev1beta1.Cores
 				createdObj, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -1412,9 +1412,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("VirtualMachine using preference resource requirements", func() {
 		var (
-			preferCores   = instancetypev1beta1.PreferCores
-			preferThreads = instancetypev1beta1.PreferThreads
-			preferAny     = instancetypev1beta1.PreferAny
+			preferCores   = instancetypev1beta1.Cores
+			preferThreads = instancetypev1beta1.Threads
+			preferAny     = instancetypev1beta1.Any
 		)
 
 		DescribeTable("should be accepted when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *virtv1.VirtualMachine) {

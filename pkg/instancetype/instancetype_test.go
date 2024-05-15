@@ -611,7 +611,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
-				preferredCPUTopology := instancetypev1beta1.PreferCores
+				preferredCPUTopology := instancetypev1beta1.Cores
 				clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "VirtualMachineClusterPreference",
@@ -722,7 +722,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
 				unexpectedPreference := clusterPreference.DeepCopy()
-				preferredCPUTopology := instancetypev1beta1.PreferThreads
+				preferredCPUTopology := instancetypev1beta1.Threads
 				unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
@@ -743,7 +743,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
 				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
 
-				preferredCPUTopology := instancetypev1beta1.PreferCores
+				preferredCPUTopology := instancetypev1beta1.Cores
 				preference = &instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "VirtualMachinePreference",
@@ -856,7 +856,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
 				unexpectedPreference := preference.DeepCopy()
-				preferredCPUTopology := instancetypev1beta1.PreferThreads
+				preferredCPUTopology := instancetypev1beta1.Threads
 				unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
@@ -1025,7 +1025,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should default to Sockets, when instancetype is used with PreferAny", func() {
-				preferredCPUTopology := instancetypev1beta1.PreferAny
+				preferredCPUTopology := instancetypev1beta1.Any
 				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
@@ -1036,7 +1036,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply in full with PreferCores selected", func() {
-				preferredCPUTopology := instancetypev1beta1.PreferCores
+				preferredCPUTopology := instancetypev1beta1.Cores
 				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
@@ -1053,7 +1053,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply in full with PreferThreads selected", func() {
-				preferredCPUTopology := instancetypev1beta1.PreferThreads
+				preferredCPUTopology := instancetypev1beta1.Threads
 				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
@@ -1070,7 +1070,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply in full with PreferSockets selected", func() {
-				preferredCPUTopology := instancetypev1beta1.PreferSockets
+				preferredCPUTopology := instancetypev1beta1.Sockets
 				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
@@ -1092,7 +1092,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					if preferenceSpec.CPU == nil {
 						preferenceSpec.CPU = &instancetypev1beta1.CPUPreferences{}
 					}
-					preferenceSpec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.PreferSpread)
+					preferenceSpec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.Spread)
 
 					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, &preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(expectedCPU.Sockets))
@@ -2226,14 +2226,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 	})
 
 	Context("preference requirements check", func() {
-		var (
-			preferCores   = instancetypev1beta1.PreferCores
-			preferSockets = instancetypev1beta1.PreferSockets
-			preferThreads = instancetypev1beta1.PreferThreads
-			preferSpread  = instancetypev1beta1.PreferSpread
-			preferAny     = instancetypev1beta1.PreferAny
-		)
-
 		DescribeTable("should pass when sufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) {
 			path, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
 			Expect(path).To(BeNil())
@@ -2273,7 +2265,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferSockets,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2293,7 +2285,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferCores,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2313,7 +2305,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferThreads,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2333,7 +2325,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferSpread,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2354,7 +2346,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferSpread,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
@@ -2378,7 +2370,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferSpread,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 						},
@@ -2403,7 +2395,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferAny,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2484,7 +2476,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferSockets,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2506,7 +2498,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferCores,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2528,7 +2520,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferThreads,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2550,7 +2542,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferSpread,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2576,7 +2568,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
-						PreferredCPUTopology: &preferSpread,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2602,7 +2594,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 						},
-						PreferredCPUTopology: &preferSpread,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
@@ -2626,7 +2618,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				nil,
 				&instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferAny,
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
 					},
 					Requirements: &instancetypev1beta1.PreferenceRequirements{
 						CPU: &instancetypev1beta1.CPUPreferenceRequirement{

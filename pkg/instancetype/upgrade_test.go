@@ -410,7 +410,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSockets),
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 							},
 						},
 					},
@@ -451,7 +451,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSockets),
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 							},
 						},
 					},
@@ -518,7 +518,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSockets),
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 							},
 						},
 					},
@@ -553,7 +553,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSockets),
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
 							},
 						},
 					},

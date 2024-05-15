@@ -3170,7 +3170,7 @@ spec:
 				cpu         = uint32(1024)
 			)
 
-			var preferredTopology = v1beta1.PreferThreads
+			var preferredTopology = v1beta1.Threads
 
 			It("to instancetypes", func() {
 				By("Enabling the feature gate and waiting for KubeVirt to be ready")

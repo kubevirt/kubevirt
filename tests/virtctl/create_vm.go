@@ -511,7 +511,7 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.
 }
 
 func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachinePreference {
-	preferredCPUTopology := instancetypev1beta1.PreferCores
+	preferredCPUTopology := instancetypev1beta1.Cores
 	preference := &instancetypev1beta1.VirtualMachinePreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-preference-",

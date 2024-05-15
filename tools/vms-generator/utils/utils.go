@@ -1365,7 +1365,7 @@ func GetVirtualMachinePreferenceVirtio() *instancetypev1beta1.VirtualMachinePref
 
 func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePreference {
 	spinlocks := uint32(8191)
-	preferredCPUTopology := instancetypev1beta1.PreferSockets
+	preferredCPUTopology := instancetypev1beta1.Sockets
 	return &instancetypev1beta1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),

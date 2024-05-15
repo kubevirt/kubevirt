@@ -46,7 +46,7 @@ const (
 )
 
 func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
-	if spec.CPU == nil || spec.CPU.SpreadOptions == nil || spec.CPU.PreferredCPUTopology == nil || *spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.PreferSpread {
+	if spec.CPU == nil || spec.CPU.SpreadOptions == nil || spec.CPU.PreferredCPUTopology == nil || *spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.Spread {
 		return nil
 	}
 	ratio, across := instancetype.GetSpreadOptions(spec)

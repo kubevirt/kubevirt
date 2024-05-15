@@ -2631,7 +2631,7 @@ func createInstancetype() *instancetypev1beta1.VirtualMachineInstancetype {
 }
 
 func createPreference() *instancetypev1beta1.VirtualMachinePreference {
-	preferredCPUTopology := instancetypev1beta1.PreferThreads
+	preferredCPUTopology := instancetypev1beta1.Threads
 	return &instancetypev1beta1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       instancetypeapi.SingularPreferenceResourceName,

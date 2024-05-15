@@ -651,7 +651,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						instancetype, err := virtClient.VirtualMachineInstancetype(ns).Create(context.Background(), instancetype, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						preferredCPUTopology := instancetypev1beta1.PreferSockets
+						preferredCPUTopology := instancetypev1beta1.Sockets
 						preference = &instancetypev1beta1.VirtualMachinePreference{
 							ObjectMeta: v1.ObjectMeta{
 								GenerateName: "vm-preference-",

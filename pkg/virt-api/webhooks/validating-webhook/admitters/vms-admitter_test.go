@@ -1835,7 +1835,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				uint32(3),
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 					},
 				},
 				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 3, 2),
@@ -1845,7 +1845,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					PreferSpreadSocketToCoreRatio: uint32(3),
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 					},
 				},
 				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 2, 3),
@@ -1854,7 +1854,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				uint32(2),
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Ratio: pointer.P(uint32(3)),
 						},
@@ -1867,7 +1867,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					PreferSpreadSocketToCoreRatio: uint32(3),
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 					},
 				},
 				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 4, 3),
@@ -1876,7 +1876,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				uint32(4),
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Ratio: pointer.P(uint32(3)),
 						},
@@ -1888,7 +1888,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				uint32(3),
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
@@ -1900,7 +1900,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				uint32(5),
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
 						},
@@ -1912,7 +1912,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				uint32(5),
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 						},
@@ -1925,7 +1925,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					PreferSpreadSocketToCoreRatio: uint32(4),
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 						},
@@ -1937,7 +1937,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				uint32(6),
 				instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread),
 						SpreadOptions: &instancetypev1beta1.SpreadOptions{
 							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 							Ratio:  pointer.P(uint32(4)),
@@ -1951,7 +1951,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		It("should admit VM with preference using preferSpread and without instancetype", func() {
 			vm.Spec.Instancetype = nil
 			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{CPU: &instancetypev1beta1.CPUPreferences{PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread)}}, nil
+				return &instancetypev1beta1.VirtualMachinePreferenceSpec{CPU: &instancetypev1beta1.CPUPreferences{PreferredCPUTopology: pointer.P(instancetypev1beta1.Spread)}}, nil
 			}
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
