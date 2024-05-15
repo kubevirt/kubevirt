@@ -290,15 +290,6 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskBu
 	return vmi
 }
 
-// NewRandomVMIWithEphemeralDiskAndUserdata
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	AddUserData(vmi, "disk1", userData)
-	return vmi
-}
-
 // AddUserData
 //
 // Deprecated: Use libvmi
