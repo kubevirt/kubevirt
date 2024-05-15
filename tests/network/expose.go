@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -127,7 +128,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		BeforeEach(func() {
 			tcpVM = newLabeledVMI("vm")
 			tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
-			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp", console.LoginToAlpine, false)
+			generateHelloWorldServer(tcpVM, testPort, "tcp", console.LoginToAlpine, false)
 		})
 
 		Context("Expose ClusterIP service", func() {
@@ -392,7 +393,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		BeforeEach(func() {
 			udpVM = newLabeledVMI("udp-vm")
 			udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
-			tests.GenerateHelloWorldServer(udpVM, testPort, "udp", console.LoginToAlpine, false)
+			generateHelloWorldServer(udpVM, testPort, "udp", console.LoginToAlpine, false)
 		})
 
 		Context("Expose ClusterIP UDP service", func() {
@@ -535,7 +536,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			Expect(err).ToNot(HaveOccurred())
 			for _, vm := range vms.Items {
 				if vm.OwnerReferences != nil {
-					tests.GenerateHelloWorldServer(&vm, testPort, "tcp", console.LoginToAlpine, false)
+					generateHelloWorldServer(&vm, testPort, "tcp", console.LoginToAlpine, false)
 				}
 			}
 		})
@@ -624,7 +625,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			if vmi == nil {
 				return nil
 			}
-			tests.GenerateHelloWorldServer(vmi, port, protocol, console.LoginToAlpine, false)
+			generateHelloWorldServer(vmi, port, protocol, console.LoginToAlpine, false)
 			return vmi
 		}
 
@@ -715,7 +716,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Creating a TCP server on the VM.")
-				tests.GenerateHelloWorldServer(vmi, testPort, "tcp", console.LoginToAlpine, false)
+				generateHelloWorldServer(vmi, testPort, "tcp", console.LoginToAlpine, false)
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
 				By(iteratingClusterIPs)
@@ -804,4 +805,25 @@ func resolveNodeIPAddrByFamily(sourcePod *k8sv1.Pod, node k8sv1.Node, ipFamily k
 		return "", fmt.Errorf("could not get node hostname")
 	}
 	return resolveNodeIp(sourcePod, *hostname, ipFamily)
+}
+
+func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string, loginTo console.LoginToFunction, sudoNeeded bool) {
+	Expect(loginTo(vmi)).To(Succeed())
+
+	sudoPrefix := ""
+	if sudoNeeded {
+		sudoPrefix = "sudo "
+	}
+
+	serverCommand := fmt.Sprintf("%snc -klp %d -e echo -e 'Hello World!'&\n", sudoPrefix, testPort)
+	if protocol == "udp" {
+		// nc has to be in a while loop in case of UDP, since it exists after one message
+		serverCommand = fmt.Sprintf("%ssh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"&\n", sudoPrefix, testPort)
+	}
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: serverCommand},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: tests.EchoLastReturnValue},
+		&expect.BExp{R: console.RetValue("0")},
+	}, 60)).To(Succeed())
 }

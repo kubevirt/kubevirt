@@ -85,7 +85,7 @@ var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingP
 			libwait.WithTimeout(180),
 		)
 
-		tests.GenerateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
+		generateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
 
 		By("have containerPort in the pod manifest")
 		vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)

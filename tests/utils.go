@@ -698,27 +698,6 @@ func GetRunningVMIEmulator(vmi *v1.VirtualMachineInstance) (string, error) {
 	return domSpec.Devices.Emulator, nil
 }
 
-func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string, loginTo console.LoginToFunction, sudoNeeded bool) {
-	Expect(loginTo(vmi)).To(Succeed())
-
-	sudoPrefix := ""
-	if sudoNeeded {
-		sudoPrefix = "sudo "
-	}
-
-	serverCommand := fmt.Sprintf("%snc -klp %d -e echo -e 'Hello World!'&\n", sudoPrefix, testPort)
-	if protocol == "udp" {
-		// nc has to be in a while loop in case of UDP, since it exists after one message
-		serverCommand = fmt.Sprintf("%ssh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"&\n", sudoPrefix, testPort)
-	}
-	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: serverCommand},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 60)).To(Succeed())
-}
-
 func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	virtClient := kubevirt.Client()
 	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
