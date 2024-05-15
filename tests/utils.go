@@ -247,25 +247,6 @@ func cirrosMemory() string {
 	return "128Mi"
 }
 
-// NewRandomVMIWithEphemeralDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
-	opts := []libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-		libvmi.WithResourceMemory(cirrosMemory()),
-		libvmi.WithContainerDisk("disk0", containerImage),
-	}
-	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling) {
-		opts = append(
-			[]libvmi.Option{libvmi.WithRng()},
-			opts...)
-	}
-	return libvmi.New(opts...)
-}
-
 // AddEphemeralDisk
 //
 // Deprecated: Use libvmi
