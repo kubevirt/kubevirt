@@ -106,8 +106,8 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 			Expect(preferenceSpec.CPU.PreferredCPUTopology).ToNot(BeNil())
 			Expect(*preferenceSpec.CPU.PreferredCPUTopology).To(Equal(topology))
 		},
-			Entry("VirtualMachinePreference", namespaced, "preferCores", true, instancetypev1beta1.PreferCores),
-			Entry("VirtualMachineClusterPreference", "", "preferThreads", false, instancetypev1beta1.PreferThreads),
+			Entry("VirtualMachinePreference", namespaced, string(instancetypev1beta1.Cores), true, instancetypev1beta1.Cores),
+			Entry("VirtualMachineClusterPreference", "", string(instancetypev1beta1.Threads), false, instancetypev1beta1.Threads),
 		)
 	})
 })

@@ -322,7 +322,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachinePreference from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.PreferSockets),
+					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachinePreference(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -334,7 +334,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachinePreference from v1beta1 with labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.PreferSockets),
+					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachinePreference(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -399,7 +399,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterPreference from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewClusterPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.PreferSockets),
+					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -411,7 +411,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterPreference from v1beta1 with labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewClusterPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.PreferSockets),
+					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
