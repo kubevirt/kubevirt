@@ -51,10 +51,7 @@ import (
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -108,7 +105,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			}),
 		)
-
 	})
 
 	Context("Preference validation", func() {
@@ -234,7 +230,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(expectedOverhead).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
 			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
 			Expect(memRequest.Value()).To(Equal(expectedOverhead))
-
 		})
 	})
 
@@ -390,7 +385,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(expectedOverhead).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
 			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
 			Expect(memRequest.Value()).To(Equal(expectedOverhead))
-
 		})
 
 		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", func() {
@@ -625,7 +619,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), newVM.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newVMI.Spec.Domain.CPU.Sockets).To(Equal(newInstancetypeCPUGuest))
-
 		})
 
 		It("[test_id:CNV-9304] should fail if stored ControllerRevisions are different", func() {
@@ -703,7 +696,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		Context("deprecated API versions", func() {
 			const expectedCores = uint32(4)
-			var expectedMemory = resource.MustParse("256Mi")
+			expectedMemory := resource.MustParse("256Mi")
 
 			getV1Alpha1VirtualMachineInstancetypeSpecRevisionBytes := func(withAPIVersion bool) ([]byte, []byte) {
 				instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
@@ -1291,7 +1284,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	})
 
 	Context("instance type with dedicatedCPUPlacement enabled", func() {
-
 		BeforeEach(func() {
 			checks.SkipTestIfNoCPUManager()
 		})
@@ -1381,7 +1373,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		DescribeTable("should create", func(createFunc func() string, v1alpha1FetchFunc func(string), v1alpha2FetchFunc func(string), v1beta1FetchFunc func(string)) {
+		DescribeTable("should create", func(createFunc func() string, v1alpha1FetchFunc, v1alpha2FetchFunc, v1beta1FetchFunc func(string)) {
 			// Create the object and then fetch it using the currently supported versions
 			objName := createFunc()
 			v1alpha1FetchFunc(objName)
