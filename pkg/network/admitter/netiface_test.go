@@ -338,7 +338,8 @@ var _ = Describe("Validating VMI network spec", func() {
 				v1.DHCPOptions{
 					PrivateOptions: []v1.DHCPPrivateOptions{
 						{Option: 240, Value: "extra.options.kubevirt.io"},
-						{Option: 240, Value: "sameextra.options.kubevirt.io"}},
+						{Option: 240, Value: "sameextra.options.kubevirt.io"},
+					},
 				},
 				[]metav1.StatusCause{{
 					Type:    "FieldValueInvalid",
@@ -382,7 +383,8 @@ var _ = Describe("Validating VMI network spec", func() {
 				v1.DHCPOptions{
 					PrivateOptions: []v1.DHCPPrivateOptions{
 						{Option: 240, Value: "extra.options.kubevirt.io"},
-						{Option: 241, Value: "extra.options.kubevirt.io"}},
+						{Option: 241, Value: "extra.options.kubevirt.io"},
+					},
 				},
 			),
 		)

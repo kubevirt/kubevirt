@@ -232,6 +232,9 @@ lint-metrics:
 	./hack/prom-metric-linter/metric_name_linter.sh --operator-name="kubevirt" --sub-operator-name="kubevirt" --metrics-file=metrics.json
 	rm metrics.json
 
+gofumpt:
+	./hack/dockerized "hack/gofumpt.sh"
+
 .PHONY: \
 	build-verify \
 	conformance \

@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-func RenderPrivilegedPod(name string, cmd []string, args []string) *v1.Pod {
+func RenderPrivilegedPod(name string, cmd, args []string) *v1.Pod {
 	pod := RenderPod(name, cmd, args)
 	pod.Namespace = testsuite.NamespacePrivileged
 	pod.Spec.HostPID = true
@@ -49,7 +49,7 @@ func RenderPrivilegedPod(name string, cmd []string, args []string) *v1.Pod {
 	return pod
 }
 
-func RenderPod(name string, cmd []string, args []string) *v1.Pod {
+func RenderPod(name string, cmd, args []string) *v1.Pod {
 	pod := v1.Pod{
 		ObjectMeta: v12.ObjectMeta{
 			GenerateName: name,
@@ -72,7 +72,7 @@ func RenderPod(name string, cmd []string, args []string) *v1.Pod {
 	return &pod
 }
 
-func renderContainerSpec(imgPath string, name string, cmd []string, args []string) v1.Container {
+func renderContainerSpec(imgPath, name string, cmd, args []string) v1.Container {
 	return v1.Container{
 		Name:    name,
 		Image:   imgPath,
@@ -92,7 +92,7 @@ func renderContainerSpec(imgPath string, name string, cmd []string, args []strin
 	}
 }
 
-func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, args []string) v1.Container {
+func renderPrivilegedContainerSpec(imgPath, name string, cmd, args []string) v1.Container {
 	return v1.Container{
 		Name:    name,
 		Image:   imgPath,
@@ -106,7 +106,8 @@ func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, ar
 }
 
 func RenderHostPathPod(
-	podName string, dir string, hostPathType v1.HostPathType, mountPropagation v1.MountPropagationMode, cmd []string, args []string) *v1.Pod {
+	podName, dir string, hostPathType v1.HostPathType, mountPropagation v1.MountPropagationMode, cmd, args []string,
+) *v1.Pod {
 	pod := RenderPrivilegedPod(podName, cmd, args)
 	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, v1.VolumeMount{
 		Name:             "hostpath-mount",

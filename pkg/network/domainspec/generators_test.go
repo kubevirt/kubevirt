@@ -40,11 +40,16 @@ import (
 )
 
 var istioPortForwardRange = []api.InterfacePortForwardRange{
-	{Start: 15000, Exclude: "yes"}, {Start: 15001, Exclude: "yes"},
-	{Start: 15004, Exclude: "yes"}, {Start: 15006, Exclude: "yes"},
-	{Start: 15008, Exclude: "yes"}, {Start: 15009, Exclude: "yes"},
-	{Start: 15020, Exclude: "yes"}, {Start: 15021, Exclude: "yes"},
-	{Start: 15053, Exclude: "yes"}, {Start: 15090, Exclude: "yes"},
+	{Start: 15000, Exclude: "yes"},
+	{Start: 15001, Exclude: "yes"},
+	{Start: 15004, Exclude: "yes"},
+	{Start: 15006, Exclude: "yes"},
+	{Start: 15008, Exclude: "yes"},
+	{Start: 15009, Exclude: "yes"},
+	{Start: 15020, Exclude: "yes"},
+	{Start: 15021, Exclude: "yes"},
+	{Start: 15053, Exclude: "yes"},
+	{Start: 15090, Exclude: "yes"},
 }
 
 var _ = Describe("Pod Network", func() {
@@ -235,7 +240,8 @@ var _ = Describe("Pod Network", func() {
 					MacAddress:             "02:02:02:02:02:02",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
 					Ports: []v1.Port{
-						{Protocol: "udp", Port: 100}, {Protocol: "udp", Port: 200},
+						{Protocol: "udp", Port: 100},
+						{Protocol: "udp", Port: 200},
 						{Protocol: "tcp", Port: 8080},
 						{Port: 80},
 					},

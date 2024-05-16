@@ -27,7 +27,8 @@ import (
 )
 
 func validateMacvtapBinding(
-	fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network, config clusterConfigChecker) []metav1.StatusCause {
+	fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network, config clusterConfigChecker,
+) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
 		causes = append(causes, metav1.StatusCause{

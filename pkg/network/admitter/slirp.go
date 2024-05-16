@@ -35,7 +35,8 @@ type slirpClusterConfigChecker interface {
 func validateSlirpBinding(
 	field *k8sfield.Path,
 	spec *v1.VirtualMachineInstanceSpec,
-	configChecker slirpClusterConfigChecker) (causes []metav1.StatusCause) {
+	configChecker slirpClusterConfigChecker,
+) (causes []metav1.StatusCause) {
 	for idx, ifaceSpec := range spec.Domain.Devices.Interfaces {
 		if ifaceSpec.DeprecatedSlirp == nil {
 			continue

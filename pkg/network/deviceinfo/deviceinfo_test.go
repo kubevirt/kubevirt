@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("DeviceInfo", func() {
-
 	const deviceInfoPlugin = "deviceinfo"
 
 	networkStatusWithMixedNetworks := `[

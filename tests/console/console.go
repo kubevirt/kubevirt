@@ -239,7 +239,8 @@ func NewExpecter(
 	virtCli kubecli.KubevirtClient,
 	vmi *v1.VirtualMachineInstance,
 	timeout time.Duration,
-	opts ...expect.Option) (expect.Expecter, <-chan error, error) {
+	opts ...expect.Option,
+) (expect.Expecter, <-chan error, error) {
 	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)

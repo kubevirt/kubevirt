@@ -39,9 +39,11 @@ import (
 	instancetypeclientv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 )
 
-const resourceUID types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
-const resourceGeneration int64 = 1
-const nonExistingResourceName = "non-existing-resource"
+const (
+	resourceUID             types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
+	resourceGeneration      int64     = 1
+	nonExistingResourceName           = "non-existing-resource"
+)
 
 var _ = Describe("Instancetype and Preferences", func() {
 	var (
@@ -122,7 +124,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 	})
 
 	Context("Find and store instancetype", func() {
-
 		It("find returns nil when no instancetype is specified", func() {
 			vm.Spec.Instancetype = nil
 			spec, err := instancetypeMethods.FindInstancetypeSpec(vm)
@@ -235,7 +236,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
-
 			})
 
 			It("store returns a nil revision when RevisionName already populated", func() {
@@ -465,7 +465,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
-
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -574,7 +573,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 	})
 
 	Context("Find and store preference", func() {
-
 		It("find returns nil when no preference is specified", func() {
 			vm.Spec.Preference = nil
 			preference, err := instancetypeMethods.FindPreferenceSpec(vm)
@@ -720,7 +718,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
-
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -819,7 +816,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
-
 			})
 
 			It("store fails when VirtualMachinePreference doesn't exist", func() {
@@ -840,7 +836,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
-
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
@@ -857,7 +852,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
-
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -916,7 +910,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 	})
 
 	Context("Apply", func() {
-
 		var (
 			instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec
 			preferenceSpec   *instancetypev1beta1.VirtualMachinePreferenceSpec
@@ -997,7 +990,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("instancetype.spec.CPU and preference.spec.CPU", func() {
-
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
@@ -1582,7 +1574,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 		})
 		Context("instancetype.Spec.ioThreadsPolicy", func() {
-
 			var instancetypePolicy v1.IOThreadsPolicy
 
 			BeforeEach(func() {
@@ -1609,7 +1600,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("instancetype.Spec.LaunchSecurity", func() {
-
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					LaunchSecurity: &v1.LaunchSecurity{
@@ -1637,7 +1627,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("instancetype.Spec.GPUs", func() {
-
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					GPUs: []v1.GPU{
@@ -1671,7 +1660,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("instancetype.Spec.HostDevices", func() {
-
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					HostDevices: []v1.HostDevice{
@@ -1705,7 +1693,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Instancetype.Spec.Annotations", func() {
-
 			var multipleAnnotations map[string]string
 
 			BeforeEach(func() {
@@ -1749,7 +1736,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Preference.Spec.Annotations", func() {
-
 			var multipleAnnotations map[string]string
 
 			BeforeEach(func() {
@@ -1789,7 +1775,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 		// TODO - break this up into smaller more targeted tests
 		Context("Preference.Devices", func() {
-
 			var userDefinedBlockSize *v1.BlockSize
 
 			BeforeEach(func() {
@@ -1983,7 +1968,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Preference.Features", func() {
-
 			BeforeEach(func() {
 				spinLockRetries := uint32(32)
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
@@ -2056,7 +2040,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Preference.Firmware", func() {
-
 			It("should apply BIOS preferences full to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
@@ -2165,7 +2148,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Preference.Machine", func() {
-
 			It("should apply to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Machine: &instancetypev1beta1.MachinePreferences{
@@ -2180,7 +2162,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 		})
 		Context("Preference.Clock", func() {
-
 			It("should apply to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Clock: &instancetypev1beta1.ClockPreferences{
@@ -2688,6 +2669,5 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
 				fmt.Sprintf(instancetype.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 			))
-
 	})
 })
