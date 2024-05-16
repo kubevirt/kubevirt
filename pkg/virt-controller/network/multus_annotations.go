@@ -99,7 +99,7 @@ func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pl
 	if plugin.NetworkAttachmentDefinition == "" {
 		return nil, nil
 	}
-	netAttachDefNamespace, netAttachDefName := GetNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
+	netAttachDefNamespace, netAttachDefName := vmispec.GetNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
 
 	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
 	// The binding plugin CNI should read this arg and realize which logical network it should modify.
@@ -116,7 +116,7 @@ func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pl
 
 func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
 	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
-	namespace, networkName := GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
+	namespace, networkName := vmispec.GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress

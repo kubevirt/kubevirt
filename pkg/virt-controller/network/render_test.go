@@ -26,6 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,22 +48,6 @@ const (
 	defaultNamespace       = "default"
 	resourceName           = "resource_name"
 )
-
-var _ = Describe("GetNamespaceAndNetworkName", func() {
-	It("should return vmi namespace when namespace is implicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := network.GetNamespaceAndNetworkName(vmi.Namespace, "testnet")
-		Expect(namespace).To(Equal("testns"))
-		Expect(networkName).To(Equal("testnet"))
-	})
-
-	It("should return namespace from networkName when namespace is explicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := network.GetNamespaceAndNetworkName(vmi.Namespace, "otherns/testnet")
-		Expect(namespace).To(Equal("otherns"))
-		Expect(networkName).To(Equal("testnet"))
-	})
-})
 
 var _ = Describe("GetNetworkAttachmentDefinitionByName", func() {
 	var (
@@ -128,7 +113,7 @@ func createNADs(networkClient *fakenetworkclient.Clientset, namespace string, ne
 		Resource: "network-attachment-definitions",
 	}
 	for _, net := range networks {
-		ns, networkName := network.GetNamespaceAndNetworkName(namespace, net.Multus.NetworkName)
+		ns, networkName := vmispec.GetNamespaceAndNetworkName(namespace, net.Multus.NetworkName)
 		nad := &networkv1.NetworkAttachmentDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        networkName,

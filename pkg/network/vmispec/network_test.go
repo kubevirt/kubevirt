@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -84,6 +86,22 @@ var _ = Describe("Network", func() {
 			&multusDefaultNetwork,
 		),
 	)
+})
+
+var _ = Describe("GetNamespaceAndNetworkName", func() {
+	It("should return vmi namespace when namespace is implicit", func() {
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
+		namespace, networkName := vmispec.GetNamespaceAndNetworkName(vmi.Namespace, "testnet")
+		Expect(namespace).To(Equal("testns"))
+		Expect(networkName).To(Equal("testnet"))
+	})
+
+	It("should return namespace from networkName when namespace is explicit", func() {
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
+		namespace, networkName := vmispec.GetNamespaceAndNetworkName(vmi.Namespace, "otherns/testnet")
+		Expect(namespace).To(Equal("otherns"))
+		Expect(networkName).To(Equal("testnet"))
+	})
 })
 
 func createMultusSecondaryNetwork(name, networkName string) v1.Network {

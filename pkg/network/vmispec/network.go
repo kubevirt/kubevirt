@@ -19,7 +19,13 @@
 
 package vmispec
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	"strings"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/client-go/precond"
+)
 
 func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
 	for i := range networks {
@@ -92,4 +98,12 @@ func FilterNetworksByInterfaces(networks []v1.Network, interfaces []v1.Interface
 		}
 	}
 	return nets
+}
+
+func GetNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
+	if strings.Contains(fullNetworkName, "/") {
+		res := strings.SplitN(fullNetworkName, "/", 2)
+		return res[0], res[1]
+	}
+	return precond.MustNotBeEmpty(namespace), fullNetworkName
 }
