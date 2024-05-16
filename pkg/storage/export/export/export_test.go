@@ -45,7 +45,8 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -534,7 +535,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Status: &snapshotv1.VirtualMachineSnapshotStatus{
-				ReadyToUse: pointer.BoolPtr(false),
+				ReadyToUse: pointer.P(false),
 			},
 		}
 		syncCaches(stop)
@@ -590,7 +591,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: pointer.P(true),
 					},
 				},
 			},
@@ -627,7 +628,7 @@ var _ = Describe("Export controller", func() {
 						APIVersion: virtv1.GroupVersion.String(),
 						Kind:       "VirtualMachine",
 						Name:       testVmName,
-						Controller: pointer.BoolPtr(true),
+						Controller: pointer.P(true),
 					},
 				},
 			},
@@ -830,7 +831,7 @@ var _ = Describe("Export controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: k8sv1.PersistentVolumeClaimSpec{
-				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.StringPtr(string(k8sv1.PersistentVolumeBlock))),
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.P(string(k8sv1.PersistentVolumeBlock))),
 			},
 		}
 		testVMExport := populateExportFunc()
@@ -1288,6 +1289,11 @@ var _ = Describe("Export controller", func() {
 					Source: &cdiv1.DataVolumeSource{
 						Blank: &cdiv1.DataVolumeBlankImage{},
 					},
+					SourceRef: &cdiv1.DataVolumeSourceRef{
+						Kind:      "",
+						Name:      "test",
+						Namespace: pointer.P("default"),
+					},
 				},
 			},
 		}
@@ -1321,6 +1327,7 @@ var _ = Describe("Export controller", func() {
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(BeEmpty())
 		Expect(res.Spec.DataVolumeTemplates[0].Spec.Source.Blank).To(BeNil())
+		Expect(res.Spec.DataVolumeTemplates[0].Spec.SourceRef).To(BeNil())
 	})
 
 	It("Should generate DataVolumes from VM", func() {
@@ -1335,6 +1342,7 @@ var _ = Describe("Export controller", func() {
 		Expect(dvs[0].Name).To((Equal("pvc")))
 		Expect(dvs[0].Spec.PVC.DataSource).To(BeNil())
 		Expect(dvs[0].Spec.PVC.DataSourceRef).To(BeNil())
+		Expect(dvs[0].Spec.SourceRef).To(BeNil())
 	})
 })
 
@@ -1494,7 +1502,7 @@ func createPVCVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "PersistentVolumeClaim",
 				Name:     testPVCName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
@@ -1529,7 +1537,7 @@ func createSnapshotVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachineSnapshot",
 				Name:     testVmsnapshotName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
@@ -1548,7 +1556,7 @@ func createVMVMExport() *exportv1.VirtualMachineExport {
 				Kind:     "VirtualMachine",
 				Name:     testVmName,
 			},
-			TokenSecretRef: pointer.StringPtr("token"),
+			TokenSecretRef: pointer.P("token"),
 		},
 	}
 }
