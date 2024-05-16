@@ -466,3 +466,29 @@ There may be several options to implement this, one relatively simple
 method could be to preserve the data on a `dummy` interface.
 Aa a network binding plugin author, both the CNI plugin and the sidecar codebase
 is available, therefore both can be in sync to share such information.
+
+## Migration Support
+
+The VM migration operation is considered a core feature in Kubevirt and
+therefore the ability to support it needs to be addressed when designing
+a network binding plugin.
+
+The following points should be addressed in relation to migration support:
+- Kubevirt will allow migration only if the primary network supports it.
+- For a network binding plugin to support migration, the `migration` `method`
+  must be specified in the Kubevirt CR.
+  See the user-guide network binding plugin
+  [migration](https://kubevirt.io/user-guide/virtual_machines/network_binding_plugins/#migration)
+  section on how to define it.
+- The backend `libvirt` and `qemu` needs to support migration for the specific
+  device that is used in the domain.
+  - The `hostdevice` devices in the domain do not support migration out-of-the-box.
+    The network binding plugin infrastructure does not support migration for
+    interfaces that have a `hostdevice` backend.
+
+> **Note**:
+> Network interfaces with `hostdevice` backend require a special handling from
+> Kubevirt. One such handling is to unplug the device at the source before migration
+> is started and plugging it back at the destination after the migration completes.
+> Future development will consider adding a new migration method to support
+> migration for such interfaces.
