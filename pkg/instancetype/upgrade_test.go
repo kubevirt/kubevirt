@@ -401,6 +401,12 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalInstancetypeCR.Name))
 		Expect(vm.Spec.Preference.RevisionName).To(Equal(originalPreferenceCR.Name))
+
+		// Repeat the Upgrade call to show it is idempotent
+		Expect(methods.Upgrade(vm)).To(Succeed())
+
+		Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalInstancetypeCR.Name))
+		Expect(vm.Spec.Preference.RevisionName).To(Equal(originalPreferenceCR.Name))
 	},
 		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype",
 			func() *appsv1.ControllerRevision {
