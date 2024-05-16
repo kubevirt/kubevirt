@@ -5760,6 +5760,61 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}),
 				)
+
+				It("should correctly bump requests and limits when multiple hotplugs are performed", func() {
+					resources := v1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("100m"),
+						},
+						Limits: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("200m"),
+						},
+					}
+
+					vm, _ := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Domain.Resources = resources
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Sockets: 2,
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					vmi.Spec.Domain.CPU = &v1.CPU{
+						Sockets:    1,
+						MaxSockets: 4,
+					}
+					vmi.Spec.Domain.Resources = resources
+
+					originalVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					By("first hotplug")
+					err = controller.handleCPUChangeRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vm.Spec.Template.Spec.Domain.CPU.Sockets))
+
+					By("second hotplug")
+					vm.Spec.Template.Spec.Domain.CPU.Sockets = 3
+					vcpusDelta := int64(vm.Spec.Template.Spec.Domain.CPU.Sockets - originalVMI.Spec.Domain.CPU.Sockets)
+					resourcesDelta := resource.NewMilliQuantity(vcpusDelta*int64(1000*(1.0/float32(config.GetCPUAllocationRatio()))), resource.DecimalSI)
+
+					err = controller.handleCPUChangeRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vm.Spec.Template.Spec.Domain.CPU.Sockets))
+
+					expectedCpuReq := originalVMI.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
+					expectedCpuReq.Add(*resourcesDelta)
+					Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal(expectedCpuReq.String()))
+
+					expectedCpuLim := originalVMI.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
+					expectedCpuLim.Add(*resourcesDelta)
+					Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal(expectedCpuLim.String()))
+				})
 			})
 
 			Context("Memory", func() {

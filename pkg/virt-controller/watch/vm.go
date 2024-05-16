@@ -641,7 +641,7 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	resourcesDelta := resource.NewMilliQuantity(vcpusDelta*int64(1000/c.clusterConfig.GetCPUAllocationRatio()), resource.DecimalSI)
 
 	if !vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().IsZero() {
-		newCpuReq := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
+		newCpuReq := vmi.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
 		newCpuReq.Add(*resourcesDelta)
 
 		patches = append(patches, fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/requests/cpu", "value": "%s"}`, vmi.Spec.Domain.Resources.Requests.Cpu().String()))
@@ -649,7 +649,7 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	}
 
 	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().IsZero() {
-		newCpuLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
+		newCpuLimit := vmi.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
 		newCpuLimit.Add(*resourcesDelta)
 
 		patches = append(patches, fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/limits/cpu", "value": "%s"}`, vmi.Spec.Domain.Resources.Limits.Cpu().String()))
