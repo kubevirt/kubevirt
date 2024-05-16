@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -355,7 +355,7 @@ var _ = Describe("MemoryDump", func() {
 			vmExportClient = kubevirtfake.NewSimpleClientset()
 
 			kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(coreClient.StorageV1()).AnyTimes()
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(k8smetav1.NamespaceDefault).Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(k8smetav1.NamespaceDefault)).AnyTimes()
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(k8smetav1.NamespaceDefault).Return(vmExportClient.ExportV1beta1().VirtualMachineExports(k8smetav1.NamespaceDefault)).AnyTimes()
 			addDefaultReactors()
 
 			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 
 	"kubevirt.io/client-go/kubecli"
@@ -82,7 +82,7 @@ var _ = Describe("vmexport", func() {
 	testInit := func(statusCode int) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(vmExportClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
 
 		addDefaultReactors()
 

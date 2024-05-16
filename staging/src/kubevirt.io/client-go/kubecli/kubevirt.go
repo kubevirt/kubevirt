@@ -44,7 +44,7 @@ import (
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
-	vmexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
+	exportv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
@@ -65,7 +65,7 @@ type KubevirtClient interface {
 	VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface
 	VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface
-	VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface
+	VirtualMachineExport(namespace string) exportv1.VirtualMachineExportInterface
 	VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface
 	VirtualMachineClusterInstancetype() instancetypev1beta1.VirtualMachineClusterInstancetypeInterface
 	VirtualMachinePreference(namespace string) instancetypev1beta1.VirtualMachinePreferenceInterface
@@ -183,8 +183,8 @@ func (k kubevirt) VirtualMachineRestore(namespace string) snapshotv1.VirtualMach
 	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineRestores(namespace)
 }
 
-func (k kubevirt) VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface {
-	return k.generatedKubeVirtClient.ExportV1alpha1().VirtualMachineExports(namespace)
+func (k kubevirt) VirtualMachineExport(namespace string) exportv1.VirtualMachineExportInterface {
+	return k.generatedKubeVirtClient.ExportV1beta1().VirtualMachineExports(namespace)
 }
 
 func (k kubevirt) VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface {
