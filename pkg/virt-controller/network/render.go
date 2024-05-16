@@ -22,9 +22,6 @@ package network
 import (
 	"context"
 	"fmt"
-	"strings"
-
-	"kubevirt.io/client-go/precond"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
@@ -46,7 +43,7 @@ func GetNetworkAttachmentDefinitionByName(networkClient k8scnicncfiov1.K8sCniCnc
 		if !vmispec.IsMultusNetwork(network) {
 			return nil, fmt.Errorf("failed asserting network (%s) is multus", network.Name)
 		}
-		ns, networkName := GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
+		ns, networkName := vmispec.GetNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
 		nad, err := networkClient.NetworkAttachmentDefinitions(ns).Get(context.Background(), networkName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to locate network attachment definition %s/%s", ns, networkName)
@@ -70,12 +67,4 @@ func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) s
 		return resourceName
 	}
 	return "" // meaning the network is not served by resources
-}
-
-func GetNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
-	if strings.Contains(fullNetworkName, "/") {
-		res := strings.SplitN(fullNetworkName, "/", 2)
-		return res[0], res[1]
-	}
-	return precond.MustNotBeEmpty(namespace), fullNetworkName
 }
