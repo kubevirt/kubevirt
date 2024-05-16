@@ -16,7 +16,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	virtsnapshot "kubevirt.io/api/snapshot"
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,15 +73,15 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		return
 	}
 
-	createSnapshot := func(vm *virtv1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
+	createSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 		var err error
 
-		snapshot := &v1alpha1.VirtualMachineSnapshot{
+		snapshot := &snapshotv1.VirtualMachineSnapshot{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "snapshot-" + vm.Name,
 				Namespace: vm.Namespace,
 			},
-			Spec: v1alpha1.VirtualMachineSnapshotSpec{
+			Spec: snapshotv1.VirtualMachineSnapshotSpec{
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: pointer.String(vmAPIGroup),
 					Kind:     "VirtualMachine",
@@ -96,7 +96,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		return snapshot
 	}
 
-	waitSnapshotReady := func(snapshot *v1alpha1.VirtualMachineSnapshot) *v1alpha1.VirtualMachineSnapshot {
+	waitSnapshotReady := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
 		var err error
 
 		EventuallyWithOffset(1, func() bool {
@@ -108,7 +108,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		return snapshot
 	}
 
-	waitSnapshotContentsExist := func(snapshot *v1alpha1.VirtualMachineSnapshot) *v1alpha1.VirtualMachineSnapshot {
+	waitSnapshotContentsExist := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
 		var contentsName string
 		EventuallyWithOffset(1, func() error {
 			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
@@ -152,7 +152,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		return vmClone
 	}
 
-	generateCloneFromSnapshot := func(snapshot *v1alpha1.VirtualMachineSnapshot, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+	generateCloneFromSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot, targetVMName string) *clonev1alpha1.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshot.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{

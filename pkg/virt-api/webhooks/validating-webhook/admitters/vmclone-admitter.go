@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 
@@ -363,7 +363,7 @@ func validateCloneVolumeSnapshotSupportVM(vm *v1.VirtualMachine, sourceField *k8
 	return result
 }
 
-func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *v1alpha1.VirtualMachineSnapshotContent, sourceField *k8sfield.Path) []metav1.StatusCause {
+func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *snapshotv1.VirtualMachineSnapshotContent, sourceField *k8sfield.Path) []metav1.StatusCause {
 	var result []metav1.StatusCause
 
 	if snapshotContents.Spec.VirtualMachineSnapshotName == nil {

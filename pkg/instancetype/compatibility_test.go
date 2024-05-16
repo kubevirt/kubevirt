@@ -15,14 +15,14 @@ import (
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
 var _ = Describe("compatibility", func() {
 	generateUnknownObjectControllerRevision := func() *appsv1.ControllerRevision {
-		unknownObject := snapshotv1alpha1.VirtualMachineSnapshot{
+		unknownObject := snapshotv1beta1.VirtualMachineSnapshot{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: snapshotv1alpha1.SchemeGroupVersion.String(),
+				APIVersion: snapshotv1beta1.SchemeGroupVersion.String(),
 				Kind:       "VirtualMachineSnapshot",
 			},
 		}

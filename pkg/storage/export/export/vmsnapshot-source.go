@@ -32,7 +32,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	exportv1 "kubevirt.io/api/export/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 

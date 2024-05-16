@@ -37,7 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
@@ -665,7 +665,7 @@ func createTestVMRestoreAdmitter(
 	kubevirtClient := kubevirtfake.NewSimpleClientset(objs...)
 
 	virtClient.EXPECT().VirtualMachineSnapshot("default").
-		Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineSnapshots("default")).AnyTimes()
+		Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshots("default")).AnyTimes()
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 
 	restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})

@@ -52,7 +52,7 @@ import (
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -232,22 +232,22 @@ func init() {
 func usage() string {
 	usage := `# Create a VirtualMachineExport to export a volume from a virtual machine:
 	{{ProgramName}} vmexport create vm1-export --vm=vm1
-  
+
 	# Create a VirtualMachineExport to export a volume from a virtual machine snapshot
 	{{ProgramName}} vmexport create snap1-export --snapshot=snap1
-  
+
 	# Create a VirtualMachineExport to export a volume from a PVC
 	{{ProgramName}} vmexport create pvc1-export --pvc=pvc1
-  
+
 	# Delete a VirtualMachineExport resource
 	{{ProgramName}} vmexport delete snap1-export
-  
+
 	# Download a volume from an already existing VirtualMachineExport (--volume is optional when only one volume is available)
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz
 
 	# Download a volume as before but through local port 5410
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz --port-forward --local-port=5410
-  
+
 	# Create a VirtualMachineExport and download the requested volume from it
 	{{ProgramName}} vmexport download vm1-export --vm=vm1 --volume=volume1 --output=disk.img.gz
 

@@ -12,7 +12,7 @@ go_library(
         "//pkg/virtctl/vmexport:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

@@ -11,7 +11,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -76,8 +76,8 @@ func isInPhase(vmClone *clonev1alpha1.VirtualMachineClone, phase clonev1alpha1.V
 	return vmClone.Status.Phase == phase
 }
 
-func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
-	return &v1alpha1.VirtualMachineSnapshot{
+func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
+	return &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      generateSnapshotName(vmClone.UID),
 			Namespace: sourceVM.Namespace,
@@ -85,7 +85,7 @@ func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.V
 				getCloneOwnerReference(vmClone.Name, vmClone.UID),
 			},
 		},
-		Spec: v1alpha1.VirtualMachineSnapshotSpec{
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: corev1.TypedLocalObjectReference{
 				Kind:     vmKind,
 				Name:     sourceVM.Name,
@@ -95,13 +95,13 @@ func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.V
 	}
 }
 
-func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName, namespace, cloneName, snapshotName string, cloneUID types.UID, patches []string) *v1alpha1.VirtualMachineRestore {
+func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName, namespace, cloneName, snapshotName string, cloneUID types.UID, patches []string) *snapshotv1.VirtualMachineRestore {
 	targetInfo = targetInfo.DeepCopy()
 	if targetInfo.Name == "" {
 		targetInfo.Name = generateVMName(sourceVMName)
 	}
 
-	return &v1alpha1.VirtualMachineRestore{
+	return &snapshotv1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      generateRestoreName(cloneUID),
 			Namespace: namespace,
@@ -109,7 +109,7 @@ func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName,
 				getCloneOwnerReference(cloneName, cloneUID),
 			},
 		},
-		Spec: v1alpha1.VirtualMachineRestoreSpec{
+		Spec: snapshotv1.VirtualMachineRestoreSpec{
 			Target:                     *targetInfo,
 			VirtualMachineSnapshotName: snapshotName,
 			Patches:                    patches,
