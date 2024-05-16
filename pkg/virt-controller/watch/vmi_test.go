@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -56,6 +57,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -63,9 +65,12 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
+	fakeipamclaimclient "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1/apis/clientset/versioned/fake"
 )
 
 type PodVmIfaceStatus struct {
@@ -91,6 +96,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
+	var ipamClaimsClient *fakeipamclaimclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
 	var storageClassInformer cache.SharedIndexInformer
 	var rqInformer cache.SharedIndexInformer
@@ -276,6 +282,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+
+		networkClient = fakenetworkclient.NewSimpleClientset()
+		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
+		ipamClaimsClient = fakeipamclaimclient.NewSimpleClientset()
+
 		controller, _ = NewVMIController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
@@ -291,6 +302,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			cdiConfigInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
+			WithIPAMClaimManager(networkClient, ipamClaimsClient),
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -302,8 +314,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		networkClient = fakenetworkclient.NewSimpleClientset()
-		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
 		syncCaches(stop)
 	})
@@ -3344,6 +3354,63 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 	})
 
+	Context("PersistentIPsGate", func() {
+		const (
+			vmName      = "testvmi"
+			nadName     = "red-net"
+			networkName = "red"
+		)
+		It("with valid config and FG enabled, should successfully create pod", func() {
+			setPersistentIPsGate(kvInformer)
+			vmi := NewPendingVirtualMachine(vmName)
+			addVirtualMachine(vmi)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			expectMatchingPodCreation(vmi)
+		})
+
+		Context("with bad config", func() {
+			var vmi *virtv1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				Expect(createPersistentIPsNad(networkClient, nadName, k8sv1.NamespaceDefault)).To(Succeed())
+			})
+
+			BeforeEach(func() {
+				vmi = NewPendingVirtualMachine(vmName)
+				vmi.Spec.Networks = []virtv1.Network{*libvmi.MultusNetwork(networkName, nadName)}
+				vmi.Spec.Domain.Devices.Interfaces = []virtv1.Interface{{Name: networkName}}
+			})
+
+			BeforeEach(func() {
+				By(fmt.Sprintf("create conflicting ipam claim"))
+				ownerRef := &metav1.OwnerReference{
+					APIVersion:         "kubevirt.io/v1",
+					Kind:               "VirtualMachineInstance",
+					Name:               vmi.Name,
+					UID:                "wrongUID",
+					Controller:         pointer.P(true),
+					BlockOwnerDeletion: pointer.P(true),
+				}
+				ipamClaimsManager := ipamclaims.NewIPAMClaimsManager(networkClient, ipamClaimsClient)
+				Expect(ipamClaimsManager.CreateNewPodIPAMClaims(vmi, ownerRef)).To(Succeed())
+			})
+
+			It("with bad config and FG enabled, should fail to create pod", func() {
+				setPersistentIPsGate(kvInformer)
+				addVirtualMachine(vmi)
+				controller.Execute()
+				testutils.ExpectEvent(recorder, FailedCreatePodReason)
+			})
+
+			It("with bad config and FG disabled, should successfully create pod", func() {
+				addVirtualMachine(vmi)
+				controller.Execute()
+				testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			})
+		})
+	})
+
 	Context("auto attach VSOCK", func() {
 		It("should allocate CID when VirtualMachineInstance is scheduled", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -4201,4 +4268,34 @@ func newVMIWithGuestAgentInterface(vmi *virtv1.VirtualMachineInstance, ifaceName
 		InfoSource:    vmispec.InfoSourceGuestAgent,
 	})
 	return vmi
+}
+
+func setPersistentIPsGate(kvInformer cache.SharedIndexInformer) {
+	testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &virtv1.KubeVirt{
+		Spec: virtv1.KubeVirtSpec{
+			Configuration: virtv1.KubeVirtConfiguration{
+				DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+					FeatureGates: []string{virtconfig.PersistentIPsGate},
+				},
+			},
+		},
+	})
+}
+
+func createPersistentIPsNad(networkClient *fakenetworkclient.Clientset, name string, namespace string) error {
+	nad := &networkv1.NetworkAttachmentDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: networkv1.NetworkAttachmentDefinitionSpec{
+			Config: fmt.Sprintf(`{"allowPersistentIPs": true, "name": "network_name"}`),
+		},
+	}
+	gvr := schema.GroupVersionResource{
+		Group:    "k8s.cni.cncf.io",
+		Version:  "v1",
+		Resource: "network-attachment-definitions",
+	}
+	return networkClient.Tracker().Create(gvr, nad, k8sv1.NamespaceDefault)
 }
