@@ -242,7 +242,7 @@ var _ = SIGDescribe("Memory dump", func() {
 	}
 
 	verifyMemoryDumpOutput := func(memoryDumpPVC *k8sv1.PersistentVolumeClaim, previousOutput string, shouldEqual bool) string {
-		executorPod := createExecutorPodWithPVC(verifierPodName, memoryDumpPVC)
+		executorPod := createExecutorPodWithPVC(virtClient, verifierPodName, memoryDumpPVC)
 		lsOutput, err := exec.ExecuteCommandOnPod(
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
@@ -716,9 +716,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 // createExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
-func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	var err error
-
+func createExecutorPodWithPVC(virtClient kubecli.KubevirtClient, podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
 	pod := libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"}, nil, pvc)
 	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
 		ProbeHandler: k8sv1.ProbeHandler{
@@ -727,7 +725,10 @@ func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) 
 			},
 		},
 	}
-	pod = tests.RunPod(pod)
+
+	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(matcher.ThisPod(pod), 180).Should(matcher.BeInPhase(k8sv1.PodRunning))
 
 	Eventually(matcher.ThisPod(pod), 120).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 	pod, err = matcher.ThisPod(pod)()

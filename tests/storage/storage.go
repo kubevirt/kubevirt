@@ -966,10 +966,36 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", decorators.StorageReq, func() {
 
 			It("[test_id:3139]should be successfully started", func() {
+				sc, exists := libstorage.GetRWXBlockStorageClass()
+				if !exists {
+					Skip("Skip test when Block storage is not present")
+				}
+
 				By("Create a VMIWithPVC")
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteMany)
+				dv := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
+						libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+					),
+				)
+
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume("disk0", dv.Name),
+					libvmi.WithResourceMemory("1Gi"),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				)
+
 				By("Launching a VMI with PVC ")
+				libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By(checkingVMInstanceConsoleOut)
@@ -1131,6 +1157,7 @@ var _ = SIGDescribe("Storage", func() {
 				dv         *cdiv1.DataVolume
 				vmi1, vmi2 *v1.VirtualMachineInstance
 			)
+
 			BeforeEach(func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
@@ -1186,13 +1213,27 @@ var _ = SIGDescribe("Storage", func() {
 				vmi2.Spec.Affinity = affinityRule
 			})
 
+			createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				By("Waiting until the DataVolume is ready")
+				libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+				By("Waiting until the VirtualMachineInstance starts")
+				warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
+				return libwait.WaitForVMIPhase(vmi,
+					[]v1.VirtualMachineInstancePhase{v1.Running},
+					libwait.WithWarningsIgnoreList(warningsIgnoreList),
+					libwait.WithTimeout(500),
+				)
+			}
+
 			It("should successfully start 2 VMs with a shareable disk", func() {
 				setShareable(vmi1, "disk0")
 				setShareable(vmi2, "disk0")
 
 				By("Starting the VirtualMachineInstances")
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi1, dv, 500)
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi2, dv, 500)
+				createAndWaitForVMIReady(vmi1, dv)
+				createAndWaitForVMIReady(vmi2, dv)
 			})
 		})
 		Context("write and read data from a shared disk", func() {

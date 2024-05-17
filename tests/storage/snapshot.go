@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -583,11 +584,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -613,11 +611,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:6949]should unfreeze vm if snapshot fails when deadline exceeded", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -674,11 +669,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:7472]should succeed online snapshot with hot plug disk", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce))
+				vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -869,12 +861,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				const noGuestAgentString = "No guest agent, exiting"
 				By("Creating VM")
 				var vmi *v1.VirtualMachineInstance
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
-				)
+				vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskAlpine, snapshotStorageClass)
 				vm.Spec.Running = pointer.BoolPtr(false)
 
 				vm, vmi = createAndStartVM(vm)
@@ -962,11 +949,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				It("[test_id:8922]should include memory dump in vm snapshot", func() {
 					var vmi *v1.VirtualMachineInstance
-					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
-						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
-						testsuite.GetTestNamespace(nil),
-						snapshotStorageClass,
-						corev1.ReadWriteOnce))
+					vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+					vm, vmi = createAndStartVM(vm)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -1032,12 +1016,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		Context("With more complicated VM", func() {
 			BeforeEach(func() {
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
-				)
+				vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskAlpine, snapshotStorageClass)
 				wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 				if wffcSC {
 					// with wffc need to start the virtual machine
@@ -1375,12 +1354,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			DescribeTable("should successfully create a snapshot", func(ttl *int32) {
 				libstorage.SetDataVolumeGC(virtClient, ttl)
 
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
-				)
+				vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskAlpine, snapshotStorageClass)
 				wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 				if wffcSC {
 					// with wffc need to start the virtual machine
@@ -1590,12 +1564,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm = tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					snapshotStorageClass,
-					corev1.ReadWriteOnce,
-				)
+				vm = newVMWithDataVolumeForSnapshot(cd.ContainerDiskAlpine, snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: instancetype.Name,
@@ -1685,4 +1654,26 @@ func clearConditionsTimestamps(conditions []snapshotv1.Condition) {
 		conditions[i].LastProbeTime = emptyTime
 		conditions[i].LastTransitionTime = emptyTime
 	}
+}
+
+func newVMWithDataVolumeForSnapshot(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
+	dataVolume := libdv.NewDataVolume(
+		libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(containerDisk), cdiv1.RegistryPullNode),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
+			libdv.PVCWithAccessMode(corev1.ReadWriteOnce),
+		),
+	)
+	vm := libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithDataVolume("disk0", dataVolume.Name),
+			libvmi.WithResourceMemory("1Gi"),
+			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+		),
+		libvmi.WithDataVolumeTemplate(dataVolume),
+	)
+	return vm
 }

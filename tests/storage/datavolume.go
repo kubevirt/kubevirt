@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -41,11 +42,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instanceType "kubevirt.io/api/instancetype/v1beta1"
@@ -86,6 +89,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
+	const defaultTimeout = 300 * time.Second
+
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
@@ -93,6 +98,36 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}
 	})
+
+	createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
+		vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		By("Waiting until the DataVolume is ready")
+		libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+		By("Waiting until the VirtualMachineInstance starts")
+		warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
+		return libwait.WaitForVMIPhase(vmi,
+			[]v1.VirtualMachineInstancePhase{v1.Running},
+			libwait.WithWarningsIgnoreList(warningsIgnoreList),
+			libwait.WithTimeout(500),
+		)
+	}
+
+	stopVM := func(vm *virtv1.VirtualMachine, timeout time.Duration) *virtv1.VirtualMachine {
+		vmName := vm.Name
+		vmNamespace := vm.Namespace
+		var err error
+		Eventually(func() error {
+			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			vm.Spec.Running = pointer.P(false)
+			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			return err
+		}, timeout, time.Second).Should(BeNil())
+		return vm
+	}
 
 	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
@@ -216,7 +251,25 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 30*time.Second).Should(Not(BeNil()))
 				By("waiting for the dv import to pvc to finish")
 				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
-				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
+
+				By("changing disk.img permissions to non qemu")
+				args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"))}
+				pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
+
+				// overwrite securityContext
+				rootUser := int64(0)
+				pod.Spec.Containers[0].SecurityContext = &k8sv1.SecurityContext{
+					Capabilities: &k8sv1.Capabilities{
+						Drop: []k8sv1.Capability{"ALL"},
+					},
+					Privileged:   pointer.P(true),
+					RunAsUser:    &rootUser,
+					RunAsNonRoot: pointer.P(false),
+				}
+
+				pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -279,7 +332,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+					vmi = createAndWaitForVMIReady(vmi, dataVolume)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -370,7 +423,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
-				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+				vmi = createAndWaitForVMIReady(vmi, dataVolume)
 
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -514,7 +567,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisDVWith(vm.Namespace, dataVolume.Name), 60).Should(BeInPhase(cdiv1.ImportInProgress))
 
 				By("Stop VM")
-				tests.StopVirtualMachineWithTimeout(vm, time.Second*30)
+				stopVM(vm, 30*time.Second)
 			})
 
 			It("[test_id:3190]should correctly handle invalid DataVolumes", func() {
@@ -738,7 +791,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("discard='unmap'"))
-				vm = tests.StopVirtualMachine(vm)
+				vm = stopVM(vm, defaultTimeout)
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})).To(Succeed())
 			})
 
@@ -763,7 +816,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
-					vm = tests.StopVirtualMachine(vm)
+					vm = stopVM(vm, defaultTimeout)
 				}
 			})
 
@@ -826,7 +879,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						},
 					},
 				}
-				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.String(storageClass)
+				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.P(storageClass)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: volumeName})
 			})
@@ -1055,7 +1108,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				createVMSuccess()
 
 				// stop vm
-				vm = tests.StopVirtualMachine(vm)
+				vm = stopVM(vm, defaultTimeout)
 			},
 				Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false, nil, false),
 				Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false, nil, false),
@@ -1113,10 +1166,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			libstorage.EventuallyDVWith(vm.Namespace, dvName, 100, BeNil())
 
-			vm = tests.StopVirtualMachine(vm)
+			vm = stopVM(vm, defaultTimeout)
 		},
-			Entry("[test_id:8567]GC is enabled", pointer.Int32(0), pointer.Int32(0), ""),
-			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.Int32(-1), pointer.Int32(0), "true"),
+			Entry("[test_id:8567]GC is enabled", pointer.P(0), pointer.P(0), ""),
+			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(-1), pointer.P(0), "true"),
 		)
 	})
 
@@ -1204,7 +1257,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Making sure the slow Fedora import is complete before creating the VMI")
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
-			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
+			vmi = createAndWaitForVMIReady(vmi, dataVolume)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())

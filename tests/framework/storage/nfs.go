@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -10,15 +11,25 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
+	"github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func InitNFS(targetImage, nodeName string) *k8sv1.Pod {
+	virtCli := kubevirt.Client()
+
 	nfsPod := renderNFSServer("nfsserver", targetImage)
 	nfsPod.Spec.NodeName = nodeName
-	return tests.RunPodInNamespace(nfsPod, testsuite.NamespacePrivileged)
+	nfsPod, err := virtCli.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), nfsPod, metav1.CreateOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Eventually(matcher.ThisPod(nfsPod), 180).Should(matcher.BeInPhase(k8sv1.PodRunning))
+	nfsPod, err = matcher.ThisPod(nfsPod)()
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return nfsPod
 }
 
 func renderNFSServer(generateName string, hostPath string) *k8sv1.Pod {

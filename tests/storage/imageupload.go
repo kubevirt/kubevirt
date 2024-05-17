@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +26,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/errorhandling"
@@ -456,7 +457,26 @@ func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string
 	Expect(err).ToNot(HaveOccurred())
 	defer errorhandling.SafelyCloseFile(tgtFile)
 
-	tests.ArchiveToFile(tgtFile, sourceFilesNames...)
+	w := tar.NewWriter(tgtFile)
+	defer w.Close()
+
+	for _, src := range sourceFilesNames {
+		srcFile, err := os.Open(src)
+		Expect(err).ToNot(HaveOccurred())
+		defer srcFile.Close()
+
+		srcFileInfo, err := srcFile.Stat()
+		Expect(err).ToNot(HaveOccurred())
+
+		hdr, err := tar.FileInfoHeader(srcFileInfo, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		err = w.WriteHeader(hdr)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = io.Copy(w, srcFile)
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	return tgtPath
 }

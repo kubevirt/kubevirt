@@ -1,8 +1,10 @@
 package imageupload_test
 
 import (
+	"archive/tar"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,7 +31,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
@@ -91,7 +92,24 @@ var _ = Describe("ImageUpload", func() {
 		defer archiveFile.Close()
 		archiveFilePath = archiveFile.Name()
 
-		tests.ArchiveToFile(archiveFile, imagePath)
+		w := tar.NewWriter(archiveFile)
+		defer w.Close()
+
+		srcFile, err := os.Open(imagePath)
+		Expect(err).ToNot(HaveOccurred())
+		defer srcFile.Close()
+
+		srcFileInfo, err := srcFile.Stat()
+		Expect(err).ToNot(HaveOccurred())
+
+		hdr, err := tar.FileInfoHeader(srcFileInfo, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		err = w.WriteHeader(hdr)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = io.Copy(w, srcFile)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {

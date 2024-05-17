@@ -20,7 +20,6 @@
 package tests
 
 import (
-	"archive/tar"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -63,7 +62,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -71,11 +69,8 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/watcher"
@@ -113,20 +108,6 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 	)
 }
 
-func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By("Waiting until the DataVolume is ready")
-	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
-	By(waitingVMInstanceStart)
-	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithWarningsIgnoreList(warningsIgnoreList),
-		libwait.WithTimeout(timeout),
-	)
-}
-
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -151,91 +132,6 @@ func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, 
 		libwait.WithWarningsPolicy(&wp),
 		libwait.WithTimeout(timeout),
 	)
-}
-
-func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
-	virtCli := kubevirt.Client()
-
-	var err error
-	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
-}
-
-// NewRandomVirtualMachineInstanceWithDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	virtCli := kubevirt.Client()
-
-	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(sc),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
-			libdv.PVCWithAccessMode(accessMode),
-			libdv.PVCWithVolumeMode(volMode),
-		),
-	)
-
-	var err error
-	dv, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-	return libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dv.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	), dv
-}
-
-// NewRandomVirtualMachineInstanceWithBlockDisk
-//
-// Deprecated: Use libvmi directly
-func NewRandomVirtualMachineInstanceWithBlockDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-	if !libstorage.HasCDI() {
-		Skip("Skip DataVolume tests when CDI is not present")
-	}
-	sc, exists := libstorage.GetRWOBlockStorageClass()
-	if accessMode == k8sv1.ReadWriteMany {
-		sc, exists = libstorage.GetRWXBlockStorageClass()
-	}
-	if !exists {
-		Skip("Skip test when Block storage is not present")
-	}
-
-	return NewRandomVirtualMachineInstanceWithDisk(imageUrl, namespace, sc, accessMode, k8sv1.PersistentVolumeBlock)
-}
-
-// NewRandomVMWithDataVolumeWithRegistryImport
-//
-// Deprecated: Use libvmi directly
-func NewRandomVMWithDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachine {
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-		libdv.WithPVC(
-			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imageUrl)),
-			libdv.PVCWithAccessMode(accessMode),
-		),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm
 }
 
 func cirrosMemory() string {
@@ -321,25 +217,8 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerIma
 //
 // Deprecated: Use libvmi
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
-	AddCloudInitNoCloudData(vmi, name, userData, "", true)
-}
-
-// AddCloudInitNoCloudData
-//
-// Deprecated: Use libvmi
-func AddCloudInitNoCloudData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
 	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
-	if b64encode {
-		cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
-		if networkData != "" {
-			cloudInitNoCloudSource.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
-		}
-	} else {
-		cloudInitNoCloudSource.UserData = userData
-		if networkData != "" {
-			cloudInitNoCloudSource.NetworkData = networkData
-		}
-	}
+	cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
 	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitNoCloud: &cloudInitNoCloudSource})
 }
 
@@ -398,48 +277,13 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 	return rs
 }
 
-func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
-	virtClient := kubevirt.Client()
-
-	var err error
-	pod, err = virtClient.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 180).Should(BeInPhase(k8sv1.PodRunning))
-
-	pod, err = ThisPod(pod)()
-	Expect(err).ToNot(HaveOccurred())
-	return pod
-}
-
-func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
-	return RunPodInNamespace(pod, testsuite.GetTestNamespace(pod))
-}
-
-func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
-	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"))}
-
-	By("changing disk.img permissions to non qemu")
-	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
-
-	// overwrite securityContext
-	rootUser := int64(0)
-	pod.Spec.Containers[0].SecurityContext = &k8sv1.SecurityContext{
-		Capabilities: &k8sv1.Capabilities{
-			Drop: []k8sv1.Capability{"ALL"},
-		},
-		Privileged:   pointer.P(true),
-		RunAsUser:    &rootUser,
-		RunAsNonRoot: pointer.P(false),
+func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
+	vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
 	}
 
-	virtClient := kubevirt.Client()
-	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
-}
-
-func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+	vmiPod, err := libpod.GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, testsuite.GetTestNamespace(vmi), vmi.Status.NodeName)
 	if err != nil {
 		return "", err
 	}
@@ -532,7 +376,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	return output
 }
 
-func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
+func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient := kubevirt.Client()
 
@@ -543,25 +387,21 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM, metav1.UpdateOptions{})
 		return err
-	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
 	Eventually(func() error {
 		_, err = virtClient.VirtualMachineInstance(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		return err
-	}, timeout, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The vmi did not disappear")
+	}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The vmi did not disappear")
 	By("VM has not the running condition")
 	Eventually(func() bool {
 		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
-	}, timeout, 1*time.Second).Should(BeFalse())
+	}, 300*time.Second, 1*time.Second).Should(BeFalse())
 	return updatedVM
-}
-
-func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
-	return StopVirtualMachineWithTimeout(vm, time.Second*300)
 }
 
 func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
@@ -893,29 +733,6 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 			&expect.BSnd{S: EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
-	w := tar.NewWriter(tgtFile)
-	defer w.Close()
-
-	for _, src := range sourceFilesNames {
-		srcFile, err := os.Open(src)
-		Expect(err).ToNot(HaveOccurred())
-		defer srcFile.Close()
-
-		srcFileInfo, err := srcFile.Stat()
-		Expect(err).ToNot(HaveOccurred())
-
-		hdr, err := tar.FileInfoHeader(srcFileInfo, "")
-		Expect(err).ToNot(HaveOccurred())
-
-		err = w.WriteHeader(hdr)
-		Expect(err).ToNot(HaveOccurred())
-
-		_, err = io.Copy(w, srcFile)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }

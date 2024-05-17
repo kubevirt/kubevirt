@@ -184,6 +184,16 @@ var _ = SIGDescribe("Export", func() {
 		return pod
 	}
 
+	runPod := func(pod *k8sv1.Pod) *k8sv1.Pod {
+		pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(ThisPod(pod), 180).Should(BeInPhase(k8sv1.PodRunning))
+
+		pod, err = ThisPod(pod)()
+		Expect(err).ToNot(HaveOccurred())
+		return pod
+	}
+
 	createDownloadPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim, caConfigMap *k8sv1.ConfigMap) *k8sv1.Pod {
 		volumeName := pvc.GetName()
 		pod := createDownloadPod(caConfigMap)
@@ -202,7 +212,7 @@ var _ = SIGDescribe("Export", func() {
 		} else {
 			addFilesystemVolume(pod, volumeName)
 		}
-		return tests.RunPod(pod)
+		return runPod(pod)
 	}
 
 	createSourcePodChecker := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
@@ -228,7 +238,7 @@ var _ = SIGDescribe("Export", func() {
 		} else {
 			addFilesystemVolume(pod, volumeName)
 		}
-		return tests.RunPod(pod)
+		return runPod(pod)
 	}
 
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
@@ -1425,11 +1435,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-			testsuite.GetTestNamespace(nil),
-			sc,
-			k8sv1.ReadWriteOnce)
+		vm := newVMWithDataVolumeForExport(sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -1769,7 +1775,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm := newVMWithDataVolumeForExport(sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1790,7 +1796,7 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = tests.RunPod(pod)
+		pod = runPod(pod)
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
@@ -1804,7 +1810,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm := newVMWithDataVolumeForExport(sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1823,7 +1829,7 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = tests.RunPod(pod)
+		pod = runPod(pod)
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
@@ -1909,7 +1915,7 @@ var _ = SIGDescribe("Export", func() {
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
-		pod = tests.RunPod(pod)
+		pod = runPod(pod)
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
 		command := []string{
@@ -2188,11 +2194,7 @@ var _ = SIGDescribe("Export", func() {
 
 		It("Create succeeds using VM source", func() {
 			// Create a populated VM
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-				testsuite.GetTestNamespace(nil),
-				sc,
-				k8sv1.ReadWriteOnce)
+			vm := newVMWithDataVolumeForExport(sc)
 			vm.Spec.Running = pointer.Bool(true)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2365,11 +2367,7 @@ var _ = SIGDescribe("Export", func() {
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					sc,
-					k8sv1.ReadWriteOnce)
+				vm := newVMWithDataVolumeForExport(sc)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2546,11 +2544,7 @@ var _ = SIGDescribe("Export", func() {
 		Context("Get export manifest from vmexport", func() {
 			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					sc,
-					k8sv1.ReadWriteOnce)
+				vm := newVMWithDataVolumeForExport(sc)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {

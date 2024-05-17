@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -26,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -89,7 +91,12 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		libstorage.CreateFSPVC(pvc, testsuite.NamespacePrivileged, diskSize, nil)
 		// Create targetcli container
 		By("Create targetcli pod")
-		pod := tests.RunPodInNamespace(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
+		pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), libpod.RenderTargetcliPod(podName, pvc), metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisPod(pod), 180).Should(matcher.BeInPhase(k8sv1.PodRunning))
+
+		pod, err = matcher.ThisPod(pod)()
+		Expect(err).ToNot(HaveOccurred())
 		node = pod.Spec.NodeName
 		// The vm-killer image is built with bazel and the /etc/ld.so.cache isn't built
 		// at the package installation. The targetcli utility relies on ctype python package that
