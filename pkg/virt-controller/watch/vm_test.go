@@ -5727,22 +5727,22 @@ var _ = Describe("VirtualMachine", func() {
 					err = controller.handleCPUChangeRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					updatedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vm.Spec.Template.Spec.Domain.CPU.Sockets))
+					Expect(updatedVMI.Spec.Domain.CPU.Sockets).To(Equal(vm.Spec.Template.Spec.Domain.CPU.Sockets))
 
 					if !resources.Requests.Cpu().IsZero() {
 						expectedCpuReq := vmi.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
 						expectedCpuReq.Add(*resourcesDelta)
 
-						Expect(vmi.Spec.Domain.Resources.Requests.Cpu().Value()).To(Equal(expectedCpuReq.Value()))
+						Expect(updatedVMI.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal(expectedCpuReq.String()))
 					}
 
 					if !resources.Limits.Cpu().IsZero() {
 						expectedCpuLim := vmi.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
 						expectedCpuLim.Add(*resourcesDelta)
 
-						Expect(vmi.Spec.Domain.Resources.Limits.Cpu().Value()).To(Equal(expectedCpuLim.Value()))
+						Expect(updatedVMI.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal(expectedCpuLim.String()))
 					}
 				},
 					Entry("with no resources set", v1.ResourceRequirements{}),
