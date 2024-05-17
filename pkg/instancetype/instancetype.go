@@ -432,6 +432,8 @@ func checkMemoryPreferenceRequirements(instancetypeSpec *instancetypev1beta1.Vir
 	return nil, nil
 }
 
+const PreferenceArchRequirementErrorFmt = "preference requires a VM architecture of %s but %s is provided"
+
 func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error) {
 	if preferenceSpec == nil || preferenceSpec.Requirements == nil {
 		return nil, nil
@@ -446,6 +448,12 @@ func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *inst
 	if preferenceSpec.Requirements.Memory != nil {
 		if conflicts, err := checkMemoryPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec); err != nil {
 			return conflicts, err
+		}
+	}
+
+	if preferenceSpec.Requirements.Architecture != nil {
+		if vmiSpec.Architecture != "" && vmiSpec.Architecture != *preferenceSpec.Requirements.Architecture {
+			return Conflicts{k8sfield.NewPath("spec", "template", "spec", "architecture")}, fmt.Errorf(PreferenceArchRequirementErrorFmt, *preferenceSpec.Requirements.Architecture, vmiSpec.Architecture)
 		}
 	}
 

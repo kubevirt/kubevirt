@@ -2668,6 +2668,52 @@ var _ = Describe("Instancetype and Preferences", func() {
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
 				fmt.Sprintf(instancetype.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
-			))
+			),
+		)
+
+		const (
+			amd64Arch = "amd64"
+			arm64Arch = "arm64"
+		)
+
+		DescribeTable("should be accepted when", func(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) {
+			conflicts, err := instancetypeMethods.CheckPreferenceRequirements(nil, preferenceSpec, vmiSpec)
+			Expect(conflicts).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
+		},
+			Entry("no architecture is populated within the VMI",
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						Architecture: pointer.P(amd64Arch),
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Architecture: "",
+				},
+			),
+			Entry("when the required architecture is populated within the VMI",
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						Architecture: pointer.P(amd64Arch),
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Architecture: amd64Arch,
+				},
+			),
+		)
+		It("should be rejected when the required arch doesn't match the populated arch within the VMI", func() {
+			preferenceSpec := &instancetypev1beta1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1beta1.PreferenceRequirements{
+					Architecture: pointer.P(amd64Arch),
+				},
+			}
+			vmiSpec := &v1.VirtualMachineInstanceSpec{
+				Architecture: arm64Arch,
+			}
+			conflicts, err := instancetypeMethods.CheckPreferenceRequirements(nil, preferenceSpec, vmiSpec)
+			Expect(conflicts).To(Equal(instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "architecture")}))
+			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(instancetype.PreferenceArchRequirementErrorFmt, amd64Arch, arm64Arch)))
+		})
 	})
 })
