@@ -345,6 +345,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DataVolumeSource":                                                   schema_kubevirtio_api_core_v1_DataVolumeSource(ref),
 		"kubevirt.io/api/core/v1.DataVolumeTemplateDummyStatus":                                      schema_kubevirtio_api_core_v1_DataVolumeTemplateDummyStatus(ref),
 		"kubevirt.io/api/core/v1.DataVolumeTemplateSpec":                                             schema_kubevirtio_api_core_v1_DataVolumeTemplateSpec(ref),
+		"kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap":                                         schema_kubevirtio_api_core_v1_DeprecatedInterfaceMacvtap(ref),
 		"kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp":                                           schema_kubevirtio_api_core_v1_DeprecatedInterfaceSlirp(ref),
 		"kubevirt.io/api/core/v1.DeveloperConfiguration":                                             schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/api/core/v1.Devices":                                                            schema_kubevirtio_api_core_v1_Devices(ref),
@@ -396,7 +397,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.InterfaceBindingMigration":                                          schema_kubevirtio_api_core_v1_InterfaceBindingMigration(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingPlugin":                                             schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref),
 		"kubevirt.io/api/core/v1.InterfaceBridge":                                                    schema_kubevirtio_api_core_v1_InterfaceBridge(ref),
-		"kubevirt.io/api/core/v1.InterfaceMacvtap":                                                   schema_kubevirtio_api_core_v1_InterfaceMacvtap(ref),
 		"kubevirt.io/api/core/v1.InterfaceMasquerade":                                                schema_kubevirtio_api_core_v1_InterfaceMasquerade(ref),
 		"kubevirt.io/api/core/v1.InterfacePasst":                                                     schema_kubevirtio_api_core_v1_InterfacePasst(ref),
 		"kubevirt.io/api/core/v1.InterfaceSRIOV":                                                     schema_kubevirtio_api_core_v1_InterfaceSRIOV(ref),
@@ -16793,6 +16793,17 @@ func schema_kubevirtio_api_core_v1_DataVolumeTemplateSpec(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_core_v1_DeprecatedInterfaceMacvtap(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface. Deprecated: Removed in v1.3",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_DeprecatedInterfaceSlirp(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18592,8 +18603,8 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"macvtap": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
-							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
+							Description: "DeprecatedMacvtap is an alias to the deprecated Macvtap interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap"),
 						},
 					},
 					"passt": {
@@ -18675,7 +18686,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
+			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
 	}
 }
 
@@ -18709,8 +18720,8 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 					},
 					"macvtap": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
-							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
+							Description: "DeprecatedMacvtap is an alias to the deprecated Macvtap interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap"),
 						},
 					},
 					"passt": {
@@ -18723,7 +18734,7 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV"},
+			"kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV"},
 	}
 }
 
@@ -18799,17 +18810,6 @@ func schema_kubevirtio_api_core_v1_InterfaceBridge(ref common.ReferenceCallback)
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "InterfaceBridge connects to a given network via a linux bridge.",
-				Type:        []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_InterfaceMacvtap(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
 				Type:        []string{"object"},
 			},
 		},

@@ -107,6 +107,11 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	}
 
 	var causes []metav1.StatusCause
+	clusterCfg := admitter.ClusterConfig.GetConfig()
+	if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
+		causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
+	}
+
 	netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
 	causes = append(causes, netValidator.ValidateCreation()...)
 

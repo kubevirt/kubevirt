@@ -986,7 +986,9 @@ var _ = Describe("netpod", func() {
 	},
 		// Not processed by the discovery & config steps.
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}, nmstate.Spec{}),
-		Entry("Macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, nmstate.Spec{}),
+
+		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
+		Entry("Macvtap", v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}, nmstate.Spec{}),
 
 		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		// Processed by the discovery but not by the config step.

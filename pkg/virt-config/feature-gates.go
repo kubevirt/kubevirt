@@ -85,13 +85,8 @@ const (
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	deprecatedFeature := deprecation.FeatureGateInfo(featureGate)
-	if deprecatedFeature != nil {
-		switch state := deprecatedFeature.State; state {
-		case deprecation.GA:
-			return true
-		case deprecation.Discontinued:
-			return false
-		}
+	if deprecatedFeature != nil && deprecatedFeature.State == deprecation.GA {
+		return true
 	}
 
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {

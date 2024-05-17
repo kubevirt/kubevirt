@@ -3810,7 +3810,12 @@ var _ = Describe("Template", func() {
 
 		It("should require capabilites which we set on virt-launcher binary", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface("test")}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name: "test",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{},
+				},
+			}}
 
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())

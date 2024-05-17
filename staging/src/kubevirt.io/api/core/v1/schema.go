@@ -1341,9 +1341,11 @@ type InterfaceBindingMethod struct {
 	DeprecatedSlirp *DeprecatedInterfaceSlirp `json:"slirp,omitempty"`
 	Masquerade      *InterfaceMasquerade      `json:"masquerade,omitempty"`
 	SRIOV           *InterfaceSRIOV           `json:"sriov,omitempty"`
-	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	// DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
+	// please refer to Kubevirt user guide for alternatives.
+	// Deprecated: Removed in v1.3
 	// +optional
-	Macvtap *InterfaceMacvtap `json:"macvtap,omitempty"`
+	DeprecatedMacvtap *DeprecatedInterfaceMacvtap `json:"macvtap,omitempty"`
 	// Deprecated, please refer to Kubevirt user guide for alternatives.
 	// +optional
 	Passt *InterfacePasst `json:"passt,omitempty"`
@@ -1363,8 +1365,10 @@ type InterfaceMasquerade struct{}
 // InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.
 type InterfaceSRIOV struct{}
 
-// InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
-type InterfaceMacvtap struct{}
+// DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap
+// that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
+// Deprecated: Removed in v1.3
+type DeprecatedInterfaceMacvtap struct{}
 
 // InterfacePasst connects to a given network.
 type InterfacePasst struct{}

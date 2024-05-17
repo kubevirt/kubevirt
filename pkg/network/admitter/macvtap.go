@@ -30,14 +30,14 @@ func validateMacvtapBinding(
 	fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network, config clusterConfigChecker,
 ) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
+	if iface.InterfaceBindingMethod.DeprecatedMacvtap != nil && !config.MacvtapEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Macvtap feature gate is not enabled",
 			Field:   fieldPath.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 		})
 	}
-	if iface.InterfaceBindingMethod.Macvtap != nil && net.NetworkSource.Multus == nil {
+	if iface.InterfaceBindingMethod.DeprecatedMacvtap != nil && net.NetworkSource.Multus == nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Macvtap interface only implemented with Multus network",

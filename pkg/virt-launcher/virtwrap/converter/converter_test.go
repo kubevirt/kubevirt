@@ -1520,46 +1520,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
 		})
-		It("Should create network configuration for macvtap interface and a multus network", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			multusNetworkName := "multusNet"
-
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
-
-			multusNetwork := v1.Network{
-				Name: netName1,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: multusNetworkName},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{multusNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).NotTo(BeNil(), "domain should not be nil")
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1), "should have a single interface")
-			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"), "Macvtap interfaces must be of type `ethernet`")
-		})
-		It("Should create network configuration for the default pod network plus a secondary macvtap network interface using multus", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
-
-			defaultPodNetwork := v1.DefaultPodNetwork()
-			multusNetwork := v1.Network{
-				Name: netName1,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: netName1},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{*defaultPodNetwork, multusNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface(), iface1}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).NotTo(BeNil(), "domain should not be nil")
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
-			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"), "Macvtap interfaces must be of type `ethernet`")
-		})
 		It("Should create network configuration for an interface using a binding plugin with tap domain attachment", func() {
 			bindingName := "BindingName"
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1592,35 +1552,6 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
-		})
-		It("Macvtap interfaces should allow setting boot order", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-			firstToBoot := uint(1)
-			lastToBoot := uint(2)
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &lastToBoot}
-			iface2 := v1.Interface{Name: netName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &firstToBoot}
-
-			firstMacvtapNetwork := v1.Network{
-				Name: netName1,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: netName1},
-				},
-			}
-			secondMacvtapNetwork := v1.Network{
-				Name: netName2,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: netName2},
-				},
-			}
-			vmi.Spec.Networks = []v1.Network{firstMacvtapNetwork, secondMacvtapNetwork}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).NotTo(BeNil(), "domain should not be nil")
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
-			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(lastToBoot), "the interface whose boot order is higher should be the last to boot")
-			Expect(domain.Spec.Devices.Interfaces[1].BootOrder.Order).To(Equal(firstToBoot), "the interface whose boot order is lower should be the first to boot")
 		})
 		It("creates SRIOV hostdev", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
