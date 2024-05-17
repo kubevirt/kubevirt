@@ -23018,6 +23018,10 @@
    "v1beta1.PreferenceRequirements": {
     "type": "object",
     "properties": {
+     "architecture": {
+      "description": "Specifies the required architecture of the vm.",
+      "type": "string"
+     },
      "cpu": {
       "description": "Required CPU related attributes of the instancetype.",
       "$ref": "#/definitions/v1beta1.CPUPreferenceRequirement"

@@ -381,6 +381,11 @@ func (in *PreferenceRequirements) DeepCopyInto(out *PreferenceRequirements) {
 		*out = new(MemoryPreferenceRequirement)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Architecture != nil {
+		in, out := &in.Architecture, &out.Architecture
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

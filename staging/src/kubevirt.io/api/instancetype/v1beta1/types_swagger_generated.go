@@ -201,8 +201,9 @@ func (ClockPreferences) SwaggerDoc() map[string]string {
 
 func (PreferenceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"cpu":    "Required CPU related attributes of the instancetype.\n\n+optional",
-		"memory": "Required Memory related attributes of the instancetype.\n\n+optional",
+		"cpu":          "Required CPU related attributes of the instancetype.\n\n+optional",
+		"memory":       "Required Memory related attributes of the instancetype.\n\n+optional",
+		"architecture": "Specifies the required architecture of the vm.\n\n+optional",
 	}
 }
 

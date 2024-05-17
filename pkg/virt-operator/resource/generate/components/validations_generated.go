@@ -8933,6 +8933,9 @@ var CRDsValidation map[string]string = map[string]string{
           description: Requirements defines the minium amount of instance type defined
             resources required by a set of preferences
           properties:
+            architecture:
+              description: Specifies the required architecture of the vm.
+              type: string
             cpu:
               description: Required CPU related attributes of the instancetype.
               properties:
@@ -22628,6 +22631,9 @@ var CRDsValidation map[string]string = map[string]string{
           description: Requirements defines the minium amount of instance type defined
             resources required by a set of preferences
           properties:
+            architecture:
+              description: Specifies the required architecture of the vm.
+              type: string
             cpu:
               description: Required CPU related attributes of the instancetype.
               properties:

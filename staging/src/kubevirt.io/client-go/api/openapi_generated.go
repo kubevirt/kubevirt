@@ -28454,6 +28454,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref commo
 							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement"),
 						},
 					},
+					"architecture": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies the required architecture of the vm.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
