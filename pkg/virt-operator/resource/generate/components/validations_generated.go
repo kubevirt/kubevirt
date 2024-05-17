@@ -8596,6 +8596,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredInterfaceModel optionally defines the preferred
                 model to be used by Interface devices.
               type: string
+            preferredInterfaceSRIOV:
+              description: PreferredInterfaceSRIOV optionally defines the preferred
+                SRIOV configuration to use with each network interface.
+              type: object
             preferredLunBus:
               description: PreferredLunBus optionally defines the preferred bus for
                 Lun Disk devices.
@@ -22291,6 +22295,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredInterfaceModel optionally defines the preferred
                 model to be used by Interface devices.
               type: string
+            preferredInterfaceSRIOV:
+              description: PreferredInterfaceSRIOV optionally defines the preferred
+                SRIOV configuration to use with each network interface.
+              type: object
             preferredLunBus:
               description: PreferredLunBus optionally defines the preferred bus for
                 Lun Disk devices.
