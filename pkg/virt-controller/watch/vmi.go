@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -63,6 +64,7 @@ import (
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
 
 const (
@@ -1134,14 +1136,14 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	}
 
 	if !isTempPod(pod) && controller.IsPodReady(pod) {
-		newAnnotations := network.GeneratePodAnnotations(vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot], c.clusterConfig.GetNetworkBindings())
-		if len(newAnnotations) != 0 {
-			patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
-			if err != nil {
-				return &syncErrorImpl{err, controller.FailedPodPatchReason}
-			}
-			*pod = *patchedPod
+		newAnnotations := map[string]string{descheduler.EvictOnlyAnnotation: ""}
+		maps.Copy(newAnnotations, network.GeneratePodAnnotations(vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot], c.clusterConfig.GetNetworkBindings()))
+
+		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+		if err != nil {
+			return &syncErrorImpl{err, controller.FailedPodPatchReason}
 		}
+		*pod = *patchedPod
 
 		hotplugVolumes := controller.GetHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)

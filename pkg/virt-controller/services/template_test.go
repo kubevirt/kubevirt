@@ -418,15 +418,16 @@ var _ = Describe("Template", func() {
 					v1.VirtualMachineNameLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation:                       "testvmi",
-					"test":                                    "shouldBeInPod",
-					hooks.HookSidecarListAnnotationName:       `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
-					"pre.hook.backup.velero.io/container":     "compute",
-					"pre.hook.backup.velero.io/command":       "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-					"post.hook.backup.velero.io/container":    "compute",
-					"post.hook.backup.velero.io/command":      "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
-					"kubevirt.io/migrationTransportUnix":      "true",
-					"kubectl.kubernetes.io/default-container": "compute",
+					v1.DomainAnnotation:                                  "testvmi",
+					"test":                                               "shouldBeInPod",
+					hooks.HookSidecarListAnnotationName:                  `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+					"pre.hook.backup.velero.io/container":                "compute",
+					"pre.hook.backup.velero.io/command":                  "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"post.hook.backup.velero.io/container":               "compute",
+					"post.hook.backup.velero.io/command":                 "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"kubevirt.io/migrationTransportUnix":                 "true",
+					"kubectl.kubernetes.io/default-container":            "compute",
+					"descheduler.alpha.kubernetes.io/request-evict-only": "",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),

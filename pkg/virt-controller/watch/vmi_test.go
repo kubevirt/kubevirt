@@ -65,6 +65,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
@@ -3942,7 +3943,8 @@ func setDataVolumeCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeCondition
 
 func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
 	podAnnotations := map[string]string{
-		virtv1.DomainAnnotation: vmi.Name,
+		virtv1.DomainAnnotation:         vmi.Name,
+		descheduler.EvictOnlyAnnotation: "",
 	}
 	return &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

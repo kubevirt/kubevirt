@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -1365,6 +1366,8 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	// Set this annotation now to indicate that the newly created virt-launchers will use
 	// unix sockets as a transport for migration
 	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
+	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
+
 	return annotationsSet, nil
 }
 
