@@ -42,6 +42,7 @@ const (
 )
 
 type Methods interface {
+	Upgrader
 	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
@@ -100,8 +101,8 @@ func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferen
 	return ratio, across
 }
 
-func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourceGeneration int64) string {
-	return fmt.Sprintf("%s-%s-%s-%d", vmName, resourceName, resourceUID, resourceGeneration)
+func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%d", vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
@@ -114,7 +115,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 		return nil, fmt.Errorf("unexpected object format returned from GenerateKubeVirtGroupVersionKind")
 	}
 
-	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), metaObj.GetUID(), metaObj.GetGeneration())
+	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), obj.GetObjectKind().GroupVersionKind().Version, metaObj.GetUID(), metaObj.GetGeneration())
 
 	// Removing unnecessary metadata
 	metaObj.SetLabels(nil)
@@ -197,7 +198,7 @@ func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachin
 		return nil, err
 	}
 
-	storedRevision, err := storeRevision(instancetypeRevision, m.Clientset, false)
+	storedRevision, err := storeRevision(instancetypeRevision, m.Clientset)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +236,7 @@ func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine)
 		return nil, err
 	}
 
-	storedRevision, err := storeRevision(preferenceRevision, m.Clientset, true)
+	storedRevision, err := storeRevision(preferenceRevision, m.Clientset)
 	if err != nil {
 		return nil, err
 	}
@@ -303,12 +304,12 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 	return nil
 }
 
-func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
-	if err := decodeControllerRevision(revisionA, isPreference); err != nil {
+func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
+	if err := decodeControllerRevision(revisionA); err != nil {
 		return false, err
 	}
 
-	if err := decodeControllerRevision(revisionB, isPreference); err != nil {
+	if err := decodeControllerRevision(revisionB); err != nil {
 		return false, err
 	}
 
@@ -325,7 +326,7 @@ func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision, isPrefere
 	return equality.Semantic.DeepEqual(revisionASpec, revisionBSpec), nil
 }
 
-func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient, isPreference bool) (*appsv1.ControllerRevision, error) {
+func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient) (*appsv1.ControllerRevision, error) {
 	createdRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
@@ -338,7 +339,7 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
 		}
 
-		equal, err := CompareRevisions(revision, existingRevision, isPreference)
+		equal, err := CompareRevisions(revision, existingRevision)
 		if err != nil {
 			return nil, err
 		}

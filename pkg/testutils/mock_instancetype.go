@@ -18,6 +18,7 @@ type MockInstancetypeMethods struct {
 	InferDefaultInstancetypeFunc    func(vm *v1.VirtualMachine) error
 	InferDefaultPreferenceFunc      func(vm *v1.VirtualMachine) error
 	CheckPreferenceRequirementsFunc func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error)
+	UpgradeFunc                     func(vm *v1.VirtualMachine) error
 }
 
 var _ instancetype.Methods = &MockInstancetypeMethods{}
@@ -50,6 +51,10 @@ func (m *MockInstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *
 	return m.CheckPreferenceRequirementsFunc(instancetypeSpec, preferenceSpec, vmiSpec)
 }
 
+func (m *MockInstancetypeMethods) Upgrade(vm *v1.VirtualMachine) error {
+	return m.UpgradeFunc(vm)
+}
+
 func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 	return &MockInstancetypeMethods{
 		FindInstancetypeSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
@@ -72,6 +77,9 @@ func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 		},
 		CheckPreferenceRequirementsFunc: func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error) {
 			return nil, nil
+		},
+		UpgradeFunc: func(_ *v1.VirtualMachine) error {
+			return nil
 		},
 	}
 }

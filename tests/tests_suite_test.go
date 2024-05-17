@@ -46,6 +46,7 @@ import (
 	_ "kubevirt.io/kubevirt/tests/guestlog"
 	_ "kubevirt.io/kubevirt/tests/hotplug"
 	_ "kubevirt.io/kubevirt/tests/infrastructure"
+	_ "kubevirt.io/kubevirt/tests/instancetype"
 	_ "kubevirt.io/kubevirt/tests/launchsecurity"
 	_ "kubevirt.io/kubevirt/tests/migration"
 	_ "kubevirt.io/kubevirt/tests/monitoring"

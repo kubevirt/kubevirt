@@ -33,6 +33,8 @@ coveredpaths="\
   tests/libpod \
   tests/libvmifact \
   tests/libsecret \
+  tests/libinstancetype \
+  tests/instancetype \
   ${NULL}"
 
 gofumpt -l -w -extra ${coveredpaths}
