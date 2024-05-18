@@ -2413,29 +2413,29 @@ rpm(
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-444.el9.aarch64",
-    sha256 = "c74a74d46e507430f766c899e8c42365e7ba6e654b6d44634a6acab74c1e3a2c",
+    name = "kernel-headers-0__5.14.0-446.el9.aarch64",
+    sha256 = "c3ba2add4fe72d28dfe606f93148e92fa8ea5b90b8efa2fc2f46ccbe608e607d",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-444.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/c74a74d46e507430f766c899e8c42365e7ba6e654b6d44634a6acab74c1e3a2c",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-446.el9.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/c3ba2add4fe72d28dfe606f93148e92fa8ea5b90b8efa2fc2f46ccbe608e607d",
     ],
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-444.el9.s390x",
-    sha256 = "dcdc21dbe1ce7c8f4b11897381284d2e1493e57b1f0e043947412fac369c4018",
+    name = "kernel-headers-0__5.14.0-446.el9.s390x",
+    sha256 = "47c64804fa3fdabb3ef9f6e8c68ee53dd0f2040d33be075c997606f23b7756d1",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/kernel-headers-5.14.0-444.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/dcdc21dbe1ce7c8f4b11897381284d2e1493e57b1f0e043947412fac369c4018",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/kernel-headers-5.14.0-446.el9.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/47c64804fa3fdabb3ef9f6e8c68ee53dd0f2040d33be075c997606f23b7756d1",
     ],
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-444.el9.x86_64",
-    sha256 = "0a619af0adbdbe9b4c813ccb0761147863bfc61c2fb26749d0aa33d9b698ce93",
+    name = "kernel-headers-0__5.14.0-446.el9.x86_64",
+    sha256 = "55b8ea4c515564365ad5e15606f535b91b6c449f961e527e388686610d3fdd78",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-444.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0a619af0adbdbe9b4c813ccb0761147863bfc61c2fb26749d0aa33d9b698ce93",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-446.el9.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/55b8ea4c515564365ad5e15606f535b91b6c449f961e527e388686610d3fdd78",
     ],
 )
 
