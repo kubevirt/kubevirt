@@ -166,6 +166,8 @@ var _ = Describe("Template", func() {
 					Namespace: "other-namespace",
 				},
 			}
+			network.Spec.Config = fmt.Sprintf(`{"allowPersistentIPs": true, "name": "%s"}`, "network_name")
+
 			err := networkClient.Tracker().Create(gvr, network, "other-namespace")
 			Expect(err).To(Not(HaveOccurred()))
 			return config, kvInformer, svc
@@ -963,6 +965,8 @@ var _ = Describe("Template", func() {
 		Context("with multus annotation", func() {
 			It("should add multus networks in the pod annotation", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
+				enableFeatureGate(virtconfig.PersistentIPsGate)
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1000,7 +1004,7 @@ var _ = Describe("Template", func() {
 				expectedIfaces := "[" +
 					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
 					"{\"name\":\"test1\",\"namespace\":\"default\",\"interface\":\"pod1b4f0e98519\"}," +
-					"{\"name\":\"test1\",\"namespace\":\"other-namespace\",\"interface\":\"pod49dba5c72f0\"}" +
+					"{\"name\":\"test1\",\"namespace\":\"other-namespace\",\"interface\":\"pod49dba5c72f0\",\"ipam-claim-reference\":\"testvmi.other-test1\"}" +
 					"]"
 				Expect(value).To(Equal(expectedIfaces))
 			})
@@ -1091,6 +1095,7 @@ var _ = Describe("Template", func() {
 			DescribeTable("should add Multus networks annotation to the migration target pod with interface name scheme similar to the migration source pod",
 				func(migrationSourcePodNetworksAnnotation, expectedTargetPodMultusNetworksAnnotation map[string]string) {
 					config, kvInformer, svc = configFactory(defaultArch)
+					enableFeatureGate(virtconfig.PersistentIPsGate)
 
 					vmi := &v1.VirtualMachineInstance{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1155,7 +1160,7 @@ var _ = Describe("Template", func() {
 					map[string]string{
 						networkv1.NetworkAttachmentAnnot: `[
 							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
-							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
+							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace",  "ipam-claim-reference": "testvmi.red"}
 						]`,
 					},
 				),

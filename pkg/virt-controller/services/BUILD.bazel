@@ -31,6 +31,8 @@ go_library(
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//pkg/virt-controller/ipamclaims:go_default_library",
+        "//pkg/virt-controller/ipamclaims/libipam:go_default_library",
         "//pkg/virt-controller/network:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
