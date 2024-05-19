@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims"
+	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims/libipam"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -2414,7 +2415,7 @@ func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []vi
 
 	indexedMultusStatusIfaces := network.NonDefaultMultusNetworksIndexedByIfaceName(pod)
 	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
-	multusAnnotations, err := network.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, c.clusterConfig)
+	multusAnnotations, err := network.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, map[string]libipam.IPAMClaimParams{}, c.clusterConfig)
 	if err != nil {
 		return err
 	}

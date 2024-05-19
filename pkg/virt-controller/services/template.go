@@ -54,6 +54,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims"
+	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims/libipam"
 	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -261,7 +263,7 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
 		multusNetworksAnnotation, err := network.GenerateMultusCNIAnnotationFromNameScheme(
-			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, t.clusterConfig)
+			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, map[string]libipam.IPAMClaimParams{}, t.clusterConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -512,7 +514,15 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, sidecarContainer)
 	}
 
-	podAnnotations, err := generatePodAnnotations(vmi, t.clusterConfig)
+	var networkToIPAMClaimParams map[string]libipam.IPAMClaimParams
+	if t.clusterConfig.PersistentIPsEnabled() {
+		networkToIPAMClaimParams, err = ipamclaims.ExtractNetworkToIPAMClaimParams(nads, vmi.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed extracting ipam claim params: %w", err)
+		}
+	}
+
+	podAnnotations, err := generatePodAnnotations(vmi, networkToIPAMClaimParams, t.clusterConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1320,7 +1330,7 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 	container.SecurityContext.SELinuxOptions.Level = "s0"
 }
 
-func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (map[string]string, error) {
+func generatePodAnnotations(vmi *v1.VirtualMachineInstance, networkToIPAMClaimParams map[string]libipam.IPAMClaimParams, config *virtconfig.ClusterConfig) (map[string]string, error) {
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
@@ -1332,7 +1342,8 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
+
+	multusAnnotation, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, networkToIPAMClaimParams, config)
 	if err != nil {
 		return nil, err
 	}
