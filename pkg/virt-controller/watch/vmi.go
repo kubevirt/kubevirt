@@ -1347,9 +1347,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 
 		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := network.CalculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi); dynamicIfacesExist {
-			if err := c.updateMultusAnnotation(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
+			errMessage := fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]", vmi.GetNamespace(), vmi.GetName())
+			if err := c.updateMultusAnnotation(vmi.Namespace, vmi.Name, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
 				return &syncErrorImpl{
-					err:    fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
+					err:    fmt.Errorf("%s: %w", errMessage, err),
 					reason: FailedHotplugSyncReason,
 				}
 			}
@@ -2418,12 +2419,24 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
 }
 
-func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
+func (c *VMIController) updateMultusAnnotation(namespace string, vmiName string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
 	podAnnotations := pod.GetAnnotations()
 
 	indexedMultusStatusIfaces := network.NonDefaultMultusNetworksIndexedByIfaceName(pod)
 	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
-	multusAnnotations, err := network.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, map[string]libipam.IPAMClaimParams{}, c.clusterConfig)
+
+	var networkToIPAMClaimParams map[string]libipam.IPAMClaimParams
+	if c.clusterConfig.PersistentIPsEnabled() {
+		var err error
+		networkToIPAMClaimParams, err = c.ipamClaimsManager.GetNetworkToIPAMClaimParams(
+			namespace,
+			vmiName,
+			vmispec.FilterMultusNonDefaultNetworks(networks))
+		if err != nil {
+			return err
+		}
+	}
+	multusAnnotations, err := network.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, networkToIPAMClaimParams, c.clusterConfig)
 	if err != nil {
 		return err
 	}

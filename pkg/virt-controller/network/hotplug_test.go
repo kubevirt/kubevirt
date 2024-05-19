@@ -26,8 +26,12 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
+
+	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -161,7 +165,11 @@ var _ = Describe("Network interface hot{un}plug", func() {
 	DescribeTable("apply dynamic interface request on VMI",
 		func(vmiForVM, currentVMI, expectedVMI *v1.VirtualMachineInstance, hasOrdinalIfaces bool) {
 			vm := virtualMachineFromVMI(currentVMI.Name, vmiForVM)
-			updatedVMI := network.ApplyDynamicIfaceRequestOnVMI(vm, currentVMI, hasOrdinalIfaces)
+			networkClient := fakenetworkclient.NewSimpleClientset()
+			err := createPersistentIPsNADs(networkClient, vm.Namespace, vmiForVM.Spec.Networks)
+			Expect(err).ToNot(HaveOccurred())
+			updatedVMI, err := network.ApplyDynamicIfaceRequestOnVMI(networkClient.K8sCniCncfIoV1(), vm, currentVMI, hasOrdinalIfaces)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
 			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
 		},
@@ -263,6 +271,22 @@ var _ = Describe("Network interface hot{un}plug", func() {
 				libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
 			),
 			!ordinal),
+		Entry("when one interface has to be plugged and other hotunplugged but those have persistentIP",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(testNetworkName1, "nad1")),
+				libvmi.WithInterface(bridgeInterface(testNetworkName2)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(testNetworkName2, "nad2")),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(testNetworkName1, "nad1")),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(testNetworkName1, "nad1")),
+			),
+			!ordinal),
 	)
 
 	DescribeTable("spec interfaces",
@@ -337,8 +361,12 @@ func withInterfaceStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) 
 
 func virtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance) *v1.VirtualMachine {
 	started := true
+	namespace := vmi.Namespace
+	if vmi.Namespace == "" {
+		namespace = "default"
+	}
 	vm := &v1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: "vm-uid"},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, ResourceVersion: "1", UID: "vm-uid"},
 		Spec: v1.VirtualMachineSpec{
 			Running: &started,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -351,4 +379,30 @@ func virtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance) *v1.Virt
 		},
 	}
 	return vm
+}
+
+func createPersistentIPsNADs(networkClient *fakenetworkclient.Clientset, namespace string, networks []virtv1.Network) error {
+	gvr := schema.GroupVersionResource{
+		Group:    "k8s.cni.cncf.io",
+		Version:  "v1",
+		Resource: "network-attachment-definitions",
+	}
+	for _, net := range networks {
+		if net.Multus == nil {
+			continue
+		}
+		nad := &networkv1.NetworkAttachmentDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      net.Multus.NetworkName,
+				Namespace: namespace,
+			},
+		}
+		nad.Spec.Config = `{"name":"nad_network_name","allowPersistentIPs":true}`
+		err := networkClient.Tracker().Create(gvr, nad, namespace)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

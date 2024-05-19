@@ -3489,25 +3489,33 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			It("pod multus status cannot be updated", func() {
 				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod)).To(HaveOccurred())
+					vmi.Namespace, vmi.Name, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod)).To(HaveOccurred())
 			})
 		})
 
 		Context("pod status update", func() {
-			const mac1 = "abc"
-			const mac2 = "bcd"
+			const (
+				mac1    = "abc"
+				mac2    = "bcd"
+				nadName = "net1"
+			)
+
 			BeforeEach(func() {
 				vmi = api.NewMinimalVMI(vmName)
 				pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 				Expect(pod.Annotations).NotTo(HaveKey(networkv1.NetworkAttachmentAnnot))
 				prependInjectPodPatch(pod)
+
+				Expect(createPersistentIPsNad(networkClient, nadName, k8sv1.NamespaceDefault)).To(Succeed())
 			})
 
 			DescribeTable("update pods network annotation with", func(networks []virtv1.Network, interfaces []virtv1.Interface, matchers ...gomegaTypes.GomegaMatcher) {
 				vmi.Spec.Networks = networks
 				vmi.Spec.Domain.Devices.Interfaces = interfaces
+
+				setPersistentIPsGate(kvInformer)
 				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
+					vmi.Namespace, vmi.Name, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
 				for _, matcher := range matchers {
 					Expect(pod.Annotations).To(matcher)
 				}
@@ -3515,21 +3523,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("a single interface",
 					[]virtv1.Network{{
 						Name:          "iface1",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: nadName}},
 					}},
 					[]virtv1.Interface{{
 						Name: "iface1",
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"name":"net1","namespace":"default","interface":"pod7e0055a6880"}]`)),
+						`[{"name":"net1","namespace":"default","interface":"pod7e0055a6880","ipam-claim-reference":"vm1.iface1"}]`)),
 				Entry("multiple interfaces",
 					[]virtv1.Network{{
 						Name:          "iface1",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: nadName}},
 					}, {
 						Name:          "iface2",
-						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: "net1"}},
+						NetworkSource: virtv1.NetworkSource{Multus: &virtv1.MultusNetwork{NetworkName: nadName}},
 					}},
 					[]virtv1.Interface{{
 						Name:       "iface1",
@@ -3540,7 +3548,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"name":"net1","namespace":"default","mac":"mac1","interface":"pod7e0055a6880"},{"name":"net1","namespace":"default","mac":"mac2","interface":"pod48802102d24"}]`)),
+						`[{"name":"net1","namespace":"default","mac":"mac1","interface":"pod7e0055a6880","ipam-claim-reference":"vm1.iface1"},{"name":"net1","namespace":"default","mac":"mac2","interface":"pod48802102d24","ipam-claim-reference":"vm1.iface2"}]`)),
 			)
 			DescribeTable("the subject interface name, in the pod networks annotation, should be in similar form as other interfaces",
 				func(testPodNetworkStatus []networkv1.NetworkStatus, expectedMultusNetworksAnnotation string) {
@@ -3562,7 +3570,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 					prependInjectPodPatch(pod)
 
-					Expect(controller.updateMultusAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
+					Expect(controller.updateMultusAnnotation(vmi.Namespace, vmi.Name, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
 
 					Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
 					Expect(pod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))

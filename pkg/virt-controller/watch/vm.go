@@ -3245,7 +3245,11 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		if err != nil {
 			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}, nil
 		}
-		updatedVmiSpec := network.ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
+
+		updatedVmiSpec, err := network.ApplyDynamicIfaceRequestOnVMI(c.clientset.NetworkClient().K8sCniCncfIoV1(), vmCopy, vmiCopy, hasOrdinalIfaces)
+		if err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply dynamic interface request on vmi: %v", err), HotPlugNetworkInterfaceErrorReason}, nil
+		}
 		vmiCopy.Spec = *updatedVmiSpec
 
 		if err := c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
