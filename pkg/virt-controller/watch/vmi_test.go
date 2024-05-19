@@ -3418,7 +3418,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			It("pod multus status cannot be updated", func() {
 				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod)).To(HaveOccurred())
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces[:1], vmi.Spec.Networks[:1], pod, map[string]libipam.IPAMClaimParams{})).To(HaveOccurred())
 			})
 		})
 
@@ -3435,8 +3435,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			DescribeTable("update pods network annotation with", func(networks []virtv1.Network, interfaces []virtv1.Interface, matchers ...gomegaTypes.GomegaMatcher) {
 				vmi.Spec.Networks = networks
 				vmi.Spec.Domain.Devices.Interfaces = interfaces
+				ipamClaimParams := map[string]libipam.IPAMClaimParams{"iface2": {ClaimName: "claim_name", NetworkName: "network_name"}}
 				Expect(controller.updateMultusAnnotation(
-					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod, ipamClaimParams)).To(Succeed())
 				for _, matcher := range matchers {
 					Expect(pod.Annotations).To(matcher)
 				}
@@ -3469,7 +3470,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"name":"net1","namespace":"default","mac":"mac1","interface":"pod7e0055a6880"},{"name":"net1","namespace":"default","mac":"mac2","interface":"pod48802102d24"}]`)),
+						`[{"name":"net1","namespace":"default","mac":"mac1","interface":"pod7e0055a6880"},{"name":"net1","namespace":"default","mac":"mac2","interface":"pod48802102d24","ipam-claim-reference":"claim_name"}]`)),
 			)
 			DescribeTable("the subject interface name, in the pod networks annotation, should be in similar form as other interfaces",
 				func(testPodNetworkStatus []networkv1.NetworkStatus, expectedMultusNetworksAnnotation string) {
@@ -3491,7 +3492,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 					prependInjectPodPatch(pod)
 
-					Expect(controller.updateMultusAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
+					Expect(controller.updateMultusAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod, map[string]libipam.IPAMClaimParams{})).To(Succeed())
 
 					Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
 					Expect(pod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
