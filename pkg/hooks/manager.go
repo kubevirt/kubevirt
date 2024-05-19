@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -88,7 +87,7 @@ func (m *hookManager) Collect(numberOfRequestedHookSidecars uint, timeout time.D
 	log.Log.Info("Collected all requested hook sidecar sockets")
 
 	sortCallbacksPerHookPoint(callbacksPerHookPoint)
-	log.Log.Infof("Sorted all collected sidecar sockets per hook point based on their priority and name: %v", callbacksPerHookPoint)
+	log.Log.Infof("Sorted all collected sidecar sockets per hook point based on their priority: %v", callbacksPerHookPoint)
 
 	m.CallbacksPerHookPoint = callbacksPerHookPoint
 
@@ -184,17 +183,22 @@ func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 }
 
 func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callBackClient) {
-	for _, callbacks := range callbacksPerHookPoint {
-		for _, callback := range callbacks {
-			sort.Slice(callback.subscribedHookPoints, func(i, j int) bool {
-				if callback.subscribedHookPoints[i].Priority == callback.subscribedHookPoints[j].Priority {
-					return strings.Compare(callback.subscribedHookPoints[i].Name, callback.subscribedHookPoints[j].Name) < 0
-				} else {
-					return callback.subscribedHookPoints[i].Priority > callback.subscribedHookPoints[j].Priority
-				}
-			})
+	for hookPointName, callbacks := range callbacksPerHookPoint {
+		sort.Slice(callbacks, func(i, j int) bool {
+			return findHookPointPriority(callbacks[i].subscribedHookPoints, hookPointName) >
+				findHookPointPriority(callbacks[j].subscribedHookPoints, hookPointName)
+		})
+	}
+}
+
+// There's definitely a hookPoint with a name field set to hookPointName.
+func findHookPointPriority(hookPorints []*hooksInfo.HookPoint, hookPointName string) (priority int32) {
+	for _, hookPorint := range hookPorints {
+		if hookPorint.Name == hookPointName {
+			return hookPorint.Priority
 		}
 	}
+	return 0
 }
 
 func (m *hookManager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (string, error) {

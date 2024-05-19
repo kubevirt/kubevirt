@@ -85,7 +85,7 @@ func (m *InfoResult) GetVersions() []string {
 type HookPoint struct {
 	// name represents name of the subscribed hook point
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	// priority is used to sort hooks prior to their execution (second key is the name)
+	// priority is used to sort hooks prior to their execution
 	Priority int32 `protobuf:"varint,2,opt,name=priority" json:"priority,omitempty"`
 }
 
