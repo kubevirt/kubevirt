@@ -76,10 +76,10 @@ const (
 	processingWaitTotal    = 24 * time.Hour
 
 	//UploadProxyURIAsync is a URI of the upload proxy, the endpoint is asynchronous
-	UploadProxyURIAsync = "/v1alpha1/upload-async"
+	UploadProxyURIAsync = "/v1beta1/upload-async"
 
 	//UploadProxyURI is a URI of the upload proxy, the endpoint is synchronous for backwards compatibility
-	UploadProxyURI = "/v1alpha1/upload"
+	UploadProxyURI = "/v1beta1/upload"
 
 	configName = "config"
 
