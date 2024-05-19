@@ -37,5 +37,10 @@ func init() {
 }
 
 func main() {
-	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDel, version.All, bv.BuildString("passt-binding"))
+	funcs := skel.CNIFuncs{
+		Add:   plugin.CmdAdd,
+		Del:   plugin.CmdDel,
+		Check: plugin.CmdAdd,
+	}
+	skel.PluginMainFuncs(funcs, version.All, bv.BuildString("passt-binding"))
 }
