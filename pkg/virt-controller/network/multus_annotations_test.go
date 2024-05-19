@@ -29,14 +29,16 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/ipamclaims/libipam"
 )
 
 var _ = Describe("Multus annotations", func() {
 	var multusAnnotationPool multusNetworkAnnotationPool
 	var vmi v1.VirtualMachineInstance
-	var network v1.Network
+	var network1, network2 v1.Network
 
 	BeforeEach(func() {
 		vmi = v1.VirtualMachineInstance{
@@ -44,9 +46,14 @@ var _ = Describe("Multus annotations", func() {
 				Name: "testvmi", Namespace: "namespace1", UID: "1234",
 			},
 		}
-		network = v1.Network{
+		network1 = v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Multus: &v1.MultusNetwork{NetworkName: "test1"},
+			},
+		}
+		network2 = v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.MultusNetwork{NetworkName: "test2"},
 			},
 		}
 	})
@@ -62,7 +69,7 @@ var _ = Describe("Multus annotations", func() {
 
 		It("when added an element, is no longer empty", func() {
 			podIfaceName := "net1"
-			multusAnnotationPool.add(newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, podIfaceName))
+			multusAnnotationPool.add(newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network1, podIfaceName, ""))
 			Expect(multusAnnotationPool.isEmpty()).To(BeFalse())
 		})
 
@@ -75,7 +82,8 @@ var _ = Describe("Multus annotations", func() {
 		BeforeEach(func() {
 			multusAnnotationPool = multusNetworkAnnotationPool{
 				pool: []networkv1.NetworkSelectionElement{
-					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"),
+					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network1, "net1", ""),
+					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network2, "net2", "testvmi.net2"),
 				},
 			}
 		})
@@ -85,7 +93,7 @@ var _ = Describe("Multus annotations", func() {
 		})
 
 		It("generates a json serialized string representing the annotation", func() {
-			expectedString := `[{"name":"test1","namespace":"namespace1","interface":"net1"}]`
+			expectedString := `[{"name":"test1","namespace":"namespace1","interface":"net1"},{"name":"test2","namespace":"namespace1","interface":"net2","ipam-claim-reference":"testvmi.net2"}]`
 			Expect(multusAnnotationPool.toString()).To(BeIdenticalTo(expectedString))
 		})
 	})
@@ -103,7 +111,7 @@ var _ = Describe("Multus annotations", func() {
 					"another-test-binding": {NetworkAttachmentDefinition: "another-test-binding-net"},
 				})
 
-				_, err := GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)
+				_, err := GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, map[string]libipam.IPAMClaimParams{}, config)
 
 				Expect(err).To(HaveOccurred())
 			})
@@ -123,7 +131,7 @@ var _ = Describe("Multus annotations", func() {
 					"test-binding": {NetworkAttachmentDefinition: "test-binding-net"},
 				})
 
-				Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)).To(MatchJSON(
+				Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, map[string]libipam.IPAMClaimParams{}, config)).To(MatchJSON(
 					`[
 						{"name": "test-binding-net","namespace": "default", "cni-args": {"logicNetworkName": "default"}},
 						{"name": "test1","namespace": "default","interface": "pod16477688c0e"},
@@ -143,13 +151,36 @@ var _ = Describe("Multus annotations", func() {
 						"test-binding": {NetworkAttachmentDefinition: netAttachDefRawName},
 					})
 
-					Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)).To(MatchJSON(expectedAnnot))
+					Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, map[string]libipam.IPAMClaimParams{}, config)).To(MatchJSON(expectedAnnot))
 				},
 				Entry("name with no namespace", "my-binding",
 					`[{"namespace": "default", "name": "my-binding", "cni-args": {"logicNetworkName": "default"}}]`),
 				Entry("name with namespace", "namespace1/my-binding",
 					`[{"namespace": "namespace1", "name": "my-binding", "cni-args": {"logicNetworkName": "default"}}]`),
 			)
+		})
+
+		It("should add ipam-claim-reference to multus annotation according networkToIPAMClaimParams", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithInterface(v1.Interface{Name: "blue"}),
+				libvmi.WithInterface(v1.Interface{Name: "red"}),
+				libvmi.WithNetwork(libvmi.MultusNetwork("blue", "test1")),
+				libvmi.WithNetwork(libvmi.MultusNetwork("red", "other-namespace/test2")),
+			)
+			vmi.Name = "testvmi"
+
+			networkToIPAMClaimParams := map[string]libipam.IPAMClaimParams{
+				"red": {
+					ClaimName:   "testvmi.red",
+					NetworkName: "network_name",
+				}}
+			Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, networkToIPAMClaimParams, nil)).To(MatchJSON(
+				`[
+						{"name": "test1","namespace": "default","interface": "pod16477688c0e"},
+						{"name": "test2","namespace": "other-namespace","interface": "podb1f51a511f1","ipam-claim-reference": "testvmi.red"}
+					]`,
+			))
 		})
 	})
 })
