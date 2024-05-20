@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -336,14 +337,14 @@ var _ = Describe("Apply", func() {
 		// Node Selectors
 		It("should succeed if componentConfig is nil", func() {
 			// if componentConfig is nil
-			InjectPlacementMetadata(nil, podSpec)
+			InjectPlacementMetadata(nil, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		It("should succeed if nodePlacement is nil", func() {
 			componentConfig.NodePlacement = nil
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
@@ -351,14 +352,14 @@ var _ = Describe("Apply", func() {
 		It("should succeed if podSpec is nil", func() {
 			orig := componentConfig.DeepCopy()
 			orig.NodePlacement.NodeSelector = map[string]string{kubernetesOSLabel: kubernetesOSLinux}
-			InjectPlacementMetadata(componentConfig, nil)
+			InjectPlacementMetadata(componentConfig, nil, AnyNode)
 			Expect(equality.Semantic.DeepEqual(orig, componentConfig)).To(BeTrue())
 		})
 
 		It("should copy NodeSelectors when podSpec is empty", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
 			nodePlacement.NodeSelector["foo"] = "bar"
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(2))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
@@ -369,7 +370,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.NodeSelector["foo"] = "bar"
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["existing"] = "value"
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(3))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
 			Expect(podSpec.NodeSelector["existing"]).To(Equal("value"))
@@ -381,7 +382,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.NodeSelector["foo"] = "bar"
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(2))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
@@ -389,14 +390,14 @@ var _ = Describe("Apply", func() {
 
 		It("should set OS label if not defined", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		It("should favor NodeSelector OS label if present", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
 			nodePlacement.NodeSelector[kubernetesOSLabel] = "linux-custom"
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal("linux-custom"))
 		})
@@ -404,7 +405,7 @@ var _ = Describe("Apply", func() {
 		It("should favor podSpec OS label if present", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector[kubernetesOSLabel] = "linux-custom"
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(1))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal("linux-custom"))
 		})
@@ -412,7 +413,7 @@ var _ = Describe("Apply", func() {
 		It("should preserve NodeSelectors if nodePlacement has none", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.NodeSelector).To(HaveLen(2))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
 			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
@@ -426,14 +427,14 @@ var _ = Describe("Apply", func() {
 				Effect:   "NoSchedule",
 			}
 			nodePlacement.Tolerations = []corev1.Toleration{toleration}
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Tolerations).To(HaveLen(1))
 			Expect(podSpec.Tolerations[0].Key).To(Equal("test-taint"))
 		})
 
 		It("should preserve tolerations when nodePlacement is empty", func() {
 			podSpec.Tolerations = []corev1.Toleration{toleration}
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Tolerations).To(HaveLen(1))
 			Expect(podSpec.Tolerations[0].Key).To(Equal("test-taint"))
 		})
@@ -441,13 +442,13 @@ var _ = Describe("Apply", func() {
 		It("should merge tolerations when both are defined", func() {
 			nodePlacement.Tolerations = []corev1.Toleration{toleration}
 			podSpec.Tolerations = []corev1.Toleration{toleration2}
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Tolerations).To(HaveLen(2))
 		})
 
 		It("It should copy NodePlacement if podSpec Affinity is empty", func() {
 			nodePlacement.Affinity = affinity
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
@@ -455,7 +456,7 @@ var _ = Describe("Apply", func() {
 		It("It should copy NodePlacement if Node, Pod and Anti affinities are empty", func() {
 			nodePlacement.Affinity = affinity
 			podSpec.Affinity = &corev1.Affinity{}
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
@@ -463,7 +464,7 @@ var _ = Describe("Apply", func() {
 		It("It should merge NodePlacement and podSpec affinity terms", func() {
 			nodePlacement.Affinity = affinity
 			podSpec.Affinity = affinity2
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(2))
 			Expect(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(2))
 			Expect(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(2))
@@ -477,7 +478,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
 			nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
 		})
 
@@ -485,7 +486,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
 			nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
 
@@ -493,7 +494,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
 			nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
 
@@ -501,7 +502,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
 			nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
 
@@ -509,7 +510,7 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
 			nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 		})
 
@@ -517,8 +518,67 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
 			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
-			InjectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+		})
+
+		Context("default scheduling to CP nodes", func() {
+			DescribeTable("should require scheduling to control-plane nodes and avoid worker nodes", func(config *v1.ComponentConfig) {
+				const (
+					controlPlaceLabel = "node-role.kubernetes.io/control-plane"
+					workerLabel       = "node-role.kubernetes.io/worker"
+				)
+
+				InjectPlacementMetadata(config, podSpec, RequireControlPlanePreferNonWorker)
+
+				Expect(podSpec.Affinity).ToNot(BeNil())
+				Expect(podSpec.Affinity.NodeAffinity).ToNot(BeNil())
+
+				By("Testing scheduling requirements")
+				Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
+				Expect(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
+
+				requirementSelectorTerm := podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
+				Expect(requirementSelectorTerm.MatchFields).To(BeEmpty())
+				Expect(requirementSelectorTerm.MatchExpressions).To(HaveLen(1))
+
+				requirementMatchExpression := requirementSelectorTerm.MatchExpressions[0]
+				Expect(requirementMatchExpression.Key).To(Equal(controlPlaceLabel))
+				Expect(requirementMatchExpression.Operator).To(Equal(corev1.NodeSelectorOpExists))
+
+				By("Testing scheduling preferences")
+				Expect(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				preferredSchedulingTerm := podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0]
+				Expect(preferredSchedulingTerm.Weight).To(Equal(int32(100)))
+				Expect(preferredSchedulingTerm.Preference.MatchFields).To(BeEmpty())
+				Expect(preferredSchedulingTerm.Preference.MatchExpressions).To(HaveLen(1))
+
+				matchExpression := preferredSchedulingTerm.Preference.MatchExpressions[0]
+				Expect(matchExpression.Key).To(Equal(workerLabel))
+				Expect(matchExpression.Operator).To(Equal(corev1.NodeSelectorOpDoesNotExist))
+			},
+				Entry("nil component config", nil),
+				Entry("nil node placement", &v1.ComponentConfig{}),
+			)
+
+			Context("should not add requirement scheduling to control-plane nodes", func() {
+				It("if the user already provided a node placement", func() {
+					componentConfig = &v1.ComponentConfig{
+						NodePlacement: &v1.NodePlacement{
+							Tolerations: []corev1.Toleration{},
+						},
+					}
+					InjectPlacementMetadata(componentConfig, podSpec, RequireControlPlanePreferNonWorker)
+
+					Expect(podSpec.Affinity).To(BeNil())
+				})
+
+				It("should not add requirement scheduling to control-plane nodes if the corresponding parameter is set to false", func() {
+					InjectPlacementMetadata(nil, podSpec, AnyNode)
+					Expect(podSpec.Affinity).To(BeNil())
+				})
+			})
+
 		})
 	})
 })
