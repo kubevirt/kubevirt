@@ -124,8 +124,9 @@ func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap 
 	}
 
 	ret := make(vmiSocketMap)
+
 	for _, vmi := range vmis {
-		socketPath, err := cmdclient.FindSocketOnHost(vmi)
+		socketPath, err := cmdclient.NewDefaultSocketFinder().FindSocketOnHost(vmi)
 		if err != nil {
 			// nothing to scrape...
 			// this means there's no socket or the socket

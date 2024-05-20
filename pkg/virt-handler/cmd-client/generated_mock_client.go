@@ -352,3 +352,35 @@ func (_m *MockLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineIns
 func (_mr *_MockLauncherClientRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", arg0, arg1)
 }
+
+// Mock of SocketFinder interface
+type MockSocketFinder struct {
+	ctrl     *gomock.Controller
+	recorder *_MockSocketFinderRecorder
+}
+
+// Recorder for MockSocketFinder (not exported)
+type _MockSocketFinderRecorder struct {
+	mock *MockSocketFinder
+}
+
+func NewMockSocketFinder(ctrl *gomock.Controller) *MockSocketFinder {
+	mock := &MockSocketFinder{ctrl: ctrl}
+	mock.recorder = &_MockSocketFinderRecorder{mock}
+	return mock
+}
+
+func (_m *MockSocketFinder) EXPECT() *_MockSocketFinderRecorder {
+	return _m.recorder
+}
+
+func (_m *MockSocketFinder) FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
+	ret := _m.ctrl.Call(_m, "FindSocketOnHost", vmi)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockSocketFinderRecorder) FindSocketOnHost(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FindSocketOnHost", arg0)
+}
