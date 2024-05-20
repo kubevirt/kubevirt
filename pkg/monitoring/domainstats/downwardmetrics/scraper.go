@@ -15,6 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	metricspkg "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/metrics"
 	vms "kubevirt.io/kubevirt/pkg/monitoring/domainstats"
+	"kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -146,9 +147,12 @@ type Collector struct {
 }
 
 func NewReporter(nodeName string) *DownwardMetricsReporter {
+	// Let's return a hash of the host name to avoid exposing the real host name to an
+	// untrusted VM. The metrics `HostName` value is used as an uuid of the node (to
+	// detect changes), and is not used to do dns queries.
 	return &DownwardMetricsReporter{
 		staticHostInfo: &StaticHostMetrics{
-			HostName:             nodeName,
+			HostName:             util.HashString(nodeName),
 			HostSystemInfo:       "linux",
 			VirtualizationVendor: "kubevirt.io",
 		},

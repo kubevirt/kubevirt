@@ -2,6 +2,8 @@ package util
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -302,4 +304,10 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 	objCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
 
 	return objCopy, nil
+}
+
+// HashString returns a sha256 string representation of the input string
+func HashString(s string) string {
+	hashedStrBin := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(hashedStrBin[:])
 }
