@@ -2,27 +2,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "doc-generator.go",
-        "fakeDomainCollector.go",
-    ],
+    srcs = ["doc-generator.go"],
     importpath = "kubevirt.io/kubevirt/tools/doc-generator",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/monitoring/domainstats/prometheus:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/monitoring/metrics/virt-handler:go_default_library",
         "//pkg/monitoring/metrics/virt-operator:go_default_library",
         "//pkg/monitoring/rules:go_default_library",
-        "//pkg/virt-controller/watch:go_default_library",
-        "//pkg/virt-launcher/virtwrap/stats:go_default_library",
-        "//pkg/virt-launcher/virtwrap/statsconv:go_default_library",
-        "//pkg/virt-launcher/virtwrap/statsconv/util:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/docs:go_default_library",
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
-        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
-        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )
 

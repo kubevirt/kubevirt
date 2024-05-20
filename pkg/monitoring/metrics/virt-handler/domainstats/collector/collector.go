@@ -17,7 +17,7 @@
  *
  */
 
-package vms
+package collector
 
 import (
 	"sync"
@@ -35,7 +35,6 @@ const StatsMaxAge = CollectionTimeout + 2*time.Second // "a bit more" than timeo
 type vmiSocketMap map[string]*k6tv1.VirtualMachineInstance
 
 type Collector interface {
-	Scrape(key string, vmi *k6tv1.VirtualMachineInstance)
 	Collect(vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration) (skipped []string, completed bool)
 }
 
@@ -46,11 +45,15 @@ type ConcurrentCollector struct {
 	socketMapper     func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap
 }
 
-func NewConcurrentCollector(MaxRequestsPerKey int) *ConcurrentCollector {
+func NewConcurrentCollector(MaxRequestsPerKey int) Collector {
+	return NewConcurrentCollectorWithMapper(MaxRequestsPerKey, newvmiSocketMapFromVMIs)
+}
+
+func NewConcurrentCollectorWithMapper(MaxRequestsPerKey int, mapper func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap) Collector {
 	return &ConcurrentCollector{
 		clientsPerKey:    make(map[string]int),
 		maxClientsPerKey: MaxRequestsPerKey,
-		socketMapper:     newvmiSocketMapFromVMIs,
+		socketMapper:     mapper,
 	}
 }
 
@@ -59,7 +62,7 @@ func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scr
 	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
 	var busyScrapers sync.WaitGroup
 
-	skipped := []string{}
+	var skipped []string
 	for key, vmi := range socketToVMIs {
 		reserved := cc.reserveKey(key)
 		if !reserved {
@@ -88,6 +91,7 @@ func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scr
 	}
 
 	log.Log.V(4).Infof("Collection completed")
+	scraper.Complete()
 
 	return skipped, completed
 }

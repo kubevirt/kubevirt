@@ -17,7 +17,7 @@
  *
  */
 
-package vms
+package collector
 
 import (
 	"time"
@@ -32,7 +32,7 @@ import (
 var _ = Describe("Collector", func() {
 	var vmis []*k6tv1.VirtualMachineInstance
 
-	var newCollector = func(retries int) *ConcurrentCollector {
+	var newCollector = func(retries int) Collector {
 		fakeMapper := func(vmi []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 			m := vmiSocketMap{}
 			for _, vmi := range vmi {
@@ -40,8 +40,7 @@ var _ = Describe("Collector", func() {
 			}
 			return m
 		}
-		collector := NewConcurrentCollector(retries)
-		collector.socketMapper = fakeMapper
+		collector := NewConcurrentCollectorWithMapper(retries, fakeMapper)
 		return collector
 	}
 
@@ -173,3 +172,5 @@ func (fs *fakeScraper) Scrape(key string, _ *k6tv1.VirtualMachineInstance) {
 		fs.ready[key] <- true
 	}
 }
+
+func (fs *fakeScraper) Complete() {}

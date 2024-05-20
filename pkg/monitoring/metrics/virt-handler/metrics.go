@@ -20,17 +20,29 @@ package virt_handler
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/domainstats"
 )
 
-func SetupMetrics() error {
+func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) error {
 	if err := workqueue.SetupMetrics(); err != nil {
 		return err
 	}
 
-	return client.SetupMetrics()
+	if err := client.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := operatormetrics.RegisterMetrics(versionMetrics); err != nil {
+		return err
+	}
+	SetVersionInfo()
+
+	domainstats.SetupDomainStatsCollector(virtShareDir, nodeName, MaxRequestsInFlight, vmiInformer)
+	return operatormetrics.RegisterCollector(domainstats.Collector)
 }
 
 func ListMetrics() []operatormetrics.Metric {
