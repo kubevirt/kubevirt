@@ -654,7 +654,7 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	logMsg := fmt.Sprintf("hotplugging cpu to %v sockets", vm.Spec.Template.Spec.Domain.CPU.Sockets)
 
 	if !vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().IsZero() {
-		newCpuReq := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
+		newCpuReq := vmi.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
 		newCpuReq.Add(*resourcesDelta)
 
 		patchSet.AddOption(
@@ -665,7 +665,7 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 		logMsg = fmt.Sprintf("%s, setting requests to %s", logMsg, newCpuReq.String())
 	}
 	if !vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().IsZero() {
-		newCpuLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
+		newCpuLimit := vmi.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
 		newCpuLimit.Add(*resourcesDelta)
 
 		patchSet.AddOption(
@@ -682,7 +682,7 @@ func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	}
 
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
-	if err != nil {
+	if err == nil {
 		log.Log.Object(vmi).Infof(logMsg)
 	}
 
