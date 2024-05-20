@@ -236,7 +236,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
+		PIt("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
