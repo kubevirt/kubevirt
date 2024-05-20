@@ -263,7 +263,7 @@ func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
 
 func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.KubevirtClient) (sourceNode *k8sv1.Node, targetNode *k8sv1.Node, err error) {
 	getNodeHostRequiredFeatures := func(node *k8sv1.Node) (features []string) {
-		for key, _ := range node.Labels {
+		for key := range node.Labels {
 			if strings.HasPrefix(key, v1.HostModelRequiredFeaturesLabel) {
 				features = append(features, strings.TrimPrefix(key, v1.HostModelRequiredFeaturesLabel))
 			}
@@ -272,7 +272,7 @@ func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.Kubevi
 	}
 	areFeaturesSupportedOnNode := func(node *k8sv1.Node, features []string) bool {
 		isFeatureSupported := func(feature string) bool {
-			for key, _ := range node.Labels {
+			for key := range node.Labels {
 				if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
 					return true
 				}
@@ -303,7 +303,7 @@ func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.Kubevi
 				continue
 			}
 			supportedInTarget := false
-			for key, _ := range potentialTargetNode.Labels {
+			for key := range potentialTargetNode.Labels {
 				if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) && strings.Contains(key, sourceHostCpuModel) {
 					supportedInTarget = true
 					break

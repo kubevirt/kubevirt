@@ -306,7 +306,7 @@ func isTSCFrequencyExposed(virtClient kubecli.KubevirtClient) bool {
 
 func removeTSCFrequencyFromNode(node k8sv1.Node) {
 	for _, baseLabelToRemove := range []string{topology.TSCFrequencyLabel, topology.TSCFrequencySchedulingLabel} {
-		for key, _ := range node.Labels {
+		for key := range node.Labels {
 			if strings.HasPrefix(key, baseLabelToRemove) {
 				libnode.RemoveLabelFromNode(node.Name, key)
 			}
