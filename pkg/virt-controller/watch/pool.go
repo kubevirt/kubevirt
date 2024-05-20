@@ -620,7 +620,7 @@ func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachin
 	}
 
 	dvNameMap := map[string]string{}
-	for i, _ := range spec.DataVolumeTemplates {
+	for i := range spec.DataVolumeTemplates {
 
 		indexName := fmt.Sprintf("%s-%d", spec.DataVolumeTemplates[i].Name, idx)
 		dvNameMap[spec.DataVolumeTemplates[i].Name] = indexName
@@ -1124,7 +1124,7 @@ func (c *PoolController) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, v
 		}
 	}
 
-	for revisionName, _ := range deletionMap {
+	for revisionName := range deletionMap {
 		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, v1.DeleteOptions{})
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason}

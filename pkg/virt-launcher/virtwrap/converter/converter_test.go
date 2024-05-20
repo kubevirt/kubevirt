@@ -1016,7 +1016,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			vmi.Spec.Domain.IOThreadsPolicy = nil
-			for i, _ := range vmi.Spec.Domain.Devices.Disks {
+			for i := range vmi.Spec.Domain.Devices.Disks {
 				vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread = nil
 			}
 			dom := &api.Domain{}

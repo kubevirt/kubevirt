@@ -102,7 +102,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(reEnlightenmentVMI, reEnlightenmentVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				foundNodeSelector := false
-				for key, _ := range virtLauncherPod.Spec.NodeSelector {
+				for key := range virtLauncherPod.Spec.NodeSelector {
 					if strings.HasPrefix(key, topology.TSCFrequencySchedulingLabel+"-") {
 						foundNodeSelector = true
 						break

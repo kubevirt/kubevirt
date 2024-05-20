@@ -1563,7 +1563,7 @@ var _ = Describe("Migration watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).To(HaveLen(1))
 			podHasCpuModeLabelSelector := false
-			for key, _ := range pods.Items[0].Spec.NodeSelector {
+			for key := range pods.Items[0].Spec.NodeSelector {
 				if strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
 					podHasCpuModeLabelSelector = true
 					break

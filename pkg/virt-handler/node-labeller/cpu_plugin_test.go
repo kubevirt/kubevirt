@@ -184,7 +184,7 @@ var _ = Describe("Node-labeller config", func() {
 		nlController.removeLabellerLabels(node)
 
 		badKey := ""
-		for key, _ := range node.Labels {
+		for key := range node.Labels {
 			for _, labellerPrefix := range nodeLabellerLabels {
 				if strings.HasPrefix(key, labellerPrefix) {
 					badKey = key

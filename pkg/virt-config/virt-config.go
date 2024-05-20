@@ -328,7 +328,7 @@ func (c *ClusterConfig) GetDesiredMDEVTypes(node *k8sv1.Node) []string {
 		}
 		if len(mdevTypesMap) != 0 {
 			mdevTypesList := []string{}
-			for mdevType, _ := range mdevTypesMap {
+			for mdevType := range mdevTypesMap {
 				mdevTypesList = append(mdevTypesList, mdevType)
 			}
 			return mdevTypesList

@@ -1348,7 +1348,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		for i, _ := range vmi.Status.VolumeStatus {
+		for i := range vmi.Status.VolumeStatus {
 			if vmi.Status.VolumeStatus[i].Name == volume.Name {
 				vmi.Status.VolumeStatus[i].Size = fileInfo.Size()
 				continue
