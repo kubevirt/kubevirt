@@ -12,7 +12,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: alpine
 spec:
   devices:
@@ -37,7 +37,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.7
 spec:
   devices:
@@ -62,7 +62,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.7.desktop
 spec:
   devices:
@@ -90,7 +90,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.stream8
 spec:
   devices:
@@ -115,7 +115,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.stream8.desktop
 spec:
   devices:
@@ -143,7 +143,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.stream8.dpdk
 spec:
   cpu:
@@ -171,7 +171,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.stream9
 spec:
   devices:
@@ -198,7 +198,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.stream9.desktop
 spec:
   devices:
@@ -228,7 +228,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: centos.stream9.dpdk
 spec:
   cpu:
@@ -258,7 +258,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: cirros
 spec:
   devices:
@@ -283,7 +283,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: fedora
 spec:
   devices:
@@ -315,7 +315,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.7
 spec:
   devices:
@@ -340,7 +340,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.7.desktop
 spec:
   devices:
@@ -368,7 +368,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.8
 spec:
   devices:
@@ -393,7 +393,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.8.desktop
 spec:
   devices:
@@ -421,7 +421,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.8.dpdk
 spec:
   cpu:
@@ -449,7 +449,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.9
 spec:
   devices:
@@ -481,7 +481,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.9.desktop
 spec:
   devices:
@@ -516,7 +516,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: rhel.9.dpdk
 spec:
   cpu:
@@ -551,7 +551,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: ubuntu
 spec:
   devices:
@@ -577,7 +577,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.10
 spec:
   clock:
@@ -615,6 +615,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -635,7 +639,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.10.virtio
 spec:
   clock:
@@ -675,6 +679,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -695,7 +703,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.11
 spec:
   clock:
@@ -758,7 +766,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.11.virtio
 spec:
   clock:
@@ -824,7 +832,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k12
 spec:
   clock:
@@ -862,6 +870,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -883,7 +895,7 @@ metadata:
     instancetype.kubevirt.io/deprecated: "true"
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k12.virtio
 spec:
   clock:
@@ -923,6 +935,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -943,7 +959,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k16
 spec:
   clock:
@@ -981,6 +997,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1001,7 +1021,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k16.virtio
 spec:
   clock:
@@ -1041,6 +1061,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1061,7 +1085,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k19
 spec:
   clock:
@@ -1099,6 +1123,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1119,7 +1147,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k19.virtio
 spec:
   clock:
@@ -1159,6 +1187,10 @@ spec:
       tlbflush: {}
       vapic: {}
       vpindex: {}
+    preferredSmm: {}
+  firmware:
+    preferredUseEfi: true
+    preferredUseSecureBoot: true
   preferredTerminationGracePeriodSeconds: 3600
   requirements:
     cpu:
@@ -1179,7 +1211,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k22
 spec:
   clock:
@@ -1242,7 +1274,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v0.4.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.0.0
   name: windows.2k22.virtio
 spec:
   clock:
