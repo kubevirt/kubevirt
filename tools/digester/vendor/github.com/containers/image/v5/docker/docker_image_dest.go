@@ -27,6 +27,7 @@ import (
 	"github.com/containers/image/v5/internal/uploadreader"
 	"github.com/containers/image/v5/manifest"
 	"github.com/containers/image/v5/pkg/blobinfocache/none"
+	compressiontypes "github.com/containers/image/v5/pkg/compression/types"
 	"github.com/containers/image/v5/types"
 	"github.com/docker/distribution/registry/api/errcode"
 	v2 "github.com/docker/distribution/registry/api/v2"
@@ -229,6 +230,9 @@ func (d *dockerImageDestination) PutBlobWithOptions(ctx context.Context, stream 
 // If the destination does not contain the blob, or it is unknown, blobExists ordinarily returns (false, -1, nil);
 // it returns a non-nil error only on an unexpected failure.
 func (d *dockerImageDestination) blobExists(ctx context.Context, repo reference.Named, digest digest.Digest, extraScope *authScope) (bool, int64, error) {
+	if err := digest.Validate(); err != nil { // Make sure digest.String() does not contain any unexpected characters
+		return false, -1, err
+	}
 	checkPath := fmt.Sprintf(blobsPath, reference.Path(repo), digest.String())
 	logrus.Debugf("Checking %s", checkPath)
 	res, err := d.c.makeRequest(ctx, http.MethodHead, checkPath, nil, nil, v2Auth, extraScope)
@@ -311,6 +315,13 @@ func (d *dockerImageDestination) tryReusingExactBlob(ctx context.Context, info t
 	return false, private.ReusedBlob{}, nil
 }
 
+func optionalCompressionName(algo *compressiontypes.Algorithm) string {
+	if algo != nil {
+		return algo.Name()
+	}
+	return "nil"
+}
+
 // TryReusingBlobWithOptions checks whether the transport already contains, or can efficiently reuse, a blob, and if so, applies it to the current destination
 // (e.g. if the blob is a filesystem layer, this signifies that the changes it describes need to be applied again when composing a filesystem tree).
 // info.Digest must not be empty.
@@ -321,7 +332,7 @@ func (d *dockerImageDestination) TryReusingBlobWithOptions(ctx context.Context, 
 		return false, private.ReusedBlob{}, errors.New("Can not check for a blob with unknown digest")
 	}
 
-	if impl.OriginalBlobMatchesRequiredCompression(options) {
+	if impl.OriginalCandidateMatchesTryReusingBlobOptions(options) {
 		// First, check whether the blob happens to already exist at the destination.
 		haveBlob, reusedInfo, err := d.tryReusingExactBlob(ctx, info, options.Cache)
 		if err != nil {
@@ -331,11 +342,8 @@ func (d *dockerImageDestination) TryReusingBlobWithOptions(ctx context.Context, 
 			return true, reusedInfo, nil
 		}
 	} else {
-		requiredCompression := "nil"
-		if options.OriginalCompression != nil {
-			requiredCompression = options.OriginalCompression.Name()
-		}
-		logrus.Debugf("Ignoring exact blob match case due to compression mismatch ( %s vs %s )", options.RequiredCompression.Name(), requiredCompression)
+		logrus.Debugf("Ignoring exact blob match, compression %s does not match required %s or MIME types %#v",
+			optionalCompressionName(options.OriginalCompression), optionalCompressionName(options.RequiredCompression), options.PossibleManifestFormats)
 	}
 
 	// Then try reusing blobs from other locations.
@@ -355,15 +363,13 @@ func (d *dockerImageDestination) TryReusingBlobWithOptions(ctx context.Context, 
 				continue
 			}
 		}
-		if !impl.BlobMatchesRequiredCompression(options, compressionAlgorithm) {
-			requiredCompression := "nil"
-			if compressionAlgorithm != nil {
-				requiredCompression = compressionAlgorithm.Name()
-			}
+		if !impl.CandidateMatchesTryReusingBlobOptions(options, compressionAlgorithm) {
 			if !candidate.UnknownLocation {
-				logrus.Debugf("Ignoring candidate blob %s as reuse candidate due to compression mismatch ( %s vs %s ) in %s", candidate.Digest.String(), options.RequiredCompression.Name(), requiredCompression, candidateRepo.Name())
+				logrus.Debugf("Ignoring candidate blob %s in %s, compression %s does not match required %s or MIME types %#v", candidate.Digest.String(), candidateRepo.Name(),
+					optionalCompressionName(compressionAlgorithm), optionalCompressionName(options.RequiredCompression), options.PossibleManifestFormats)
 			} else {
-				logrus.Debugf("Ignoring candidate blob %s as reuse candidate due to compression mismatch ( %s vs %s ) with no location match, checking current repo", candidate.Digest.String(), options.RequiredCompression.Name(), requiredCompression)
+				logrus.Debugf("Ignoring candidate blob %s with no known location, compression %s does not match required %s or MIME types %#v", candidate.Digest.String(),
+					optionalCompressionName(compressionAlgorithm), optionalCompressionName(options.RequiredCompression), options.PossibleManifestFormats)
 			}
 			continue
 		}
@@ -452,12 +458,21 @@ func (d *dockerImageDestination) TryReusingBlobWithOptions(ctx context.Context, 
 // but may accept a different manifest type, the returned error must be an ManifestTypeRejectedError.
 func (d *dockerImageDestination) PutManifest(ctx context.Context, m []byte, instanceDigest *digest.Digest) error {
 	var refTail string
-	if instanceDigest != nil {
+	// If d.ref.isUnknownDigest=true, then we push without a tag, so get the
+	// digest that will be used
+	if d.ref.isUnknownDigest {
+		digest, err := manifest.Digest(m)
+		if err != nil {
+			return err
+		}
+		refTail = digest.String()
+	} else if instanceDigest != nil {
 		// If the instanceDigest is provided, then use it as the refTail, because the reference,
 		// whether it includes a tag or a digest, refers to the list as a whole, and not this
 		// particular instance.
 		refTail = instanceDigest.String()
 		// Double-check that the manifest we've been given matches the digest we've been given.
+		// This also validates the format of instanceDigest.
 		matches, err := manifest.MatchesDigest(m, *instanceDigest)
 		if err != nil {
 			return fmt.Errorf("digesting manifest in PutManifest: %w", err)
@@ -624,9 +639,11 @@ func (d *dockerImageDestination) putSignaturesToLookaside(signatures []signature
 
 	// NOTE: Keep this in sync with docs/signature-protocols.md!
 	for i, signature := range signatures {
-		sigURL := lookasideStorageURL(d.c.signatureBase, manifestDigest, i)
-		err := d.putOneSignature(sigURL, signature)
+		sigURL, err := lookasideStorageURL(d.c.signatureBase, manifestDigest, i)
 		if err != nil {
+			return err
+		}
+		if err := d.putOneSignature(sigURL, signature); err != nil {
 			return err
 		}
 	}
@@ -636,7 +653,10 @@ func (d *dockerImageDestination) putSignaturesToLookaside(signatures []signature
 	// is enough for dockerImageSource to stop looking for other signatures, so that
 	// is sufficient.
 	for i := len(signatures); ; i++ {
-		sigURL := lookasideStorageURL(d.c.signatureBase, manifestDigest, i)
+		sigURL, err := lookasideStorageURL(d.c.signatureBase, manifestDigest, i)
+		if err != nil {
+			return err
+		}
 		missing, err := d.c.deleteOneSignature(sigURL)
 		if err != nil {
 			return err
@@ -767,8 +787,12 @@ func (d *dockerImageDestination) putSignaturesToSigstoreAttachments(ctx context.
 	if err != nil {
 		return err
 	}
+	attachmentTag, err := sigstoreAttachmentTag(manifestDigest)
+	if err != nil {
+		return err
+	}
 	logrus.Debugf("Uploading sigstore attachment manifest")
-	return d.uploadManifest(ctx, manifestBlob, sigstoreAttachmentTag(manifestDigest))
+	return d.uploadManifest(ctx, manifestBlob, attachmentTag)
 }
 
 func layerMatchesSigstoreSignature(layer imgspecv1.Descriptor, mimeType string,
@@ -884,6 +908,7 @@ func (d *dockerImageDestination) putSignaturesToAPIExtension(ctx context.Context
 			return err
 		}
 
+		// manifestDigest is known to be valid because it was not rejected by getExtensionsSignatures above.
 		path := fmt.Sprintf(extensionsSignaturePath, reference.Path(d.ref.ref), manifestDigest.String())
 		res, err := d.c.makeRequest(ctx, http.MethodPut, path, nil, bytes.NewReader(body), v2Auth, nil)
 		if err != nil {

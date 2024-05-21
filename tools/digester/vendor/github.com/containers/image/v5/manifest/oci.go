@@ -235,7 +235,7 @@ func (m *OCI1) Inspect(configGetter func(types.BlobInfo) ([]byte, error)) (*type
 }
 
 // ImageID computes an ID which can uniquely identify this image by its contents.
-func (m *OCI1) ImageID([]digest.Digest) (string, error) {
+func (m *OCI1) ImageID(diffIDs []digest.Digest) (string, error) {
 	// The way m.Config.Digest “uniquely identifies” an image is
 	// by containing RootFS.DiffIDs, which identify the layers of the image.
 	// For non-image artifacts, the we can’t expect the config to change
