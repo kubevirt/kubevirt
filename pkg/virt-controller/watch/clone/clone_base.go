@@ -1,6 +1,7 @@
 package clone
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,6 +39,8 @@ const (
 	SnapshotDeleted    Event = "SnapshotDeleted"
 	SourceDoesNotExist Event = "SourceDoesNotExist"
 )
+
+var ErrSourceDoesntExist = errors.New("Source doesnt exist")
 
 type VMCloneController struct {
 	client               kubecli.KubevirtClient
