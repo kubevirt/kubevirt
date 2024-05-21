@@ -517,7 +517,7 @@ func checkDirectoryPermissions(filePath string) bool {
 		// Check if export server has permissions to manipulate the file
 		file, err := os.Open(itemPath)
 		if err != nil {
-			log.Log.Reason(err).Errorf("unable to open %s, file may lack read permissions", itemPath)
+			log.Log.Reason(err).Errorf("%s may lack read permissions", itemPath)
 			return false
 		}
 		file.Close()
