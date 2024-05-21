@@ -228,6 +228,7 @@ lint:
 	  ./pkg/... \
 	  ./tests/... \
 	"
+	hack/dockerized "monitoringlinter ./pkg/..."
 
 lint-metrics:
 	hack/dockerized "./hack/prom-metric-linter/metrics_collector.sh > metrics.json"
