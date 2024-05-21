@@ -6239,10 +6239,6 @@ var _ = Describe("VirtualMachine", func() {
 
 			BeforeEach(func() {
 				vm, vmi = DefaultVirtualMachine(true)
-				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
-					Type:   v1.VirtualMachineInitialized,
-					Status: k8sv1.ConditionTrue,
-				})
 				vm.ObjectMeta.UID = types.UID(uuid.NewString())
 				vmi.ObjectMeta.UID = vm.ObjectMeta.UID
 				vm.Generation = 1
@@ -6454,7 +6450,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should sync appropriate conditions and ignore others", func() {
 			fromCondList := []v1.VirtualMachineConditionType{
 				v1.VirtualMachineReady, v1.VirtualMachineFailure, v1.VirtualMachinePaused,
-				v1.VirtualMachineInitialized, v1.VirtualMachineRestartRequired,
+				v1.VirtualMachineRestartRequired,
 			}
 			toCondList := []v1.VirtualMachineConditionType{
 				v1.VirtualMachineReady, v1.VirtualMachinePaused,

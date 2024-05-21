@@ -2715,7 +2715,6 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	syncIgnoreMap := map[string]interface{}{
 		string(virtv1.VirtualMachineReady):           nil,
 		string(virtv1.VirtualMachineFailure):         nil,
-		string(virtv1.VirtualMachineInitialized):     nil,
 		string(virtv1.VirtualMachineRestartRequired): nil,
 	}
 	vmiCondMap := make(map[string]interface{})
@@ -3009,31 +3008,31 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 }
 
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
-func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, bool) {
-	if lastSeenVMSpec == nil {
+func (c *VMController) addRestartRequiredIfNeeded(startVMSpec *virtv1.VirtualMachineSpec, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, bool) {
+	if startVMSpec == nil || vmi == nil {
 		return vm, false
 	}
 	// Ignore all the live-updatable fields by copying them over. (If the feature gate is disabled, nothing is live-updatable)
 	// Note: this list needs to stay up-to-date with everything that can be live-updated
-	// Note2: destroying lastSeenVMSpec here is fine, we don't need it later
+	// Note2: destroying startVMSpec here is fine, we don't need it later
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		if validLiveUpdateVolumes(lastSeenVMSpec, vm) {
-			lastSeenVMSpec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+		if validLiveUpdateVolumes(startVMSpec, vm) {
+			startVMSpec.Template.Spec.Volumes = vm.Spec.Template.Spec.Volumes
 		}
-		if validLiveUpdateDisks(lastSeenVMSpec, vm) {
-			lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+		if validLiveUpdateDisks(startVMSpec, vm) {
+			startVMSpec.Template.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
 		}
-		if lastSeenVMSpec.Template.Spec.Domain.CPU != nil && vm.Spec.Template.Spec.Domain.CPU != nil {
-			lastSeenVMSpec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets
+		if startVMSpec.Template.Spec.Domain.CPU != nil && vm.Spec.Template.Spec.Domain.CPU != nil {
+			startVMSpec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets
 		}
-		if lastSeenVMSpec.Template.Spec.Domain.Memory != nil && vm.Spec.Template.Spec.Domain.Memory != nil {
-			lastSeenVMSpec.Template.Spec.Domain.Memory.Guest = vm.Spec.Template.Spec.Domain.Memory.Guest
+		if startVMSpec.Template.Spec.Domain.Memory != nil && vm.Spec.Template.Spec.Domain.Memory != nil {
+			startVMSpec.Template.Spec.Domain.Memory.Guest = vm.Spec.Template.Spec.Domain.Memory.Guest
 		}
-		lastSeenVMSpec.Template.Spec.NodeSelector = vm.Spec.Template.Spec.NodeSelector
-		lastSeenVMSpec.Template.Spec.Affinity = vm.Spec.Template.Spec.Affinity
+		startVMSpec.Template.Spec.NodeSelector = vm.Spec.Template.Spec.NodeSelector
+		startVMSpec.Template.Spec.Affinity = vm.Spec.Template.Spec.Affinity
 	}
 
-	if !equality.Semantic.DeepEqual(lastSeenVMSpec.Template.Spec, vm.Spec.Template.Spec) {
+	if !equality.Semantic.DeepEqual(startVMSpec.Template.Spec, vm.Spec.Template.Spec) {
 		vmConditionManager := controller.NewVirtualMachineConditionManager()
 		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineRestartRequired,
@@ -3048,40 +3047,31 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 }
 
 func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (*virtv1.VirtualMachine, syncError, error) {
-	var (
-		syncErr     syncError
-		err         error
-		startVMSpec *virtv1.VirtualMachineSpec
-	)
+	var syncErr syncError
 
 	if !c.needsSync(key) {
 		return vm, nil, nil
 	}
 
-	if vmi != nil {
-		startVMSpec, err = c.getLastVMRevisionSpec(vm)
-		if err != nil {
-			return vm, nil, err
-		}
+	startVMSpec, err := c.getLastVMRevisionSpec(vm)
+	if err != nil {
+		return vm, nil, err
 	}
 
-	conditionManager := controller.NewVirtualMachineConditionManager()
-	if !conditionManager.HasCondition(vm, virtv1.VirtualMachineInitialized) {
-		runStrategy, err := vm.RunStrategy()
-		if err != nil {
-			return vm, nil, err
-		}
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		return vm, nil, err
+	}
+	if runStrategy == virtv1.RunStrategyRerunOnFailure && vmi == nil &&
+		(startVMSpec == nil || startVMSpec.RunStrategy == nil || *startVMSpec.RunStrategy != virtv1.RunStrategyRerunOnFailure) {
 		if runStrategy == virtv1.RunStrategyRerunOnFailure {
-			// VM just got created with RerunOnFailure runStrategy, it needs to auto-start
+			// VM just got created with RerunOnFailure runStrategy or its strategy was just updated to RerunOnFailure,
+			// it needs to auto-start
 			err = c.addStartRequest(vm)
 			if err != nil {
 				return vm, nil, err
 			}
 		}
-		vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
-			Type:   virtv1.VirtualMachineInitialized,
-			Status: k8score.ConditionTrue,
-		})
 	}
 
 	if vm.DeletionTimestamp != nil {
@@ -3107,12 +3097,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 	if err := c.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi); err != nil {
 		return nil, nil, err
-	}
-
-	// Scale up or down, if all expected creates and deletes were report by the listener
-	runStrategy, err := vm.RunStrategy()
-	if err != nil {
-		return vm, nil, err
 	}
 
 	// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
@@ -3141,7 +3125,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 	}
 
-	vm, restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
+	vm, restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vmi, vm)
 
 	// Must check needsSync again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
@@ -3187,6 +3171,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			}
 		}
 
+		conditionManager := controller.NewVirtualMachineConditionManager()
 		if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
 			err = c.handleCPUChangeRequest(vmCopy, vmi)
 			if err != nil {
