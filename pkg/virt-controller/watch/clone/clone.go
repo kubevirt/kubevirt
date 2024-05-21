@@ -196,7 +196,7 @@ func (ctrl *VMCloneController) syncTargetVM(vmCloneInfo *vmCloneInfo) syncInfoTy
 
 		if vmCloneInfo.sourceType == sourceTypeVM {
 			if vmClone.Status.SnapshotName == nil {
-				_, syncInfo = ctrl.createSnapshotFromVm(vmClone, vmCloneInfo.sourceVm, syncInfo)
+				syncInfo = ctrl.createSnapshotFromVm(vmClone, vmCloneInfo.sourceVm, syncInfo)
 				return syncInfo
 			}
 		}
@@ -358,7 +358,40 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 	return nil
 }
 
-func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clone.VirtualMachineClone, vm *k6tv1.VirtualMachine, syncInfo syncInfoType) (*snapshotv1.VirtualMachineSnapshot, syncInfoType) {
+func validateVolumeSnapshotStatus(vm *k6tv1.VirtualMachine) error {
+	var vssErr error
+
+	for _, v := range vm.Spec.Template.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil || v.DataVolume != nil {
+			found := false
+			for _, vss := range vm.Status.VolumeSnapshotStatuses {
+				if v.Name == vss.Name {
+					if !vss.Enabled {
+						vssErr = errors.Join(vssErr, fmt.Errorf(ErrVolumeNotSnapshotable, v.Name))
+					}
+					found = true
+					break
+				}
+			}
+			if !found {
+				vssErr = errors.Join(vssErr, fmt.Errorf(ErrVolumeSnapshotSupportUnknown, v.Name))
+			}
+		}
+	}
+
+	return vssErr
+}
+
+func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clone.VirtualMachineClone, vm *k6tv1.VirtualMachine, syncInfo syncInfoType) syncInfoType {
+	err := validateVolumeSnapshotStatus(vm)
+	if err != nil {
+		return syncInfoType{
+			isClonePending: true,
+			event:          VMVolumeSnapshotsInvalid,
+			reason:         err.Error(),
+		}
+	}
+
 	snapshot := generateSnapshot(vmClone, vm)
 	log.Log.Object(vmClone).Infof("creating snapshot %s for clone %s", snapshot.Name, vmClone.Name)
 
@@ -366,10 +399,10 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clone.VirtualMachin
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			syncInfo.setError(fmt.Errorf("failed creating snapshot %s for clone %s: %v", snapshot.Name, vmClone.Name, err))
-			return snapshot, syncInfo
+			return syncInfo
 		}
 		syncInfo.snapshotName = snapshot.Name
-		return snapshot, syncInfo
+		return syncInfo
 	}
 
 	snapshot = createdSnapshot
@@ -377,7 +410,7 @@ func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clone.VirtualMachin
 	syncInfo.snapshotName = snapshot.Name
 
 	log.Log.Object(vmClone).V(defaultVerbosityLevel).Infof("snapshot %s was just created, reenqueuing to let snapshot time to finish", snapshot.Name)
-	return snapshot, syncInfo
+	return syncInfo
 }
 
 func (ctrl *VMCloneController) verifySnapshotReady(vmClone *clone.VirtualMachineClone, name, namespace string, syncInfo syncInfoType) (*snapshotv1.VirtualMachineSnapshot, syncInfoType) {
