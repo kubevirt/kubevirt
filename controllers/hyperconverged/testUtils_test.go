@@ -1,6 +1,7 @@
 package hyperconverged
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -30,6 +31,7 @@ import (
 	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -318,10 +320,7 @@ func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged, old *Reconcil
 	r := initReconciler(cl, old)
 
 	r.firstLoop = false
-	r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
-	if r.ownVersion == "" {
-		r.ownVersion = version.Version
-	}
+	r.ownVersion = cmp.Or(os.Getenv(hcoutil.HcoKvIoVersionName), version.Version)
 
 	res, err := r.Reconcile(context.TODO(), request)
 	Expect(err).ToNot(HaveOccurred())

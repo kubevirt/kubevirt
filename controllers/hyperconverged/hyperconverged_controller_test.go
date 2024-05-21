@@ -1,6 +1,7 @@
 package hyperconverged
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1390,10 +1391,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				r := initReconciler(cl, nil)
 
-				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
-				if r.ownVersion == "" {
-					r.ownVersion = version.Version
-				}
+				r.ownVersion = cmp.Or(os.Getenv(hcoutil.HcoKvIoVersionName), version.Version)
 
 				_, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
@@ -3124,10 +3122,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 				r := initReconciler(cl, nil)
 
-				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
-				if r.ownVersion == "" {
-					r.ownVersion = version.Version
-				}
+				r.ownVersion = cmp.Or(os.Getenv(hcoutil.HcoKvIoVersionName), version.Version)
 
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(MatchError(apierrors.IsConflict, "conflict error"))
@@ -3142,10 +3137,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl.Status().(*commontestutils.HcoTestStatusWriter).InitiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
 				r := initReconciler(cl, nil)
 
-				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
-				if r.ownVersion == "" {
-					r.ownVersion = version.Version
-				}
+				r.ownVersion = cmp.Or(os.Getenv(hcoutil.HcoKvIoVersionName), version.Version)
 
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(MatchError(apierrors.IsConflict, "conflict error"))

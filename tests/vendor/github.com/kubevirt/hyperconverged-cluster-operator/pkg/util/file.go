@@ -1,6 +1,7 @@
 package util
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"os"
@@ -42,10 +43,5 @@ func ValidateManifestDir(dir string) error {
 }
 
 func GetManifestDirPath(envVarName string, defaultDir string) string {
-	filesLocation := os.Getenv(envVarName)
-	if filesLocation == "" {
-		return defaultDir
-	}
-
-	return filesLocation
+	return cmp.Or(os.Getenv(envVarName), defaultDir)
 }

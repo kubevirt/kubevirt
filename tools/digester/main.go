@@ -286,7 +286,7 @@ func readOneDigest(ctx context.Context, image *Image, index int, wg *sync.WaitGr
 }
 
 func retryGetDigest(ctx context.Context, sys *types.SystemContext, imgRef types.ImageReference, attempts int, sleep time.Duration) (digest digest.Digest, err error) {
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		if i > 0 {
 			fmt.Println("retrying after error:", err)
 			jitter := time.Duration(rand.Int63n(int64(sleep)))

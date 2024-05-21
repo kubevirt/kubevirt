@@ -77,8 +77,10 @@ func NewKvUIPluginDeployment(hc *hcov1beta1.HyperConverged) *appsv1.Deployment {
 		ReadOnly:  true,
 	}
 
-	volumeMounts := &deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-	*volumeMounts = append(*volumeMounts, nginxVolumeMount)
+	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(
+		deployment.Spec.Template.Spec.Containers[0].VolumeMounts,
+		nginxVolumeMount,
+	)
 
 	nginxVolume := corev1.Volume{
 		Name: nginxConfigMapName,
@@ -90,8 +92,9 @@ func NewKvUIPluginDeployment(hc *hcov1beta1.HyperConverged) *appsv1.Deployment {
 			},
 		},
 	}
-	volumes := &deployment.Spec.Template.Spec.Volumes
-	*volumes = append(*volumes, nginxVolume)
+
+	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, nginxVolume)
+
 	return deployment
 }
 

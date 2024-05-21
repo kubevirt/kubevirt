@@ -16,7 +16,7 @@ var _ = Describe("test data import schedule", func() {
 	It("should update the status and the variable if both are empty", func() {
 		regex := `(\d+) (\d+)/12 \* \* \*`
 
-		for i := 0; i < 1000; i++ { // testing random number - need some statistic confidence, so running this 1000 times
+		for range 1000 { // testing random number - need some statistic confidence, so running this 1000 times
 			dataImportSchedule = ""
 			hco := commontestutils.NewHco()
 			req := commontestutils.NewReq(hco)

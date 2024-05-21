@@ -1,6 +1,7 @@
 package hyperconverged
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -40,6 +41,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	aaqv1alpha1 "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -47,11 +54,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	aaqv1alpha1 "kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
-	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 )
 
 var (
@@ -107,10 +109,7 @@ func RegisterReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeable
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond hcoutil.Condition) reconcile.Reconciler {
 
-	ownVersion := os.Getenv(hcoutil.HcoKvIoVersionName)
-	if ownVersion == "" {
-		ownVersion = version.Version
-	}
+	ownVersion := cmp.Or(os.Getenv(hcoutil.HcoKvIoVersionName), version.Version)
 
 	r := &ReconcileHyperConverged{
 		client:               mgr.GetClient(),

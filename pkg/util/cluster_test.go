@@ -261,7 +261,7 @@ var _ = Describe("test clusterInfo", func() {
 		func(numMasterNodes, numWorkerNodes int, expectedIsControlPlaneHighlyAvailable, expectedIsInfrastructureHighlyAvailable bool) {
 
 			var nodesArray []client.Object
-			for i := 0; i < numMasterNodes; i++ {
+			for i := range numMasterNodes {
 				masterNode := &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "master" + fmt.Sprint(i),
@@ -272,7 +272,7 @@ var _ = Describe("test clusterInfo", func() {
 				}
 				nodesArray = append(nodesArray, masterNode)
 			}
-			for i := 0; i < numWorkerNodes; i++ {
+			for i := range numWorkerNodes {
 				workerNode := &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "worker" + fmt.Sprint(i),

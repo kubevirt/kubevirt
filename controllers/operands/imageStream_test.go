@@ -1135,7 +1135,7 @@ func validateImageStream(found *imagev1.ImageStream, hook *isHooks) {
 		"latest": false,
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		tagName := found.Spec.Tags[i].Name
 		tag := getTagByName(found.Spec.Tags, tagName)
 		Expect(tag).ToNot(BeNil())

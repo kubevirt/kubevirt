@@ -1,6 +1,7 @@
 package operands
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -447,15 +448,12 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		}
 	}
 
-	var amd64MachineType string
-	// Remain backwards compatibility with the original env variable for a release before removing
-	if machineTypeEnvValue, _ := os.LookupEnv(machineTypeEnvName); machineTypeEnvValue != "" {
-		amd64MachineType = machineTypeEnvValue
-	} else if machineTypeEnvValue, ok := os.LookupEnv(amd64MachineTypeEnvName); ok {
-		amd64MachineType = machineTypeEnvValue
-	}
+	amd64MachineType := cmp.Or(
+		strings.TrimSpace(os.Getenv(machineTypeEnvName)),
+		strings.TrimSpace(os.Getenv(amd64MachineTypeEnvName)),
+	)
 
-	if amd64MachineType = strings.TrimSpace(amd64MachineType); amd64MachineType != "" {
+	if amd64MachineType != "" {
 		if config.ArchitectureConfiguration == nil {
 			config.ArchitectureConfiguration = &kubevirtcorev1.ArchConfiguration{}
 		}
