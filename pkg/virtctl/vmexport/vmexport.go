@@ -81,6 +81,7 @@ const (
 	INCLUDE_SECRET_FLAG = "--include-secret"
 	PORT_FORWARD_FLAG   = "--port-forward"
 	LOCAL_PORT_FLAG     = "--local-port"
+	RETRY_FLAG          = "--retry"
 
 	// Possible output format for manifests
 	OUTPUT_FORMAT_JSON = "json"
@@ -142,29 +143,29 @@ var (
 	volumeName           string
 	ttl                  string
 	manifestOutputFormat string
+	downloadRetries      int
 )
 
-const downloadRetries = 2
-
 type VMExportInfo struct {
-	ShouldCreate   bool
-	Insecure       bool
-	KeepVme        bool
-	DeleteVme      bool
-	IncludeSecret  bool
-	ExportManifest bool
-	Decompress     bool
-	PortForward    bool
-	LocalPort      string
-	OutputFile     string
-	OutputWriter   io.Writer
-	VolumeName     string
-	Namespace      string
-	Name           string
-	OutputFormat   string
-	ServiceURL     string
-	ExportSource   k8sv1.TypedLocalObjectReference
-	TTL            metav1.Duration
+	ShouldCreate    bool
+	Insecure        bool
+	KeepVme         bool
+	DeleteVme       bool
+	IncludeSecret   bool
+	ExportManifest  bool
+	Decompress      bool
+	PortForward     bool
+	LocalPort       string
+	OutputFile      string
+	OutputWriter    io.Writer
+	VolumeName      string
+	Namespace       string
+	Name            string
+	OutputFormat    string
+	ServiceURL      string
+	ExportSource    k8sv1.TypedLocalObjectReference
+	TTL             metav1.Duration
+	DownloadRetries int
 }
 
 type command struct {
@@ -292,6 +293,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use in the returned manifest, instead of the external URL in the Virtual Machine export status. This is useful for NodePorts or if you don't have an external URL configured")
 	cmd.Flags().BoolVar(&portForward, "port-forward", false, "Configures port-forwarding on a random port. Useful to download without proper ingress/route configuration")
 	cmd.Flags().StringVar(&localPort, "local-port", "0", "Defines the specific port to be used in port-forward.")
+	cmd.Flags().IntVar(&downloadRetries, "retry", 0, "When export server returns a transient error, we retry this number of times before giving up")
 	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
 	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -390,6 +392,7 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	if format == RAW_FORMAT {
 		vmeInfo.Decompress = true
 	}
+	vmeInfo.DownloadRetries = downloadRetries
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
@@ -488,7 +491,7 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 
 // DownloadVirtualMachineExport handles the process of downloading the requested volume from a VirtualMachineExport object
 func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error {
-	for attempt := 0; attempt <= downloadRetries; attempt++ {
+	for attempt := 0; attempt <= vmeInfo.DownloadRetries; attempt++ {
 		succeeded, err := downloadVirtualMachineExport(client, vmeInfo)
 		if err != nil {
 			return err
@@ -496,8 +499,10 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 		if succeeded {
 			return nil
 		}
-		printToOutput("Retrying...\n")
-		time.Sleep(2 * time.Second)
+		if attempt < vmeInfo.DownloadRetries {
+			printToOutput("Retrying...\n")
+			time.Sleep(2 * time.Second)
+		}
 	}
 	return fmt.Errorf("retry count reached, exiting unsuccesfully")
 }
@@ -942,6 +947,9 @@ func handleCreateFlags() error {
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
 	}
+	if downloadRetries != 0 {
+		return fmt.Errorf(ErrIncompatibleFlag, RETRY_FLAG, CREATE)
+	}
 
 	return nil
 }
@@ -979,6 +987,9 @@ func handleDeleteFlags() error {
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, DELETE)
 	}
+	if downloadRetries != 0 {
+		return fmt.Errorf(ErrIncompatibleFlag, RETRY_FLAG, DELETE)
+	}
 
 	return nil
 }
@@ -999,6 +1010,10 @@ func handleDownloadFlags() error {
 
 	if format != "" && format != GZIP_FORMAT && format != RAW_FORMAT {
 		return fmt.Errorf(ErrInvalidValue, FORMAT_FLAG, "gzip/raw")
+	}
+
+	if downloadRetries < 0 {
+		return fmt.Errorf(ErrInvalidValue, RETRY_FLAG, "positive integers")
 	}
 
 	if exportManifest {
