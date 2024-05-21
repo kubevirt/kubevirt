@@ -124,7 +124,8 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 
 	_, err = vmInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			DeleteFunc: ctrl.handleDeleteVM,
+			AddFunc:    ctrl.handleAddedSourceVM,
+			DeleteFunc: ctrl.handleDeletedTargetVM,
 		},
 	)
 
@@ -262,7 +263,29 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 	}
 }
 
-func (ctrl *VMCloneController) handleDeleteVM(obj interface{}) {
+func (ctrl *VMCloneController) handleAddedSourceVM(obj interface{}) {
+	vm, ok := obj.(*virtv1.VirtualMachine)
+	if !ok {
+		log.Log.Reason(fmt.Errorf("unexpected obj %#v", obj)).Error("Failed to process notification")
+		return
+	}
+	vmKey, err := cache.MetaNamespaceKeyFunc(vm)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get vm key")
+		return
+	}
+	keys, err := ctrl.vmCloneIndexer.IndexKeys("vmSource", vmKey)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get clone from vmSource indexer")
+		return
+	}
+
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
+}
+
+func (ctrl *VMCloneController) handleDeletedTargetVM(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
 	// When a delete is dropped, the relist will notice a vm in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -279,23 +302,20 @@ func (ctrl *VMCloneController) handleDeleteVM(obj interface{}) {
 			return
 		}
 	}
-	vmCloneList, err := ctrl.listVmCloneMatchingVM(vm.Namespace, vm.Name)
+	vmKey, err := cache.MetaNamespaceKeyFunc(vm)
 	if err != nil {
-		log.Log.Errorf("error retrieving vm clone list: %v", err.Error())
+		log.Log.Object(vm).Reason(err).Error("cannot get vm key")
 		return
 	}
-	log.Log.V(4).Object(vm).Infof("vm clone lis: %v", vmCloneList)
-	for _, vmClone := range vmCloneList {
-		log.Log.V(4).Object(vm).Infof("vm deleted for vm clone %s", vmClone.Name)
-		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(vmClone)
-		if err != nil {
-			log.Log.Errorf("vm clone controller failed to get key from object: %v, %v", err, vmClone)
-			return
-		}
-		ctrl.vmCloneQueue.AddRateLimited(objName)
+	keys, err := ctrl.vmCloneIndexer.IndexKeys("vmTarget", vmKey)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get clone from vmTarget indexer")
+		return
 	}
 
-	return
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
 }
 
 func (ctrl *VMCloneController) Run(threadiness int, stopCh <-chan struct{}) error {
@@ -342,28 +362,4 @@ func (ctrl *VMCloneController) Execute() bool {
 func (ctrl *VMCloneController) runWorker() {
 	for ctrl.Execute() {
 	}
-}
-
-// takes a namespace and returns all vm clone with the specified target vm name
-func (ctrl *VMCloneController) listVmCloneMatchingVM(namespace, name string) ([]*clone.VirtualMachineClone, error) {
-	return ctrl.filterVmClone(namespace, func(vmClone *clone.VirtualMachineClone) bool {
-		return vmClone.Spec.Target.Name == name
-	})
-}
-
-func (ctrl *VMCloneController) filterVmClone(namespace string, filter func(*clone.VirtualMachineClone) bool) ([]*clone.VirtualMachineClone, error) {
-	objs, err := ctrl.vmCloneIndexer.ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	var vmClones []*clone.VirtualMachineClone
-	for _, obj := range objs {
-		vmClone := obj.(*clone.VirtualMachineClone)
-
-		if filter(vmClone) {
-			vmClones = append(vmClones, vmClone)
-		}
-	}
-	return vmClones, nil
 }

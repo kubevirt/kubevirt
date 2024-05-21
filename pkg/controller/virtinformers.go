@@ -723,6 +723,33 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 
 	return cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		// Gets: vm key. Returns: clones that their source or target is the specified vm
+		"vmSource": func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			source := vmClone.Spec.Source
+			if source != nil && source.APIGroup != nil && *source.APIGroup == core.GroupName && source.Kind == "VirtualMachine" {
+				return []string{getkey(vmClone, source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+		"vmTarget": func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			target := vmClone.Spec.Target
+			if target != nil && target.APIGroup != nil && *target.APIGroup == core.GroupName && target.Kind == "VirtualMachine" {
+				return []string{getkey(vmClone, target.Name)}, nil
+			}
+
+			return nil, nil
+		},
 		// Gets: snapshot key. Returns: clones that their source is the specified snapshot
 		"snapshotSource": func(obj interface{}) ([]string, error) {
 			vmClone, ok := obj.(*clone.VirtualMachineClone)
