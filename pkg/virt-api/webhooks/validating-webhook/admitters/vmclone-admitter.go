@@ -39,7 +39,6 @@ import (
 
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -228,7 +227,6 @@ func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone 
 	if source.Kind != "" && source.Name != "" {
 		switch source.Kind {
 		case virtualMachineKind:
-			causes = append(causes, validateCloneSourceVM(ctx, client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
 		case virtualMachineSnapshotKind:
 			causes = append(causes, validateCloneSourceSnapshot(ctx, client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
 		default:
@@ -314,23 +312,6 @@ func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, k
 	return nil
 }
 
-func validateCloneSourceVM(ctx context.Context, client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
-	vm, err := client.VirtualMachine(namespace).Get(ctx, name, metav1.GetOptions{})
-	causes := validateCloneSourceExists(err, sourceField, virtualMachineKind, name, namespace)
-
-	if causes != nil {
-		return causes
-	}
-
-	// currently, cloning leverages vm snapshot/restore to copy volumes
-	// snapshot/restore requires that volumes support CSI snapshots
-	// this limitation should be removed eventually
-	// probably by leveraging CDI cloning
-	causes = append(causes, validateCloneVolumeSnapshotSupportVM(vm, sourceField)...)
-
-	return causes
-}
-
 func validateCloneSourceSnapshot(ctx context.Context, client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
 	vmSnapshot, err := client.VirtualMachineSnapshot(namespace).Get(ctx, name, metav1.GetOptions{})
 	causes := validateCloneSourceExists(err, sourceField, virtualMachineSnapshotKind, name, namespace)
@@ -349,51 +330,6 @@ func validateCloneSourceSnapshot(ctx context.Context, client kubecli.KubevirtCli
 
 	causes = append(causes, validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContent, sourceField)...)
 	return causes
-}
-
-func validateCloneVolumeSnapshotSupportVM(vm *v1.VirtualMachine, sourceField *k8sfield.Path) []metav1.StatusCause {
-	var result []metav1.StatusCause
-
-	// should never happen, but don't want to NPE
-	if vm.Spec.Template == nil {
-		return result
-	}
-
-	for _, v := range vm.Spec.Template.Spec.Volumes {
-		if v.PersistentVolumeClaim != nil || v.DataVolume != nil {
-			found := false
-			for _, vss := range vm.Status.VolumeSnapshotStatuses {
-				if v.Name == vss.Name {
-					if !vss.Enabled {
-						result = append(result, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("Virtual Machine volume %s does not support snapshots", v.Name),
-							Field:   sourceField.String(),
-						})
-					}
-					found = true
-					break
-				}
-			}
-			if !found {
-				result = append(result, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Virtual Machine volume %s snapshot support unknown", v.Name),
-					Field:   sourceField.String(),
-				})
-			}
-		}
-	}
-
-	if backendstorage.IsBackendStorageNeededForVM(vm) {
-		result = append(result, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Virtual Machine requires backend storage, operation not supported",
-			Field:   sourceField.String(),
-		})
-	}
-
-	return result
 }
 
 func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *snapshotv1.VirtualMachineSnapshotContent, sourceField *k8sfield.Path) []metav1.StatusCause {
