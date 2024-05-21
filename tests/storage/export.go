@@ -1282,7 +1282,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := newVMWithDataVolumeForExport(sc)
+		vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// In WFFC need to start the VM in order for the
 			// dv to get populated
@@ -1357,7 +1357,7 @@ var _ = SIGDescribe("Export", func() {
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 		)
 
-		vm := newVMWithDataVolumeForExport(sc)
+		vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -1425,11 +1425,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-			testsuite.GetTestNamespace(nil),
-			sc,
-			k8sv1.ReadWriteOnce)
+		vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -1769,7 +1765,7 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm := newVMWithDataVolumeForExport(cd.ContainerDiskAlpine, sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1804,7 +1800,7 @@ var _ = SIGDescribe("Export", func() {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm := newVMWithDataVolumeForExport(cd.ContainerDiskAlpine, sc)
 		vm.Spec.Running = pointer.Bool(true)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -2164,7 +2160,7 @@ var _ = SIGDescribe("Export", func() {
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
-			vm := newVMWithDataVolumeForExport(sc)
+			vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 			libstorage.AddDataVolumeTemplate(vm, blankDv)
 			addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -2188,11 +2184,7 @@ var _ = SIGDescribe("Export", func() {
 
 		It("Create succeeds using VM source", func() {
 			// Create a populated VM
-			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-				testsuite.GetTestNamespace(nil),
-				sc,
-				k8sv1.ReadWriteOnce)
+			vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 			vm.Spec.Running = pointer.Bool(true)
 			vm = createVM(vm)
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2316,7 +2308,7 @@ var _ = SIGDescribe("Export", func() {
 					libdv.WithBlankImageSource(),
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
 				)
-				vm := newVMWithDataVolumeForExport(sc)
+				vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 				libstorage.AddDataVolumeTemplate(vm, blankDv)
 				addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
@@ -2365,11 +2357,7 @@ var _ = SIGDescribe("Export", func() {
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					sc,
-					k8sv1.ReadWriteOnce)
+				vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2546,11 +2534,7 @@ var _ = SIGDescribe("Export", func() {
 		Context("Get export manifest from vmexport", func() {
 			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
 				// Create a populated VM
-				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
-					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					testsuite.GetTestNamespace(nil),
-					sc,
-					k8sv1.ReadWriteOnce)
+				vm := newVMWithDataVolumeForExport(cd.ContainerDiskCirros, sc)
 				vm.Spec.Running = pointer.Bool(true)
 				vm = createVM(vm)
 				Eventually(func() virtv1.VirtualMachineInstancePhase {
@@ -2659,12 +2643,13 @@ func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{})
 	return format.Message(actual, "not to match without time", matcher.Cond)
 }
 
-func newVMWithDataVolumeForExport(storageClass string) *virtv1.VirtualMachine {
+func newVMWithDataVolumeForExport(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
+	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
 	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+		libdv.WithRegistryURLSource(importUrl),
 		libdv.WithPVC(
 			libdv.PVCWithStorageClass(storageClass),
-			libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
 		),
 	)
 	vm := libvmi.NewVirtualMachine(
