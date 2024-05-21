@@ -6,6 +6,7 @@ import (
 	"time"
 
 	k8scorev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -36,8 +37,14 @@ const (
 	TargetVMCreated       Event = "TargetVMCreated"
 	PVCBound              Event = "PVCBound"
 
-	SnapshotDeleted    Event = "SnapshotDeleted"
-	SourceDoesNotExist Event = "SourceDoesNotExist"
+	SnapshotDeleted          Event = "SnapshotDeleted"
+	SourceDoesNotExist       Event = "SourceDoesNotExist"
+	VMVolumeSnapshotsInvalid Event = "VMVolumeSnapshotsInvalid"
+)
+
+var (
+	ErrVolumeNotSnapshotable        = "Virtual Machine volume %s does not support snapshots"
+	ErrVolumeSnapshotSupportUnknown = "Virtual Machine volume %s snapshot support unknown"
 )
 
 var ErrSourceDoesntExist = errors.New("Source doesnt exist")
@@ -128,6 +135,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	_, err = vmInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleAddedSourceVM,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleUpdateSourceVM(oldObj, newObj) },
 			DeleteFunc: ctrl.handleDeletedTargetVM,
 		},
 	)
@@ -280,6 +288,40 @@ func (ctrl *VMCloneController) handleAddedSourceVM(obj interface{}) {
 	keys, err := ctrl.vmCloneIndexer.IndexKeys("vmSource", vmKey)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("cannot get clone from vmSource indexer")
+		return
+	}
+
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
+}
+
+func (ctrl *VMCloneController) handleUpdateSourceVM(oldObj, newObj interface{}) {
+	oldVM, ok := oldObj.(*virtv1.VirtualMachine)
+	if !ok {
+		log.Log.Reason(fmt.Errorf("unexpected old obj %#v", oldObj)).Error("Failed to process notification")
+		return
+	}
+	newVM, ok := newObj.(*virtv1.VirtualMachine)
+	if !ok {
+		log.Log.Reason(fmt.Errorf("unexpected new obj %#v", newObj)).Error("Failed to process notification")
+		return
+	}
+
+	// we care only for updates in a vmsource volumeSnapshotStatuses
+	if equality.Semantic.DeepEqual(newVM.Status.VolumeSnapshotStatuses, oldVM.Status.VolumeSnapshotStatuses) {
+		return
+	}
+
+	vmKey, err := cache.MetaNamespaceKeyFunc(newVM)
+	if err != nil {
+		log.Log.Object(newVM).Reason(err).Error("cannot get vm key")
+		return
+	}
+
+	keys, err := ctrl.vmCloneIndexer.IndexKeys("vmSource", vmKey)
+	if err != nil {
+		log.Log.Object(newVM).Reason(err).Error("cannot get clone from vmSource indexer")
 		return
 	}
 
