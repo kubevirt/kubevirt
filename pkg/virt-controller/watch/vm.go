@@ -887,7 +887,7 @@ func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
 	return nil
 }
 
-func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, syncError) {
+func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, syncError) {
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
 		return vm, &syncErrorImpl{fmt.Errorf(fetchingRunStrategyErrFmt, err), FailedCreateReason}
@@ -3004,6 +3004,9 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 }
 
 func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string, dataVolumes []*cdiv1.DataVolume) (*virtv1.VirtualMachine, syncError, error) {
+
+	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
+
 	var (
 		syncErr     syncError
 		err         error
@@ -3076,97 +3079,92 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
-		syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}
+		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}, err
 	}
 
-	if syncErr == nil {
-		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
-		if err != nil {
-			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}
-		} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
-			vm, syncErr = c.startStop(vm, vmi)
-		} else {
-			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
-		}
+	dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
+	if err != nil {
+		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while creating DataVolumes: %v", err), FailedCreateReason}, err
+	}
+
+	if !dataVolumesReady && runStrategy != virtv1.RunStrategyHalted {
+		log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
+		return vm, nil, nil
+	}
+
+	vm, syncErr = c.syncRunStrategy(vm, vmi)
+	if syncErr != nil {
+		return vm, syncErr, nil
 	}
 
 	vm, restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
 
+	if !c.needsSync(key) {
+		return vm, nil, nil
+	}
+
 	// Must check needsSync again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
 	// hotplugged volumes and interfaces
-	if c.needsSync(key) && syncErr == nil {
-		vmCopy := vm.DeepCopy()
-		if c.clusterConfig.HotplugNetworkInterfacesEnabled() &&
-			vmi != nil && vmi.DeletionTimestamp == nil {
-			vmiCopy := vmi.DeepCopy()
+	vmCopy := vm.DeepCopy()
 
-			indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
-				func(ifaceStatus virtv1.VirtualMachineInstanceNetworkInterface) bool { return true })
+	if c.clusterConfig.HotplugNetworkInterfacesEnabled() &&
+		vmi != nil && vmi.DeletionTimestamp == nil {
+		vmiCopy := vmi.DeepCopy()
 
-			ifaces, networks := clearDetachedInterfaces(vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces, vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces)
-			vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
-			vmCopy.Spec.Template.Spec.Networks = networks
+		indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
+			func(ifaceStatus virtv1.VirtualMachineInstanceNetworkInterface) bool { return true })
 
-			ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
-			vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
-			vmiCopy.Spec.Networks = networks
+		ifaces, networks := clearDetachedInterfaces(vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces, vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces)
+		vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
+		vmCopy.Spec.Template.Spec.Networks = networks
 
-			if hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi); err != nil {
-				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}
-			} else {
-				updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
-				vmiCopy.Spec = *updatedVmiSpec
-			}
+		ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+		vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
+		vmiCopy.Spec.Networks = networks
 
-			if syncErr == nil {
-				if err = c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to patch vmi: %v", err), FailedUpdateErrorReason}
-				}
-			}
-		}
-
-		err = c.handleVolumeRequests(vmCopy, vmi)
-		if err != nil {
-			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}
+		if hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi); err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}, err
 		} else {
-			err = c.handleMemoryDumpRequest(vmCopy, vmi)
-			if err != nil {
-				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling memory dump request: %v", err), MemoryDumpErrorReason}
-			}
+			updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
+			vmiCopy.Spec = *updatedVmiSpec
 		}
 
-		if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
-			err = c.handleCPUChangeRequest(vmCopy, vmi)
-			if err != nil {
-				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
-			}
-
-			if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
-				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
-			}
-
-			if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
-				syncErr = &syncErrorImpl{
-					err:    fmt.Errorf("error encountered while handling memory hotplug requests: %v", err),
-					reason: HotPlugMemoryErrorReason,
-				}
-			}
-		}
-
-		if syncErr == nil {
-			if !equality.Semantic.DeepEqual(vm, vmCopy) {
-				updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
-				if err != nil {
-					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}
-				} else {
-					vm = updatedVm
-				}
-			}
+		if err := c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to patch vmi: %v", err), FailedUpdateErrorReason}, err
 		}
 	}
 
-	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
+	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
+		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), HotPlugVolumeErrorReason}, err
+	}
+
+	if err := c.handleMemoryDumpRequest(vmCopy, vmi); err != nil {
+		return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling memory dump request: %v", err), MemoryDumpErrorReason}, err
+	}
+
+	conditionManager := controller.NewVirtualMachineConditionManager()
+	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+		if err := c.handleCPUChangeRequest(vmCopy, vmi); err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}, err
+		}
+
+		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}, err
+		}
+
+		if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("error encountered while handling memory hotplug requests: %v", err), HotPlugMemoryErrorReason}, err
+		}
+	}
+
+	if !equality.Semantic.DeepEqual(vm, vmCopy) {
+		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return vm, &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}, err
+		}
+		vm = updatedVm
+	}
 
 	return vm, syncErr, nil
 }
