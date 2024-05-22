@@ -21,12 +21,15 @@ package deprecation
 
 import (
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const PasstDeprecationMessage = "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
 
 func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	return util.IsPasstVMI(spec)
+	for _, net := range spec.Domain.Devices.Interfaces {
+		if net.DeprecatedPasst != nil {
+			return true
+		}
+	}
+	return false
 }
