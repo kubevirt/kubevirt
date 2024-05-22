@@ -43,11 +43,13 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	gomegatypes "github.com/onsi/gomega/types"
 )
@@ -6156,6 +6158,48 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("without the updateVolumeStrategy field", nil),
 					Entry("with the replacement updateVolumeStrategy",
 						virtpointer.P(v1.UpdateVolumesStrategyReplacement)),
+				)
+			})
+
+			Context("Instance Types and Preferences", func() {
+				BeforeEach(func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								},
+							},
+						},
+					})
+				})
+				DescribeTable("should add RestartRequired to VM when", func(originalVM, updatedVM *v1.VirtualMachine) {
+					_, required := controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)
+					Expect(required).To(BeTrue())
+					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
+					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
+				},
+					Entry("instance type changed",
+						libvmi.NewVirtualMachine(
+							libvmifact.NewGuestless(),
+							libvmi.WithInstancetype("original"),
+						),
+						libvmi.NewVirtualMachine(
+							libvmifact.NewGuestless(),
+							libvmi.WithInstancetype("updated"),
+						),
+					),
+					Entry("preference changed",
+						libvmi.NewVirtualMachine(
+							libvmifact.NewGuestless(),
+							libvmi.WithPreference("original"),
+						),
+						libvmi.NewVirtualMachine(
+							libvmifact.NewGuestless(),
+							libvmi.WithPreference("updated"),
+						),
+					),
 				)
 			})
 		})
