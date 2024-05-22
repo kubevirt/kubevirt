@@ -1210,13 +1210,27 @@ var _ = SIGDescribe("Storage", func() {
 				vmi2.Spec.Affinity = affinityRule
 			})
 
+			createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				By("Waiting until the DataVolume is ready")
+				libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+				By("Waiting until the VirtualMachineInstance starts")
+				warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
+				return libwait.WaitForVMIPhase(vmi,
+					[]v1.VirtualMachineInstancePhase{v1.Running},
+					libwait.WithWarningsIgnoreList(warningsIgnoreList),
+					libwait.WithTimeout(500),
+				)
+			}
+
 			It("should successfully start 2 VMs with a shareable disk", func() {
 				setShareable(vmi1, "disk0")
 				setShareable(vmi2, "disk0")
 
 				By("Starting the VirtualMachineInstances")
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi1, dv, 500)
-				tests.RunVMIAndExpectLaunchWithDataVolume(vmi2, dv, 500)
+				createAndWaitForVMIReady(vmi1, dv)
+				createAndWaitForVMIReady(vmi2, dv)
 			})
 		})
 		Context("write and read data from a shared disk", func() {
