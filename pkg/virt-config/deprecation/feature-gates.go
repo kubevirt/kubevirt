@@ -60,7 +60,7 @@ var featureGates = [...]FeatureGate{
 	{Name: NonRoot, State: GA},
 	{Name: PSA, State: GA},
 	{Name: CPUNodeDiscoveryGate, State: GA},
-	{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed},
+	{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed},
 	{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed},
 }
 
