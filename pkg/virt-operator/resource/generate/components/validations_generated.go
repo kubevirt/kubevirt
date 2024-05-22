@@ -7579,6 +7579,11 @@ var CRDsValidation map[string]string = map[string]string{
           description: RestoreInProgress is the name of the VirtualMachineRestore
             currently executing
           type: string
+        runStrategy:
+          description: RunStrategy tracks the last recorded RunStrategy used by the
+            VM. This is needed to correctly process the next strategy (for now only
+            the RerunOnFailure)
+          type: string
         snapshotInProgress:
           description: SnapshotInProgress is the name of the VirtualMachineSnapshot
             currently executing
@@ -26843,6 +26848,11 @@ var CRDsValidation map[string]string = map[string]string{
                     restoreInProgress:
                       description: RestoreInProgress is the name of the VirtualMachineRestore
                         currently executing
+                      type: string
+                    runStrategy:
+                      description: RunStrategy tracks the last recorded RunStrategy
+                        used by the VM. This is needed to correctly process the next
+                        strategy (for now only the RerunOnFailure)
                       type: string
                     snapshotInProgress:
                       description: SnapshotInProgress is the name of the VirtualMachineSnapshot
