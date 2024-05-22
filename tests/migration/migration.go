@@ -100,6 +100,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
@@ -136,16 +137,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		return name
 	}
 
-	createSecret := func(namespace string) string {
-		name := "secret-" + rand.String(5)
-		data := map[string]string{
-			"user":     "admin",
-			"password": "redhat",
-		}
-		tests.CreateSecret(name, namespace, data)
-		return name
-	}
-
 	withKernelBoot := func() libvmi.Option {
 		return func(vmi *v1.VirtualMachineInstance) {
 			kernelBootFirmware := utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
@@ -158,7 +149,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 	}
 
 	prepareVMIWithAllVolumeSources := func(namespace string) *v1.VirtualMachineInstance {
-		secretName := createSecret(namespace)
+		name := "secret-" + rand.String(5)
+		secret := libsecret.New(name, libsecret.DataString{"user": "admin", "password": "redhat"})
+		_, err := kubevirt.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		if !errors.IsAlreadyExists(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
 		configMapName := createConfigMap(namespace)
 
 		return libvmifact.NewFedora(
@@ -168,7 +165,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libvmi.WithDownwardAPIDisk("downwardapi-"+rand.String(5)),
 			libvmi.WithServiceAccountDisk("default"),
 			withKernelBoot(),
-			libvmi.WithSecretDisk(secretName, secretName),
+			libvmi.WithSecretDisk(secret.Name, secret.Name),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
 			libvmi.WithCloudInitNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n"),
@@ -1882,15 +1879,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					"config1": "value1",
 					"config2": "value2",
 				}
-				secret_data := map[string]string{
-					"user":     "admin",
-					"password": "community",
-				}
-
 				cm := libconfigmap.New(configMapName, config_data)
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
+
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
+				secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),

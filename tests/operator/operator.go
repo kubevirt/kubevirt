@@ -89,6 +89,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -710,16 +711,16 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					"config1": "value1",
 					"config2": "value2",
 				}
+				cm := libconfigmap.New(configMapName, config_data)
+				cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-				secret_data := map[string]string{
-					"user":     "admin",
-					"password": "community",
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
+				secret, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
 
-				cm := libconfigmap.New(configMapName, config_data)
-				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
