@@ -26,6 +26,7 @@ go_library(
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/subresources:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
         "//vendor/k8s.io/api/autoscaling/v1:go_default_library",

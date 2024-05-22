@@ -85,10 +85,6 @@ func (o *kv) Patch(ctx context.Context, name string, pt types.PatchType, data []
 	return o.KubeVirtInterface.Patch(ctx, name, pt, data, patchOptions, subresources...)
 }
 
-func (o *kv) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions k8smetav1.PatchOptions) (result *v1.KubeVirt, err error) {
-	return o.Patch(ctx, name, pt, data, patchOptions, "status")
-}
-
 func (o *kv) UpdateStatus(ctx context.Context, kv *v1.KubeVirt, opts k8smetav1.UpdateOptions) (result *v1.KubeVirt, err error) {
 	result, err = o.KubeVirtInterface.UpdateStatus(ctx, kv, opts)
 	result.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
