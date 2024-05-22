@@ -1133,7 +1133,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			enableFeatureGate(deprecation.PasstGate)
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
+				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}}}
 			vmi.Spec.Networks = []v1.Network{
 				{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 			vmiJSON, _ := json.Marshal(&vmi)

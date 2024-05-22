@@ -52,7 +52,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithInterface(v1.Interface{
 				Name:                   v1.DefaultPodNetwork().Name,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 				Ports:                  []v1.Port{{Port: 1234, Protocol: "TCP"}},
 				MacAddress:             macAddress,
 			}),

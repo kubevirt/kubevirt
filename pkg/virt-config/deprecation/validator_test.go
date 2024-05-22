@@ -40,7 +40,7 @@ var _ = Describe("Validator", func() {
 			"that is Deprecated",
 			deprecation.PasstGate,
 			libvmi.New(
-				libvmi.WithInterface(v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}),
+				libvmi.WithInterface(v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}}),
 				libvmi.WithNetwork(&v1.Network{}),
 			),
 			nil,

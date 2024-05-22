@@ -672,9 +672,9 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		BeforeEach(func() {
 			vmi.Spec.Domain.Devices = v1.Devices{
 				Interfaces: []v1.Interface{
-					{Name: "passt1", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}},
-					{Name: "passt2", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}},
-					{Name: "passt3", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}},
+					{Name: "passt1", InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}},
+					{Name: "passt2", InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}},
+					{Name: "passt3", InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}},
 					{Name: "nonpasst", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 				},
 			}

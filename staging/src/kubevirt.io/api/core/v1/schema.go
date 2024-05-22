@@ -1346,9 +1346,11 @@ type InterfaceBindingMethod struct {
 	// Deprecated: Removed in v1.3
 	// +optional
 	DeprecatedMacvtap *DeprecatedInterfaceMacvtap `json:"macvtap,omitempty"`
-	// Deprecated, please refer to Kubevirt user guide for alternatives.
+	// DeprecatedPasst is an alias to the deprecated Passt interface,
+	// please refer to Kubevirt user guide for alternatives.
+	// Deprecated: Removed in v1.3
 	// +optional
-	Passt *InterfacePasst `json:"passt,omitempty"`
+	DeprecatedPasst *DeprecatedInterfacePasst `json:"passt,omitempty"`
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.
@@ -1370,8 +1372,9 @@ type InterfaceSRIOV struct{}
 // Deprecated: Removed in v1.3
 type DeprecatedInterfaceMacvtap struct{}
 
-// InterfacePasst connects to a given network.
-type InterfacePasst struct{}
+// DeprecatedInterfacePasst is an alias to the deprecated InterfacePasst
+// Deprecated: Removed in v1.3
+type DeprecatedInterfacePasst struct{}
 
 // PluginBinding represents a binding implemented in a plugin.
 type PluginBinding struct {

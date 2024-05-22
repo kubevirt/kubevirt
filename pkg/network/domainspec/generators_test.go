@@ -133,7 +133,7 @@ var _ = Describe("Pod Network", func() {
 				return &v1.Interface{
 					Name: "passt_test",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Passt: &v1.InterfacePasst{},
+						DeprecatedPasst: &v1.DeprecatedInterfacePasst{},
 					},
 				}
 			}
@@ -238,7 +238,7 @@ var _ = Describe("Pod Network", func() {
 				vmiSpecIface := &v1.Interface{
 					Name:                   "default",
 					MacAddress:             "02:02:02:02:02:02",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 					Ports: []v1.Port{
 						{Protocol: "udp", Port: 100},
 						{Protocol: "udp", Port: 200},

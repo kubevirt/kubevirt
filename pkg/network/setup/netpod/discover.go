@@ -78,7 +78,7 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return err
 			}
 
-		case vmiSpecIface.Passt != nil:
+		case vmiSpecIface.DeprecatedPasst != nil:
 			if !podIfaceExists {
 				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
 			}

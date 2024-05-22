@@ -186,7 +186,7 @@ var _ = Describe("netpod", func() {
 	},
 		Entry("bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
 		Entry("masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
-		Entry("passt", v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}),
+		Entry("passt", v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}),
 
 		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		Entry("slirp", v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}}),
@@ -930,7 +930,7 @@ var _ = Describe("netpod", func() {
 
 		vmiIface := v1.Interface{
 			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
 		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
