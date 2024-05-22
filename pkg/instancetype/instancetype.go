@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 
@@ -38,10 +39,10 @@ const (
 	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"
 	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
 	NoVMCPUResourcesDefinedErrorFmt                 = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
-	DefaultSpreadRatio                              = 2
 )
 
 type Methods interface {
+	Upgrader
 	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
@@ -81,8 +82,27 @@ func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 	return preferredTopology
 }
 
-func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourceGeneration int64) string {
-	return fmt.Sprintf("%s-%s-%s-%d", vmName, resourceName, resourceUID, resourceGeneration)
+const defaultSpreadRatio uint32 = 2
+
+func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
+	ratio := defaultSpreadRatio
+	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
+		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
+	}
+	across := instancetypev1beta1.SpreadAcrossSocketsCores
+	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
+		if preferenceSpec.CPU.SpreadOptions.Across != nil {
+			across = *preferenceSpec.CPU.SpreadOptions.Across
+		}
+		if preferenceSpec.CPU.SpreadOptions.Ratio != nil {
+			ratio = *preferenceSpec.CPU.SpreadOptions.Ratio
+		}
+	}
+	return ratio, across
+}
+
+func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%d", vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
@@ -95,7 +115,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 		return nil, fmt.Errorf("unexpected object format returned from GenerateKubeVirtGroupVersionKind")
 	}
 
-	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), metaObj.GetUID(), metaObj.GetGeneration())
+	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), obj.GetObjectKind().GroupVersionKind().Version, metaObj.GetUID(), metaObj.GetGeneration())
 
 	// Removing unnecessary metadata
 	metaObj.SetLabels(nil)
@@ -169,7 +189,7 @@ func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachi
 }
 
 func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Instancetype == nil || len(vm.Spec.Instancetype.RevisionName) > 0 {
+	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName != "" {
 		return nil, nil
 	}
 
@@ -178,7 +198,7 @@ func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachin
 		return nil, err
 	}
 
-	storedRevision, err := storeRevision(instancetypeRevision, m.Clientset, false)
+	storedRevision, err := storeRevision(instancetypeRevision, m.Clientset)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +227,7 @@ func (m *InstancetypeMethods) createPreferenceRevision(vm *virtv1.VirtualMachine
 }
 
 func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Preference == nil || len(vm.Spec.Preference.RevisionName) > 0 {
+	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName != "" {
 		return nil, nil
 	}
 
@@ -216,7 +236,7 @@ func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine)
 		return nil, err
 	}
 
-	storedRevision, err := storeRevision(preferenceRevision, m.Clientset, true)
+	storedRevision, err := storeRevision(preferenceRevision, m.Clientset)
 	if err != nil {
 		return nil, err
 	}
@@ -226,43 +246,26 @@ func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine)
 }
 
 func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
-	var patches []patch.PatchOperation
-
+	patchSet := patch.New()
 	if instancetypeRevision != nil {
-		patches = append(patches,
-			patch.PatchOperation{
-				Op:    patch.PatchTestOp,
-				Path:  "/spec/instancetype/revisionName",
-				Value: nil,
-			},
-			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/spec/instancetype/revisionName",
-				Value: instancetypeRevision.Name,
-			},
+		patchSet.AddOption(
+			patch.WithTest("/spec/instancetype/revisionName", nil),
+			patch.WithAdd("/spec/instancetype/revisionName", instancetypeRevision.Name),
 		)
 	}
 
 	if preferenceRevision != nil {
-		patches = append(patches,
-			patch.PatchOperation{
-				Op:    patch.PatchTestOp,
-				Path:  "/spec/preference/revisionName",
-				Value: nil,
-			},
-			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/spec/preference/revisionName",
-				Value: preferenceRevision.Name,
-			},
+		patchSet.AddOption(
+			patch.WithTest("/spec/preference/revisionName", nil),
+			patch.WithAdd("/spec/preference/revisionName", preferenceRevision.Name),
 		)
 	}
 
-	if len(patches) == 0 {
+	if patchSet.IsEmpty() {
 		return nil, nil
 	}
 
-	payload, err := patch.GeneratePatchPayload(patches...)
+	payload, err := patchSet.GeneratePayload()
 	if err != nil {
 		// This is a programmer's error and should not happen
 		return nil, fmt.Errorf("failed to generate patch payload: %w", err)
@@ -292,7 +295,7 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 		return err
 	}
 	if len(revisionPatch) > 0 {
-		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, &metav1.PatchOptions{}); err != nil {
+		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, metav1.PatchOptions{}); err != nil {
 			logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
 			return err
 		}
@@ -301,12 +304,12 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 	return nil
 }
 
-func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
-	if err := decodeControllerRevision(revisionA, isPreference); err != nil {
+func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
+	if err := decodeControllerRevision(revisionA); err != nil {
 		return false, err
 	}
 
-	if err := decodeControllerRevision(revisionB, isPreference); err != nil {
+	if err := decodeControllerRevision(revisionB); err != nil {
 		return false, err
 	}
 
@@ -323,7 +326,7 @@ func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.Co
 	return equality.Semantic.DeepEqual(revisionASpec, revisionBSpec), nil
 }
 
-func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient, isPreference bool) (*appsv1.ControllerRevision, error) {
+func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient) (*appsv1.ControllerRevision, error) {
 	createdRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
@@ -336,7 +339,7 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
 		}
 
-		equal, err := CompareRevisions(revision, existingRevision, isPreference)
+		equal, err := CompareRevisions(revision, existingRevision)
 		if err != nil {
 			return nil, err
 		}
@@ -390,9 +393,24 @@ func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.Virtua
 			return Conflicts{cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
 	case instancetypev1beta1.PreferSpread:
-		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets
-		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
-			return Conflicts{cpuField.Child("cores"), cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores and sockets")
+		var (
+			vCPUs     uint32
+			conflicts Conflicts
+		)
+		_, across := GetSpreadOptions(preferenceSpec)
+		switch across {
+		case instancetypev1beta1.SpreadAcrossSocketsCores:
+			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores
+			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores")}
+		case instancetypev1beta1.SpreadAcrossCoresThreads:
+			vCPUs = vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
+			conflicts = Conflicts{cpuField.Child("cores"), cpuField.Child("threads")}
+		case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
+			vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
+			conflicts = Conflicts{cpuField.Child("sockets"), cpuField.Child("cores"), cpuField.Child("threads")}
+		}
+		if vCPUs < preferenceSpec.Requirements.CPU.Guest {
+			return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, preferenceSpec.Requirements.CPU.Guest, across)
 		}
 	case instancetypev1beta1.PreferAny:
 		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
@@ -471,7 +489,7 @@ func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*in
 		return nil, nil
 	}
 
-	if len(vm.Spec.Preference.RevisionName) > 0 {
+	if vm.Spec.Preference.RevisionName != "" {
 		return m.findPreferenceSpecRevision(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Spec.Preference.RevisionName,
@@ -615,7 +633,7 @@ func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*
 		return nil, nil
 	}
 
-	if len(vm.Spec.Instancetype.RevisionName) > 0 {
+	if vm.Spec.Instancetype.RevisionName != "" {
 		return m.findInstancetypeSpecRevision(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Spec.Instancetype.RevisionName,
@@ -970,29 +988,44 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 		vmiSpec.Domain.CPU.Realtime = instancetypeSpec.CPU.Realtime.DeepCopy()
 	}
 
+	applyGuestCPUTopology(instancetypeSpec.CPU.Guest, preferenceSpec, vmiSpec)
+
+	return nil
+}
+
+func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	// Apply the default topology here to avoid duplication below
 	vmiSpec.Domain.CPU.Cores = 1
 	vmiSpec.Domain.CPU.Sockets = 1
 	vmiSpec.Domain.CPU.Threads = 1
 
-	switch GetPreferredTopology(preferenceSpec) {
-	case instancetypev1beta1.PreferCores:
-		vmiSpec.Domain.CPU.Cores = instancetypeSpec.CPU.Guest
-	case instancetypev1beta1.PreferSockets, instancetypev1beta1.PreferAny:
-		vmiSpec.Domain.CPU.Sockets = instancetypeSpec.CPU.Guest
-	case instancetypev1beta1.PreferThreads:
-		vmiSpec.Domain.CPU.Threads = instancetypeSpec.CPU.Guest
-	case instancetypev1beta1.PreferSpread:
-		spreadRatio := preferenceSpec.PreferSpreadSocketToCoreRatio
-		if spreadRatio == 0 {
-			spreadRatio = DefaultSpreadRatio
-		}
-
-		vmiSpec.Domain.CPU.Sockets = instancetypeSpec.CPU.Guest / spreadRatio
-		vmiSpec.Domain.CPU.Cores = spreadRatio
+	if vCPUs == 1 {
+		return
 	}
 
-	return nil
+	switch GetPreferredTopology(preferenceSpec) {
+	case instancetypev1beta1.PreferCores:
+		vmiSpec.Domain.CPU.Cores = vCPUs
+	case instancetypev1beta1.PreferSockets, instancetypev1beta1.PreferAny:
+		vmiSpec.Domain.CPU.Sockets = vCPUs
+	case instancetypev1beta1.PreferThreads:
+		vmiSpec.Domain.CPU.Threads = vCPUs
+	case instancetypev1beta1.PreferSpread:
+		ratio, across := GetSpreadOptions(preferenceSpec)
+		switch across {
+		case instancetypev1beta1.SpreadAcrossSocketsCores:
+			vmiSpec.Domain.CPU.Cores = ratio
+			vmiSpec.Domain.CPU.Sockets = vCPUs / ratio
+		case instancetypev1beta1.SpreadAcrossCoresThreads:
+			vmiSpec.Domain.CPU.Threads = ratio
+			vmiSpec.Domain.CPU.Cores = vCPUs / ratio
+		case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
+			const threadsPerCore = 2
+			vmiSpec.Domain.CPU.Threads = threadsPerCore
+			vmiSpec.Domain.CPU.Cores = ratio
+			vmiSpec.Domain.CPU.Sockets = vCPUs / threadsPerCore / ratio
+		}
+	}
 }
 
 func validateCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflicts Conflicts) {
@@ -1048,11 +1081,7 @@ func applyNodeSelector(field *k8sfield.Path, instancetypeSpec *instancetypev1bet
 		return Conflicts{field.Child("nodeSelector")}
 	}
 
-	// TODO: This should be eventually moved to `maps` package (https://pkg.go.dev/maps@master).
-	vmiSpec.NodeSelector = make(map[string]string, len(instancetypeSpec.NodeSelector))
-	for k, v := range instancetypeSpec.NodeSelector {
-		vmiSpec.NodeSelector[k] = v
-	}
+	vmiSpec.NodeSelector = maps.Clone(instancetypeSpec.NodeSelector)
 
 	return nil
 }

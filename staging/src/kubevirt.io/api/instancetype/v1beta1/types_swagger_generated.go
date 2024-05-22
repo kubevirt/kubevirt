@@ -120,7 +120,15 @@ func (CPUPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "CPUPreferences contains various optional CPU preferences.",
 		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.\n\n+optional",
+		"spreadOptions":        "+optional",
 		"preferredCPUFeatures": "PreferredCPUFeatures optionally defines a slice of preferred CPU features.\n\n+optional",
+	}
+}
+
+func (SpreadOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"across": "Across optionally defines how to spread vCPUs across the guest visible topology.\nDefault: SocketsCores\n\n+optional",
+		"ratio":  "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional",
 	}
 }
 

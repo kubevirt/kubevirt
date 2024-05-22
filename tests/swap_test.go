@@ -22,9 +22,12 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
 
@@ -36,8 +39,6 @@ import (
 	expect "github.com/google/goexpect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/utils/pointer"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -51,7 +52,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 
 	"kubevirt.io/client-go/kubecli"
@@ -60,8 +63,6 @@ import (
 )
 
 const (
-	// Define relevant k8s versions
-	k8sSwapVer = "1.22"
 	//20% of the default size which is 2G in kubevirt-ci
 	maxSwapSizeToUseKib = 415948
 	swapPartToUse       = 0.2
@@ -70,75 +71,7 @@ const (
 )
 
 var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
-
-	min := func(a, b int) int {
-		if a < b {
-			return a
-		}
-		return b
-	}
-
-	getMemInfoByString := func(node v1.Node, field string) (size int) {
-		stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, node.Name, []string{"grep", field, "/proc/meminfo"})
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
-		fields := strings.Fields(stdout)
-		size, err = strconv.Atoi(fields[1])
-		Expect(err).ToNot(HaveOccurred())
-		return size
-	}
-	getAvailableMemSizeInKib := func(node v1.Node) (size int) {
-		return getMemInfoByString(node, "MemAvailable")
-	}
-
-	getTotalMemSizeInKib := func(node v1.Node) (size int) {
-		return getMemInfoByString(node, "MemTotal")
-	}
-	getSwapFreeSizeInKib := func(node v1.Node) (size int) {
-		return getMemInfoByString(node, "SwapFree")
-	}
-
-	getSwapSizeInKib := func(node v1.Node) (size int) {
-		return getMemInfoByString(node, "SwapTotal")
-	}
-	runVMIAndExpectLaunch := func(vmi *virtv1.VirtualMachineInstance, timeout int) *virtv1.VirtualMachineInstance {
-		return tests.RunVMIAndExpectLaunch(vmi, timeout)
-	}
-
-	fillMemWithStressFedoraVMI := func(vmi *virtv1.VirtualMachineInstance, memToUseInTheVmKib int) error {
-		_, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-			&expect.BSnd{S: fmt.Sprintf("stress-ng --vm-bytes %db --vm-keep -m 1 &\n", memToUseInTheVmKib*bytesInKib)},
-			&expect.BExp{R: console.PromptExpression},
-		}, 15)
-		return err
-	}
-
-	confirmMigrationMode := func(vmi *virtv1.VirtualMachineInstance, expectedMode virtv1.MigrationMode) {
-		By("Retrieving the VMI post migration")
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("couldn't find vmi err: %v \n", err))
-
-		By("Verifying the VMI's migration mode")
-		Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
-	}
-
-	skipIfSwapOff := func(message string) {
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
-		for _, node := range nodes.Items {
-			swapSizeKib := getSwapSizeInKib(node)
-			if swapSizeKib < maxSwapSizeToUseKib {
-				Skip(message)
-			}
-		}
-	}
-
-	getAffinityForTargetNode := func(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
-		nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
-		return &v1.Affinity{
-			NodeAffinity: nodeAffinityRuleForVmiToFill,
-		}, err
-	}
 
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
@@ -162,25 +95,24 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			availableMemSizeKib := getAvailableMemSizeInKib(*sourceNode)
 			availableSwapSizeKib := getSwapFreeSizeInKib(*sourceNode)
 			swapSizeKib := getSwapSizeInKib(*sourceNode)
-			swapSizeToUseKib := min(maxSwapSizeToUseKib, int(swapPartToUse*float64(availableSwapSizeKib)))
-
 			Expect(availableSwapSizeKib).Should(BeNumerically(">", maxSwapSizeToUseKib), "not enough available swap space")
+
+			swapSizeToUseKib := int(math.Min(maxSwapSizeToUseKib, swapPartToUse*float64(availableSwapSizeKib)))
 			//use more memory than what node can handle without swap memory
 			memToUseInTheVmKib := availableMemSizeKib + swapSizeToUseKib
 
 			By("Allowing post-copy")
 			kv := util.GetCurrentKv(virtClient)
-			oldMigrationConfiguration := kv.Spec.Configuration.MigrationConfiguration
 			kv.Spec.Configuration.MigrationConfiguration = &virtv1.MigrationConfiguration{
-				AllowPostCopy:           pointer.BoolPtr(true),
-				CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
+				AllowPostCopy:           pointer.P(true),
+				CompletionTimeoutPerGiB: pointer.P(int64(1)),
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 			//The vmi should have more memory than memToUseInTheVmKib
 			vmiMemSizeMi := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTheVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 
-			vmi := tests.NewRandomFedoraVMI()
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Spec.Affinity = &v1.Affinity{
@@ -190,7 +122,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = runVMIAndExpectLaunch(vmi, 240)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 			By("Consume more memory than the node's memory")
 			err = fillMemWithStressFedoraVMI(vmi, memToUseInTheVmKib)
@@ -210,19 +142,14 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			// check VMI, confirm migration state
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-			confirmMigrationMode(vmi, virtv1.MigrationPostCopy)
+			libmigration.ConfirmMigrationMode(virtClient, vmi, virtv1.MigrationPostCopy)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			kv = util.GetCurrentKv(virtClient)
-			kv.Spec.Configuration.MigrationConfiguration = oldMigrationConfiguration
-			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-
 		})
 
 		It("Migration of vmi to memory overcommited node", func() {
@@ -231,7 +158,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmMemoryRequestkib := 512000
 			availableMemSizeKib := getAvailableMemSizeInKib(*targetNode)
 			availableSwapSizeKib := getSwapFreeSizeInKib(*targetNode)
-			swapSizeToUsekib := min(maxSwapSizeToUseKib, int(swapPartToUse*float64(availableSwapSizeKib)))
+			swapSizeToUsekib := int(math.Min(maxSwapSizeToUseKib, swapPartToUse*float64(availableSwapSizeKib)))
 
 			//make sure that the vm migrate data to swap space (leave enough space for the vm that we will migrate)
 			memToUseInTargetNodeVmKib := availableMemSizeKib + swapSizeToUsekib - vmMemoryRequestkib
@@ -239,7 +166,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//The vmi should have more memory than memToUseInTheVm
 			vmiMemSize := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTargetNodeVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 			vmiMemReq := resource.MustParse(fmt.Sprintf("%dMi", vmMemoryRequestkib/bytesInKib))
-			vmiToFillTargetNodeMem := tests.NewRandomFedoraVMI()
+			vmiToFillTargetNodeMem := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			//we want vmiToFillTargetNodeMem to land on the target node to achieve memory-overcommitment in target
 			affinityRuleForVmiToFill, err := getAffinityForTargetNode(targetNode)
 			Expect(err).ToNot(HaveOccurred())
@@ -249,14 +176,14 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 
 			By("Starting the VirtualMachineInstance")
-			vmiToFillTargetNodeMem = runVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
+			vmiToFillTargetNodeMem = tests.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, 240)
 			Expect(console.LoginToFedora(vmiToFillTargetNodeMem)).To(Succeed())
 
 			By("reaching memory overcommitment in the target node")
 			err = fillMemWithStressFedoraVMI(vmiToFillTargetNodeMem, memToUseInTargetNodeVmKib)
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-			vmiToMigrate := tests.NewRandomFedoraVMI()
+			vmiToMigrate := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmiToMigrate.Spec.Affinity = &v1.Affinity{
@@ -266,7 +193,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
-			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
+			vmiToMigrate = tests.RunVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
 			// execute a migration, wait for finalized state
@@ -285,8 +212,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 				"at this point the node should has use more memory than totalMemKib "+
 					"we check this to insure we migrated into memory overcommited node")
 			By("Deleting the VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmiToFillTargetNodeMem.Namespace).Delete(context.Background(), vmiToFillTargetNodeMem.Name, &metav1.DeleteOptions{})).To(Succeed())
-			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, &metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmiToFillTargetNodeMem.Namespace).Delete(context.Background(), vmiToFillTargetNodeMem.Name, metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMIs to disappear")
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)
@@ -295,3 +222,57 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 	})
 })
+
+func getMemInfoByString(node v1.Node, field string) int {
+	stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(node.Name, []string{"grep", field, "/proc/meminfo"})
+	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
+	fields := strings.Fields(stdout)
+	size, err := strconv.Atoi(fields[1])
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
+	return size
+}
+
+func getAvailableMemSizeInKib(node v1.Node) int {
+	return getMemInfoByString(node, "MemAvailable")
+}
+
+func getTotalMemSizeInKib(node v1.Node) int {
+	return getMemInfoByString(node, "MemTotal")
+}
+
+func getSwapFreeSizeInKib(node v1.Node) int {
+	return getMemInfoByString(node, "SwapFree")
+}
+
+func getSwapSizeInKib(node v1.Node) int {
+	return getMemInfoByString(node, "SwapTotal")
+}
+
+func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTheVmKib int) error {
+	_, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: fmt.Sprintf("stress-ng --vm-bytes %db --vm-keep -m 1 &\n", memToUseInTheVmKib*bytesInKib)},
+		&expect.BExp{R: console.PromptExpression},
+	}, 15)
+	return err
+}
+
+func skipIfSwapOff(message string) {
+	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+	for _, node := range nodes.Items {
+		swapSizeKib := getSwapSizeInKib(node)
+		if swapSizeKib < maxSwapSizeToUseKib {
+			Skip(message)
+		}
+	}
+}
+
+func getAffinityForTargetNode(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
+	nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
+	if err != nil {
+		return nil, err
+	}
+
+	return &v1.Affinity{
+		NodeAffinity: nodeAffinityRuleForVmiToFill,
+	}, nil
+}

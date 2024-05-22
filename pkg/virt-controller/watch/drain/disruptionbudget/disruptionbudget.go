@@ -389,7 +389,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Only consider pdbs which belong to this vmi
-	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
+	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer.GetIndexer())
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to fetch pod disruption budgets for namespace from cache.")
 		// If the situation does not change there is no benefit in retrying
@@ -430,7 +430,7 @@ func (c *DisruptionBudgetController) isMigrationComplete(vmi *virtv1.VirtualMach
 		return false, nil
 	}
 
-	runningPods := controller.VMIActivePodsCount(vmi, c.podInformer)
+	runningPods := controller.VMIActivePodsCount(vmi, c.podInformer.GetIndexer())
 	return runningPods == 1, nil
 }
 
@@ -463,10 +463,15 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisr
 
 func (c *DisruptionBudgetController) shrinkPDB(vmi *virtv1.VirtualMachineInstance, pdb *policyv1.PodDisruptionBudget) error {
 	if pdb != nil && pdb.DeletionTimestamp == nil && pdb.Spec.MinAvailable != nil && pdb.Spec.MinAvailable.IntValue() != 1 {
-		patchOps := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/minAvailable", "value": 1 }, { "op": "remove", "path": "/metadata/labels/%s" }]`,
-			patch.EscapeJSONPointer(virtv1.MigrationNameLabel)))
-
-		_, err := c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patchOps, v1.PatchOptions{})
+		patches := patch.New(
+			patch.WithReplace("/spec/minAvailable", 1),
+			patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.MigrationNameLabel))),
+		)
+		patchOps, err := patches.GeneratePayload()
+		if err != nil {
+			return err
+		}
+		_, err = c.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Patch(context.Background(), pdb.Name, types.JSONPatchType, patchOps, v1.PatchOptions{})
 		if err != nil {
 			c.recorder.Eventf(vmi, corev1.EventTypeWarning, FailedUpdatePodDisruptionBudgetReason, "Error updating the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err

@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -34,10 +35,12 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkvconfig"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libregistry"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -50,7 +53,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 	Context("with CNI and Sidecar", func() {
 		BeforeEach(func() {
 			const passtBindingName = "passt"
-			const passtSidecarImage = "registry:5000/kubevirt/network-passt-binding:devel"
+			passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 			err := libkvconfig.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
@@ -69,14 +72,14 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			)
 			passtIface := libvmi.InterfaceWithPasstBindingPlugin()
 			passtIface.MacAddress = macAddress
-			vmi := libvmi.NewAlpineWithTestTooling(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(passtIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
 			var err error
 			namespace := testsuite.GetTestNamespace(nil)
-			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi = libwait.WaitUntilVMIReady(
@@ -125,12 +128,12 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			macvtapIface := libvmi.InterfaceWithBindingPlugin(
 				ifaceName, v1.PluginBinding{Name: macvtapBindingName},
 			)
-			vmi = libvmi.NewAlpineWithTestTooling(
+			vmi = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(
 					*libvmi.InterfaceWithMac(&macvtapIface, chosenMAC)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
 
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(
 				vmi,

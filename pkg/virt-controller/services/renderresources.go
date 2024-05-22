@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,10 +11,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -492,21 +488,6 @@ func WithVirtualizationResources(virtResources k8sv1.ResourceList) ResourceRende
 	return func(renderer *ResourceRenderer) {
 		copyResources(virtResources, renderer.vmLimits)
 	}
-}
-
-func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
-	networkToResourceMap = make(map[string]string)
-	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil {
-			namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, network.Multus.NetworkName)
-			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(context.Background(), networkName, metav1.GetOptions{})
-			if err != nil {
-				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
-			}
-			networkToResourceMap[network.Name] = getResourceNameForNetwork(crd)
-		}
-	}
-	return
 }
 
 func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) error {

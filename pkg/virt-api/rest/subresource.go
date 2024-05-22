@@ -219,9 +219,7 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 	// Special case: if there's no status field at all, add one.
 	newStatus := v1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
-		for _, change := range changes {
-			newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, change)
-		}
+		newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, changes...)
 		statusJson, err := json.Marshal(newStatus)
 		if err != nil {
 			return "", err
@@ -244,9 +242,7 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 		}
 
 		changeRequests := []v1.VirtualMachineStateChangeRequest{}
-		for _, change := range changes {
-			changeRequests = append(changeRequests, change)
-		}
+		changeRequests = append(changeRequests, changes...)
 
 		oldChangeRequestsJson, err := json.Marshal(vm.Status.StateChangeRequests)
 		if err != nil {
@@ -332,14 +328,14 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 	}
 
 	createMigrationJob := func() *errors.StatusError {
-		_, err := app.virtCli.VirtualMachineInstanceMigration(namespace).Create(&v1.VirtualMachineInstanceMigration{
+		_, err := app.virtCli.VirtualMachineInstanceMigration(namespace).Create(context.Background(), &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				GenerateName: "kubevirt-migrate-vm-",
 			},
 			Spec: v1.VirtualMachineInstanceMigrationSpec{
 				VMIName: name,
 			},
-		}, &k8smetav1.CreateOptions{DryRun: bodyStruct.DryRun})
+		}, k8smetav1.CreateOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			return errors.NewInternalError(err)
 		}
@@ -401,7 +397,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			writeError(errors.NewInternalError(err), response)
@@ -498,7 +494,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		return
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			writeError(errors.NewInternalError(err), response)
@@ -559,7 +555,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		} else {
 			patchString := getRunningJson(vm, true)
 			log.Log.Object(vm).V(4).Infof(patchingVMFmt, patchString)
-			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.MergePatchType, []byte(patchString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.MergePatchType, []byte(patchString), k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		}
 
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
@@ -639,7 +635,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	hasVMI := true
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		hasVMI = false
 	} else if err != nil {
@@ -658,7 +654,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
 		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
-		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), patchType, []byte(bodyString), k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
@@ -694,7 +690,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		bodyString := getRunningJson(vm, false)
 		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
-		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), patchType, []byte(bodyString), k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	}
 
 	if patchErr != nil {
@@ -841,7 +837,7 @@ func (app *SubresourceAPIApp) SoftRebootVMIRequestHandler(request *restful.Reque
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
 
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
@@ -854,7 +850,7 @@ func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string)
 // FetchVirtualMachineInstance by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
@@ -866,7 +862,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string
 
 // FetchVirtualMachineInstanceForVM by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
@@ -878,7 +874,7 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name s
 		return nil, errors.NewConflict(v1.Resource("virtualmachine"), vm.Name, fmt.Errorf("VMI is not started"))
 	}
 
-	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
@@ -1285,7 +1281,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 
 	dryRunOption := app.getDryRunOption(volumeRequest)
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -1699,7 +1695,7 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 	}
 
 	log.Log.Object(vmi).Infof("Patching vmi: %s", string(patch))
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, &k8smetav1.PatchOptions{}); err != nil {
+	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to patch vmi")
 		writeError(errors.NewInternalError(err), response)
 		return

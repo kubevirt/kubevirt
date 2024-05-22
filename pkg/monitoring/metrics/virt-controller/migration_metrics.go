@@ -20,6 +20,7 @@ package virt_controller
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -42,8 +43,8 @@ var (
 			Name: "kubevirt_vmi_migration_phase_transition_time_from_creation_seconds",
 			Help: "Histogram of VM migration phase transitions duration from creation time in seconds.",
 		},
-		operatormetrics.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+		prometheus.HistogramOpts{
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi migration

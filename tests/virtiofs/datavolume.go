@@ -28,7 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -43,9 +43,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -76,7 +77,8 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 		pvc1 := "pvc-1"
 		pvc2 := "pvc-2"
 		createPVC := func(namespace, name string) {
-			sc, _ := libstorage.GetRWXFileSystemStorageClass()
+			sc, foundSC := libstorage.GetAvailableRWFileSystemStorageClass()
+			Expect(foundSC).To(BeTrue(), "Unable to get a FileSystem Storage Class")
 			pvc := libstorage.NewPVC(name, "1Gi", sc)
 			_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -107,7 +109,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                            `, virtiofsMountPath(pvc1), pvc1, virtiofsMountPath(pvc1), virtiofsTestFile(virtiofsMountPath(pvc1)),
 				virtiofsMountPath(pvc2), pvc2, virtiofsMountPath(pvc2), virtiofsTestFile(virtiofsMountPath(pvc2)))
 
-			vmi = libvmi.NewFedora(
+			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
 				libvmi.WithFilesystemPVC(pvc1),
 				libvmi.WithFilesystemPVC(pvc2),
@@ -123,9 +125,10 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc1)
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
@@ -134,9 +137,10 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 
 			virtioFsFileTestCmd = fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc2)
-			pod = tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			pod, err = libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			podVirtioFsFileExist, err = exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
@@ -169,11 +173,13 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 			// We change the owner to qemu regardless of virtiofsd's privileges,
 			// because the root user will be able to access the directory anyway
-			nodeSelector := map[string]string{"kubernetes.io/hostname": node}
+			nodeSelector := map[string]string{k8sv1.LabelHostname: node}
 			args := []string{fmt.Sprintf(`chown 107 %s`, pvhostpath)}
 			pod := libpod.RenderHostPathPod("tmp-change-owner-job", pvhostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 			pod.Spec.NodeSelector = nodeSelector
-			tests.RunPodAndExpectCompletion(pod)
+			pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 		}
 
 		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
@@ -217,7 +223,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                    touch %s
                            `, virtiofsMountPath, pvcName, virtiofsMountPath, virtiofsTestFile)
 
-			vmi = libvmi.NewFedora(
+			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
 				libvmi.WithFilesystemPVC(pvcName),
 				libvmi.WithNamespace(namespace),
@@ -231,9 +237,10 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvcName)
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
@@ -241,23 +248,8 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 			By("Finding virt-launcher pod")
-			var virtlauncherPod *k8sv1.Pod
-			Eventually(func() *k8sv1.Pod {
-				podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-				if err != nil {
-					return nil
-				}
-				for _, pod := range podList.Items {
-					for _, ownerRef := range pod.GetOwnerReferences() {
-						if ownerRef.UID == vmi.GetUID() {
-							virtlauncherPod = &pod
-							break
-						}
-					}
-				}
-				return virtlauncherPod
-			}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
-			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(4))
+			virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 			foundContainer := false
 			virtiofsContainerName := fmt.Sprintf("virtiofs-%s", pvcName)
 			for _, container := range virtlauncherPod.Spec.Containers {
@@ -309,7 +301,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			By("Waiting until the DataVolume is ready")
 			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
-				Eventually(ThisDV(dataVolume), 30).Should(Or(BeInPhase(cdiv1.WaitForFirstConsumer), BeInPhase(cdiv1.PendingPopulation)))
+				Eventually(ThisDV(dataVolume), 30).Should(WaitForFirstConsumer())
 			}
 
 			virtiofsMountPath := fmt.Sprintf("/mnt/virtiofs_%s", dataVolume.Name)
@@ -320,7 +312,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                        touch %s
                                `, virtiofsMountPath, dataVolume.Name, virtiofsMountPath, virtiofsTestFile)
 
-			vmi = libvmi.NewFedora(
+			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloudEncodedUserData(mountVirtiofsCommands),
 				libvmi.WithFilesystemDV(dataVolume.Name),
 				libvmi.WithNamespace(namespace),
@@ -343,16 +335,17 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			}, 30*time.Second)).To(Succeed(), "Should be able to access the mounted virtiofs file")
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", dataVolume.Name)
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
-				virtClient,
 				pod,
 				"compute",
 				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		},

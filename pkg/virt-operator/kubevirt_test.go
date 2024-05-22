@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -396,8 +394,8 @@ func extractFinalizers(data []byte) []string {
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
-	patch := k.kvInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	patch.DoAndReturn(func(name string, pt types.PatchType, data []byte, opts *metav1.PatchOptions, _ ...string) (*v1.KubeVirt, error) {
+	patch := k.kvInterface.EXPECT().Patch(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	patch.DoAndReturn(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, _ ...string) (*v1.KubeVirt, error) {
 		Expect(pt).To(Equal(types.JSONPatchType))
 		finalizers := extractFinalizers(data)
 		obj, exists, err := k.kvInformer.GetStore().GetByKey(NAMESPACE + "/" + name)
@@ -412,7 +410,7 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
-	update := k.kvInterface.EXPECT().Update(gomock.Any())
+	update := k.kvInterface.EXPECT().Update(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(kv *v1.KubeVirt) {
 		k.kvInformer.GetStore().Update(kv)
 		update.Return(kv, nil)
@@ -420,16 +418,16 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdate(times int) {
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatus(times int) {
-	update := k.kvInterface.EXPECT().UpdateStatus(gomock.Any())
-	update.Do(func(kv *v1.KubeVirt) {
+	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 		k.kvInformer.GetStore().Update(kv)
 		update.Return(kv, nil)
 	}).Times(times)
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, config *util.KubeVirtDeploymentConfig) {
-	update := k.kvInterface.EXPECT().UpdateStatus(gomock.Any())
-	update.Do(func(kv *v1.KubeVirt) {
+	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 
 		Expect(kv.Status.TargetKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
 		Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
@@ -439,8 +437,8 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, co
 }
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusFailureCondition(reason string) {
-	update := k.kvInterface.EXPECT().UpdateStatus(gomock.Any())
-	update.Do(func(kv *v1.KubeVirt) {
+	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
 		Expect(kv.Status.Conditions).To(HaveLen(1))
 		Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))
 		k.kvInformer.GetStore().Update(kv)
@@ -1266,16 +1264,16 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewApiServerService(NAMESPACE))
 	all = append(all, components.NewExportProxyService(NAMESPACE))
 
-	apiDeployment, _ := tests.GetDefaultVirtApiDeployment(NAMESPACE, config)
+	apiDeployment, _ := getDefaultVirtApiDeployment(NAMESPACE, config)
 	apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-	controller, _ := tests.GetDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller, _ := getDefaultVirtControllerDeployment(NAMESPACE, config)
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 
-	handler, _ := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler, _ := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := tests.GetDefaultExportProxyDeployment(NAMESPACE, config)
+		exportProxy, _ := getDefaultExportProxyDeployment(NAMESPACE, config)
 		exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
 		route := components.NewExportProxyRoute(NAMESPACE)
 		all = append(all, exportProxy, exportProxyPdb, route)
@@ -1383,7 +1381,7 @@ func (k *KubeVirtTestData) addAllButHandler(config *util.KubeVirtDeploymentConfi
 }
 
 func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	handler, err := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler, err := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	Expect(err).ToNot(HaveOccurred())
 
 	c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
@@ -1602,7 +1600,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	// virt-controller
 	// virt-handler
 	var deployments []*appsv1.Deployment
-	apiDeployment, _ := tests.GetDefaultVirtApiDeployment(NAMESPACE, config)
+	apiDeployment, _ := getDefaultVirtApiDeployment(NAMESPACE, config)
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -1619,7 +1617,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, apiDeployment)
 
-	controller, _ := tests.GetDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller, _ := getDefaultVirtControllerDeployment(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: controller.Spec.Template.ObjectMeta,
 		Spec:       controller.Spec.Template.Spec,
@@ -1635,7 +1633,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, controller)
 
-	handler, _ := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler, _ := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: handler.Spec.Template.ObjectMeta,
 		Spec:       handler.Spec.Template.Spec,
@@ -1653,7 +1651,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := tests.GetDefaultExportProxyDeployment(NAMESPACE, config)
+		exportProxy, _ := getDefaultExportProxyDeployment(NAMESPACE, config)
 		pod = &k8sv1.Pod{
 			ObjectMeta: exportProxy.Spec.Template.ObjectMeta,
 			Spec:       exportProxy.Spec.Template.Spec,
@@ -2241,8 +2239,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			apiDeployment, err := tests.GetDefaultVirtApiDeployment(NAMESPACE, config)
-
+			apiDeployment, err := getDefaultVirtApiDeployment(NAMESPACE, config)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
@@ -2257,7 +2254,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			controllerDeployment, err := tests.GetDefaultVirtControllerDeployment(NAMESPACE, config)
+			controllerDeployment, err := getDefaultVirtControllerDeployment(NAMESPACE, config)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
@@ -2272,8 +2269,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			handlerDaemonset, err := tests.GetDefaultVirtHandlerDaemonSet(NAMESPACE, config)
-
+			handlerDaemonset, err := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
@@ -3217,4 +3213,82 @@ func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus,
 			WithTransform(getStatus, Equal(degraded)),
 		),
 	))
+}
+
+func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+	return components.NewApiServerDeployment(
+		namespace,
+		config.GetImageRegistry(),
+		config.GetImagePrefix(),
+		config.GetApiVersion(),
+		"",
+		"",
+		"",
+		config.VirtApiImage,
+		config.GetImagePullPolicy(),
+		config.GetImagePullSecrets(),
+		config.GetVerbosity(),
+		config.GetExtraEnv())
+}
+
+func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+	return components.NewControllerDeployment(
+		namespace,
+		config.GetImageRegistry(),
+		config.GetImagePrefix(),
+		config.GetControllerVersion(),
+		config.GetLauncherVersion(),
+		config.GetExportServerVersion(),
+		"",
+		"",
+		"",
+		"",
+		config.VirtControllerImage,
+		config.VirtLauncherImage,
+		config.VirtExportServerImage,
+		config.SidecarShimImage,
+		config.GetImagePullPolicy(),
+		config.GetImagePullSecrets(),
+		config.GetVerbosity(),
+		config.GetExtraEnv())
+}
+
+func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.DaemonSet, error) {
+	return components.NewHandlerDaemonSet(
+		namespace,
+		config.GetImageRegistry(),
+		config.GetImagePrefix(),
+		config.GetHandlerVersion(),
+		"",
+		"",
+		"",
+		"",
+		config.GetLauncherVersion(),
+		config.GetPrHelperVersion(),
+		config.VirtHandlerImage,
+		config.VirtLauncherImage,
+		config.PrHelperImage,
+		config.SidecarShimImage,
+		config.GetImagePullPolicy(),
+		config.GetImagePullSecrets(),
+		nil,
+		config.GetVerbosity(),
+		config.GetExtraEnv(),
+		false)
+}
+
+func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+	return components.NewExportProxyDeployment(
+		namespace,
+		config.GetImageRegistry(),
+		config.GetImagePrefix(),
+		config.GetExportProxyVersion(),
+		"",
+		"",
+		"",
+		config.VirtExportProxyImage,
+		config.GetImagePullPolicy(),
+		config.GetImagePullSecrets(),
+		config.GetVerbosity(),
+		config.GetExtraEnv())
 }

@@ -92,22 +92,23 @@ const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 var migrationBackoffError = errors.New(MigrationBackoffReason)
 
 type MigrationController struct {
-	templateService         services.TemplateService
-	clientset               kubecli.KubevirtClient
-	Queue                   workqueue.RateLimitingInterface
-	vmiInformer             cache.SharedIndexInformer
-	podInformer             cache.SharedIndexInformer
-	migrationInformer       cache.SharedIndexInformer
-	nodeInformer            cache.SharedIndexInformer
-	pvcInformer             cache.SharedIndexInformer
-	pdbInformer             cache.SharedIndexInformer
-	migrationPolicyInformer cache.SharedIndexInformer
-	resourceQuotaInformer   cache.SharedIndexInformer
-	recorder                record.EventRecorder
-	podExpectations         *controller.UIDTrackingControllerExpectations
-	migrationStartLock      *sync.Mutex
-	clusterConfig           *virtconfig.ClusterConfig
-	statusUpdater           *status.MigrationStatusUpdater
+	templateService      services.TemplateService
+	clientset            kubecli.KubevirtClient
+	Queue                workqueue.RateLimitingInterface
+	vmiStore             cache.Store
+	podIndexer           cache.Indexer
+	migrationIndexer     cache.Indexer
+	nodeStore            cache.Store
+	pvcStore             cache.Store
+	pdbIndexer           cache.Indexer
+	migrationPolicyStore cache.Store
+	resourceQuotaIndexer cache.Indexer
+	recorder             record.EventRecorder
+	podExpectations      *controller.UIDTrackingControllerExpectations
+	migrationStartLock   *sync.Mutex
+	clusterConfig        *virtconfig.ClusterConfig
+	statusUpdater        *status.MigrationStatusUpdater
+	hasSynced            func() bool
 
 	// the set of cancelled migrations before being handed off to virt-handler.
 	// the map keys are migration keys
@@ -133,29 +134,33 @@ func NewMigrationController(templateService services.TemplateService,
 ) (*MigrationController, error) {
 
 	c := &MigrationController{
-		templateService:         templateService,
-		Queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
-		vmiInformer:             vmiInformer,
-		podInformer:             podInformer,
-		migrationInformer:       migrationInformer,
-		nodeInformer:            nodeInformer,
-		pvcInformer:             pvcInformer,
-		pdbInformer:             pdbInformer,
-		resourceQuotaInformer:   resourceQuotaInformer,
-		migrationPolicyInformer: migrationPolicyInformer,
-		recorder:                recorder,
-		clientset:               clientset,
-		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		migrationStartLock:      &sync.Mutex{},
-		clusterConfig:           clusterConfig,
-		statusUpdater:           status.NewMigrationStatusUpdater(clientset),
-		handOffMap:              make(map[string]struct{}),
+		templateService:      templateService,
+		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		vmiStore:             vmiInformer.GetStore(),
+		podIndexer:           podInformer.GetIndexer(),
+		migrationIndexer:     migrationInformer.GetIndexer(),
+		nodeStore:            nodeInformer.GetStore(),
+		pvcStore:             pvcInformer.GetStore(),
+		pdbIndexer:           pdbInformer.GetIndexer(),
+		resourceQuotaIndexer: resourceQuotaInformer.GetIndexer(),
+		migrationPolicyStore: migrationPolicyInformer.GetStore(),
+		recorder:             recorder,
+		clientset:            clientset,
+		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock:   &sync.Mutex{},
+		clusterConfig:        clusterConfig,
+		statusUpdater:        status.NewMigrationStatusUpdater(clientset),
+		handOffMap:           make(map[string]struct{}),
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 	}
 
-	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.hasSynced = func() bool {
+		return vmiInformer.HasSynced() && podInformer.HasSynced() && migrationInformer.HasSynced() && pdbInformer.HasSynced() && resourceQuotaInformer.HasSynced()
+	}
+
+	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMI,
 		DeleteFunc: c.deleteVMI,
 		UpdateFunc: c.updateVMI,
@@ -164,7 +169,7 @@ func NewMigrationController(templateService services.TemplateService,
 		return nil, err
 	}
 
-	_, err = c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPod,
 		DeleteFunc: c.deletePod,
 		UpdateFunc: c.updatePod,
@@ -173,7 +178,7 @@ func NewMigrationController(templateService services.TemplateService,
 		return nil, err
 	}
 
-	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
@@ -182,14 +187,14 @@ func NewMigrationController(templateService services.TemplateService,
 		return nil, err
 	}
 
-	_, err = c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePDB,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateResourceQuota,
 		DeleteFunc: c.deleteResourceQuota,
 	})
@@ -206,7 +211,7 @@ func (c *MigrationController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting migration controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced, c.pdbInformer.HasSynced, c.resourceQuotaInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.hasSynced)
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
@@ -282,7 +287,7 @@ func (c *MigrationController) patchVMI(origVMI, newVMI *virtv1.VirtualMachineIns
 	}
 
 	if len(ops) > 0 {
-		_, err := c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+		_, err := c.clientset.VirtualMachineInstance(origVMI.Namespace).Patch(context.Background(), origVMI.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), v1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -295,7 +300,7 @@ func (c *MigrationController) execute(key string) error {
 	var targetPods []*k8sv1.Pod
 
 	// Fetch the latest state from cache
-	obj, exists, err := c.migrationInformer.GetStore().GetByKey(key)
+	obj, exists, err := c.migrationIndexer.GetByKey(key)
 	if err != nil {
 		return err
 	}
@@ -315,11 +320,11 @@ func (c *MigrationController) execute(key string) error {
 		controller.SetLatestApiVersionAnnotation(migration)
 		// Ensure the migration contains our selector label
 		ensureSelectorLabelPresent(migration)
-		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migration)
+		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(context.Background(), migration, metav1.UpdateOptions{})
 		return err
 	}
 
-	vmiObj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
+	vmiObj, vmiExists, err := c.vmiStore.GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
 	if err != nil {
 		return err
 	}
@@ -329,7 +334,7 @@ func (c *MigrationController) execute(key string) error {
 
 		if migration.DeletionTimestamp == nil {
 			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
-			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
+			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, v1.DeleteOptions{})
 		}
 		// nothing to process for a migration that's being deleted
 		return err
@@ -383,7 +388,7 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 	curMigrationUID := vmi.Status.MigrationState.MigrationUID
 
 	// check to see if the curMigrationUID still exists or is finalized
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migration.Namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, migration.Namespace)
 
 	if err != nil {
 		return false, err
@@ -416,7 +421,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	if podExists {
 		pod = pods[0]
 
-		if attachmentPods, err := controller.AttachmentPods(pod, c.podInformer); err != nil {
+		if attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer); err != nil {
 			return fmt.Errorf(failedGetAttractionPodsFmt, err)
 		} else {
 			attachmentPodExists = len(attachmentPods) > 0
@@ -505,15 +510,15 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	}
 
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
+	controller.SetSourcePod(migrationCopy, vmi, c.podIndexer)
 
 	if !equality.Semantic.DeepEqual(migration.Status, migrationCopy.Status) {
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
 		if err != nil {
 			return err
 		}
-
 	} else if !equality.Semantic.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
-		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
+		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(context.Background(), migrationCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -659,7 +664,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 				virtv1.CreatedByLabel: string(vmi.UID),
 			},
 		},
-		TopologyKey: "kubernetes.io/hostname",
+		TopologyKey: k8sv1.LabelHostname,
 	}
 	antiAffinityRule := &k8sv1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{antiAffinityTerm},
@@ -837,7 +842,12 @@ func (c *MigrationController) handleMarkMigrationFailedOnVMI(migration *virtv1.V
 		return err
 	}
 	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
-	c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: target pod is down", string(migration.UID)))
+	failureReason := "Target pod is down"
+	c.recorder.Event(vmi, k8sv1.EventTypeWarning, FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
+	if vmiCopy.Status.MigrationState.FailureReason == "" {
+		// Only set the failure reason if empty, as virt-handler may already have provided a better one
+		vmiCopy.Status.MigrationState.FailureReason = failureReason
+	}
 
 	return nil
 }
@@ -875,13 +885,16 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 		SourceNode:   vmi.Status.NodeName,
 		TargetPod:    pod.Name,
 	}
+	if migration.Status.MigrationState != nil {
+		vmiCopy.Status.MigrationState.SourcePod = migration.Status.MigrationState.SourcePod
+	}
 
 	// By setting this label, virt-handler on the target node will receive
 	// the vmi and prepare the local environment for the migration
 	vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
 
 	if controller.VMIHasHotplugVolumes(vmiCopy) {
-		attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+		attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 		if err != nil {
 			return fmt.Errorf(failedGetAttractionPodsFmt, err)
 		}
@@ -949,7 +962,7 @@ func (c *MigrationController) markMigrationAbortInVmiStatus(migration *virtv1.Vi
 			return err
 		}
 
-		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, &v1.PatchOptions{})
+		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		if err != nil {
 			msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
 			c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
@@ -986,7 +999,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	if c.podExpectations.AllPendingCreations() > 0 {
 		c.Queue.AddAfter(key, 1*time.Second)
 		return nil
-	} else if controller.VMIActivePodsCount(vmi, c.podInformer) > 1 {
+	} else if controller.VMIActivePodsCount(vmi, c.podIndexer) > 1 {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for migration because there are already multiple pods running for vmi %s/%s", vmi.Namespace, vmi.Name)
 		c.Queue.AddAfter(key, 1*time.Second)
 		return nil
@@ -1025,7 +1038,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 	// should create the target pod
 	if vmi.IsRunning() {
 		if migrations.VMIMigratableOnEviction(c.clusterConfig, vmi) {
-			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbInformer)
+			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbIndexer)
 			if err != nil {
 				return err
 			}
@@ -1055,14 +1068,14 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 }
 
 func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
-	sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+	sourcePod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 	if err != nil {
 		return fmt.Errorf("failed to get current VMI pod: %v", err)
 	}
 
 	volumes := getHotplugVolumes(vmi, sourcePod)
 
-	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcInformer.GetStore(), virtLauncherPod.Namespace)
+	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcStore, virtLauncherPod.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get PVC map: %v", err)
 	}
@@ -1070,7 +1083,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	// Reset the hotplug volume statuses to enforce mount
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.VolumeStatus = []virtv1.VolumeStatus{}
-	attachmentPodTemplate, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtLauncherPod, vmiCopy, volumeNamesPVCMap, false)
+	attachmentPodTemplate, err := c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtLauncherPod, vmiCopy, volumeNamesPVCMap)
 	if err != nil {
 		return fmt.Errorf("failed to render attachment pod template: %v", err)
 	}
@@ -1259,7 +1272,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		}
 
 		if !targetPodExists {
-			sourcePod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+			sourcePod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 			if err != nil {
 				log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 				return err
@@ -1275,7 +1288,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
 			patches := c.setupVMIRuntimeUser(vmi)
 			if len(patches) != 0 {
-				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
+				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), v1.PatchOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
 				}
@@ -1284,7 +1297,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)
 		} else if isPodReady(pod) {
 			if controller.VMIHasHotplugVolumes(vmi) {
-				attachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
+				attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 				if err != nil {
 					return fmt.Errorf(failedGetAttractionPodsFmt, err)
 				}
@@ -1381,7 +1394,7 @@ func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMa
 		return nil, err
 	}
 
-	objs, err := c.podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migration.Namespace)
+	objs, err := c.podIndexer.ByIndex(cache.NamespaceIndex, migration.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1440,7 +1453,7 @@ func (c *MigrationController) resolveControllerRef(namespace string, controllerR
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind {
 		return nil
 	}
-	migration, exists, err := c.migrationInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
+	migration, exists, err := c.migrationIndexer.GetByKey(namespace + "/" + controllerRef.Name)
 	if err != nil {
 		return nil
 	}
@@ -1528,7 +1541,7 @@ func (c *MigrationController) updatePod(old, cur interface{}) {
 func (c *MigrationController) updateResourceQuota(_, cur interface{}) {
 	curResourceQuota := cur.(*k8sv1.ResourceQuota)
 	log.Log.V(4).Object(curResourceQuota).Infof("ResourceQuota updated")
-	objs, _ := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, curResourceQuota.Namespace)
+	objs, _ := c.migrationIndexer.ByIndex(cache.NamespaceIndex, curResourceQuota.Namespace)
 	for _, obj := range objs {
 		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 		if migration.Status.Conditions == nil {
@@ -1548,7 +1561,7 @@ func (c *MigrationController) updateResourceQuota(_, cur interface{}) {
 func (c *MigrationController) deleteResourceQuota(obj interface{}) {
 	resourceQuota := obj.(*k8sv1.ResourceQuota)
 	log.Log.V(4).Object(resourceQuota).Infof("ResourceQuota deleted")
-	objs, _ := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, resourceQuota.Namespace)
+	objs, _ := c.migrationIndexer.ByIndex(cache.NamespaceIndex, resourceQuota.Namespace)
 	for _, obj := range objs {
 		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 		if migration.Status.Conditions == nil {
@@ -1611,7 +1624,7 @@ func (c *MigrationController) updatePDB(old, cur interface{}) {
 		return
 	}
 
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, curPDB.Namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, curPDB.Namespace)
 	if err != nil {
 		return
 	}
@@ -1667,7 +1680,7 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 	}
 
 	for i := 0; i < garbageCollectionCount; i++ {
-		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(finalizedMigrations[i], &v1.DeleteOptions{})
+		err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), finalizedMigrations[i], v1.DeleteOptions{})
 		if err != nil && k8serrors.IsNotFound(err) {
 			// This is safe to ignore. It's possible in some
 			// scenarios that the migration we're trying to garbage
@@ -1683,7 +1696,7 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 }
 
 func (c *MigrationController) filterMigrations(namespace string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := c.migrationIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -1792,7 +1805,7 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
 	sum := 0
 	for _, migration := range runningMigrations {
-		if vmi, exists, _ := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+		if vmi, exists, _ := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
 			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
 				sum = sum + 1
 			}
@@ -1807,14 +1820,14 @@ func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigra
 func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationInformer)
+	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationIndexer)
 	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {
 			runningMigrations = append(runningMigrations, migration)
 			continue
 		}
-		vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		vmi, exists, err := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
 		if err != nil {
 			return nil, err
 		}
@@ -1833,7 +1846,7 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 }
 
 func (c *MigrationController) getNodeForVMI(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Node, error) {
-	obj, exists, err := c.nodeInformer.GetStore().GetByKey(vmi.Status.NodeName)
+	obj, exists, err := c.nodeStore.GetByKey(vmi.Status.NodeName)
 
 	if err != nil {
 		return nil, fmt.Errorf("cannot get nodes to migrate VMI with host-model CPU. error: %v", err)
@@ -1859,7 +1872,7 @@ func (c *MigrationController) alertIfHostModelIsUnschedulable(vmi *virtv1.Virtua
 		}
 	}
 
-	nodes := c.nodeInformer.GetStore().List()
+	nodes := c.nodeStore.List()
 	for _, nodeInterface := range nodes {
 		node := nodeInterface.(*k8sv1.Node)
 
@@ -1939,7 +1952,7 @@ func (c *MigrationController) matchMigrationPolicy(vmi *virtv1.VirtualMachineIns
 
 	// Fetch cluster policies
 	var policies []v1alpha1.MigrationPolicy
-	migrationInterfaceList := c.migrationPolicyInformer.GetStore().List()
+	migrationInterfaceList := c.migrationPolicyStore.List()
 	for _, obj := range migrationInterfaceList {
 		policy := obj.(*v1alpha1.MigrationPolicy)
 		policies = append(policies, *policy)

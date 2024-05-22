@@ -69,6 +69,7 @@ import (
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -83,12 +84,14 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	util2 "kubevirt.io/kubevirt/tests/util"
@@ -156,10 +159,9 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		generateNonMigratableVMIs              func(int) []*v1.VirtualMachineInstance
-		startAllVMIs                           func([]*v1.VirtualMachineInstance)
+		startAllVMIs                           func([]*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance
 		deleteAllVMIs                          func([]*v1.VirtualMachineInstance)
-		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance, string)
+		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
 		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
 		fetchVirtHandlerCommand                func() string
 	)
@@ -200,7 +202,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		createKv = func(newKv *v1.KubeVirt) {
 			Eventually(func() error {
-				_, err = virtClient.KubeVirt(newKv.Namespace).Create(newKv)
+				_, err = virtClient.KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
@@ -257,7 +259,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		allPodsAreReady = func(kv *v1.KubeVirt) {
 			Eventually(func() error {
 
-				curKv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				curKv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -309,7 +311,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		waitForUpdateCondition = func(kv *v1.KubeVirt) {
 			Eventually(func() *v1.KubeVirt {
-				kv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				kv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				return kv
@@ -324,7 +326,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		waitForKvWithTimeout = func(newKv *v1.KubeVirt, timeoutSeconds int) {
 			Eventually(func() error {
-				kv, err := virtClient.KubeVirt(newKv.Namespace).Get(newKv.Name, &metav1.GetOptions{})
+				kv, err := virtClient.KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -381,7 +383,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 				"]")
 
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -390,7 +392,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		patchKvVersionAndRegistry = func(name string, version string, registry string) {
 			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, version, registry))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -399,7 +401,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		patchKvVersion = func(name string, version string) {
 			data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, version))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -413,7 +415,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -427,7 +429,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
-			_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
+			_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errMsg))
 
@@ -478,7 +480,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -495,7 +497,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data, &metav1.PatchOptions{})
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
@@ -640,7 +642,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					if kv.DeletionTimestamp == nil {
 
 						By("deleting the kv object")
-						err := virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &metav1.DeleteOptions{})
+						err := virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, metav1.DeleteOptions{})
 						if err != nil {
 							return err
 						}
@@ -709,15 +711,17 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					"config1": "value1",
 					"config2": "value2",
 				}
+				cm := libconfigmap.New(configMapName, config_data)
+				cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-				secret_data := map[string]string{
-					"user":     "admin",
-					"password": "community",
+				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
+				secret, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				if !errors.IsAlreadyExists(err) {
+					Expect(err).ToNot(HaveOccurred())
 				}
 
-				tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), config_data)
-				tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secret_data)
-				vmi := libvmi.NewCirros(
+				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithConfigMapDisk(configMapName, configMapName),
@@ -761,32 +765,24 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			return vmis
 		}
 
-		generateNonMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
-
-			vmis := []*v1.VirtualMachineInstance{}
-			for i := 0; i < num; i++ {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				// Remove the masquerade interface to use the default bridge one
-				// bridge interface isn't allowed to migrate
-				vmi.Spec.Domain.Devices.Interfaces = nil
-				vmi.Spec.Networks = nil
-				vmis = append(vmis, vmi)
-			}
-
-			return vmis
-		}
-
-		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
-			for _, vmi := range vmis {
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) []*v1.VirtualMachineInstance {
+			newVMIs := make([]*v1.VirtualMachineInstance, len(vmis))
+			for i, vmi := range vmis {
+				var err error
+				newVMIs[i], err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
-				libwait.WaitForSuccessfulVMIStart(vmi)
 			}
+
+			for i, vmi := range newVMIs {
+				newVMIs[i] = libwait.WaitForSuccessfulVMIStart(vmi)
+			}
+
+			return newVMIs
 		}
 
 		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
-				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Delete VMI successfully")
 			}
 		}
@@ -795,70 +791,70 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 			Eventually(func() error {
 				for _, vmi := range vmis {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					if err == nil && !vmi.IsFinal() {
-						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", vmi.Namespace, vmi.Name)
+					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					if err == nil && !foundVMI.IsFinal() {
+						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", foundVMI.Namespace, foundVMI.Name)
 					} else if !errors.IsNotFound(err) {
 						return err
 					}
 				}
 				return nil
-			}, 320, 1).Should(BeNil(), "All VMIs should delete automatically")
+			}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
 
 		}
 
-		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance, imageTag string) {
+		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
 
 			Eventually(func() error {
 				for _, vmi := range vmis {
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
 
-					if vmi.Status.MigrationState == nil {
-						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", vmi.Namespace, vmi.Name)
-					} else if !vmi.Status.MigrationState.Completed {
+					if foundVMI.Status.MigrationState == nil {
+						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
+					} else if !foundVMI.Status.MigrationState.Completed {
 
 						var startTime time.Time
 						var endTime time.Time
 						now := time.Now()
 
-						if vmi.Status.MigrationState.StartTimestamp != nil {
-							startTime = vmi.Status.MigrationState.StartTimestamp.Time
+						if foundVMI.Status.MigrationState.StartTimestamp != nil {
+							startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
 						}
-						if vmi.Status.MigrationState.EndTimestamp != nil {
-							endTime = vmi.Status.MigrationState.EndTimestamp.Time
+						if foundVMI.Status.MigrationState.EndTimestamp != nil {
+							endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
 						}
 
 						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
-							string(vmi.Status.MigrationState.MigrationUID),
-							vmi.Namespace,
-							vmi.Name,
-							vmi.Status.MigrationState.SourceNode,
-							vmi.Status.MigrationState.TargetNode,
+							string(foundVMI.Status.MigrationState.MigrationUID),
+							foundVMI.Namespace,
+							foundVMI.Name,
+							foundVMI.Status.MigrationState.SourceNode,
+							foundVMI.Status.MigrationState.TargetNode,
 							startTime.String(),
 							endTime.String(),
 							now.String(),
-							vmi.Status.MigrationState.Failed,
+							foundVMI.Status.MigrationState.Failed,
 						)
 					}
 
-					_, hasOutdatedLabel := vmi.Labels[v1.OutdatedLauncherImageLabel]
+					_, hasOutdatedLabel := foundVMI.Labels[v1.OutdatedLauncherImageLabel]
 					if hasOutdatedLabel {
-						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", vmi.Namespace, vmi.Name)
+						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
 					}
 				}
 				return nil
-			}, 500, 1).Should(BeNil(), "All VMIs should update via live migration")
+			}, 500, 1).Should(Succeed(), "All VMIs should update via live migration")
 
 			// this is put in an eventually loop because it's possible for the VMI to complete
 			// migrating and for the migration object to briefly lag behind in reporting
 			// the results
-			Eventually(func() error {
+			Eventually(func(g Gomega) error {
 				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(&metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
+				migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+				g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
 				for _, vmi := range vmis {
 					count := 0
 					for _, migration := range migrationList.Items {
@@ -871,7 +867,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					}
 				}
 				return nil
-			}, 10, 1).Should(BeNil(), "Expects only a single successful migration per workload update")
+			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
 		}
 
 		getVirtLauncherSha = func() string {
@@ -1357,8 +1353,8 @@ spec:
 			}
 
 			By("starting a VM")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi := libvmifact.NewCirros()
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -1380,12 +1376,12 @@ spec:
 			maxDevicesCommandArgument := fmt.Sprintf("--max-devices %d", newVirtualMachineInstancesPerNode)
 
 			By("Updating KubeVirt Object")
-			kv, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(&newVirtualMachineInstancesPerNode))
 			kv.Spec.Configuration.VirtualMachineInstancesPerNode = &newVirtualMachineInstancesPerNode
 
-			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -1395,11 +1391,11 @@ spec:
 			Eventually(fetchVirtHandlerCommand, 60*time.Second, 5*time.Second).Should(ContainSubstring(maxDevicesCommandArgument))
 
 			By("Deleting patch from KubeVirt object")
-			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			kv.Spec.Configuration.VirtualMachineInstancesPerNode = nil
-			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(kv)
+			kv, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -1417,7 +1413,7 @@ spec:
 			annotationPatchKey := "applied-patch"
 
 			By("Updating KubeVirt Object")
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
 				Patches: []v1.CustomizeComponentsPatch{
@@ -1430,7 +1426,7 @@ spec:
 				},
 			}
 
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			generation := kv.GetGeneration()
 
@@ -1451,13 +1447,13 @@ spec:
 			waitForKvWithTimeout(kv, 120)
 
 			By("Check that KubeVirt CR generation does not get updated when applying patch")
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.GetGeneration()).To(Equal(generation))
 
 			By("Deleting patch from KubeVirt object")
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			generation = kv.GetGeneration()
 
@@ -1503,7 +1499,9 @@ spec:
 		}
 
 		checkVirtLauncherPod := func(vmi *v1.VirtualMachineInstance) {
-			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			serviceAccount, err := virtClient.CoreV1().ServiceAccounts(vmi.Namespace).Get(context.Background(), virtLauncherPod.Spec.ServiceAccountName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(equality.Semantic.DeepEqual(virtLauncherPod.Spec.ImagePullSecrets, serviceAccount.ImagePullSecrets)).To(BeTrue())
@@ -1512,7 +1510,7 @@ spec:
 		It("should not be present if not specified on the KubeVirt CR", func() {
 
 			By("Check that KubeVirt CR has empty imagePullSecrets")
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kv.Spec.ImagePullSecrets).To(BeEmpty())
 
@@ -1520,8 +1518,8 @@ spec:
 			checkVirtComponents(nil)
 
 			By("Starting a VMI")
-			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -1556,10 +1554,10 @@ spec:
 			})
 
 			By("Updating KubeVirt Object")
-			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = imagePullSecrets
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -1569,8 +1567,8 @@ spec:
 			checkVirtComponents(imagePullSecrets)
 
 			By("Starting a VMI")
-			vmi := tests.NewRandomVMI()
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -1578,10 +1576,10 @@ spec:
 			checkVirtLauncherPod(vmi)
 
 			By("Deleting imagePullSecrets from KubeVirt object")
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = []k8sv1.LocalObjectReference{}
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -1743,7 +1741,7 @@ spec:
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
 				Eventually(func() bool {
-					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if virtualMachine.Status.Ready {
 						return true
@@ -1753,7 +1751,7 @@ spec:
 			}
 
 			By("Starting multiple migratable VMIs before performing update")
-			startAllVMIs(migratableVMIs)
+			migratableVMIs = startAllVMIs(migratableVMIs)
 
 			// Update KubeVirt from the previous release to the testing target release.
 			if updateOperator {
@@ -1783,7 +1781,7 @@ spec:
 					// We are using our internal client here on purpose to ensure we can interact
 					// with previously created objects that may have been created using a different
 					// api version from the latest one our client uses.
-					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if !virtualMachine.Status.Ready {
 						return false
@@ -1819,7 +1817,7 @@ spec:
 				// completes while we wait for the kubernetes apiserver to detect our
 				// subresource api server is online and ready to serve requests.
 				Eventually(func() error {
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if err := console.LoginToCirros(vmi); err != nil {
 						return err
@@ -1835,13 +1833,13 @@ spec:
 
 				By("Waiting for VMI to stop")
 				Eventually(func() error {
-					_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 				By("Ensuring we can Modify the VM Spec")
 				Eventually(func() error {
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -1853,22 +1851,22 @@ spec:
 					Expect(err).ToNot(HaveOccurred())
 
 					ops := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations", "value": %s }]`, string(annotationBytes))
-					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(ops), &metav1.PatchOptions{})
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
 					return err
 				}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 				// change run stategy to halted to be able to restore the vm
 				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					if err != nil {
 						return false
 					}
 					vm.Spec.RunStrategy = &runStrategyHalted
-					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Update(context.Background(), vm)
+					_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Update(context.Background(), vm, metav1.UpdateOptions{})
 					if err != nil {
 						return false
 					}
-					updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					updatedVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVM.Spec.Running == nil && updatedVM.Spec.RunStrategy != nil && *updatedVM.Spec.RunStrategy == runStrategyHalted
 				}, 30*time.Second, 3*time.Second).Should(BeTrue())
@@ -1892,18 +1890,18 @@ spec:
 
 				By("Waiting for VM to be removed")
 				Eventually(func() error {
-					_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, &metav1.GetOptions{})
+					_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					return err
 				}, 90*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			}
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
-			verifyVMIsUpdated(migratableVMIs, launcherSha)
+			verifyVMIsUpdated(migratableVMIs)
 
 			if len(migratableVMIs) > 0 {
 				By("Verifying that a once migrated VMI after an update can be migrated again")
 				vmi := migratableVMIs[0]
-				migration, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(vmi)).Create(libmigration.New(vmi.Name, vmi.Namespace), &metav1.CreateOptions{})
+				migration, err := virtClient.VirtualMachineInstanceMigration(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libmigration.New(vmi.Name, vmi.Namespace), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisMigration(migration), 180).Should(HaveSucceeded())
 			}
@@ -1929,7 +1927,7 @@ spec:
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
-				startAllVMIs(vmis)
+				vmis = startAllVMIs(vmis)
 			}
 
 			By("Deleting KubeVirt object")
@@ -1971,19 +1969,20 @@ spec:
 
 				By("setting the right uninstall strategy")
 				Eventually(func() error {
-					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
-					_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+					_, err = virtClient.KubeVirt(kv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 					return err
 				}, 60*time.Second, time.Second).ShouldNot(HaveOccurred())
 
 				By("creating a simple VMI")
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+				vmi := libvmifact.NewCirros()
+				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting KubeVirt object")
-				err = virtClient.KubeVirt(originalKv.Namespace).Delete(originalKv.Name, &metav1.DeleteOptions{})
+				err = virtClient.KubeVirt(originalKv.Namespace).Delete(context.Background(), originalKv.Name, metav1.DeleteOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("there are still Virtual Machine Instances present"))
 			})
@@ -2064,13 +2063,15 @@ spec:
 			Expect(handlerImageName).To(ContainSubstring(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi := libvmifact.NewAlpine()
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Verifying virt-launcher image is also prefixed")
-			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
 					_, imageName, _ := parseImage(container.Image)
@@ -2079,7 +2080,7 @@ spec:
 			}
 
 			By("Deleting VM")
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ShouldNot(HaveOccurred(), "Delete VMI successfully")
 
 			By("Restore Operator using original imagePrefix ")
@@ -2104,7 +2105,7 @@ spec:
 			if checks.HasAtLeastTwoNodes() {
 				vmis = generateMigratableVMIs(2)
 			}
-			vmisNonMigratable := generateNonMigratableVMIs(2)
+			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
 
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
@@ -2136,8 +2137,8 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Starting multiple migratable VMIs before performing update")
-			startAllVMIs(vmis)
-			startAllVMIs(vmisNonMigratable)
+			vmis = startAllVMIs(vmis)
+			vmisNonMigratable = startAllVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
 			patchKvVersion(kv.Name, flags.KubeVirtVersionTagAlt)
@@ -2155,7 +2156,7 @@ spec:
 			verifyVMIsEvicted(vmisNonMigratable)
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
-			verifyVMIsUpdated(vmis, flags.KubeVirtVersionTagAlt)
+			verifyVMIsUpdated(vmis)
 
 			By("Deleting VMIs")
 			deleteAllVMIs(vmis)
@@ -2163,7 +2164,6 @@ spec:
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
-
 		})
 
 		// NOTE - this test verifies new operators can grab the leader election lease
@@ -2214,7 +2214,7 @@ spec:
 			newKv.Name = "someother-kubevirt"
 
 			By("Creating another KubeVirt object")
-			_, err = virtClient.KubeVirt(newKv.Namespace).Create(newKv)
+			_, err = virtClient.KubeVirt(newKv.Namespace).Create(context.Background(), newKv, metav1.CreateOptions{})
 			Expect(err).To(MatchError(ContainSubstring("Kubevirt is already created")))
 		})
 
@@ -2336,8 +2336,8 @@ spec:
 				)
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi := libvmifact.NewCirros()
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -2360,13 +2360,13 @@ spec:
 		AfterEach(func() {
 
 			if vm != nil {
-				_, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				_, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil && !errors.IsNotFound(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
 
 				if vm != nil && vm.DeletionTimestamp == nil {
-					err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 				vm = nil
@@ -2702,7 +2702,7 @@ spec:
 			}
 
 			By("deleting the kv CR")
-			err = virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &metav1.DeleteOptions{})
+			err = virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for virt-api and virt-controller to be gone")
@@ -2719,7 +2719,7 @@ spec:
 
 			By("waiting for the kv CR to be gone")
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				_, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 				return err
 			}, 120*time.Second, 4*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
@@ -2729,12 +2729,12 @@ spec:
 			}
 			var one uint8 = 1
 			kv.Spec.Infra.Replicas = &one
-			kv, err = virtClient.KubeVirt(kv.Namespace).Create(kv)
+			kv, err = virtClient.KubeVirt(kv.Namespace).Create(context.Background(), kv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for the kv CR to get a finalizer")
 			Eventually(func() bool {
-				kv, err = virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				kv, err = virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return len(kv.Finalizers) > 0
 			}, 120*time.Second, 4*time.Second).Should(BeTrue())
@@ -2742,7 +2742,7 @@ spec:
 			By("ensuring the CR generation is stable")
 			Expect(err).ToNot(HaveOccurred())
 			Consistently(func() int64 {
-				kv2, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+				kv2, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return kv2.GetGeneration()
 			}, 30*time.Second, 2*time.Second).Should(Equal(kv.GetGeneration()))
@@ -2912,7 +2912,7 @@ spec:
 				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewCirros())
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				fetchVMI := matcher.ThisVMI(vmi)
 				psaRelatedErrorDetected := false
@@ -2967,10 +2967,20 @@ spec:
 	})
 
 	Context("[Serial] Deployment of common-instancetypes", Serial, func() {
-		var appComponent string
-		var labelSelector string
+		var (
+			fgEnabled     bool
+			appComponent  string
+			labelSelector string
+		)
 
 		BeforeEach(func() {
+			if fgEnabled = checks.HasFeature(virtconfig.CommonInstancetypesDeploymentGate); fgEnabled {
+				// Disable feature gate for cases in which the feature gate was enabled
+				// prior to running any of these tests. (e.g. in downstream)
+				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				testsuite.EnsureKubevirtReady()
+			}
+
 			appComponent = apply.GetAppComponent(util2.GetCurrentKv(virtClient))
 			labelSelector = labels.Set{
 				v1.AppComponentLabel: appComponent,
@@ -2979,7 +2989,12 @@ spec:
 		})
 
 		AfterEach(func() {
-			tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			// Reset the feature gate to its original value after running any of these tests.
+			if fgEnabled {
+				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			} else {
+				tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			}
 			testsuite.EnsureKubevirtReady()
 		})
 
@@ -3028,8 +3043,10 @@ spec:
 		})
 
 		Context("Should take ownership", func() {
-			const appComponentChanged = "something"
-			const managedByChanged = "someone"
+			const (
+				appComponentChanged = "something"
+				managedByChanged    = "someone"
+			)
 
 			It("of instancetypes", func() {
 				By("Getting instancetypes to be deployed by virt-operator")
@@ -3147,9 +3164,11 @@ spec:
 		})
 
 		Context("Should revert changes", func() {
-			const keyTest = "test"
-			const valModified = "modified"
-			const cpu = uint32(1024)
+			const (
+				keyTest     = "test"
+				valModified = "modified"
+				cpu         = uint32(1024)
+			)
 
 			var preferredTopology = v1beta1.PreferThreads
 
@@ -3270,7 +3289,7 @@ func verifyOperatorWebhookCertificate() {
 	certPool.AppendCertsFromPEM(caBundle)
 	// ensure that the state is fully restored before each test
 	Eventually(func() error {
-		currentCert, err := tests.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
+		currentCert, err := libpod.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
 		Expect(err).ToNot(HaveOccurred())
 		crt, err := x509.ParseCertificate(currentCert[0])
 		Expect(err).ToNot(HaveOccurred())

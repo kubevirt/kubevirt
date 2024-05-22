@@ -155,6 +155,11 @@ func (c *ClusterConfig) GetMemoryOvercommit() int {
 }
 
 func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
+	oldEmulatedMachines := c.GetConfig().EmulatedMachines
+	if oldEmulatedMachines != nil {
+		return oldEmulatedMachines
+	}
+
 	switch arch {
 	case "arm64":
 		return c.GetConfig().ArchitectureConfiguration.Arm64.EmulatedMachines
@@ -187,7 +192,7 @@ func (c *ClusterConfig) GetDefaultArchitecture() string {
 
 func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
 	autoAttach := spec.Domain.Devices.AutoattachPodInterface
-	if autoAttach != nil && *autoAttach == false {
+	if autoAttach != nil && !*autoAttach {
 		return nil
 	}
 
@@ -202,12 +207,8 @@ func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachin
 			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		case v1.MasqueradeInterface:
 			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case v1.SlirpInterface:
-			if !c.IsSlirpInterfaceEnabled() {
-				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
-			}
-			defaultIface := v1.DefaultSlirpNetworkInterface()
-			spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+		case v1.DeprecatedSlirpInterface:
+			return fmt.Errorf("slirp interface is deprecated as of v1.3")
 		}
 
 		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
@@ -216,7 +217,7 @@ func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachin
 }
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return *c.GetConfig().NetworkConfiguration.PermitSlirpInterface
+	return *c.GetConfig().NetworkConfiguration.DeprecatedPermitSlirpInterface
 }
 
 func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {
@@ -244,6 +245,11 @@ func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 }
 
 func (c *ClusterConfig) GetOVMFPath(arch string) string {
+	oldOvmfPath := c.GetConfig().OVMFPath
+	if oldOvmfPath != "" {
+		return oldOvmfPath
+	}
+
 	switch arch {
 	case "arm64":
 		return c.GetConfig().ArchitectureConfiguration.Arm64.OVMFPath
@@ -322,7 +328,7 @@ func (c *ClusterConfig) GetDesiredMDEVTypes(node *k8sv1.Node) []string {
 		}
 		if len(mdevTypesMap) != 0 {
 			mdevTypesList := []string{}
-			for mdevType, _ := range mdevTypesMap {
+			for mdevType := range mdevTypesMap {
 				mdevTypesList = append(mdevTypesList, mdevType)
 			}
 			return mdevTypesList

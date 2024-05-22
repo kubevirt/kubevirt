@@ -90,7 +90,7 @@ var _ = Describe("Replicaset", func() {
 
 			addReplicaSet(rs)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 
@@ -118,10 +118,10 @@ var _ = Describe("Replicaset", func() {
 
 			addReplicaSet(rs)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal("testvmi"))
 			}).Return(vmi, nil)
-			rsInterface.EXPECT().UpdateStatus(expectedRS)
+			rsInterface.EXPECT().UpdateStatus(context.Background(), expectedRS, metav1.UpdateOptions{})
 
 			controller.Execute()
 
@@ -144,10 +144,10 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 
 			// No invocations expected
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(0)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(0)
 
 			// Synchronizing the state is expected
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj *v1.VirtualMachineInstanceReplicaSet) {
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Times(1).Do(func(ctx context.Context, obj *v1.VirtualMachineInstanceReplicaSet, options metav1.UpdateOptions) {
 				Expect(obj.Status.Replicas).To(Equal(int32(0)))
 				Expect(obj.Status.ReadyReplicas).To(Equal(int32(0)))
 				Expect(obj.Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceReplicaSetReplicaPaused))
@@ -163,10 +163,10 @@ var _ = Describe("Replicaset", func() {
 
 			addReplicaSet(rs)
 
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes()
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).AnyTimes()
 
 			// Check if only 10 are created
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(10).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(10).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 
@@ -201,10 +201,10 @@ var _ = Describe("Replicaset", func() {
 				vmiFeeder.Add(vmi)
 			}
 
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes()
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).AnyTimes()
 
 			// Should create 7 vms, 3 are already there and 3 are there but marked for deletion
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(7).Do(func(ctx context.Context, arg interface{}) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(7).Do(func(ctx context.Context, arg interface{}, opts metav1.CreateOptions) {
 				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 
@@ -228,7 +228,7 @@ var _ = Describe("Replicaset", func() {
 				vmiFeeder.Add(vmi)
 			}
 
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes()
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).AnyTimes()
 
 			// Check if only 10 are deleted
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).
@@ -264,7 +264,7 @@ var _ = Describe("Replicaset", func() {
 				vmiFeeder.Add(vmi)
 			}
 
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).AnyTimes()
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).AnyTimes()
 
 			// Check if only two vms get deleted
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).
@@ -288,7 +288,7 @@ var _ = Describe("Replicaset", func() {
 			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
 			vmiSource.Add(nonMatchingVMI)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(3).Return(vmi, nil)
 
 			controller.Execute()
 
@@ -309,7 +309,7 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Add(vmi)
 
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any())
-			rsInterface.EXPECT().UpdateStatus(expectedRS)
+			rsInterface.EXPECT().UpdateStatus(context.Background(), expectedRS, metav1.UpdateOptions{})
 
 			controller.Execute()
 
@@ -325,8 +325,8 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			vmiFeeder.Add(vmi)
 
-			rsInterface.EXPECT().Get(rs.ObjectMeta.Name, gomock.Any()).Return(rs, nil)
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), &metav1.PatchOptions{})
+			rsInterface.EXPECT().Get(context.Background(), rs.ObjectMeta.Name, gomock.Any()).Return(rs, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), metav1.PatchOptions{})
 
 			controller.Execute()
 		})
@@ -353,7 +353,7 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Add(vmi)
 
 			// We should see the failed condition, replicas should stay at 0
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
 				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
 				Expect(objRS.Status.LabelSelector).To(Equal(s.String()))
 			})
@@ -384,9 +384,9 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Modify(modifiedVMI)
 
 			// Expect the re-crate of the VirtualMachineInstance
-			rsInterface.EXPECT().UpdateStatus(rsCopy).Times(1)
+			rsInterface.EXPECT().UpdateStatus(context.Background(), rsCopy, metav1.UpdateOptions{}).Times(1)
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 			// Run the controller again
 			controller.Execute()
 
@@ -405,7 +405,7 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			vmiFeeder.Add(vmi)
 
-			rsInterface.EXPECT().UpdateStatus(expectedRS).Times(1)
+			rsInterface.EXPECT().UpdateStatus(context.Background(), expectedRS, metav1.UpdateOptions{}).Times(1)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
@@ -435,7 +435,7 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			vmiFeeder.Add(vmi)
 
-			rsInterface.EXPECT().UpdateStatus(expectedRS).Times(1)
+			rsInterface.EXPECT().UpdateStatus(context.Background(), expectedRS, metav1.UpdateOptions{}).Times(1)
 
 			// First make sure that we don't have to do anything
 			controller.Execute()
@@ -468,10 +468,10 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Delete(vmi)
 
 			// Expect the update from 1 to zero replicas
-			rsInterface.EXPECT().UpdateStatus(rsCopy).Times(1)
+			rsInterface.EXPECT().UpdateStatus(context.Background(), rsCopy, metav1.UpdateOptions{}).Times(1)
 
 			// Expect the recrate of the VirtualMachineInstance
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 
 			// Run the controller again
 			controller.Execute()
@@ -499,11 +499,11 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Modify(modifiedVMI)
 
 			// Expect the re-crate of the VirtualMachineInstance
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).DoAndReturn(func(ctx context.Context, vmi *v1.VirtualMachineInstance, opts metav1.CreateOptions) (*v1.VirtualMachineInstance, error) {
 				return vmi, nil
 			})
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
-			rsInterface.EXPECT().UpdateStatus(gomock.Any())
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 
 			// Run the cleanFinishedVmis method
 			controller.Execute()
@@ -532,11 +532,11 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Modify(modifiedVMI)
 
 			// Expect the re-crate of the VirtualMachineInstance
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).DoAndReturn(func(ctx context.Context, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).DoAndReturn(func(ctx context.Context, vmi *v1.VirtualMachineInstance, opts metav1.CreateOptions) (*v1.VirtualMachineInstance, error) {
 				return vmi, nil
 			})
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
-			rsInterface.EXPECT().UpdateStatus(gomock.Any())
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 
 			// Run the cleanFinishedVmis method
 			controller.Execute()
@@ -552,12 +552,12 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Add(vmi)
 
 			// Let first one succeed
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 			// Let second one fail
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(nil, fmt.Errorf("failure"))
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(nil, fmt.Errorf("failure"))
 
 			// We should see the failed condition, replicas should stay at 0
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
 				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
 				Expect(objRS.Status.Replicas).To(Equal(int32(1)))
 				Expect(objRS.Status.Conditions).To(HaveLen(1))
@@ -588,7 +588,7 @@ var _ = Describe("Replicaset", func() {
 			vmiInterface.EXPECT().Delete(context.Background(), vmi1.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
 
 			// We should see the failed condition, replicas should stay at 2
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
 				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
 				Expect(objRS.Status.Replicas).To(Equal(int32(2)))
 				Expect(objRS.Status.Conditions).To(HaveLen(1))
@@ -618,7 +618,7 @@ var _ = Describe("Replicaset", func() {
 			vmiInterface.EXPECT().Delete(context.Background(), vmi1.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
 
 			// We should see the failed condition, replicas should stay at 2
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
 				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
 				Expect(objRS.Status.Replicas).To(Equal(int32(2)))
 				Expect(objRS.Status.Conditions).To(HaveLen(1))
@@ -650,12 +650,12 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Add(vmi)
 
 			// Let first one succeed
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(vmi, nil)
 			// Let second one fail
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(nil, fmt.Errorf("failure"))
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(nil, fmt.Errorf("failure"))
 
 			// We should see the failed condition, replicas should stay at 0
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
 				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
 				Expect(objRS.Status.Replicas).To(Equal(int32(1)))
 				Expect(objRS.Status.Conditions).To(HaveLen(1))
@@ -681,10 +681,10 @@ var _ = Describe("Replicaset", func() {
 			addReplicaSet(rs)
 			vmiFeeder.Add(vmi)
 
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(2).Return(vmi, nil)
+			vmiInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Times(2).Return(vmi, nil)
 
 			// We should see the failed condition, replicas should stay at 0
-			rsInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			rsInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
 				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
 				Expect(objRS.Status.Replicas).To(Equal(int32(1)))
 				Expect(objRS.Status.Conditions).To(BeEmpty())

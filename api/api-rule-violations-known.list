@@ -244,6 +244,8 @@ API rule violation: names_match,kubevirt.io/api/core/v1,FeatureSpinlocks,Retries
 API rule violation: names_match,kubevirt.io/api/core/v1,FeatureVendorID,VendorID
 API rule violation: names_match,kubevirt.io/api/core/v1,HPETTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,HypervTimer,Enabled
+API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedMacvtap
+API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedSlirp
 API rule violation: names_match,kubevirt.io/api/core/v1,KVMTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,MigrationConfiguration
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,NetworkConfiguration
@@ -251,10 +253,10 @@ API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,SE
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,SMBIOSConfig
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtSpec,CertificateRotationStrategy
 API rule violation: names_match,kubevirt.io/api/core/v1,LunTarget,ReadOnly
+API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,DeprecatedPermitSlirpInterface
 API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,NetworkInterface
 API rule violation: names_match,kubevirt.io/api/core/v1,PITTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,RTCTimer,Enabled
-API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemDisk,BusType
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemInfo,Filesystems
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestAgentInfo,GAVersion
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestOSInfo,VersionID

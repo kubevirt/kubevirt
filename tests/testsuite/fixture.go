@@ -42,11 +42,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -100,6 +102,13 @@ func SynchronizedBeforeTestSetup() []byte {
 	return nil
 }
 
+func addTestAnnotation(vmi *v1.VirtualMachineInstance) {
+	if vmi.Annotations == nil {
+		vmi.Annotations = map[string]string{}
+	}
+	vmi.Annotations["kubevirt.io/created-by-test"] = GinkgoT().Name()
+}
+
 func BeforeTestSuiteSetup(_ []byte) {
 
 	worker := GinkgoParallelProcess()
@@ -136,7 +145,8 @@ func BeforeTestSuiteSetup(_ []byte) {
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 
-	libvmi.RegisterArchitecture(Arch)
+	libvmifact.RegisterArchitecture(Arch)
+	libvmi.RegisterDefaultOption(addTestAnnotation)
 }
 
 func EnsureKubevirtReady() {
@@ -152,7 +162,7 @@ func EnsureKubevirtReadyWithTimeout(timeout time.Duration) {
 			"virt-operator deployment is not ready")
 
 	Eventually(func() *v1.KubeVirt {
-		kv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
+		kv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return kv
 	}, timeout, 1*time.Second).Should(

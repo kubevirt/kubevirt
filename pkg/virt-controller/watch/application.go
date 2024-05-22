@@ -165,10 +165,11 @@ type VirtControllerApp struct {
 
 	controllerRevisionInformer cache.SharedIndexInformer
 
-	dataVolumeInformer cache.SharedIndexInformer
-	dataSourceInformer cache.SharedIndexInformer
-	cdiInformer        cache.SharedIndexInformer
-	cdiConfigInformer  cache.SharedIndexInformer
+	dataVolumeInformer     cache.SharedIndexInformer
+	dataSourceInformer     cache.SharedIndexInformer
+	storageProfileInformer cache.SharedIndexInformer
+	cdiInformer            cache.SharedIndexInformer
+	cdiConfigInformer      cache.SharedIndexInformer
 
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
@@ -382,6 +383,7 @@ func Execute() {
 		app.cdiInformer = app.informerFactory.CDI()
 		app.cdiConfigInformer = app.informerFactory.CDIConfig()
 		app.dataSourceInformer = app.informerFactory.DataSource()
+		app.storageProfileInformer = app.informerFactory.StorageProfile()
 		log.Log.Infof("CDI detected, DataVolume integration enabled")
 	} else {
 		// Add a dummy DataVolume informer in the event datavolume support
@@ -391,6 +393,7 @@ func Execute() {
 		app.cdiInformer = app.informerFactory.DummyCDI()
 		app.cdiConfigInformer = app.informerFactory.DummyCDIConfig()
 		app.dataSourceInformer = app.informerFactory.DummyDataSource()
+		app.storageProfileInformer = app.informerFactory.DummyStorageProfile()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
@@ -610,10 +613,7 @@ func (vca *VirtControllerApp) initCommon() {
 			func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 				return hooks.UnmarshalHookSidecarList(vmi)
 			}),
-		services.WithSidecarCreator(
-			func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
-				return netbinding.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
-			}),
+		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
@@ -623,9 +623,11 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmInformer,
 		vca.kvPodInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.storageClassInformer,
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.dataVolumeInformer,
+		vca.storageProfileInformer,
 		vca.cdiInformer,
 		vca.cdiConfigInformer,
 		vca.clusterConfig,

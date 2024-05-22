@@ -146,17 +146,11 @@ func contains(volumes []string, name string) bool {
 }
 
 func isAMD64(arch string) bool {
-	if arch == "amd64" {
-		return true
-	}
-	return false
+	return arch == "amd64"
 }
 
 func isARM64(arch string) bool {
-	if arch == "arm64" {
-		return true
-	}
-	return false
+	return arch == "arm64"
 }
 
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
@@ -1117,6 +1111,10 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 		if err != nil {
 			return nil
 		}
+	} else if source.HypervPassthrough != nil && *source.HypervPassthrough.Enabled {
+		features.Hyperv = &api.FeatureHyperv{
+			Mode: api.HypervModePassthrough,
+		}
 	}
 	if source.KVM != nil {
 		features.KVM = &api.FeatureKVM{
@@ -1686,7 +1684,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		if useIOThreads {
-			if _, ok := c.HotplugVolumes[disk.Name]; !ok {
+			bus := getBusFromDisk(disk)
+			switch bus {
+			// Only disks with virtio bus support IOThreads
+			case v1.DiskBusVirtio:
 				ioThreadId := defaultIOThread
 				dedicatedThread := false
 				if disk.DedicatedIOThread != nil {
@@ -1703,8 +1704,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
 				}
 				newDisk.Driver.IOThread = &ioThreadId
-			} else {
+
+			// We can find a workaround by adding IOThreads to the SCSI controller
+			case v1.DiskBusSCSI:
 				newDisk.Driver.IO = v1.IOThreads
+
+			default:
+				// TODO: if possible, find a workaround for SATA and USB buses.
+				log.Log.Infof("IOthreads not available for disk %s: Bus %s not supported", disk.Name, bus)
 			}
 		}
 
@@ -1761,20 +1768,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if isUSBNeeded(c, vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:  "usb",
-			Index: "0",
-			Model: "qemu-xhci",
-		})
-	} else {
-		// disable usb controller
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:  "usb",
-			Index: "0",
-			Model: "none",
-		})
+	// Creating USB controller, disabled by default
+	usbController := api.Controller{
+		Type:  "usb",
+		Index: "0",
+		Model: "none",
 	}
+	if isUSBNeeded(c, vmi) {
+		usbController.Model = "qemu-xhci"
+	}
+	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
 		scsiController := api.Controller{
@@ -1827,13 +1830,34 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		// Set VM CPU features
+		existingFeatures := make(map[string]struct{})
 		if vmi.Spec.Domain.CPU.Features != nil {
 			for _, feature := range vmi.Spec.Domain.CPU.Features {
+				existingFeatures[feature.Name] = struct{}{}
 				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 					Name:   feature.Name,
 					Policy: feature.Policy,
 				})
 			}
+		}
+
+		/*
+						Libvirt validation fails when a CPU model is usable
+						by QEMU but lacks features listed in
+						`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
+						To avoid the validation error mentioned above we can disable
+						deprecated features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files.
+						Examples of validation error:
+			    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283 - resolve by obsolete Opteron_G2
+						https://gitlab.com/libvirt/libvirt/-/issues/304 - resolve by disabling mpx which is deprecated
+						Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
+						once the issue is resolved we can remove mpx disablement
+		*/
+		if _, exists := existingFeatures["mpx"]; !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
+				Name:   "mpx",
+				Policy: "disable",
+			})
 		}
 
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
@@ -1971,7 +1995,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domainInterfaces, err := CreateDomainInterfaces(vmi, domain, c)
+	domainInterfaces, err := CreateDomainInterfaces(vmi, c)
 	if err != nil {
 		return err
 	}
@@ -2091,17 +2115,24 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 
 func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
-		if disk.LUN != nil && disk.LUN.Bus == "scsi" {
-			return true
-		}
-		if disk.Disk != nil && disk.Disk.Bus == "scsi" {
-			return true
-		}
-		if disk.CDRom != nil && disk.CDRom.Bus == "scsi" {
+		if getBusFromDisk(disk) == v1.DiskBusSCSI {
 			return true
 		}
 	}
 	return !vmi.Spec.Domain.Devices.DisableHotplug
+}
+
+func getBusFromDisk(disk v1.Disk) v1.DiskBus {
+	if disk.LUN != nil {
+		return disk.LUN.Bus
+	}
+	if disk.Disk != nil {
+		return disk.Disk.Bus
+	}
+	if disk.CDRom != nil {
+		return disk.CDRom.Bus
+	}
+	return ""
 }
 
 func getPrefixFromBus(bus v1.DiskBus) string {

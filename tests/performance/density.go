@@ -43,7 +43,9 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -191,7 +193,7 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 	for i := 1; i <= vmCount; i++ {
 		vmi := createVMISpecWithResources()
 		By(fmt.Sprintf("Creating VMI %s", vmi.ObjectMeta.Name))
-		_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+		_, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// interval for throughput control
@@ -201,7 +203,7 @@ func createBatchVMIWithRateControl(virtClient kubecli.KubevirtClient, vmCount in
 
 func createBatchRunningVMWithInstancetypeWithRateControl(virtClient kubecli.KubevirtClient, vmCount int, instancetypeName, preferenceName string) {
 	createBatchRunningVMWithRateControl(virtClient, vmCount, func() *kvv1.VirtualMachine {
-		vm := libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning())
+		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
 		vm.Spec.Template.Spec.Domain.Resources = kvv1.ResourceRequirements{}
 		vm.Spec.Instancetype = &kvv1.InstancetypeMatcher{
 			Name: instancetypeName,
@@ -225,7 +227,7 @@ func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCo
 	for i := 1; i <= vmCount; i++ {
 		vm := vmCreateFunc()
 		By(fmt.Sprintf("Creating VM %s", vm.ObjectMeta.Name))
-		_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// interval for throughput control
@@ -272,7 +274,7 @@ func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.Vi
 func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 	cpuLimit := "100m"
 	memLimit := "90Mi"
-	vmi := libvmi.NewCirros(
+	vmi := libvmifact.NewCirros(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(kvv1.DefaultPodNetwork()),
 		libvmi.WithResourceMemory(memLimit),
@@ -285,7 +287,7 @@ func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 
 func waitRunningVMI(virtClient kubecli.KubevirtClient, vmiCount int, timeout time.Duration) {
 	Eventually(func() int {
-		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(context.Background(), &metav1.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		running := 0
 		for _, vmi := range vmis.Items {

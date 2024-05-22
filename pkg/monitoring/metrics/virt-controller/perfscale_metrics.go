@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -46,8 +47,8 @@ var (
 			Name: "kubevirt_vmi_phase_transition_time_seconds",
 			Help: "Histogram of VM phase transitions duration between different phases in seconds.",
 		},
-		operatormetrics.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+		prometheus.HistogramOpts{
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi
@@ -62,8 +63,8 @@ var (
 			Name: "kubevirt_vmi_phase_transition_time_from_creation_seconds",
 			Help: "Histogram of VM phase transitions duration from creation time in seconds.",
 		},
-		operatormetrics.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+		prometheus.HistogramOpts{
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi
@@ -76,8 +77,8 @@ var (
 			Name: "kubevirt_vmi_phase_transition_time_from_deletion_seconds",
 			Help: "Histogram of VM phase transitions duration from deletion time in seconds.",
 		},
-		operatormetrics.HistogramOpts{
-			Buckets: phaseTransitionTimeBuckets(),
+		prometheus.HistogramOpts{
+			Buckets: PhaseTransitionTimeBuckets(),
 		},
 		[]string{
 			// phase of the vmi

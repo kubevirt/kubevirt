@@ -1,0 +1,50 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "admit.go",
+        "binding.go",
+        "macvtap.go",
+        "netiface.go",
+        "netsource.go",
+        "passt.go",
+        "slirp.go",
+        "validator.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/network/admitter",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/link:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
+        "//pkg/util/hardware:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "admit_suite_test.go",
+        "admit_test.go",
+        "binding_test.go",
+        "macvtap_test.go",
+        "netiface_test.go",
+        "netsource_test.go",
+        "passt_test.go",
+        "slirp_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+    ],
+)

@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "multus_annotations.go",
         "nodeselectorrenderer.go",
         "rendercontainer.go",
         "renderresources.go",
@@ -21,10 +20,9 @@ go_library(
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
+        "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/namescheme:go_default_library",
-        "//pkg/network/netbinding:go_default_library",
-        "//pkg/network/sriov:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
@@ -33,8 +31,10 @@ go_library(
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//pkg/virt-controller/network:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-operator/util:go_default_library",
         "//pkg/virtiofs:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
@@ -56,7 +56,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "multus_annotations_test.go",
         "nodeselectorrenderer_test.go",
         "rendercontainer_test.go",
         "renderresources_test.go",
@@ -69,6 +68,7 @@ go_test(
     deps = [
         "//pkg/config:go_default_library",
         "//pkg/hooks:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",

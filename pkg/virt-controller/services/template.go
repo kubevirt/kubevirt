@@ -22,7 +22,9 @@ package services
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 
@@ -43,6 +45,7 @@ import (
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -51,8 +54,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -76,13 +81,10 @@ const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
 const virtiofsDebugLogs = "virtiofsdDebugLogs"
 
-const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
-
 const qemuTimeoutJitterRange = 120
 
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
-	CAP_NET_RAW          = "NET_RAW"
 	CAP_SYS_NICE         = "SYS_NICE"
 )
 
@@ -90,15 +92,7 @@ const (
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-// These perfixes for node feature discovery, are used in a NodeSelector on the pod
-// to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
-const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
-const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
-const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
 const IntelVendorName = "Intel"
-
-const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
-const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
 const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
@@ -129,12 +123,10 @@ const (
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
 )
 
-const customSELinuxType = "virt_launcher.process"
-
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod
@@ -185,7 +177,7 @@ func setNodeAffinityForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *
 
 	for _, feature := range vmi.Spec.Domain.CPU.Features {
 		if feature.Policy == "forbid" {
-			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, NFD_CPU_FEATURE_PREFIX+feature.Name)
+			pod.Spec.Affinity = modifyNodeAffintyToRejectLabel(pod.Spec.Affinity, v1.CPUFeatureLabel+feature.Name)
 		}
 	}
 }
@@ -266,9 +258,9 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		return nil, err
 	}
 
-	if namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
+	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := GenerateMultusCNIAnnotationFromNameScheme(
+		multusNetworksAnnotation, err := network.GenerateMultusCNIAnnotationFromNameScheme(
 			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, t.clusterConfig)
 		if err != nil {
 			return nil, err
@@ -343,7 +335,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
+	networkToResourceMap, err := network.GetNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -680,6 +672,9 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 
 	var mounts []k8sv1.VolumeMount
 	mounts = append(mounts, sidecarVolumeMount())
+	if requestedHookSidecar.DownwardAPI == v1.DeviceInfo {
+		mounts = append(mounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
+	}
 	if requestedHookSidecar.ConfigMap != nil {
 		mounts = append(mounts, configMapVolumeMount(*requestedHookSidecar.ConfigMap))
 	}
@@ -692,6 +687,10 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		sidecarOpts = append(sidecarOpts, WithNonRoot(userId))
 		sidecarOpts = append(sidecarOpts, WithDropALLCapabilities())
 	}
+	if requestedHookSidecar.Image == "" {
+		requestedHookSidecar.Image = os.Getenv(operatorutil.SidecarShimImageEnvName)
+	}
+
 	return NewContainerSpecRenderer(
 		sidecarName,
 		requestedHookSidecar.Image,
@@ -765,8 +764,13 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		volumeOpts = append(volumeOpts, withHotplugSupport(t.hotplugDiskDir))
 	}
 
-	if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
-		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
+	if vmispec.BindingPluginNetworkWithDeviceInfoExist(vmi.Spec.Domain.Devices.Interfaces, t.clusterConfig.GetNetworkBindings()) ||
+		vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
+		volumeOpts = append(volumeOpts, func(renderer *VolumeRenderer) error {
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
+			return nil
+		})
+		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
 	}
 
 	if util.IsVMIVirtiofsEnabled(vmi) {
@@ -834,7 +838,7 @@ func sidecarContainerName(i int) string {
 	return fmt.Sprintf("hook-sidecar-%d", i)
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
@@ -897,7 +901,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 							{
 								MatchExpressions: []k8sv1.NodeSelectorRequirement{
 									{
-										Key:      "kubernetes.io/hostname",
+										Key:      k8sv1.LabelHostname,
 										Operator: k8sv1.NodeSelectorOpIn,
 										Values:   []string{ownerPod.Spec.NodeName},
 									},
@@ -1037,7 +1041,7 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: ownerPod.GetLabels(),
 							},
-							TopologyKey: "kubernetes.io/hostname",
+							TopologyKey: k8sv1.LabelHostname,
 						},
 					},
 				},
@@ -1182,22 +1186,6 @@ func HaveContainerDiskVolume(volumes []v1.Volume) bool {
 	return false
 }
 
-func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
-	resourceName, ok := network.Annotations[MULTUS_RESOURCE_NAME_ANNOTATION]
-	if ok {
-		return resourceName
-	}
-	return "" // meaning the network is not served by resources
-}
-
-func getNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
-	if strings.Contains(fullNetworkName, "/") {
-		res := strings.SplitN(fullNetworkName, "/", 2)
-		return res[0], res[1]
-	}
-	return precond.MustNotBeEmpty(namespace), fullNetworkName
-}
-
 type templateServiceOption func(*templateService)
 
 func NewTemplateService(launcherImage string,
@@ -1334,9 +1322,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
-	for k, v := range filterVMIAnnotationsForPod(vmi.Annotations) {
-		annotationsSet[k] = v
-	}
+	maps.Copy(annotationsSet, filterVMIAnnotationsForPod(vmi.Annotations))
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
@@ -1344,16 +1330,16 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
+	multusAnnotation, err := network.GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
 	if err != nil {
 		return nil, err
 	}
 	if multusAnnotation != "" {
-		annotationsSet[MultusNetworksAnnotation] = multusAnnotation
+		annotationsSet[networkv1.NetworkAttachmentAnnot] = multusAnnotation
 	}
 
 	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
-		annotationsSet[MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = multusDefaultNetwork
+		annotationsSet[network.MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = multusDefaultNetwork
 	}
 
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {

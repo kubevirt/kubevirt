@@ -102,13 +102,11 @@ func ServeStatusValidation(resp http.ResponseWriter,
 }
 
 func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, &admitters.PodEvictionAdmitter{
-		ClusterConfig: clusterConfig, VirtClient: virtCli,
-	})
+	validating_webhooks.Serve(resp, req, admitters.NewPodEvictionAdmitter(clusterConfig, virtCli, virtCli.GeneratedKubeVirtClient()))
 }
 
 func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter(clusterConfig, virtCli))
+	validating_webhooks.Serve(resp, req, admitters.NewMigrationPolicyAdmitter())
 }
 
 func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {

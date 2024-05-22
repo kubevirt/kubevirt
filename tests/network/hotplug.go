@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +40,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 const (
@@ -61,7 +61,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 		migrate(vmi)
 	}
 
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
@@ -78,7 +78,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 	}, 30*time.Second).Should(
 		ConsistOf(interfaceStatusFromInterfaceNames(queueCount, secondaryNetworksNames...)))
 
-	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	return vmi
 }
@@ -86,7 +86,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	EventuallyWithOffset(1, func() []v1.Network {
 		var err error
-		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		return vmi.Spec.Networks
 	}, 30*time.Second).Should(
@@ -103,7 +103,7 @@ func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.Virt
 }
 
 func vmiCurrentInterfaces(vmiNamespace, vmiName string) []v1.VirtualMachineInstanceNetworkInterface {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmiNamespace).Get(context.Background(), vmiName, &metav1.GetOptions{})
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmiNamespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	return secondaryInterfaces(vmi)
 }
@@ -153,7 +153,7 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 }
 
 func newVMWithOneInterface() *v1.VirtualMachine {
-	vm := libvmi.NewVirtualMachine(libvmi.NewAlpineWithTestTooling(), libvmi.WithRunning())
+	vm := libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling(), libvmi.WithRunning())
 	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	return vm
@@ -194,7 +194,7 @@ func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIf
 		return err
 	}
 
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
 }
 
@@ -206,6 +206,6 @@ func removeInterface(vm *v1.VirtualMachine, name string) error {
 	if err != nil {
 		return err
 	}
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
 }

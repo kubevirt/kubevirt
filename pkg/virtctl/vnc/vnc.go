@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -145,7 +146,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		// transfer data from/to the VM
-		k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})

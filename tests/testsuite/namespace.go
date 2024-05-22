@@ -136,11 +136,11 @@ func CleanNamespaces() {
 
 		// Remove all VMIs
 		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error())
-		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), &metav1.ListOptions{})
+		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), metav1.ListOptions{})
 		util.PanicOnError(err)
 		for _, vmi := range vmis.Items {
 			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
-				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), &metav1.PatchOptions{})
+				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
 				if !errors.IsNotFound(err) {
 					util.PanicOnError(err)
 				}
@@ -191,6 +191,9 @@ func CleanNamespaces() {
 		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), listOptions)
 		util.PanicOnError(err)
 		for _, pv := range pvs.Items {
+			if pv.Spec.ClaimRef == nil || pv.Spec.ClaimRef.Namespace != namespace {
+				continue
+			}
 			err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				util.PanicOnError(err)
@@ -212,11 +215,11 @@ func CleanNamespaces() {
 
 		// Remove all Migration Objects
 		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error())
-		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
+		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(context.Background(), metav1.ListOptions{})
 		util.PanicOnError(err)
 		for _, migration := range migrations.Items {
 			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
-				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(context.Background(), migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
 				if !errors.IsNotFound(err) {
 					util.PanicOnError(err)
 				}
@@ -255,30 +258,7 @@ func CleanNamespaces() {
 
 		// Remove vm snapshots
 		util.PanicOnError(virtCli.VirtualMachineSnapshot(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
-		snapshots, err := virtCli.VirtualMachineSnapshot(namespace).List(context.Background(), metav1.ListOptions{})
-		util.PanicOnError(err)
-		vmSnapshotFinalizer := "snapshot.kubevirt.io/vmsnapshot-protection"
-		for _, snapshot := range snapshots.Items {
-			if controller.HasFinalizer(&snapshot, vmSnapshotFinalizer) {
-				_, err := virtCli.VirtualMachineSnapshot(snapshot.Namespace).Patch(context.Background(), snapshot.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
-				if !errors.IsNotFound(err) {
-					util.PanicOnError(err)
-				}
-			}
-		}
-
 		util.PanicOnError(virtCli.VirtualMachineSnapshotContent(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
-		snapshotContentList, err := virtCli.VirtualMachineSnapshotContent(namespace).List(context.Background(), metav1.ListOptions{})
-		util.PanicOnError(err)
-		vmSnapshotContentFinalizer := "snapshot.kubevirt.io/vmsnapshotcontent-protection"
-		for _, snapshotContent := range snapshotContentList.Items {
-			if controller.HasFinalizer(&snapshotContent, vmSnapshotContentFinalizer) {
-				_, err := virtCli.VirtualMachineSnapshot(snapshotContent.Namespace).Patch(context.Background(), snapshotContent.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), metav1.PatchOptions{})
-				if !errors.IsNotFound(err) {
-					util.PanicOnError(err)
-				}
-			}
-		}
 
 		util.PanicOnError(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
 
@@ -338,7 +318,7 @@ func removeAllGroupVersionResourceFromNamespace(groupVersionResource schema.Grou
 
 func detectInstallNamespace() {
 	virtCli := kubevirt.Client()
-	kvs, err := virtCli.KubeVirt("").List(&metav1.ListOptions{})
+	kvs, err := virtCli.KubeVirt("").List(context.Background(), metav1.ListOptions{})
 	util.PanicOnError(err)
 	if len(kvs.Items) == 0 {
 		util.PanicOnError(fmt.Errorf("Could not detect a kubevirt installation"))

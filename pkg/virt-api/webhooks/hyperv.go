@@ -167,7 +167,30 @@ func getHypervFeatureDependencies(field *k8sfield.Path, spec *v1.VirtualMachineI
 	return features
 }
 
+func ValidateVirtualMachineInstanceHyperv(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	causes := ValidateVirtualMachineInstanceHypervFeatureDependencies(field, spec)
+	causes = append(causes, ValidateVirtualMachineInstanceHypervMode(field, spec)...)
+
+	return causes
+}
+
+func ValidateVirtualMachineInstanceHypervMode(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.Features != nil && spec.Domain.Features.Hyperv != nil && spec.Domain.Features.HypervPassthrough != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Cannot explicitly set hyperV features if HypervPassthrough is being used. Please use either HyperV or HypervPassthrough.",
+			Field:   field.String(),
+		})
+	}
+
+	return causes
+}
+
 func ValidateVirtualMachineInstanceHypervFeatureDependencies(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
+
 	var causes []metav1.StatusCause
 
 	if features := getHypervFeatureDependencies(field, spec); features != nil {
@@ -179,7 +202,7 @@ func ValidateVirtualMachineInstanceHypervFeatureDependencies(field *k8sfield.Pat
 	}
 
 	if spec.Domain.Features == nil || spec.Domain.Features.Hyperv == nil || spec.Domain.Features.Hyperv.EVMCS == nil ||
-		(spec.Domain.Features.Hyperv.EVMCS.Enabled != nil && (*spec.Domain.Features.Hyperv.EVMCS.Enabled) == false) {
+		(spec.Domain.Features.Hyperv.EVMCS.Enabled != nil && !(*spec.Domain.Features.Hyperv.EVMCS.Enabled)) {
 		return causes
 	}
 
@@ -212,7 +235,7 @@ func SetHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) error {
 
 	//Check if vmi has EVMCS feature enabled. If yes, we have to add vmx cpu feature
 	if spec.Domain.Features != nil && spec.Domain.Features.Hyperv != nil && spec.Domain.Features.Hyperv.EVMCS != nil &&
-		(spec.Domain.Features.Hyperv.EVMCS.Enabled == nil || (*spec.Domain.Features.Hyperv.EVMCS.Enabled) == true) {
+		(spec.Domain.Features.Hyperv.EVMCS.Enabled == nil || (*spec.Domain.Features.Hyperv.EVMCS.Enabled)) {
 		setEVMCSDependency(spec)
 	}
 

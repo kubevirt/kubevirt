@@ -16555,6 +16555,14 @@
      }
     }
    },
+   "v1.DeprecatedInterfaceMacvtap": {
+    "description": "DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface. Deprecated: Removed in v1.3",
+    "type": "object"
+   },
+   "v1.DeprecatedInterfaceSlirp": {
+    "description": "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp that connects to a given network using QEMU user networking mode. Deprecated: Removed in v1.3",
+    "type": "object"
+   },
    "v1.DeveloperConfiguration": {
     "description": "DeveloperConfiguration holds developer options",
     "type": "object",
@@ -17108,6 +17116,10 @@
       "description": "Defaults to the machine type setting.",
       "$ref": "#/definitions/v1.FeatureHyperv"
      },
+     "hypervPassthrough": {
+      "description": "This enables all supported hyperv flags automatically. Bear in mind that if this enabled hyperV features cannot be enabled explicitly. In addition, a Virtual Machine using it will be non-migratable.",
+      "$ref": "#/definitions/v1.HyperVPassthrough"
+     },
      "kvm": {
       "description": "Configure how KVM presence is exposed to the guest.",
       "$ref": "#/definitions/v1.FeatureKVM"
@@ -17395,6 +17407,14 @@
      }
     }
    },
+   "v1.HyperVPassthrough": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "type": "boolean"
+     }
+    }
+   },
    "v1.HypervTimer": {
     "type": "object",
     "properties": {
@@ -17506,8 +17526,8 @@
       "type": "string"
      },
      "macvtap": {
-      "description": "Deprecated, please refer to Kubevirt user guide for alternatives.",
-      "$ref": "#/definitions/v1.InterfaceMacvtap"
+      "description": "DeprecatedMacvtap is an alias to the deprecated Macvtap interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
+      "$ref": "#/definitions/v1.DeprecatedInterfaceMacvtap"
      },
      "masquerade": {
       "$ref": "#/definitions/v1.InterfaceMasquerade"
@@ -17538,7 +17558,8 @@
       }
      },
      "slirp": {
-      "$ref": "#/definitions/v1.InterfaceSlirp"
+      "description": "DeprecatedSlirp is an alias to the deprecated Slirp interface Deprecated: Removed in v1.3",
+      "$ref": "#/definitions/v1.DeprecatedInterfaceSlirp"
      },
      "sriov": {
       "$ref": "#/definitions/v1.InterfaceSRIOV"
@@ -17569,6 +17590,10 @@
       "description": "DomainAttachmentType is a standard domain network attachment method kubevirt supports. Supported values: \"tap\". The standard domain attachment can be used instead or in addition to the sidecarImage. version: 1alphav1",
       "type": "string"
      },
+     "downwardAPI": {
+      "description": "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar. Supported values: \"device-info\" version: v1alphav1",
+      "type": "string"
+     },
      "migration": {
       "description": "Migration means the VM using the plugin can be safely migrated version: 1alphav1",
       "$ref": "#/definitions/v1.InterfaceBindingMigration"
@@ -17587,10 +17612,6 @@
     "description": "InterfaceBridge connects to a given network via a linux bridge.",
     "type": "object"
    },
-   "v1.InterfaceMacvtap": {
-    "description": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
-    "type": "object"
-   },
    "v1.InterfaceMasquerade": {
     "description": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
     "type": "object"
@@ -17601,10 +17622,6 @@
    },
    "v1.InterfaceSRIOV": {
     "description": "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
-    "type": "object"
-   },
-   "v1.InterfaceSlirp": {
-    "description": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
     "type": "object"
    },
    "v1.KSMConfiguration": {
@@ -17809,6 +17826,7 @@
       "$ref": "#/definitions/v1.DeveloperConfiguration"
      },
      "emulatedMachines": {
+      "description": "Deprecated. Use architectureConfiguration instead.",
       "type": "array",
       "items": {
        "type": "string",
@@ -17867,6 +17885,7 @@
       }
      },
      "ovmfPath": {
+      "description": "Deprecated. Use architectureConfiguration instead.",
       "type": "string"
      },
      "permittedHostDevices": {
@@ -18497,6 +18516,7 @@
       "type": "boolean"
      },
      "permitSlirpInterface": {
+      "description": "DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface. Deprecated: Removed in v1.3.",
       "type": "boolean"
      }
     }
@@ -19733,17 +19753,15 @@
     "description": "VirtualMachineInstanceFileSystemDisk represents the guest os FS disks",
     "type": "object",
     "required": [
-     "serial",
-     "bus-type"
+     "busType"
     ],
     "properties": {
-     "bus-type": {
+     "busType": {
       "type": "string",
       "default": ""
      },
      "serial": {
-      "type": "string",
-      "default": ""
+      "type": "string"
      }
     }
    },
@@ -20102,6 +20120,10 @@
       "description": "Indicates that the migration failed",
       "type": "boolean"
      },
+     "failureReason": {
+      "description": "Contains the reason why the migration failed",
+      "type": "string"
+     },
      "migrationConfiguration": {
       "description": "Migration configurations to apply",
       "$ref": "#/definitions/v1.MigrationConfiguration"
@@ -20120,6 +20142,9 @@
      },
      "sourceNode": {
       "description": "The source node that the VMI originated on",
+      "type": "string"
+     },
+     "sourcePod": {
       "type": "string"
      },
      "startTimestamp": {
@@ -20880,6 +20905,10 @@
      "template": {
       "description": "Template is the direct specification of VirtualMachineInstance",
       "$ref": "#/definitions/v1.VirtualMachineInstanceTemplateSpec"
+     },
+     "updateVolumesStrategy": {
+      "description": "UpdateVolumesStrategy is the strategy to apply on volumes updates",
+      "type": "string"
      }
     }
    },
@@ -22430,6 +22459,9 @@
      "preferredCPUTopology": {
       "description": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.",
       "type": "string"
+     },
+     "spreadOptions": {
+      "$ref": "#/definitions/v1beta1.SpreadOptions"
      }
     }
    },
@@ -22993,6 +23025,20 @@
      "memory": {
       "description": "Required Memory related attributes of the instancetype.",
       "$ref": "#/definitions/v1beta1.MemoryPreferenceRequirement"
+     }
+    }
+   },
+   "v1beta1.SpreadOptions": {
+    "type": "object",
+    "properties": {
+     "across": {
+      "description": "Across optionally defines how to spread vCPUs across the guest visible topology. Default: SocketsCores",
+      "type": "string"
+     },
+     "ratio": {
+      "description": "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted. SocketsCores        - 1:N   - Controls the ratio of socket to cores. SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },

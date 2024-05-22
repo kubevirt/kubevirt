@@ -29,11 +29,13 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 // Capabilities from client side
@@ -106,7 +108,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						return
 					}
 
-					k8ResChan <- usbredirVMI.Stream(kubecli.StreamOptions{
+					k8ResChan <- usbredirVMI.Stream(kvcorev1.StreamOptions{
 						In:  pipeInReader,
 						Out: pipeOutWriter,
 					})

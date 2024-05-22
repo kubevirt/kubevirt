@@ -69,7 +69,6 @@ const (
 	VmiPVC                      = "vmi-pvc"
 	VmiWindows                  = "vmi-windows"
 	VmiKernelBoot               = "vmi-kernel-boot"
-	VmiSlirp                    = "vmi-slirp"
 	VmiMasquerade               = "vmi-masquerade"
 	VmiSRIOV                    = "vmi-sriov"
 	VmiWithHookSidecar          = "vmi-with-sidecar-hook"
@@ -79,7 +78,6 @@ const (
 	VmiHostDisk                 = "vmi-host-disk"
 	VmiGPU                      = "vmi-gpu"
 	VmiARM                      = "vmi-arm"
-	VmiMacvtap                  = "vmi-macvtap"
 	VmiUSB                      = "vmi-usb"
 	VmTemplateFedora            = "vm-template-fedora"
 	VmTemplateRHEL7             = "vm-template-rhel7"
@@ -525,23 +523,6 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
-}
-
-func GetVMISlirp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiSlirp)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(
-		&vm.Spec,
-		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
-
-	slirp := &v1.InterfaceSlirp{}
-	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
-
-	return vm
 }
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
@@ -1225,19 +1206,6 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.GPUs = GPUs
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-	return vmi
-}
-
-func GetVMIMacvtap() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiMacvtap)
-	macvtapNetworkName := "macvtap"
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vmi.Spec.Networks = []v1.Network{{Name: macvtapNetworkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "macvtapnetwork"}}}}
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
-
-	macvtap := &v1.InterfaceMacvtap{}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
 	return vmi
 }
 

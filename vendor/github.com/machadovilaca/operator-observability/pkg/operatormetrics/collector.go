@@ -2,6 +2,7 @@ package operatormetrics
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -19,9 +20,20 @@ type Collector struct {
 }
 
 type CollectorResult struct {
-	Metric Metric
-	Labels []string
-	Value  float64
+	Metric      Metric
+	Labels      []string
+	ConstLabels map[string]string
+	Value       float64
+}
+
+func (c Collector) hash() string {
+	var sb strings.Builder
+
+	for _, cm := range c.Metrics {
+		sb.WriteString(cm.GetOpts().Name)
+	}
+
+	return sb.String()
 }
 
 func (c Collector) Describe(ch chan<- *prometheus.Desc) {
@@ -62,11 +74,19 @@ func collectValue(ch chan<- prometheus.Metric, metric Metric, cr CollectorResult
 		return fmt.Errorf("encountered unsupported type for collector %v", metric.GetType())
 	}
 
+	labels := map[string]string{}
+	for k, v := range cr.ConstLabels {
+		labels[k] = v
+	}
+	for k, v := range metric.GetOpts().ConstLabels {
+		labels[k] = v
+	}
+
 	desc := prometheus.NewDesc(
 		metric.GetOpts().Name,
 		metric.GetOpts().Help,
 		metric.GetOpts().labels,
-		metric.GetOpts().ConstLabels,
+		labels,
 	)
 
 	cm, err := prometheus.NewConstMetric(desc, mType, cr.Value, cr.Labels...)

@@ -25,7 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-const passtDeprecationMessage = "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
+const PasstDeprecationMessage = "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
 
 func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
 	return util.IsPasstVMI(spec)

@@ -51,7 +51,7 @@ var _ = Describe("test configuration", func() {
 	DescribeTable(" when permitSlirpInterface", func(value *bool, result bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			NetworkConfiguration: &v1.NetworkConfiguration{
-				PermitSlirpInterface: value,
+				DeprecatedPermitSlirpInterface: value,
 			},
 		})
 
@@ -118,7 +118,7 @@ var _ = Describe("test configuration", func() {
 	)
 
 	nodeSelectors := map[string]string{
-		"kubernetes.io/hostname":          "node02",
+		kubev1.LabelHostname:              "node02",
 		"node-role.kubernetes.io/compute": "true",
 	}
 	DescribeTable(" when nodeSelectors", func(value, result map[string]string) {
@@ -163,31 +163,35 @@ var _ = Describe("test configuration", func() {
 		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", virtconfig.DefaultPPC64LEMachineType),
 	)
 
-	Context("when deprecated machineType is set", func() {
-		It("it should have higher priority than the architectureConfiguration", func() {
-			const machineType = "quantum-qc35"
-			const cpuArch = "amd64"
+	It("architectureConfiguration fields should not have higher priority when deprecated options are set", func() {
+		const machineType = "quantum-qc35"
+		const ovmfPath = "/usr/share/something"
+		const cpuArch = "amd64"
+		emulatedMachines := []string{"quantum-*", "old-something-*"}
 
-			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
-				},
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						MachineType: machineType,
-						ArchitectureConfiguration: &v1.ArchConfiguration{
-							Amd64: &v1.ArchSpecificConfiguration{MachineType: virtconfig.DefaultAMD64MachineType},
-						},
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MachineType:      machineType,
+					EmulatedMachines: emulatedMachines,
+					OVMFPath:         ovmfPath,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: virtconfig.DefaultAMD64MachineType},
 					},
 				},
-				Status: v1.KubeVirtStatus{
-					Phase: "Deployed",
-				},
-			}, cpuArch)
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		}, cpuArch)
 
-			Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(machineType))
-		})
+		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(machineType))
+		Expect(clusterConfig.GetEmulatedMachines(cpuArch)).To(Equal(emulatedMachines))
+		Expect(clusterConfig.GetOVMFPath(cpuArch)).To(Equal(ovmfPath))
 	})
 
 	DescribeTable(" when cpuModel", func(value string, result string) {
@@ -710,7 +714,7 @@ var _ = Describe("test configuration", func() {
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
 					NetworkInterface:                  "test",
-					PermitSlirpInterface:              pointer.P(true),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
 					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},
@@ -721,8 +725,8 @@ var _ = Describe("test configuration", func() {
 		Entry("when networkConfiguration set, should equal to result",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
-					NetworkInterface:                  string(v1.SlirpInterface),
-					PermitSlirpInterface:              pointer.P(true),
+					NetworkInterface:                  string(v1.DeprecatedSlirpInterface),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
 					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},
@@ -733,7 +737,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when networkConfiguration set with empty NetworkInterface, should use the default",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{
-					PermitSlirpInterface:              pointer.P(true),
+					DeprecatedPermitSlirpInterface:    pointer.P(true),
 					PermitBridgeInterfaceOnPodNetwork: pointer.P(false),
 				},
 			},

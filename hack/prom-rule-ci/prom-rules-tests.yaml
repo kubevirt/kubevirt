@@ -7,56 +7,6 @@ group_eval_order:
   - alerts.rules
 #information about this format can be found in: https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/
 tests:
-  # Pod is using more CPU than expected
-  - interval: 1m
-    input_series:
-      - series: 'container_cpu_usage_seconds_total{namespace="ci",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '1+1x6'
-      - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="cpu",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: '0+0x6'
-
-    alert_rule_test:
-      - eval_time: 6m
-        alertname: KubeVirtComponentExceedsRequestedCPU
-        exp_alerts:
-          - exp_annotations:
-              description: "Pod virt-controller-8546c99968-x9jgg cpu usage exceeds the CPU requested"
-              summary: "The containers in the pod are using more CPU than what is defined in the containers resource requests"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedCPU"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              pod: "virt-controller-8546c99968-x9jgg"
-
-  # Pod is using more memory than expected
-  - interval: 1m
-    input_series:
-      - series: 'container_memory_working_set_bytes{namespace="ci",container="",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "157286400+0x5"
-      - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="memory",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
-        values: "118325248+0x5"
-
-    alert_rule_test:
-      - eval_time: 5m
-        alertname: KubeVirtComponentExceedsRequestedMemory
-        exp_alerts:
-          - exp_annotations:
-              description: "Container virt-controller in pod virt-controller-8546c99968-x9jgg memory usage exceeds the memory requested"
-              summary: "The container is using more memory than what is defined in the containers resource requests"
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtComponentExceedsRequestedMemory"
-            exp_labels:
-              severity: "warning"
-              operator_health_impact: "none"
-              kubernetes_operator_part_of: "kubevirt"
-              kubernetes_operator_component: "kubevirt"
-              namespace: ci
-              node: "node1"
-              pod: "virt-controller-8546c99968-x9jgg"
-              resource: "memory"
-              container: virt-controller
-
   # Alerts to test whether our operators are up or not
   - interval: 1m
     input_series:
@@ -367,21 +317,21 @@ tests:
   # values : `0+100x15  0+100x5`  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
         values: '0+100x15  0+100x5'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x20'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
         values: '0+100x15  0+100x5'
 
     alert_rule_test:
@@ -440,21 +390,21 @@ tests:
   # values : '0+5x90 0+5x10'  the same way because prometheus counters might reset
   - interval: 1m
     input_series:
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
         values: '0+5x90 0+5x10'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="200"}'
         values: '0+10x100'
-      - series: 'rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
+      - series: 'kubevirt_rest_client_requests_total{namespace="ci", pod="virt-api-1", code="500"}'
         values: '0+5x90 0+5x10'
 
     alert_rule_test:
@@ -655,6 +605,30 @@ tests:
       - eval_time: 1m
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts: []
+
+  # Test recording rule
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory"}'
+        # time:  0          1          2          3
+        values: "1376882688 1376882688 1376882688 1376882688"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-0"}'
+        # time:  0          1          2          3
+        values: "1073176576 1073176576 1073176576 1273176576"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-1"}'
+        # time:  0          1          2          3
+        values: "1073176576 1073176576 1073176576 1273176576"
+    promql_expr_test:
+      - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+            value: 303706112
+      - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
+        eval_time: 3m
+        exp_samples:
+          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+            value: 103706112
 
   # VM eviction strategy is set but vm is not migratable
   - interval: 1m

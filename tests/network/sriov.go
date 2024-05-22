@@ -40,12 +40,14 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -60,7 +62,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -152,7 +155,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 					AlignedCPUs: alignedCPUsInt,
 				},
 			}
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -215,7 +218,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 					Tags:    []string{"specialNet"},
 				},
 			}
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			metadataStruct := cloudinit.ConfigDriveMetadata{
@@ -316,7 +319,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
 			Expect(err).NotTo(HaveOccurred())
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(checkMacAddress(vmi, ifaceName, mac)).To(Succeed())
 
@@ -353,7 +356,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 
 				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(checkMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 			})
@@ -368,7 +371,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 				// the guest-agent.
 				ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
-				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(checkMacAddress(updatedVMI, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
 			})
@@ -576,15 +579,15 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 }
 
 func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
-	sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+	sriovNodes := getNodesWithAllocatedResource(sriovResourceName)
 	if len(sriovNodes) < minRequiredNodes {
 		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")
 	}
 	return nil
 }
 
-func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceName string) []k8sv1.Node {
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
+func getNodesWithAllocatedResource(resourceName string) []k8sv1.Node {
+	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 	filteredNodes := []k8sv1.Node{}
 	for _, node := range nodes.Items {
 		resourceList := node.Status.Allocatable
@@ -602,9 +605,11 @@ func getNodesWithAllocatedResource(virtClient kubecli.KubevirtClient, resourceNa
 }
 
 func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, networkName, sriovResourceName string) error {
+	pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).NotTo(HaveOccurred())
+
 	out, err := exec.ExecuteCommandOnPod(
-		virtClient,
-		tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace),
+		pod,
 		"compute",
 		[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", networkName)},
 	)
@@ -628,7 +633,7 @@ func defaultCloudInitNetworkData() string {
 func findIfaceByMAC(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, mac string, timeout time.Duration) (string, error) {
 	var ifaceName string
 	err := wait.Poll(timeout, 5*time.Second, func() (done bool, err error) {
-		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &k8smetav1.GetOptions{})
+		vmi, err := virtClient.VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), k8smetav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -661,7 +666,7 @@ func newSRIOVVmi(networks []string, cloudInitNetworkData string) *v1.VirtualMach
 			libvmi.WithNetwork(libvmi.MultusNetwork(name, name)),
 		)
 	}
-	return libvmi.NewFedora(options...)
+	return libvmifact.NewFedora(options...)
 }
 
 func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string) {
@@ -675,7 +680,7 @@ func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanc
 	virtClient := kubevirt.Client()
 
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -694,7 +699,7 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 }
 
 // deleteVMI deletes the specified VMI and waits for its absence.
@@ -705,7 +710,7 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 	virtClient := kubevirt.Client()
 
 	GinkgoWriter.Println("sriov:", vmi.Name, "deletion started")
-	if err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
+	if err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, k8smetav1.DeleteOptions{}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
@@ -714,7 +719,7 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 
 	const timeout = 30 * time.Second
 	return wait.PollImmediate(1*time.Second, timeout, func() (done bool, err error) {
-		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+		_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		if k8serrors.IsNotFound(err) {
 			return true, nil
 		}
@@ -723,13 +728,11 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 }
 
 func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
-	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-
-	virtClient := kubevirt.Client()
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	Expect(err).NotTo(HaveOccurred())
 
 	By("checking default interface is present")
-	_, err := exec.ExecuteCommandOnPod(
-		virtClient,
+	_, err = exec.ExecuteCommandOnPod(
 		vmiPod,
 		"compute",
 		[]string{"ip", "address", "show", "eth0"},
@@ -740,7 +743,6 @@ func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 
 	By("checking default interface is attached to VMI")
 	_, err = exec.ExecuteCommandOnPod(
-		virtClient,
 		vmiPod,
 		"compute",
 		[]string{"ip", "address", "show", "k6t-eth0"},
@@ -776,15 +778,13 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 	vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIndex].MacAddress = mac.String()
 
 	virtCli := kubevirt.Client()
-	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi, nil
 }
 
 func sriovNodeName(sriovResourceName string) (string, error) {
-	virtClient := kubevirt.Client()
-
-	sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
+	sriovNodes := getNodesWithAllocatedResource(sriovResourceName)
 	if len(sriovNodes) == 0 {
 		return "", fmt.Errorf("failed to detect nodes with allocatable resources (%s)", sriovResourceName)
 	}

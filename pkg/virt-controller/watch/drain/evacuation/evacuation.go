@@ -1,6 +1,7 @@
 package evacuation
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -348,7 +349,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer)
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer.GetStore())
 
 	return c.sync(node, vmis, migrations)
 }
@@ -446,7 +447,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(GenerateNewMigration(vmi.Name, node.Name), &v1.CreateOptions{})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), GenerateNewMigration(vmi.Name, node.Name), v1.CreateOptions{})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
@@ -522,7 +523,7 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 			continue
 		}
 
-		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer) > 1 {
+		if controller.VMIActivePodsCount(vmi, c.vmiPodInformer.GetIndexer()) > 1 {
 			// waiting on target/source pods from a previous migration to terminate
 			//
 			// We only want to create a migration when num pods == 1 or else we run the

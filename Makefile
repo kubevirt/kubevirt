@@ -206,27 +206,37 @@ format:
 fmt: format
 
 lint:
-	if [ $$(wc -l < tests/utils.go) -gt 2027 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
+	if [ $$(wc -l < tests/utils.go) -gt 1401 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 	hack/dockerized "golangci-lint run --timeout 20m --verbose \
 	  pkg/instancetype/... \
+	  pkg/libvmi/... \
+	  pkg/network/admitter/... \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
-	  pkg/network/sriov/... \
+	  pkg/network/deviceinfo/... \
 	  tests/console/... \
+	  tests/instancetype/... \
+	  tests/libinstancetype/... \
 	  tests/libnet/... \
 	  tests/libnode/... \
+	  tests/libconfigmap/... \
 	  tests/libpod/... \
-	  tests/libvmi/... \
+	  tests/libvmifact/... \
+	  tests/libsecret/... \
 	  && \
 	  golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
 	  ./pkg/... \
 	  ./tests/... \
 	"
+	hack/dockerized "monitoringlinter ./pkg/..."
 
 lint-metrics:
 	hack/dockerized "./hack/prom-metric-linter/metrics_collector.sh > metrics.json"
 	./hack/prom-metric-linter/metric_name_linter.sh --operator-name="kubevirt" --sub-operator-name="kubevirt" --metrics-file=metrics.json
 	rm metrics.json
+
+gofumpt:
+	./hack/dockerized "hack/gofumpt.sh"
 
 .PHONY: \
 	build-verify \

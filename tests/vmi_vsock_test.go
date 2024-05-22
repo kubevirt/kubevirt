@@ -40,17 +40,21 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libssh"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
@@ -66,7 +70,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	Context("VM creation", func() {
 		DescribeTable("should expose a VSOCK device", func(useVirtioTransitional bool) {
 			By("Creating a VMI with VSOCK enabled")
-			vmi := tests.NewRandomFedoraVMI()
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
@@ -109,7 +113,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 							Preference: k8sv1.NodeSelectorTerm{
 								MatchExpressions: []k8sv1.NodeSelectorRequirement{
 									{
-										Key:      "kubernetes.io/hostname",
+										Key:      k8sv1.LabelHostname,
 										Operator: k8sv1.NodeSelectorOpIn,
 										Values:   []string{nodeName},
 									},
@@ -124,7 +128,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 		It("should retain the CID for migration target", func() {
 			By("Creating a VMI with VSOCK enabled")
-			vmi := tests.NewRandomFedoraVMI()
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
@@ -139,7 +143,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 
 			By("Creating a new VMI with VSOCK enabled on the same node")
 			node := vmi.Status.NodeName
-			vmi2 := tests.NewRandomFedoraVMI()
+			vmi2 := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 			vmi2.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 			vmi2.Spec.Affinity = affinity(node)
 			vmi2 = tests.RunVMIAndExpectLaunch(vmi2, 60)
@@ -174,7 +178,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		privateKeyPath, publicKey, err := libssh.GenerateKeyPair(GinkgoT().TempDir())
 		Expect(err).ToNot(HaveOccurred())
 		userData := libssh.RenderUserDataWithKey(publicKey)
-		vmi := libvmi.NewFedora(
+		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithCloudInitNoCloudUserData(userData),
@@ -210,7 +214,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 				stopChan <- err
 				return
 			}
-			stopChan <- vsock.Stream(kubecli.StreamOptions{
+			stopChan <- vsock.Stream(kvcorev1.StreamOptions{
 				In:  svrConn,
 				Out: svrConn,
 			})
@@ -243,7 +247,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		virtClient := kubevirt.Client()
 
 		By("Creating a VMI with VSOCK enabled")
-		vmi := tests.NewRandomFedoraVMI()
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
@@ -256,7 +260,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		virtClient := kubevirt.Client()
 
 		By("Creating a VMI with VSOCK enabled")
-		vmi := tests.NewRandomFedoraVMI()
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
@@ -268,7 +272,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 		}()
 		vsock, err := virtClient.VirtualMachineInstance(vmi.Namespace).VSOCK(vmi.Name, &v1.VSOCKOptions{TargetPort: uint32(9999)})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(vsock.Stream(kubecli.StreamOptions{
+		Expect(vsock.Stream(kvcorev1.StreamOptions{
 			In:  svrConn,
 			Out: svrConn,
 		})).NotTo(Succeed())

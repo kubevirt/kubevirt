@@ -42,7 +42,7 @@ const (
 	vmiCreationTimePercentileQuery            = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[%ds] offset %ds))`
 	vmiDeletionToSucceededTimePercentileQuery = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Succeeded"}[%ds] offset %ds))`
 	vmiDeletionToFailedTimePercentileQuery    = `histogram_quantile(0.%d, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Failed"}[%ds] offset %ds))`
-	resourceRequestCountsByOperation          = `increase(rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds] offset %ds)`
+	resourceRequestCountsByOperation          = `increase(kubevirt_rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[%ds] offset %ds)`
 )
 
 // Gauge - Using a Gauge doesn't require using an offset because it holds the accurate count

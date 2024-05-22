@@ -261,15 +261,17 @@ var _ = Describe("vmexport", func() {
 			Expect(err.Error()).Should(Equal("bad status: 500 Internal Server Error"))
 		})
 
-		It("Bad flag combination", func() {
+		DescribeTable("Bad flag combination", func(errString string, args ...string) {
 			testInit(http.StatusOK)
-			args := []string{virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), setflag(virtctlvmexport.VM_FLAG, "test2"), setflag(virtctlvmexport.SNAPSHOT_FLAG, "test3")}
 			args = append([]string{commandName}, args...)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal("if any flags in the group [vm snapshot pvc] are set none of the others can be; [pvc snapshot vm] were all set"))
-		})
+			Expect(err.Error()).Should(Equal(errString))
+		},
+			Entry("Multiple target types", "if any flags in the group [vm snapshot pvc] are set none of the others can be; [pvc snapshot vm] were all set", virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), setflag(virtctlvmexport.VM_FLAG, "test2"), setflag(virtctlvmexport.SNAPSHOT_FLAG, "test3")),
+			Entry("Retain and delte vmexport", "if any flags in the group [keep-vme delete-vme] are set none of the others can be; [delete-vme keep-vme] were all set", virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.DELETE_FLAG, virtctlvmexport.KEEP_FLAG),
+		)
 
 		DescribeTable("Invalid arguments/flags", func(errString string, args ...string) {
 			testInit(http.StatusOK)
@@ -292,7 +294,7 @@ var _ = Describe("vmexport", func() {
 			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, "invalid")),
 			Entry("Using 'port-forward' with invalid port", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.LOCAL_PORT_FLAG, "valid port numbers"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.LOCAL_PORT_FLAG, "test")),
 			Entry("Using 'format' with invalid download format", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.FORMAT_FLAG, "gzip/raw"), virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, "test")),
-			Entry("Downloading volume without specifying output", fmt.Sprintf("Warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file.", virtctlvmexport.OUTPUT_FLAG, virtctlvmexport.OUTPUT_FLAG), virtctlvmexport.DOWNLOAD, vmexportName),
+			Entry("Downloading volume without specifying output", fmt.Sprintf("warning: Binary output can mess up your terminal. Use '%s -' to output into stdout anyway or consider '%s <FILE>' to save to a file", virtctlvmexport.OUTPUT_FLAG, virtctlvmexport.OUTPUT_FLAG), virtctlvmexport.DOWNLOAD, vmexportName),
 		)
 
 		AfterEach(func() {
@@ -750,7 +752,7 @@ var _ = Describe("vmexport", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.LOCAL_PORT_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
 			err := cmd()
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal("No pods found for the service virt-export-test-vme"))
+			Expect(err.Error()).Should(Equal("no pods found for the service virt-export-test-vme"))
 		})
 
 		It("VirtualMachineExport download with port-forward succeeds", func() {

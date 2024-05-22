@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -36,7 +35,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-const MiB = 1024 * 1024
+const (
+	MiB = 1024 * 1024
+
+	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
+
+	dataVolumeGarbageCollectionAnnotation = "cdi.kubevirt.io/garbageCollected"
+)
 
 type PvcNotFoundError struct {
 	Reason string
@@ -44,6 +49,10 @@ type PvcNotFoundError struct {
 
 func (e PvcNotFoundError) Error() string {
 	return e.Reason
+}
+
+func IsDataVolumeGarbageCollected(pvc *k8sv1.PersistentVolumeClaim) bool {
+	return pvc != nil && pvc.Annotations[dataVolumeGarbageCollectionAnnotation] == "true"
 }
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
@@ -142,9 +151,9 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 	return volumeNamesPVCMap, nil
 }
 
-func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache.SharedInformer) (*k8sv1.PersistentVolumeClaim, error) {
+func GetPersistentVolumeClaimFromCache(namespace, name string, pvcStore cache.Store) (*k8sv1.PersistentVolumeClaim, error) {
 	key := controller.NamespacedKey(namespace, name)
-	obj, exists, err := pvcInformer.GetStore().GetByKey(key)
+	obj, exists, err := pvcStore.GetByKey(key)
 
 	if err != nil {
 		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
@@ -161,14 +170,14 @@ func GetPersistentVolumeClaimFromCache(namespace, name string, pvcInformer cache
 	return pvc, nil
 }
 
-func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcInformer cache.SharedInformer) bool {
+func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcStore cache.Store) bool {
 	for _, volume := range volumes {
 		claimName := PVCNameFromVirtVolume(&volume)
 		if claimName == "" {
 			continue
 		}
 
-		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcInformer)
+		pvc, err := GetPersistentVolumeClaimFromCache(namespace, claimName, pvcStore)
 		if err != nil {
 			log.Log.Errorf("Error fetching PersistentVolumeClaim %s while determining virtual machine status: %v", claimName, err)
 			continue
@@ -185,14 +194,14 @@ func HasUnboundPVC(namespace string, volumes []virtv1.Volume, pvcInformer cache.
 	return false
 }
 
-func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeInformer, pvcInformer cache.SharedInformer) (bool, bool, error) {
+func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeStore, pvcStore cache.Store) (bool, bool, error) {
 	name := PVCNameFromVirtVolume(&volume)
 
-	dataVolumeFunc := DataVolumeByNameFunc(dataVolumeInformer, dataVolumes)
+	dataVolumeFunc := DataVolumeByNameFunc(dataVolumeStore, dataVolumes)
 	wffc := false
 	ready := false
 	// err is always nil
-	pvcInterface, pvcExists, _ := pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+	pvcInterface, pvcExists, _ := pvcStore.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 	if pvcExists {
 		var err error
 		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
@@ -241,9 +250,43 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 	}
 
 	if blockVolume {
-		volMode := v1.PersistentVolumeBlock
+		volMode := k8sv1.PersistentVolumeBlock
 		pvc.Spec.VolumeMode = &volMode
 	}
 
 	return pvc
+}
+
+func IsHotplugVolume(vol *virtv1.Volume) bool {
+	if vol == nil {
+		return false
+	}
+	volSrc := vol.VolumeSource
+	if volSrc.PersistentVolumeClaim != nil && volSrc.PersistentVolumeClaim.Hotpluggable {
+		return true
+	}
+	if volSrc.DataVolume != nil && volSrc.DataVolume.Hotpluggable {
+		return true
+	}
+	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
+		return true
+	}
+
+	return false
+}
+
+func GetVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {
+	volumes := map[string]*virtv1.Volume{}
+	for _, vol := range vmiSpec.Volumes {
+		volumes[vol.Name] = vol.DeepCopy()
+	}
+	return volumes
+}
+
+func GetDisksByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Disk {
+	disks := map[string]*virtv1.Disk{}
+	for _, disk := range vmiSpec.Domain.Devices.Disks {
+		disks[disk.Name] = disk.DeepCopy()
+	}
+	return disks
 }

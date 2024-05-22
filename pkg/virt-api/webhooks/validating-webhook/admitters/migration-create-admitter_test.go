@@ -95,7 +95,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			},
 		}
 		mockVMIClient.EXPECT().Get(context.Background(), inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
-		migrationInterface.EXPECT().List(gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
+		migrationInterface.EXPECT().List(context.Background(), gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -125,7 +125,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	Context("with no conflicting migration", func() {
 
 		BeforeEach(func() {
-			migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
+			migrationInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).MaxTimes(1)
 
 		})
 

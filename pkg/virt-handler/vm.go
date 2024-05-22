@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 
 	"golang.org/x/sys/unix"
@@ -338,6 +340,20 @@ type virtLauncherCriticalSecurebootError struct {
 
 func (e *virtLauncherCriticalSecurebootError) Error() string { return e.msg }
 
+type vmiIrrecoverableError struct {
+	msg string
+}
+
+func (e *vmiIrrecoverableError) Error() string { return e.msg }
+
+func formatIrrecoverableErrorMessage(domain *api.Domain) string {
+	msg := "unknown reason"
+	if domainPausedFailedPostCopy(domain) {
+		msg = "VMI is irrecoverable due to failed post-copy migration"
+	}
+	return msg
+}
+
 func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
 
 	fdChan := make(chan net.Conn, 100)
@@ -578,11 +594,12 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 	})
 }
 
+func domainPausedFailedPostCopy(domain *api.Domain) bool {
+	return domain != nil && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedPostcopyFailed
+}
+
 func domainMigrated(domain *api.Domain) bool {
-	if domain != nil && domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonMigrated {
-		return true
-	}
-	return false
+	return domain != nil && domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonMigrated
 }
 
 func canUpdateToMounted(currentPhase v1.VolumePhase) bool {
@@ -594,7 +611,6 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 }
 
 func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
 		vmi.Status.MigrationState == nil ||
@@ -609,6 +625,7 @@ func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMac
 
 	if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
 		if migrationMetadata.Failed {
+			vmi.Status.MigrationState.FailureReason = migrationMetadata.FailureReason
 			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
 		}
 	}
@@ -703,7 +720,7 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi)
+		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
@@ -812,7 +829,7 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 	if !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmiCopy)
+		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmiCopy, metav1.UpdateOptions{})
 		if err != nil {
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
@@ -1078,8 +1095,7 @@ func (d *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 }
 
 func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
-
-	// Cacluate whether the VM is migratable
+	// Calculate whether the VM is migratable
 	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
@@ -1332,7 +1348,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		for i, _ := range vmi.Status.VolumeStatus {
+		for i := range vmi.Status.VolumeStatus {
 			if vmi.Status.VolumeStatus[i].Name == volume.Name {
 				vmi.Status.VolumeStatus[i].Size = fileInfo.Size()
 				continue
@@ -1438,7 +1454,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi)
+		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			d.vmiExpectations.LowerExpectations(key, 1, 0)
 			return err
@@ -1461,6 +1477,11 @@ func handleSyncError(vmi *v1.VirtualMachineInstance, condManager *controller.Vir
 	}
 	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
 		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
+
+	if _, ok := syncError.(*vmiIrrecoverableError); ok {
+		log.Log.Errorf("virt-launcher reached an irrecoverable error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
@@ -1601,6 +1622,10 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
 		return newNonMigratableCondition(tscRequirement.Reason, v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable), isBlockMigration
+	}
+
+	if vmiFeatures := vmi.Spec.Domain.Features; vmiFeatures != nil && vmiFeatures.HypervPassthrough != nil && *vmiFeatures.HypervPassthrough.Enabled {
+		return newNonMigratableCondition("VMI uses hyperv passthrough", v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable), isBlockMigration
 	}
 
 	return &v1.VirtualMachineInstanceCondition{
@@ -1849,6 +1874,8 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	shouldUpdate := false
 	// set true to ensure that no updates to the current VirtualMachineInstance state will occur
 	forceIgnoreSync := false
+	// set to true when unrecoverable domain needs to be destroyed non-gracefully.
+	forceShutdownIrrecoverable := false
 
 	log.Log.V(3).Infof("Processing event %v", key)
 
@@ -1869,6 +1896,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		domain.Status.Status != ""
 
 	domainMigrated := domainExists && domainMigrated(domain)
+	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
 	gracefulShutdown := d.hasGracefulShutdownTrigger(domain)
 	if gracefulShutdown && vmi.IsRunning() {
@@ -1981,6 +2009,13 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	case shouldShutdown:
 		log.Log.Object(vmi).V(3).Info("Processing shutdown.")
 		syncErr = d.processVmShutdown(vmi, domain)
+	case forceShutdownIrrecoverable:
+		msg := formatIrrecoverableErrorMessage(domain)
+		log.Log.Object(vmi).V(3).Infof("Processing a destruction of an irrecoverable domain - %s.", msg)
+		syncErr = d.processVmDestroy(vmi, domain)
+		if syncErr == nil {
+			syncErr = &vmiIrrecoverableError{msg}
+		}
 	case shouldDelete:
 		log.Log.Object(vmi).V(3).Info("Processing deletion.")
 		syncErr = d.processVmDelete(vmi)
@@ -2297,7 +2332,17 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	return client, nil
 }
 
+func (d *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	tryGracefully := false
+	return d.helperVmShutdown(vmi, domain, tryGracefully)
+}
+
 func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	tryGracefully := true
+	return d.helperVmShutdown(vmi, domain, tryGracefully)
+}
+
+func (d *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain, tryGracefully bool) error {
 
 	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
 	client, err := d.getVerifiedLauncherClient(vmi)
@@ -2306,7 +2351,7 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 	}
 
 	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-	if isACPIEnabled(vmi, domain) {
+	if isACPIEnabled(vmi, domain) && tryGracefully {
 		if expired, timeLeft := d.hasGracePeriodExpired(domain); !expired {
 			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
@@ -2458,10 +2503,13 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
 }
 
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {
-
 	volumeStatusMap := make(map[string]v1.VolumeStatus)
 
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.Name == backendstorage.PVCForVMI(vmi) && volumeStatus.PersistentVolumeClaimInfo != nil &&
+			!pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) {
+			return true, fmt.Errorf("cannot migrate VMI: Backend storage PVC is not RWX")
+		}
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 

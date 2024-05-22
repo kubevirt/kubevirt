@@ -30,7 +30,6 @@ import (
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 type AlertRequestResult struct {
@@ -132,6 +131,22 @@ func labelsMatch(pr promResult, labels map[string]string) bool {
 
 func fetchMetric(cli kubecli.KubevirtClient, query string) (*QueryRequestResult, error) {
 	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query?query=%s", query))
+
+	var result QueryRequestResult
+	err := json.Unmarshal(bodyBytes, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Status != "success" {
+		return nil, fmt.Errorf("api request failed. result: %v", result)
+	}
+
+	return &result, nil
+}
+
+func QueryRange(cli kubecli.KubevirtClient, query string, start time.Time, end time.Time, step time.Duration) (*QueryRequestResult, error) {
+	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query_range?query=%s&start=%d&end=%d&step=%d", query, start.Unix(), end.Unix(), int(step.Seconds())))
 
 	var result QueryRequestResult
 	err := json.Unmarshal(bodyBytes, &result)
@@ -395,7 +410,7 @@ func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRul
 
 func GetKubevirtVMMetrics(pod *k8sv1.Pod, ip string) string {
 	metricsURL := PrepareMetricsURL(ip, 8443)
-	stdout, _, err := execute.ExecuteCommandOnPodWithResults(kubevirt.Client(),
+	stdout, _, err := execute.ExecuteCommandOnPodWithResults(
 		pod,
 		"virt-handler",
 		[]string{

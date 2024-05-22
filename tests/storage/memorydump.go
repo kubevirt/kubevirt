@@ -49,10 +49,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 const (
@@ -97,16 +99,16 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	createAndStartVM := func() *v1.VirtualMachine {
 		By("Creating VirtualMachine")
-		vm := libvmi.NewVirtualMachine(libvmi.NewCirros(), libvmi.WithRunning())
-		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
+		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
+		vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return false
 			}
 			Expect(err).ToNot(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return vm.Status.Ready && vmi.Status.Phase == v1.Running
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -122,7 +124,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	deleteVirtualMachine := func(vm *v1.VirtualMachine) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+			return virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 		})
 		vm = nil
 	}
@@ -143,7 +145,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	verifyMemoryDumpNotOnVMI := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -176,7 +178,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpCompletion := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -214,7 +216,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	waitAndVerifyMemoryDumpDissociation := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
 		Eventually(func() error {
-			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -242,7 +244,6 @@ var _ = SIGDescribe("Memory dump", func() {
 	verifyMemoryDumpOutput := func(memoryDumpPVC *k8sv1.PersistentVolumeClaim, previousOutput string, shouldEqual bool) string {
 		executorPod := createExecutorPodWithPVC(verifierPodName, memoryDumpPVC)
 		lsOutput, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
 			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s", libstorage.DefaultPvcMountPath)},
@@ -251,7 +252,6 @@ var _ = SIGDescribe("Memory dump", func() {
 		log.Log.Infof("%s", lsOutput)
 		Expect(err).ToNot(HaveOccurred())
 		wcOutput, err := exec.ExecuteCommandOnPod(
-			virtClient,
 			executorPod,
 			executorPod.Spec.Containers[0].Name,
 			[]string{"/bin/sh", "-c", fmt.Sprintf("ls -1 %s | wc -l", libstorage.DefaultPvcMountPath)},
@@ -589,7 +589,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			memoryDumpVirtctlCreatePVCWithStorgeClass(vm.Name, vm.Namespace, memoryDumpPVCName, "no-exist")
 			By("Wait memory dump in progress")
 			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}

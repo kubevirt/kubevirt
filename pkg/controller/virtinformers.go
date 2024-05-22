@@ -189,6 +189,12 @@ type KubeInformerFactory interface {
 	// Fake CDI DataSource informer used when feature gate is disabled
 	DummyDataSource() cache.SharedIndexInformer
 
+	// Watches for CDI StorageProfile objects
+	StorageProfile() cache.SharedIndexInformer
+
+	// Fake CDI StorageProfile informer used when feature gate is disabled
+	DummyStorageProfile() cache.SharedIndexInformer
+
 	// Watches for CDI objects
 	CDI() cache.SharedIndexInformer
 
@@ -704,6 +710,7 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 	}
 
 	return cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 		// Gets: snapshot key. Returns: clones that their source is the specified snapshot
 		"snapshotSource": func(obj interface{}) ([]string, error) {
 			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
@@ -819,6 +826,20 @@ func (f *kubeInformerFactory) DataSource() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) DummyDataSource() cache.SharedIndexInformer {
 	return f.getInformer("fakeDataSourceInformer", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) StorageProfile() cache.SharedIndexInformer {
+	return f.getInformer("storageProfileInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CdiClient().CdiV1beta1().RESTClient(), "storageprofiles", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &cdiv1.StorageProfile{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyStorageProfile() cache.SharedIndexInformer {
+	return f.getInformer("fakeStorageProfileInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		return informer
 	})
 }

@@ -45,7 +45,10 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
@@ -54,26 +57,24 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-
-			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()).To(Succeed())
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			var err error
+			vmi = libvmifact.NewGuestless()
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		Context("with VNC connection", func() {
-
 			vncConnect := func() {
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
@@ -85,13 +86,13 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 				go func() {
 					defer GinkgoRecover()
-					vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
+					vnc, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
 					if err != nil {
 						k8ResChan <- err
 						return
 					}
 
-					k8ResChan <- vnc.Stream(kubecli.StreamOptions{
+					k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
 						In:  pipeInReader,
 						Out: pipeOutWriter,
 					})
@@ -121,7 +122,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 					// communicate.
 					By("Checking the response from VNC server")
 					Expect(response).To(Equal("RFB 003.008\n"))
-				case err = <-k8ResChan:
+				case err := <-k8ResChan:
 					Expect(err).ToNot(HaveOccurred())
 				case <-time.After(45 * time.Second):
 					Fail("Timout reached while waiting for valid VNC server response")
@@ -145,7 +146,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			Expect(err).ToNot(HaveOccurred())
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource, url.Values{})
+			req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, subresource, url.Values{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Add an Origin header to look more like an arbitrary browser
@@ -169,7 +170,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			Expect(err).ToNot(HaveOccurred())
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
-			req, err := kubecli.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc", url.Values{})
+			req, err := kvcorev1.RequestFromConfig(config, "virtualmachineinstances", vmi.Name, vmi.Namespace, "vnc", url.Values{})
 			Expect(err).ToNot(HaveOccurred())
 			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())
@@ -303,8 +304,8 @@ func upgradeCheckRoundTripperFromConfig(config *rest.Config, subprotocols []stri
 	dialer := &websocket.Dialer{
 		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
-		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
-		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
+		WriteBufferSize: kvcorev1.WebsocketMessageBufferSize,
+		ReadBufferSize:  kvcorev1.WebsocketMessageBufferSize,
 		Subprotocols:    subprotocols,
 	}
 

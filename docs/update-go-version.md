@@ -9,7 +9,7 @@ In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have t
 ## Updating Go Version
 ### Updating builder image
 
-* Change the `GIMME_GO` version in the [hack/builder/Dockerfile](../hack/builder/Dockerfile) to the desired Go version.
+* Change the `GIMME_GO_VERSION` in the [hack/builder/Dockerfile](../hack/builder/Dockerfile) to the desired Go version.
 * Rebuild the builder image by executing `make builder-build`.
   
 ### Publishing builder image

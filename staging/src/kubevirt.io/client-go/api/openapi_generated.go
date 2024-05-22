@@ -345,6 +345,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DataVolumeSource":                                                   schema_kubevirtio_api_core_v1_DataVolumeSource(ref),
 		"kubevirt.io/api/core/v1.DataVolumeTemplateDummyStatus":                                      schema_kubevirtio_api_core_v1_DataVolumeTemplateDummyStatus(ref),
 		"kubevirt.io/api/core/v1.DataVolumeTemplateSpec":                                             schema_kubevirtio_api_core_v1_DataVolumeTemplateSpec(ref),
+		"kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap":                                         schema_kubevirtio_api_core_v1_DeprecatedInterfaceMacvtap(ref),
+		"kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp":                                           schema_kubevirtio_api_core_v1_DeprecatedInterfaceSlirp(ref),
 		"kubevirt.io/api/core/v1.DeveloperConfiguration":                                             schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/api/core/v1.Devices":                                                            schema_kubevirtio_api_core_v1_Devices(ref),
 		"kubevirt.io/api/core/v1.DisableFreePageReporting":                                           schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref),
@@ -384,6 +386,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.HotplugVolumeSource":                                                schema_kubevirtio_api_core_v1_HotplugVolumeSource(ref),
 		"kubevirt.io/api/core/v1.HotplugVolumeStatus":                                                schema_kubevirtio_api_core_v1_HotplugVolumeStatus(ref),
 		"kubevirt.io/api/core/v1.Hugepages":                                                          schema_kubevirtio_api_core_v1_Hugepages(ref),
+		"kubevirt.io/api/core/v1.HyperVPassthrough":                                                  schema_kubevirtio_api_core_v1_HyperVPassthrough(ref),
 		"kubevirt.io/api/core/v1.HypervTimer":                                                        schema_kubevirtio_api_core_v1_HypervTimer(ref),
 		"kubevirt.io/api/core/v1.I6300ESBWatchdog":                                                   schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
 		"kubevirt.io/api/core/v1.InitrdInfo":                                                         schema_kubevirtio_api_core_v1_InitrdInfo(ref),
@@ -394,11 +397,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.InterfaceBindingMigration":                                          schema_kubevirtio_api_core_v1_InterfaceBindingMigration(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingPlugin":                                             schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref),
 		"kubevirt.io/api/core/v1.InterfaceBridge":                                                    schema_kubevirtio_api_core_v1_InterfaceBridge(ref),
-		"kubevirt.io/api/core/v1.InterfaceMacvtap":                                                   schema_kubevirtio_api_core_v1_InterfaceMacvtap(ref),
 		"kubevirt.io/api/core/v1.InterfaceMasquerade":                                                schema_kubevirtio_api_core_v1_InterfaceMasquerade(ref),
 		"kubevirt.io/api/core/v1.InterfacePasst":                                                     schema_kubevirtio_api_core_v1_InterfacePasst(ref),
 		"kubevirt.io/api/core/v1.InterfaceSRIOV":                                                     schema_kubevirtio_api_core_v1_InterfaceSRIOV(ref),
-		"kubevirt.io/api/core/v1.InterfaceSlirp":                                                     schema_kubevirtio_api_core_v1_InterfaceSlirp(ref),
 		"kubevirt.io/api/core/v1.KSMConfiguration":                                                   schema_kubevirtio_api_core_v1_KSMConfiguration(ref),
 		"kubevirt.io/api/core/v1.KVMTimer":                                                           schema_kubevirtio_api_core_v1_KVMTimer(ref),
 		"kubevirt.io/api/core/v1.KernelBoot":                                                         schema_kubevirtio_api_core_v1_KernelBoot(ref),
@@ -605,6 +606,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1beta1.MemoryInstancetype":                                    schema_kubevirtio_api_instancetype_v1beta1_MemoryInstancetype(ref),
 		"kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement":                           schema_kubevirtio_api_instancetype_v1beta1_MemoryPreferenceRequirement(ref),
 		"kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements":                                schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref),
+		"kubevirt.io/api/instancetype/v1beta1.SpreadOptions":                                         schema_kubevirtio_api_instancetype_v1beta1_SpreadOptions(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterInstancetype":                     schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterInstancetype(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterInstancetypeList":                 schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterInstancetypeList(ref),
 		"kubevirt.io/api/instancetype/v1beta1.VirtualMachineClusterPreference":                       schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineClusterPreference(ref),
@@ -16791,6 +16793,28 @@ func schema_kubevirtio_api_core_v1_DataVolumeTemplateSpec(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_core_v1_DeprecatedInterfaceMacvtap(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface. Deprecated: Removed in v1.3",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_DeprecatedInterfaceSlirp(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeprecatedInterfaceSlirp is an alias to the deprecated InterfaceSlirp that connects to a given network using QEMU user networking mode. Deprecated: Removed in v1.3",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17812,6 +17836,12 @@ func schema_kubevirtio_api_core_v1_Features(ref common.ReferenceCallback) common
 							Ref:         ref("kubevirt.io/api/core/v1.FeatureAPIC"),
 						},
 					},
+					"hypervPassthrough": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This enables all supported hyperv flags automatically. Bear in mind that if this enabled hyperV features cannot be enabled explicitly. In addition, a Virtual Machine using it will be non-migratable.",
+							Ref:         ref("kubevirt.io/api/core/v1.HyperVPassthrough"),
+						},
+					},
 					"hyperv": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Defaults to the machine type setting.",
@@ -17840,7 +17870,7 @@ func schema_kubevirtio_api_core_v1_Features(ref common.ReferenceCallback) common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState"},
+			"kubevirt.io/api/core/v1.FeatureAPIC", "kubevirt.io/api/core/v1.FeatureHyperv", "kubevirt.io/api/core/v1.FeatureKVM", "kubevirt.io/api/core/v1.FeatureState", "kubevirt.io/api/core/v1.HyperVPassthrough"},
 	}
 }
 
@@ -18368,6 +18398,24 @@ func schema_kubevirtio_api_core_v1_Hugepages(ref common.ReferenceCallback) commo
 	}
 }
 
+func schema_kubevirtio_api_core_v1_HyperVPassthrough(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_HypervTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18539,7 +18587,8 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"slirp": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfaceSlirp"),
+							Description: "DeprecatedSlirp is an alias to the deprecated Slirp interface Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp"),
 						},
 					},
 					"masquerade": {
@@ -18554,8 +18603,8 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"macvtap": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
-							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
+							Description: "DeprecatedMacvtap is an alias to the deprecated Macvtap interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap"),
 						},
 					},
 					"passt": {
@@ -18637,7 +18686,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.InterfaceSlirp", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
+			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
 	}
 }
 
@@ -18655,7 +18704,8 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 					},
 					"slirp": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.InterfaceSlirp"),
+							Description: "DeprecatedSlirp is an alias to the deprecated Slirp interface Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp"),
 						},
 					},
 					"masquerade": {
@@ -18670,8 +18720,8 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 					},
 					"macvtap": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated, please refer to Kubevirt user guide for alternatives.",
-							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMacvtap"),
+							Description: "DeprecatedMacvtap is an alias to the deprecated Macvtap interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
+							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap"),
 						},
 					},
 					"passt": {
@@ -18684,7 +18734,7 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMacvtap", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.InterfaceSlirp"},
+			"kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasst", "kubevirt.io/api/core/v1.InterfaceSRIOV"},
 	}
 }
 
@@ -18740,6 +18790,13 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCa
 							Ref:         ref("kubevirt.io/api/core/v1.InterfaceBindingMigration"),
 						},
 					},
+					"downwardAPI": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar. Supported values: \"device-info\" version: v1alphav1",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -18753,17 +18810,6 @@ func schema_kubevirtio_api_core_v1_InterfaceBridge(ref common.ReferenceCallback)
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "InterfaceBridge connects to a given network via a linux bridge.",
-				Type:        []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_InterfaceMacvtap(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",
 				Type:        []string{"object"},
 			},
 		},
@@ -18797,17 +18843,6 @@ func schema_kubevirtio_api_core_v1_InterfaceSRIOV(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.",
-				Type:        []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_InterfaceSlirp(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "InterfaceSlirp connects to a given network using QEMU user networking mode.",
 				Type:        []string{"object"},
 			},
 		},
@@ -19126,7 +19161,8 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"emulatedMachines": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Deprecated. Use architectureConfiguration instead.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -19165,8 +19201,9 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"ovmfPath": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated. Use architectureConfiguration instead.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"selinuxLauncherType": {
@@ -20442,8 +20479,9 @@ func schema_kubevirtio_api_core_v1_NetworkConfiguration(ref common.ReferenceCall
 					},
 					"permitSlirpInterface": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface. Deprecated: Removed in v1.3.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"permitBridgeInterfaceOnPodNetwork": {
@@ -22868,12 +22906,11 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref comm
 				Properties: map[string]spec.Schema{
 					"serial": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
-					"bus-type": {
+					"busType": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -22881,7 +22918,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref comm
 						},
 					},
 				},
-				Required: []string{"serial", "bus-type"},
+				Required: []string{"busType"},
 			},
 		},
 	}
@@ -23548,6 +23585,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"sourcePod": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"completed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates the migration completed",
@@ -23572,6 +23615,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 					"abortStatus": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates the final status of the live migration abortion",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"failureReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Contains the reason why the migration failed",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -24839,6 +24889,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 									},
 								},
 							},
+						},
+					},
+					"updateVolumesStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpdateVolumesStrategy is the strategy to apply on volumes updates",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -27977,6 +28034,11 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref common.Refere
 							Format:      "",
 						},
 					},
+					"spreadOptions": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/instancetype/v1beta1.SpreadOptions"),
+						},
+					},
 					"preferredCPUFeatures": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PreferredCPUFeatures optionally defines a slice of preferred CPU features.",
@@ -27995,7 +28057,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUFeature"},
+			"kubevirt.io/api/core/v1.CPUFeature", "kubevirt.io/api/instancetype/v1beta1.SpreadOptions"},
 	}
 }
 
@@ -28397,6 +28459,32 @@ func schema_kubevirtio_api_instancetype_v1beta1_PreferenceRequirements(ref commo
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/instancetype/v1beta1.CPUPreferenceRequirement", "kubevirt.io/api/instancetype/v1beta1.MemoryPreferenceRequirement"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_SpreadOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"across": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Across optionally defines how to spread vCPUs across the guest visible topology. Default: SocketsCores",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ratio": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted. SocketsCores        - 1:N   - Controls the ratio of socket to cores. SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

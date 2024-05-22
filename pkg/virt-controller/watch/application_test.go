@@ -98,6 +98,7 @@ var _ = Describe("Application", func() {
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
@@ -131,9 +132,11 @@ var _ = Describe("Application", func() {
 			vmInformer,
 			podInformer,
 			pvcInformer,
+			storageClassInformer,
 			recorder,
 			virtClient,
 			dataVolumeInformer,
+			storageProfileInformer,
 			cdiInformer,
 			cdiConfigInformer,
 			config,

@@ -246,13 +246,13 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 	return vmiSpec
 }
 
-func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndexInformer) (*k8sv1.Pod, error) {
+func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
 
 	// current pod is the most recent pod created on the current VMI node
 	// OR the most recent pod created if no VMI node is set.
 
 	// Get all pods from the namespace
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := podIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -284,9 +284,9 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podInformer cache.SharedIndex
 	return curPod, nil
 }
 
-func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodInformer cache.SharedIndexInformer) int {
+func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodIndexer cache.Indexer) int {
 
-	objs, err := vmiPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := vmiPodIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return 0
 	}
@@ -346,6 +346,23 @@ func SetVMIMigrationPhaseTransitionTimestamp(oldVMIMigration *v1.VirtualMachineI
 	}
 }
 
+func SetSourcePod(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) {
+	if migration.Status.Phase != v1.MigrationPending {
+		return
+	}
+	sourcePod, err := CurrentVMIPod(vmi, podIndexer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("migration source pod not found")
+	}
+	if sourcePod != nil {
+		if migration.Status.MigrationState == nil {
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{}
+		}
+		migration.Status.MigrationState.SourcePod = sourcePod.Name
+	}
+
+}
+
 func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume != nil {
@@ -376,8 +393,8 @@ func VMIHasHotplugMemory(vmi *v1.VirtualMachineInstance) bool {
 	return vmiHasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
 }
 
-func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) ([]*k8sv1.Pod, error) {
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
+func AttachmentPods(ownerPod *k8sv1.Pod, podIndexer cache.Indexer) ([]*k8sv1.Pod, error) {
+	objs, err := podIndexer.ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
 	if err != nil {
 		return nil, err
 	}

@@ -153,7 +153,7 @@ func (c *command) run(args []string) error {
 }
 
 func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {
-	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func checkNoExistingPVC(namespace, claimName string, virtClient kubecli.Kubevirt
 }
 
 func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
-	vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+	vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -360,7 +360,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
 	var claimName string
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

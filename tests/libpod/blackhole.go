@@ -8,9 +8,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 func AddKubernetesAPIBlackhole(pods *v1.PodList, containerName string) {
@@ -22,10 +21,7 @@ func DeleteKubernetesAPIBlackhole(pods *v1.PodList, containerName string) {
 }
 
 func kubernetesAPIServiceBlackhole(pods *v1.PodList, containerName string, present bool) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	Expect(err).NotTo(HaveOccurred())
-
-	serviceIP := getKubernetesAPIServiceIP(virtCli)
+	serviceIP := getKubernetesAPIServiceIP()
 
 	var addOrDel string
 	if present {
@@ -35,16 +31,16 @@ func kubernetesAPIServiceBlackhole(pods *v1.PodList, containerName string, prese
 	}
 
 	for idx := range pods.Items {
-		_, err = exec.ExecuteCommandOnPod(virtCli, &pods.Items[idx], containerName, []string{"ip", "route", addOrDel, "blackhole", serviceIP})
+		_, err := exec.ExecuteCommandOnPod(&pods.Items[idx], containerName, []string{"ip", "route", addOrDel, "blackhole", serviceIP})
 		Expect(err).NotTo(HaveOccurred())
 	}
 }
 
-func getKubernetesAPIServiceIP(virtClient kubecli.KubevirtClient) string {
+func getKubernetesAPIServiceIP() string {
 	const serviceName = "kubernetes"
 	const serviceNamespace = "default"
 
-	kubernetesService, err := virtClient.CoreV1().Services(serviceNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
+	kubernetesService, err := kubevirt.Client().CoreV1().Services(serviceNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	return kubernetesService.Spec.ClusterIP

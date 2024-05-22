@@ -17,81 +17,96 @@
  *
  */
 
-package mutators
+package mutators_test
 
 import (
 	"encoding/json"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	admissionv1 "k8s.io/api/admission/v1"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 )
 
 var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
-	var migration *v1.VirtualMachineInstanceMigration
+	It("Should mutate the VirtualMachineInstanceMigration object", func() {
+		migration := newMigration()
 
-	getMigrationSpecMetaFromResponse := func() (*v1.VirtualMachineInstanceMigrationSpec, *k8smetav1.ObjectMeta) {
-		migrationBytes, err := json.Marshal(migration)
+		admissionReview, err := newAdmissionReviewForVMIMCreation(migration)
 		Expect(err).ToNot(HaveOccurred())
-		By("Creating the test admissions review from the Migration object")
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
-				Object: runtime.RawExtension{
-					Raw: migrationBytes,
-				},
+
+		mutator := &mutators.MigrationCreateMutator{}
+
+		expectedJSONPatch, err := expectedJSONPatchForVMIMCreation(
+			expectedMigrationObjectMeta(migration.ObjectMeta, migration.Spec.VMIName),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(mutator.Mutate(admissionReview)).To(Equal(
+			&admissionv1.AdmissionResponse{
+				Allowed:   true,
+				PatchType: pointer.P(admissionv1.PatchTypeJSONPatch),
+				Patch:     expectedJSONPatch,
 			},
-		}
-
-		By("Mutating the Migration")
-		mutator := &MigrationCreateMutator{}
-		resp := mutator.Mutate(ar)
-		Expect(resp.Allowed).To(BeTrue())
-
-		By("Getting the VMI spec from the response")
-		migrationSpec := &v1.VirtualMachineInstanceMigrationSpec{}
-		migrationMeta := &k8smetav1.ObjectMeta{}
-		patchOps := []patch.PatchOperation{
-			{Value: migrationSpec},
-			{Value: migrationMeta},
-		}
-		err = json.Unmarshal(resp.Patch, &patchOps)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(patchOps).NotTo(BeEmpty())
-
-		return migrationSpec, migrationMeta
-	}
-
-	BeforeEach(func() {
-		migration = &v1.VirtualMachineInstanceMigration{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Labels: map[string]string{"test": "test"},
-			},
-			Spec: v1.VirtualMachineInstanceMigrationSpec{
-				VMIName: "testVmi",
-			},
-		}
-	})
-
-	It("should verify migration spec", func() {
-		migrationSpec, _ := getMigrationSpecMetaFromResponse()
-		Expect(migrationSpec.VMIName).To(Equal("testVmi"))
-	})
-
-	It("should apply finalizer on migration create", func() {
-		_, migrationMeta := getMigrationSpecMetaFromResponse()
-		Expect(migrationMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceMigrationFinalizer))
-	})
-
-	It("should add the selector label", func() {
-		_, migrationMeta := getMigrationSpecMetaFromResponse()
-		Expect(migrationMeta.Labels).ToNot(BeNil())
-		Expect(migrationMeta.Labels[v1.MigrationSelectorLabel]).To(Equal(migration.Spec.VMIName))
+		))
 	})
 })
+
+func newMigration() *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Labels: map[string]string{"test": "test"},
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: "testVmi",
+		},
+	}
+}
+
+func newAdmissionReviewForVMIMCreation(migration *v1.VirtualMachineInstanceMigration) (*admissionv1.AdmissionReview, error) {
+	migrationBytes, err := json.Marshal(migration)
+	if err != nil {
+		return nil, err
+	}
+
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: k8smetav1.GroupVersionResource{
+				Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
+				Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
+				Resource: "virtualmachineinstancemigrations",
+			},
+			Object: runtime.RawExtension{
+				Raw: migrationBytes,
+			},
+		},
+	}, nil
+}
+
+func expectedMigrationObjectMeta(currentObjectMeta k8smetav1.ObjectMeta, vmiName string) k8smetav1.ObjectMeta {
+	expectedObjectMeta := currentObjectMeta
+
+	expectedObjectMeta.Labels[v1.MigrationSelectorLabel] = vmiName
+	expectedObjectMeta.Finalizers = []string{v1.VirtualMachineInstanceMigrationFinalizer}
+
+	return expectedObjectMeta
+}
+
+func expectedJSONPatchForVMIMCreation(expectedObjectMeta k8smetav1.ObjectMeta) ([]byte, error) {
+	return patch.GeneratePatchPayload(
+		patch.PatchOperation{
+			Op:    patch.PatchReplaceOp,
+			Path:  "/metadata",
+			Value: expectedObjectMeta,
+		},
+	)
+}

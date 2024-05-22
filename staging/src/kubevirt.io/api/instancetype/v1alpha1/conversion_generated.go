@@ -265,6 +265,7 @@ func Convert_v1alpha1_CPUInstancetype_To_v1beta1_CPUInstancetype(in *CPUInstance
 
 func autoConvert_v1beta1_CPUPreferences_To_v1alpha1_CPUPreferences(in *v1beta1.CPUPreferences, out *CPUPreferences, s conversion.Scope) error {
 	// WARNING: in.PreferredCPUTopology requires manual conversion: inconvertible types (*kubevirt.io/api/instancetype/v1beta1.PreferredCPUTopology vs kubevirt.io/api/instancetype/v1alpha1.PreferredCPUTopology)
+	// WARNING: in.SpreadOptions requires manual conversion: does not exist in peer-type
 	// WARNING: in.PreferredCPUFeatures requires manual conversion: does not exist in peer-type
 	return nil
 }

@@ -26,8 +26,10 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 
@@ -41,12 +43,14 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
@@ -57,7 +61,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = libvmifact.NewAlpine()
 	})
 
 	Describe("[rfe_id:609]Creating a VirtualMachineInstance", func() {
@@ -65,8 +69,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		Context("with headless", func() {
 
 			BeforeEach(func() {
-				f := false
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &f
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
 			})
 
 			It("[test_id:707]should create headless vmi without any issue", func() {
@@ -74,7 +77,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", func() {
-				tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
@@ -114,7 +117,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			})
 
 			It("[test_id:713]should have more memory on pod when headless", func() {
-				normalVmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				normalVmi := libvmifact.NewAlpine()
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)
@@ -156,7 +159,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		Context("without headless", func() {
 
 			It("[test_id:714][posneg:negative]should have one vnc graphic device in xml", func() {
-				tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
@@ -173,7 +176,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 			It("[Serial] multiple HTTP calls should re-use connections and not grow the number of open connections in virt-launcher", Serial, func() {
 				getHandlerConnectionCount := func() int {
 					cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
-					stdout, stderr, err := tests.ExecuteCommandOnNodeThroughVirtHandler(virtClient, vmi.Status.NodeName, cmd)
+					stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(vmi.Status.NodeName, cmd)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(stderr).To(BeEmpty())
 
@@ -210,14 +213,14 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 							expectNoErr(err)
 						},
 						func() {
-							_, err := vmiInterface.SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+							_, err := vmiInterface.SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 							expectNoErr(err)
 						},
 					}
 				}
 
 				By("Running the VMI")
-				vmi = tests.NewRandomFedoraVMI()
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("VMI has the guest agent connected condition")

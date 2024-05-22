@@ -46,6 +46,7 @@ import (
 	_ "kubevirt.io/kubevirt/tests/guestlog"
 	_ "kubevirt.io/kubevirt/tests/hotplug"
 	_ "kubevirt.io/kubevirt/tests/infrastructure"
+	_ "kubevirt.io/kubevirt/tests/instancetype"
 	_ "kubevirt.io/kubevirt/tests/launchsecurity"
 	_ "kubevirt.io/kubevirt/tests/migration"
 	_ "kubevirt.io/kubevirt/tests/monitoring"
@@ -136,6 +137,10 @@ var _ = ReportAfterSuite("TestTests", func(report Report) {
 	for _, reporter := range afterSuiteReporters {
 		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, report)
 	}
+})
+
+var _ = ReportBeforeSuite(func(report Report) {
+	k8sReporter.ConfigurePerSpecReporting(report)
 })
 
 var _ = JustAfterEach(func() {

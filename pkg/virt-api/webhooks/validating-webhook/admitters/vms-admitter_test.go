@@ -43,6 +43,7 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	k8sptr "k8s.io/utils/pointer"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
@@ -51,6 +52,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -495,6 +497,28 @@ var _ = Describe("Validating VM Admitter", func() {
 					VolumeSource: &v1.HotplugVolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "cdRomtest",
+						}},
+					},
+				},
+			},
+		},
+			false),
+		Entry("with invalid request to add volume with dedicated IOThreads", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testDisk",
+					Disk: &v1.Disk{
+						Name: "testDisk",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "scsi",
+							},
+						},
+						DedicatedIOThread: k8sptr.BoolPtr(true),
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "diskTest",
 						}},
 					},
 				},
@@ -1787,21 +1811,15 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("failure checking preference requirements"))
 		})
 
-		DescribeTable("should reject if instancetype.Guest.CPU is not divisible by", func(CPU, spreadRatio int) {
-			topology := instancetypev1beta1.PreferSpread
+		DescribeTable("should reject if PreferSpread requested with", func(vCPUs uint32, preferenceSpec instancetypev1beta1.VirtualMachinePreferenceSpec, expectedMessage string) {
 			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &topology,
-					},
-					PreferSpreadSocketToCoreRatio: uint32(spreadRatio),
-				}, nil
+				return &preferenceSpec, nil
 			}
 
 			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
-						Guest: uint32(CPU),
+						Guest: vCPUs,
 					},
 				}, nil
 			}
@@ -1810,11 +1828,124 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(1))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[0].Message).To(Equal("Instancetype CPU Guest is not divisible by PreferSpreadSocketToCoreRatio"))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal("instancetype.spec.cpu.guest"))
+			Expect(response.Result.Details.Causes[0].Message).To(Equal(expectedMessage))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(instancetypeCPUGuestPath))
 		},
-			Entry("default PreferSpreadSocketToCoreRatio", 3, 0),
-			Entry("odd PreferSpreadSocketToCoreRatio", 8, 3),
+			Entry("3 vCPUs, default of SpreadAcrossSocketsCores and default SocketCoreRatio of 2",
+				uint32(3),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 3, 2),
+			),
+			Entry("2 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via PreferSpreadSocketToCoreRatio of 3",
+				uint32(2),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferSpreadSocketToCoreRatio: uint32(3),
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 2, 3),
+			),
+			Entry("2 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via SpreadOptions of 3",
+				uint32(2),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Ratio: pointer.P(uint32(3)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 2, 3),
+			),
+			Entry("4 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via PreferSpreadSocketToCoreRatio of 3",
+				uint32(4),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferSpreadSocketToCoreRatio: uint32(3),
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 4, 3),
+			),
+			Entry("4 vCPUs, default of SpreadAcrossSocketsCores and SocketCoreRatio via SpreadOptions of 3",
+				uint32(4),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Ratio: pointer.P(uint32(3)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, 4, 3),
+			),
+			Entry("3 vCPUs and SpreadAcrossCoresThreads",
+				uint32(3),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, 3, 2),
+			),
+			Entry("5 vCPUs and SpreadAcrossCoresThreads",
+				uint32(5),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, 5, 2),
+			),
+			Entry("5 vCPUs, SpreadAcrossSocketsCoresThreads and default SocketCoreRatio of 2",
+				uint32(5),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, 5, 2, 2),
+			),
+			Entry("6 vCPUs, SpreadAcrossSocketsCoresThreads and SocketCoreRatio via PreferSpreadSocketToCoreRatio of 4",
+				uint32(6),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferSpreadSocketToCoreRatio: uint32(4),
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, 6, 2, 4),
+			),
+			Entry("6 vCPUs, SpreadAcrossSocketsCoresThreads and SocketCoreRatio via SpreadOptions of 4",
+				uint32(6),
+				instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.PreferSpread),
+						SpreadOptions: &instancetypev1beta1.SpreadOptions{
+							Across: pointer.P(instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+							Ratio:  pointer.P(uint32(4)),
+						},
+					},
+				},
+				fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, 6, 2, 4),
+			),
 		)
 
 		It("should admit VM with preference using preferSpread and without instancetype", func() {
@@ -1877,26 +2008,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
 			})
 
-			It("should reject VM creation when resource requests are configured", func() {
-				vm.Spec.Template.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
-				vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("400m")
-
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.resources"))
-				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
-			})
-
-			It("should reject VM creation when resource limits are configured", func() {
-				vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-				vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("400m")
-
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.resources"))
-				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
-			})
-
 			When("Hot CPU change is in progress", func() {
 				BeforeEach(func() {
 					vm.Status.Ready = true
@@ -1928,14 +2039,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(response.Result.Details.Causes).To(ContainElement(cause))
 			},
-				Entry("resource limits are configured", func(vm *v1.VirtualMachine) {
-					vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-					vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
-				}, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "spec.template.spec.domain.resources",
-					Message: "Configuration of Memory limits is not allowed when Memory live update is enabled",
-				}),
 				Entry("hugepages is configured", func(vm *v1.VirtualMachine) {
 					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
 						PageSize: "2Mi",
@@ -2027,7 +2130,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.Multiarchitecture)
+					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "arm"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2035,6 +2138,26 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is only available for x86_64 VMs",
 				}),
 			)
+		})
+
+		Context("Update volume strategy", func() {
+			It("should accept the VM with the feature gate enabled", func() {
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyReplacement)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
+			})
+			It("should reject the VM creation if the feature gate isn't enabled", func() {
+				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyReplacement)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "updateVolumesStrategy",
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
+				}))
+			})
 		})
 	})
 

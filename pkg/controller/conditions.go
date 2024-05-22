@@ -273,10 +273,7 @@ func (d *VirtualMachineInstanceMigrationConditionManager) HasCondition(migration
 func (d *VirtualMachineInstanceMigrationConditionManager) HasConditionWithStatus(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType, status k8sv1.ConditionStatus) bool {
 	for _, c := range migration.Status.Conditions {
 		if c.Type == cond {
-			if c.Status == status {
-				return true
-			}
-			return false
+			return c.Status == status
 		}
 	}
 	return false

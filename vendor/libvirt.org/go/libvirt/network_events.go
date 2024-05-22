@@ -47,6 +47,13 @@ type NetworkEventLifecycle struct {
 
 type NetworkEventLifecycleCallback func(c *Connect, n *Network, event *NetworkEventLifecycle)
 
+type NetworkEventMetadataChange struct {
+	Type  NetworkMetadataType
+	NSURI string
+}
+
+type NetworkEventMetadataChangeCallback func(c *Connect, n *Network, event *NetworkEventMetadataChange)
+
 //export networkEventLifecycleCallback
 func networkEventLifecycleCallback(c C.virConnectPtr, n C.virNetworkPtr,
 	event int, detail int,
@@ -68,6 +75,25 @@ func networkEventLifecycleCallback(c C.virConnectPtr, n C.virNetworkPtr,
 	callback(connection, network, eventDetails)
 }
 
+//export networkEventMetadataChangeCallback
+func networkEventMetadataChangeCallback(c C.virConnectPtr, d C.virNetworkPtr,
+	mtype int, nsuri *C.char, goCallbackId int) {
+
+	network := &Network{ptr: d}
+	connection := &Connect{ptr: c}
+
+	eventDetails := &NetworkEventMetadataChange{
+		Type:  NetworkMetadataType(mtype),
+		NSURI: C.GoString(nsuri),
+	}
+	callbackFunc := getCallbackId(goCallbackId)
+	callback, ok := callbackFunc.(NetworkEventMetadataChangeCallback)
+	if !ok {
+		panic("Inappropriate callback type called")
+	}
+	callback(connection, network, eventDetails)
+}
+
 func (c *Connect) NetworkEventLifecycleRegister(net *Network, callback NetworkEventLifecycleCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
 	callbackPtr := unsafe.Pointer(C.networkEventLifecycleCallbackHelper)
@@ -78,6 +104,25 @@ func (c *Connect) NetworkEventLifecycleRegister(net *Network, callback NetworkEv
 	var err C.virError
 	ret := C.virConnectNetworkEventRegisterAnyHelper(c.ptr, cnet,
 		C.VIR_NETWORK_EVENT_ID_LIFECYCLE,
+		C.virConnectNetworkEventGenericCallback(callbackPtr),
+		C.long(goCallBackId), &err)
+	if ret == -1 {
+		freeCallbackId(goCallBackId)
+		return 0, makeError(&err)
+	}
+	return int(ret), nil
+}
+
+func (c *Connect) NetworkEventMetadataChangeRegister(net *Network, callback NetworkEventMetadataChangeCallback) (int, error) {
+	goCallBackId := registerCallbackId(callback)
+	callbackPtr := unsafe.Pointer(C.networkEventMetadataChangeCallbackHelper)
+	var cnet C.virNetworkPtr
+	if net != nil {
+		cnet = net.ptr
+	}
+	var err C.virError
+	ret := C.virConnectNetworkEventRegisterAnyHelper(c.ptr, cnet,
+		C.VIR_NETWORK_EVENT_ID_METADATA_CHANGE,
 		C.virConnectNetworkEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {

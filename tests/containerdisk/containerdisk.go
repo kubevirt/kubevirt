@@ -41,6 +41,7 @@ const (
 const (
 	FedoraVolumeSize = "6Gi"
 	CirrosVolumeSize = "512Mi"
+	AlpineVolumeSize = "512Mi"
 	BlankVolumeSize  = "16Mi"
 )
 
@@ -69,4 +70,13 @@ func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 		return fmt.Sprintf("%s/%s-container-disk:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
+}
+
+func ContainerDiskSizeBySourceURL(url string) string {
+	if url == DataVolumeImportUrlForContainerDisk(ContainerDiskFedoraTestTooling) ||
+		url == DataVolumeImportUrlForContainerDisk(ContainerDiskFedoraRealtime) {
+		return FedoraVolumeSize
+	}
+
+	return CirrosVolumeSize
 }

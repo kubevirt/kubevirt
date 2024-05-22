@@ -15,6 +15,7 @@ go_library(
         "//tests/framework/matcher:go_default_library",
         "//tests/libinfra:go_default_library",
         "//tests/libmonitoring:go_default_library",
+        "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",

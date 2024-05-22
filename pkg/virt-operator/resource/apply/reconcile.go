@@ -57,6 +57,13 @@ import (
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
 
+type DefaultInfraComponentsNodePlacement int
+
+const (
+	AnyNode DefaultInfraComponentsNodePlacement = iota
+	RequireControlPlanePreferNonWorker
+)
+
 const (
 	replaceSpecPatchTemplate     = `{ "op": "replace", "path": "/spec", "value": %s }`
 	replaceWebhooksValueTemplate = `{ "op": "replace", "path": "/webhooks", "value": %s }`
@@ -125,15 +132,57 @@ const (
 )
 
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
-func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
+func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec, nodePlacementOption DefaultInfraComponentsNodePlacement) {
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
 	}
+
 	if componentConfig == nil || componentConfig.NodePlacement == nil {
-		componentConfig = &v1.ComponentConfig{
-			NodePlacement: &v1.NodePlacement{},
+		switch nodePlacementOption {
+		case AnyNode:
+			componentConfig = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{}}
+
+		case RequireControlPlanePreferNonWorker:
+			componentConfig = &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "node-role.kubernetes.io/control-plane",
+												Operator: corev1.NodeSelectorOpExists,
+											},
+										},
+									},
+								},
+							},
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 100,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "node-role.kubernetes.io/worker",
+												Operator: corev1.NodeSelectorOpDoesNotExist,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+		default:
+			log.Log.Errorf("Unknown nodePlacementOption %d provided to InjectPlacementMetadata. Falling back to the AnyNode option", nodePlacementOption)
+			componentConfig = &v1.ComponentConfig{NodePlacement: &v1.NodePlacement{}}
 		}
 	}
+
 	nodePlacement := componentConfig.NodePlacement
 	if len(nodePlacement.NodeSelector) == 0 {
 		nodePlacement.NodeSelector = make(map[string]string)

@@ -61,7 +61,7 @@ const (
 	PersistentReservation = "PersistentReservation"
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
-	Multiarchitecture = "MultiArchitecture"
+	MultiArchitecture = "MultiArchitecture"
 	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
@@ -78,17 +78,15 @@ const (
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
+
+	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
+	VolumesUpdateStrategy = "VolumesUpdateStrategy"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	deprecatedFeature := deprecation.FeatureGateInfo(featureGate)
-	if deprecatedFeature != nil {
-		switch state := deprecatedFeature.State; state {
-		case deprecation.GA:
-			return true
-		case deprecation.Discontinued:
-			return false
-		}
+	if deprecatedFeature != nil && deprecatedFeature.State == deprecation.GA {
+		return true
 	}
 
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
@@ -220,7 +218,7 @@ func (config *ClusterConfig) VMPersistentStateEnabled() bool {
 }
 
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
-	return config.isFeatureGateEnabled(Multiarchitecture)
+	return config.isFeatureGateEnabled(MultiArchitecture)
 }
 
 func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
@@ -245,4 +243,8 @@ func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(AlignCPUsGate)
+}
+
+func (config *ClusterConfig) VolumesUpdateStrategyEnabled() bool {
+	return config.isFeatureGateEnabled(VolumesUpdateStrategy)
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -159,7 +160,7 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 	}
 
 	glog.V(3).Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
-	if err := streamer.Stream(kubecli.StreamOptions{
+	if err := streamer.Stream(kvcorev1.StreamOptions{
 		In:  os.Stdin,
 		Out: os.Stdout,
 	}); err != nil {

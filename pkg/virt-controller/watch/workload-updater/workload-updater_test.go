@@ -1,13 +1,13 @@
 package workloadupdater
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	v12 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
@@ -18,16 +18,13 @@ import (
 
 	"kubevirt.io/client-go/api"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	io_prometheus_client "github.com/prometheus/client_model/go"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -91,7 +88,10 @@ var _ = Describe("Workload Updater", func() {
 
 		expectedImage = "cur-image"
 
-		outdatedVirtualMachineInstanceWorkloads.Set(0.0)
+		err := metrics.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		metrics.SetOutdatedVirtualMachineInstanceWorkloads(0)
+
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -120,9 +120,9 @@ var _ = Describe("Workload Updater", func() {
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 
 		// Set up mock client
-		virtClient.EXPECT().VirtualMachineInstanceMigration(v12.NamespaceDefault).Return(migrationInterface).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(v12.NamespaceDefault).Return(vmiInterface).AnyTimes()
-		virtClient.EXPECT().KubeVirt(v12.NamespaceDefault).Return(kubeVirtInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+		virtClient.EXPECT().KubeVirt(k8sv1.NamespaceDefault).Return(kubeVirtInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().PolicyV1().Return(kubeClient.PolicyV1()).AnyTimes()
@@ -143,7 +143,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
@@ -164,11 +164,9 @@ var _ = Describe("Workload Updater", func() {
 		It("should update out of date value on kv and report prometheus metric", func() {
 
 			By("Checking prometheus metric before sync")
-			dto := &io_prometheus_client.Metric{}
-			Expect(outdatedVirtualMachineInstanceWorkloads.Write(dto)).To(Succeed())
-
-			zero := 0.0
-			Expect(dto.GetGauge().Value).To(Equal(&zero), "outdated vmi workload reported should be equal to zero")
+			value, err := metrics.GetOutdatedVirtualMachineInstanceWorkloads()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(BeZero(), "outdated vmi workload reported should be equal to zero")
 
 			totalVMs := 0
 			reasons := []string{}
@@ -197,13 +195,13 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) {
+			kubeVirtInterface.EXPECT().PatchStatus(context.Background(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(func(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions metav1.PatchOptions) {
 				str := string(data)
 				Expect(str).To(Equal("[{ \"op\": \"test\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 0}, { \"op\": \"replace\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 100}]"))
 
 			}).Return(nil, nil).Times(1)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
 
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
@@ -212,12 +210,10 @@ var _ = Describe("Workload Updater", func() {
 			testutils.ExpectEvents(recorder, reasons...)
 
 			By("Checking prometheus metric")
-			dto = &io_prometheus_client.Metric{}
-			Expect(outdatedVirtualMachineInstanceWorkloads.Write(dto)).To(Succeed())
+			value, err = metrics.GetOutdatedVirtualMachineInstanceWorkloads()
+			Expect(err).ToNot(HaveOccurred())
 
-			val := 100.0
-
-			Expect(dto.GetGauge().Value).To(Equal(&val))
+			Expect(value).To(Equal(100))
 			Expect(evictionCount).To(Equal(defaultBatchDeletionCount))
 
 		})
@@ -245,7 +241,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
@@ -283,7 +279,7 @@ var _ = Describe("Workload Updater", func() {
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).Times(1)
 
 			controller.Execute()
 			testutils.ExpectEvents(recorder, reasons...)
@@ -309,7 +305,7 @@ var _ = Describe("Workload Updater", func() {
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
 
-			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
+			migrationInterface.EXPECT().Create(context.Background(), gomock.Any(), metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: metav1.ObjectMeta{Name: "something"}}, nil).Times(1)
 			evictionCount := 0
 			shouldExpectMultiplePodEvictions(&evictionCount)
 
@@ -457,6 +453,105 @@ var _ = Describe("Workload Updater", func() {
 		})
 	})
 
+	Context("Abort changes due to an automated live update", func() {
+		createVM := func(annotation, hasChangeCondition bool) *v1.VirtualMachineInstance {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Namespace = k8sv1.NamespaceDefault
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue})
+			if hasChangeCondition {
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceMemoryChange,
+					Status: k8sv1.ConditionTrue,
+				})
+			}
+			if annotation {
+				vmi.ObjectMeta.Annotations = make(map[string]string)
+				vmi.ObjectMeta.Annotations[v1.WorkloadUpdateMigrationAbortionAnnotation] = ""
+			}
+			vmiSource.Add(vmi)
+			return vmi
+		}
+		createMig := func(vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+			mig := newMigration("test", vmiName, phase)
+			mig.Annotations = map[string]string{v1.WorkloadUpdateMigrationAnnotation: ""}
+			migrationFeeder.Add(mig)
+			return mig
+		}
+
+		BeforeEach(func() {
+			kv := newKubeVirt(0)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+			addKubeVirt(kv)
+		})
+
+		DescribeTable("should delete the migration", func(phase v1.VirtualMachineInstanceMigrationPhase) {
+			vmi := createVM(false, false)
+			mig := createMig(vmi.Name, phase)
+
+			if !mig.IsFinal() {
+				migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(nil)
+			}
+
+			controller.Execute()
+			if mig.IsFinal() {
+				Expect(recorder.Events).To(BeEmpty())
+			} else {
+				testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
+			}
+		},
+			Entry("in running phase", v1.MigrationRunning),
+			Entry("in failed phase", v1.MigrationFailed),
+			Entry("in succeeded phase", v1.MigrationSucceeded),
+		)
+
+		DescribeTable("should handle", func(hasCond, hasMig bool) {
+			vmi := createVM(false, hasCond)
+			if hasCond {
+				kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+			}
+			var mig *v1.VirtualMachineInstanceMigration
+			if hasMig {
+				mig = createMig(vmi.Name, v1.MigrationRunning)
+			}
+			changeAborted := hasMig && !hasCond
+			if changeAborted {
+				migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(nil)
+			}
+			controller.Execute()
+			if changeAborted {
+				testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
+			} else {
+				Expect(recorder.Events).To(BeEmpty())
+			}
+		},
+			Entry("a in progress change update", true, true),
+			Entry("a change abortion", false, true),
+			Entry("no change in progress", false, false),
+		)
+
+		DescribeTable("should always cancel the migration when the testWorkloadUpdateMigrationAbortion annotation is present", func(hasCond bool) {
+			vmi := createVM(true, hasCond)
+			mig := createMig(vmi.Name, v1.MigrationRunning)
+			migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(nil)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulChangeAbortionReason)
+		},
+			Entry("with the change condition", true),
+			Entry("without the change condition", false),
+		)
+
+		It("should return an error if the migration hasn't been deleted", func() {
+			vmi := createVM(true, false)
+			mig := createMig(vmi.Name, v1.MigrationRunning)
+			migrationInterface.EXPECT().Delete(gomock.Any(), mig.Name, metav1.DeleteOptions{}).Return(fmt.Errorf("some error"))
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, FailedChangeAbortionReason)
+		})
+	})
+
 	AfterEach(func() {
 
 		close(stop)
@@ -473,7 +568,7 @@ func waitForNumberOfInstancesOnVMIInformerCache(wu *WorkloadUpdateController, vm
 
 func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 	return &v1.KubeVirt{
-		ObjectMeta: v13.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
 		},
@@ -488,12 +583,12 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 func newVirtualMachine(name string, isMigratable bool, image string, vmiSource *framework.FakeControllerSource, podSource *framework.FakeControllerSource) *v1.VirtualMachineInstance {
 	vmi := api.NewMinimalVMI("testvm")
 	vmi.Name = name
-	vmi.Namespace = v12.NamespaceDefault
+	vmi.Namespace = k8sv1.NamespaceDefault
 	vmi.Status.LauncherContainerImageVersion = image
 	vmi.Status.Phase = v1.Running
 	vmi.UID = "1234"
 	if isMigratable {
-		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionTrue}}
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue}}
 	}
 
 	pod := &k8sv1.Pod{
@@ -529,6 +624,6 @@ func newMigration(name string, vmi string, phase v1.VirtualMachineInstanceMigrat
 	migration := kubecli.NewMinimalMigration(name)
 	migration.Status.Phase = phase
 	migration.Spec.VMIName = vmi
-	migration.Namespace = v12.NamespaceDefault
+	migration.Namespace = k8sv1.NamespaceDefault
 	return migration
 }

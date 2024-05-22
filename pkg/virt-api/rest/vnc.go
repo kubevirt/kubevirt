@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -62,7 +63,7 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 	}
 
 	done := make(chan struct{})
-	streamer := kubecli.NewWebsocketStreamer(nc, done)
+	streamer := kvcorev1.NewWebsocketStreamer(nc, done)
 	defer close(done)
 
 	ch := make(chan vnc.ServerMessage)
@@ -155,7 +156,7 @@ func (app *SubresourceAPIApp) VNCScreenshotRequestHandler(request *restful.Reque
 
 func validateVMIForVNC(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 	// If there are no graphics devices present, we can't proceed
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == false {
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
 		err := fmt.Errorf("No graphics devices are present.")
 		log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
 		return errors.NewBadRequest(err.Error())

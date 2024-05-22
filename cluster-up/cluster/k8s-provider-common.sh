@@ -144,8 +144,10 @@ function deploy_cdi() {
             $ssh node01 -- 'sudo sed --regexp-extended -i s/v[0-9]+\.[0-9]+\.[0-9]+\(.*\)?$/'"$KUBEVIRT_CUSTOM_CDI_VERSION"'/g /opt/cdi-*-operator.yaml'
         fi
 
-        $kubectl create -f /opt/cdi-*-operator.yaml
-        $kubectl create -f /opt/cdi-*-cr.yaml
+        LATEST_CDI_OPERATOR=$($ssh node01 -- 'ls -rt /opt/cdi-*-operator.yaml | tail -n 1')
+        LATEST_CDI_CR=$($ssh node01 -- 'ls -rt /opt/cdi-*-cr.yaml | tail -n 1')
+        $kubectl create -f $LATEST_CDI_OPERATOR
+        $kubectl create -f $LATEST_CDI_CR
     fi
 }
 
@@ -162,7 +164,45 @@ function wait_for_cdi_ready() {
 # configure Prometheus to select kubevirt prometheusrules
 function configure_prometheus() {
     if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && $kubectl get crd prometheuses.monitoring.coreos.com; then
-        _kubectl patch prometheus k8s -n monitoring --type='json' -p='[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {"kubevirt.io": ""}}}]'
+        _kubectl patch prometheus k8s -n monitoring --type='json' -p='[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {}}}]'
+    fi
+}
+
+function deploy_aaq() {
+    if [ "$KUBEVIRT_DEPLOY_AAQ" == "true" ]; then
+        if [ -n "${KUBEVIRT_CUSTOM_AAQ_VERSION}" ]; then
+            $ssh node01 -- 'sudo sed --regexp-extended -i s/v[0-9]+\.[0-9]+\.[0-9]+\(.*\)?$/'"$KUBEVIRT_CUSTOM_AAQ_VERSION"'/g /opt/aaq/aaq-*-operator.yaml'
+        fi
+
+        $kubectl create -f /opt/aaq/aaq-*-operator.yaml
+        $kubectl create -f /opt/aaq/aaq-*-cr.yaml
+    fi
+}
+
+function wait_for_aaq_ready() {
+    if [ "$KUBEVIRT_DEPLOY_AAQ" == "true" ]; then
+        while [ "$($kubectl get pods --namespace aaq | grep -c 'aaq-')" -lt 4 ]; do
+            $kubectl get pods --namespace aaq
+            sleep 10
+        done
+        $kubectl wait --for=condition=Ready pod --timeout=180s --all --namespace aaq
+    fi
+}
+
+function configure_cpu_manager() {
+    if [ ${KUBEVIRT_CPU_MANAGER_POLICY} == "static" ]; then
+        for node in $($kubectl get nodes -l "node-role.kubernetes.io/worker" --no-headers -o custom-columns=":metadata.name" | tr -d '\r'); do
+            # FIXME Replace with kubelet config drop ins once all providers are using k8s >= 1.28
+            # https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-conf-d
+            $kubectl drain ${node}
+            $ssh ${node} -- sudo systemctl stop kubelet
+            # FIXME ${ssh} is broken when using HereDocs, fix and replace this mess if possible.
+            # https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/#configuration
+            $ssh ${node} -- "sudo rm -f /var/lib/kubelet/cpu_manager_state && sudo echo -e 'cpuManagerPolicy: static\nkubeReserved:\n  cpu: \"1\"\n memory: \"1Gi\"\ncpuManagerPolicyOptions:\n  full-pcpus-only: \"true\"' | sudo tee -a /var/lib/kubelet/config.yaml && sudo sed -i 's/cpuManagerReconcilePeriod\:\ 0s/cpuManagerReconcilePeriod\:\ 5s/g' /var/lib/kubelet/config.yaml"
+            $ssh ${node} -- sudo systemctl start kubelet
+            $kubectl label --overwrite node/${node} cpumanager=true
+            $kubectl uncordon ${node}
+        done
     fi
 }
 
@@ -207,13 +247,15 @@ function up() {
 
     configure_prometheus
     configure_memory_overcommitment_behavior
+    configure_cpu_manager
 
     deploy_cnao
     deploy_multus
     deploy_istio
     deploy_cdi
+    deploy_aaq
 
-    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready && wait_for_multus_ready; do
+    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready && wait_for_multus_ready && wait_for_aaq_ready; do
         echo "Waiting for cluster components..."
         sleep 5
     done

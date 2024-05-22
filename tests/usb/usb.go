@@ -21,7 +21,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -53,12 +53,12 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 			Skip("No emulated USB devices present for functional test.")
 		}
 
-		vmi = libvmi.NewCirros()
+		vmi = libvmifact.NewCirros()
 	})
 
 	AfterEach(func() {
 		// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 	})
@@ -95,7 +95,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 
 			var err error
 			vmi.Spec.Domain.Devices.HostDevices = hostDevs
-			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())

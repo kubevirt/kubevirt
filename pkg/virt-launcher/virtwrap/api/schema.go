@@ -157,13 +157,18 @@ type FSFreeze struct {
 	Status string
 }
 
+type FSDisk struct {
+	Serial  string
+	BusType string
+}
+
 type Filesystem struct {
 	Name       string
 	Mountpoint string
 	Type       string
 	UsedBytes  int
 	TotalBytes int
-	Disk       []v1.VirtualMachineInstanceFileSystemDisk
+	Disk       []FSDisk
 }
 
 type User struct {
@@ -309,7 +314,10 @@ type Features struct {
 	PMU        *FeatureState      `xml:"pmu,omitempty"`
 }
 
+const HypervModePassthrough = "passthrough"
+
 type FeatureHyperv struct {
+	Mode            string            `xml:"mode,attr,omitempty"`
 	Relaxed         *FeatureState     `xml:"relaxed,omitempty"`
 	VAPIC           *FeatureState     `xml:"vapic,omitempty"`
 	Spinlocks       *FeatureSpinlocks `xml:"spinlocks,omitempty"`
@@ -475,12 +483,17 @@ type MemoryBackingAccess struct {
 type NoSharePages struct {
 }
 
+type MemoryAddress struct {
+	Base string `xml:"base,attr"`
+}
+
 type MemoryTarget struct {
-	Size      Memory `xml:"size"`
-	Requested Memory `xml:"requested"`
-	Current   Memory `xml:"current"`
-	Node      string `xml:"node"`
-	Block     Memory `xml:"block"`
+	Size      Memory         `xml:"size"`
+	Requested Memory         `xml:"requested"`
+	Current   Memory         `xml:"current"`
+	Node      string         `xml:"node"`
+	Block     Memory         `xml:"block"`
+	Address   *MemoryAddress `xml:"address,omitempty"`
 }
 
 type MemoryDevice struct {

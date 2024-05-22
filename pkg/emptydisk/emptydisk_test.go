@@ -1,7 +1,6 @@
 package emptydisk
 
 import (
-	"fmt"
 	"os"
 	"path"
 
@@ -89,7 +88,6 @@ var _ = Describe("EmptyDisk", func() {
 })
 
 func fakeCreatorFunc(filePath string, _ string) error {
-	fmt.Println(filePath)
 	f, err := os.Create(filePath)
 	if err != nil {
 		return err

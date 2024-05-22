@@ -216,6 +216,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"failed":                         "Indicates that the migration failed",
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
+		"failureReason":                  "Contains the reason why the migration failed",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
 		"migrationPolicyName":            "Name of the migration policy. If string is empty, no policy is matched",
@@ -357,13 +358,14 @@ func (VirtualMachineList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
-		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
-		"runStrategy":         "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
-		"instancetype":        "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
-		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
-		"template":            "Template is the direct specification of VirtualMachineInstance",
-		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"":                      "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
+		"running":               "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
+		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
+		"instancetype":          "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
+		"preference":            "PreferenceMatcher references a set of preference that is used to fill fields in Template",
+		"template":              "Template is the direct specification of VirtualMachineInstance",
+		"dataVolumeTemplates":   "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"updateVolumesStrategy": "UpdateVolumesStrategy is the strategy to apply on volumes updates",
 	}
 }
 
@@ -728,7 +730,9 @@ func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                   "KubeVirtConfiguration holds all kubevirt configurations",
+		"emulatedMachines":                   "Deprecated. Use architectureConfiguration instead.",
 		"machineType":                        "Deprecated. Use architectureConfiguration instead.",
+		"ovmfPath":                           "Deprecated. Use architectureConfiguration instead.",
 		"evictionStrategy":                   "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
 		"additionalGuestMemoryOverheadRatio": "AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure\noverhead. This is useful, since the calculation of this overhead is not accurate and cannot\nbe entirely known in advance. The ratio that is being set determines by which factor to increase\nthe overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised\nby node pressures, but would mean that fewer VMs could be scheduled to a node.\nIf not set, the default is 1.",
 		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
@@ -910,7 +914,8 @@ func (KSMConfiguration) SwaggerDoc() map[string]string {
 
 func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "NetworkConfiguration holds network options",
+		"":                     "NetworkConfiguration holds network options",
+		"permitSlirpInterface": "DeprecatedPermitSlirpInterface is an alias for the deprecated PermitSlirpInterface.\nDeprecated: Removed in v1.3.",
 	}
 }
 
@@ -920,6 +925,7 @@ func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
 		"networkAttachmentDefinition": "NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object.\nFormat: <name>, <namespace>/<name>.\nIf namespace is not specified, VMI namespace is assumed.\nversion: 1alphav1",
 		"domainAttachmentType":        "DomainAttachmentType is a standard domain network attachment method kubevirt supports.\nSupported values: \"tap\".\nThe standard domain attachment can be used instead or in addition to the sidecarImage.\nversion: 1alphav1",
 		"migration":                   "Migration means the VM using the plugin can be safely migrated\nversion: 1alphav1",
+		"downwardAPI":                 "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar.\nSupported values: \"device-info\"\nversion: v1alphav1\n+optional",
 	}
 }
 

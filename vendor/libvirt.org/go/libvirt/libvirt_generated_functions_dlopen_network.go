@@ -597,6 +597,41 @@ virNetworkGetDHCPLeasesWrapper(virNetworkPtr network,
     return ret;
 }
 
+typedef char *
+(*virNetworkGetMetadataType)(virNetworkPtr network,
+                             int type,
+                             const char * uri,
+                             unsigned int flags);
+
+char *
+virNetworkGetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err)
+{
+    char * ret = NULL;
+    static virNetworkGetMetadataType virNetworkGetMetadataSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virNetworkGetMetadata",
+                       (void**)&virNetworkGetMetadataSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virNetworkGetMetadataSymbol(network,
+                                      type,
+                                      uri,
+                                      flags);
+    if (!ret) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
 typedef const char *
 (*virNetworkGetNameType)(virNetworkPtr network);
 
@@ -1284,6 +1319,47 @@ virNetworkSetAutostartWrapper(virNetworkPtr network,
     }
     ret = virNetworkSetAutostartSymbol(network,
                                        autostart);
+    if (ret < 0) {
+        virCopyLastErrorWrapper(err);
+    }
+    return ret;
+}
+
+typedef int
+(*virNetworkSetMetadataType)(virNetworkPtr network,
+                             int type,
+                             const char * metadata,
+                             const char * key,
+                             const char * uri,
+                             unsigned int flags);
+
+int
+virNetworkSetMetadataWrapper(virNetworkPtr network,
+                             int type,
+                             const char * metadata,
+                             const char * key,
+                             const char * uri,
+                             unsigned int flags,
+                             virErrorPtr err)
+{
+    int ret = -1;
+    static virNetworkSetMetadataType virNetworkSetMetadataSymbol;
+    static bool once;
+    static bool success;
+
+    if (!libvirtSymbol("virNetworkSetMetadata",
+                       (void**)&virNetworkSetMetadataSymbol,
+                       &once,
+                       &success,
+                       err)) {
+        return ret;
+    }
+    ret = virNetworkSetMetadataSymbol(network,
+                                      type,
+                                      metadata,
+                                      key,
+                                      uri,
+                                      flags);
     if (ret < 0) {
         virCopyLastErrorWrapper(err);
     }

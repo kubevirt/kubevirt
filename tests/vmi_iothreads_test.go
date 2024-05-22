@@ -25,6 +25,7 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -56,7 +57,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi = libvmifact.NewAlpine()
 	})
 
 	Context("IOThreads Policies", func() {
@@ -70,7 +71,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -78,7 +79,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
 
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -103,7 +104,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			tests.AddEphemeralDisk(vmi, "shr2", v1.DiskBusVirtio, cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -112,7 +113,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
@@ -164,20 +165,20 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 
 			By("Creating VMI with 2 dedicated and 4 shared ioThreadPolicies")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitForSuccessfulVMIStart(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			getOptions := metav1.GetOptions{}
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, newVMI)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}
 			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
@@ -247,7 +248,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
 
 			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -255,7 +256,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			var newVMI *v1.VirtualMachineInstance
 
 			By("Fetching the VMI from the cluster")
-			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &getOptions)
+			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")

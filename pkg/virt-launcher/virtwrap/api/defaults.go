@@ -16,17 +16,11 @@ type Defaulter struct {
 }
 
 func (d *Defaulter) IsPPC64() bool {
-	if d.Architecture == "ppc64le" {
-		return true
-	}
-	return false
+	return d.Architecture == "ppc64le"
 }
 
 func (d *Defaulter) IsARM64() bool {
-	if d.Architecture == "arm64" {
-		return true
-	}
-	return false
+	return d.Architecture == "arm64"
 }
 
 func (d *Defaulter) SetDefaults_Devices(devices *Devices) {

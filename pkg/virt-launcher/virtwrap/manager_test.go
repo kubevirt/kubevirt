@@ -2061,7 +2061,7 @@ var _ = Describe("Manager", func() {
 			domStats, err := manager.GetDomainStats()
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(domStats).To(HaveLen(1))
+			Expect(domStats).ToNot(BeNil())
 		})
 	})
 
@@ -2208,7 +2208,7 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
-				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+				Disk: []api.FSDisk{
 					{
 						BusType: "scsi",
 						Serial:  "testserial-1234",
@@ -2271,7 +2271,7 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
-				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+				Disk: []api.FSDisk{
 					{
 						BusType: "scsi",
 						Serial:  "testserial-1234",
@@ -2298,7 +2298,7 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
-				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+				Disk: []api.FSDisk{
 					{
 						BusType: "scsi",
 						Serial:  "testserial-1234",
@@ -2344,7 +2344,7 @@ var _ = Describe("Manager", func() {
 				Type:       "fs",
 				UsedBytes:  0,
 				TotalBytes: 0,
-				Disk: []v1.VirtualMachineInstanceFileSystemDisk{
+				Disk: []api.FSDisk{
 					{
 						BusType: "scsi",
 						Serial:  "testserial-1234",
@@ -2643,15 +2643,8 @@ var _ = Describe("Manager helper functions", func() {
 		var zeroQuantity resource.Quantity
 
 		BeforeEach(func() {
-			var err error
-			tmpDir, err = os.MkdirTemp("", "tempdir")
-			Expect(err).ToNot(HaveOccurred())
-
+			tmpDir = GinkgoT().TempDir()
 			zeroQuantity = *resource.NewScaledQuantity(0, 0)
-		})
-
-		AfterEach(func() {
-			_ = os.RemoveAll(tmpDir)
 		})
 
 		expectNonZeroQuantity := func(ephemeralDiskDir string) {

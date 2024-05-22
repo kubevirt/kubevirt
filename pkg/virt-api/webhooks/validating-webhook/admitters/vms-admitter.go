@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -44,6 +46,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -166,6 +169,17 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		}
 	}
 
+	if ar.Request.Operation == admissionv1.Create {
+		clusterCfg := admitter.ClusterConfig.GetConfig()
+		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
+			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
+		}
+
+		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec, admitter.ClusterConfig)
+		if causes = netValidator.ValidateCreation(); len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+	}
 	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, accountName)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
@@ -236,6 +250,49 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
+const (
+	instancetypeCPUGuestPath              = "instancetype.spec.cpu.guest"
+	spreadAcrossSocketsCoresErrFmt        = "%d vCPUs provided by the instance type are not divisible by the Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d provided by the preference"
+	spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
+	spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
+)
+
+func checkSpreadCPUTopology(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
+	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec == nil || topology != instancetypev1beta1.PreferSpread {
+		return nil
+	}
+
+	ratio, across := instancetype.GetSpreadOptions(preferenceSpec)
+	switch across {
+	case instancetypev1beta1.SpreadAcrossSocketsCores:
+		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, instancetypeSpec.CPU.Guest, ratio),
+				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
+			}}
+		}
+	case instancetypev1beta1.SpreadAcrossCoresThreads:
+		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, ratio),
+				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
+			}}
+		}
+	case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
+		const threadsPerCore = 2
+		if (instancetypeSpec.CPU.Guest%threadsPerCore) > 0 || ((instancetypeSpec.CPU.Guest/threadsPerCore)%ratio) > 0 {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, threadsPerCore, ratio),
+				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
+			}}
+		}
+	}
+	return nil
+}
+
 func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
 	instancetypeSpec, err := admitter.InstancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
@@ -255,19 +312,8 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 		}}
 	}
 
-	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec != nil && topology == instancetypev1beta1.PreferSpread {
-		ratio := preferenceSpec.PreferSpreadSocketToCoreRatio
-		if ratio == 0 {
-			ratio = instancetype.DefaultSpreadRatio
-		}
-
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return nil, nil, []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Instancetype CPU Guest is not divisible by PreferSpreadSocketToCoreRatio",
-				Field:   k8sfield.NewPath("instancetype.spec.cpu.guest").String(),
-			}}
-		}
+	if spreadConflicts := checkSpreadCPUTopology(instancetypeSpec, preferenceSpec); len(spreadConflicts) > 0 {
+		return nil, nil, spreadConflicts
 	}
 
 	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
@@ -442,16 +488,16 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 
 	causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
 
-	if hasCPURequestsOrLimits(&spec.Template.Spec.Domain.Resources) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"),
-			Field:   field.Child("template", "spec", "domain", "resources").String(),
-		})
-	}
-
 	if spec.Template.Spec.Domain.Memory != nil && spec.Template.Spec.Domain.Memory.MaxGuest != nil {
 		causes = append(causes, validateLiveUpdateMemory(field, &spec.Template.Spec.Domain, spec.Template.Spec.Architecture)...)
+	}
+
+	if spec.UpdateVolumesStrategy != nil && !config.VolumesUpdateStrategyEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
+			Field:   "updateVolumesStrategy",
+		})
 	}
 
 	return causes
@@ -470,14 +516,6 @@ func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes 
 }
 
 func validateLiveUpdateMemory(field *k8sfield.Path, domain *v1.DomainSpec, architecture string) (causes []metav1.StatusCause) {
-	if hasMemoryLimits(&domain.Resources) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Configuration of Memory limits is not allowed when Memory live update is enabled"),
-			Field:   field.Child("template", "spec", "domain", "resources").String(),
-		})
-	}
-
 	if domain.CPU != nil &&
 		domain.CPU.Realtime != nil {
 		causes = append(causes, metav1.StatusCause{
@@ -584,7 +622,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 	if vm.Status.Ready {
 		var err error
 
-		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
 		} else if err == nil && vmi.DeletionTimestamp == nil {
@@ -741,6 +779,13 @@ func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause 
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
 	}
+	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "IOThreads are not supported by scsi bus.",
+			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+		}}
+	}
 
 	return nil
 }
@@ -794,33 +839,4 @@ func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMach
 	}
 
 	return nil
-}
-
-func (admitter *VMsAdmitter) isMigrationInProgress(vmi *v1.VirtualMachineInstance) error {
-	if vmi.Status.MigrationState != nil &&
-		!vmi.Status.MigrationState.Completed {
-		return fmt.Errorf("cannot update while VMI migration is in progress")
-	}
-
-	err := EnsureNoMigrationConflict(admitter.VirtClient, vmi.Name, vmi.Namespace)
-	if err != nil {
-		return fmt.Errorf("cannot update while VMI migration is in progress: %v", err)
-	}
-	return nil
-}
-
-func hasCPURequestsOrLimits(rr *v1.ResourceRequirements) bool {
-	if _, ok := rr.Requests[corev1.ResourceCPU]; ok {
-		return true
-	}
-	if _, ok := rr.Limits[corev1.ResourceCPU]; ok {
-		return true
-	}
-
-	return false
-}
-
-func hasMemoryLimits(rr *v1.ResourceRequirements) bool {
-	_, ok := rr.Limits[corev1.ResourceMemory]
-	return ok
 }

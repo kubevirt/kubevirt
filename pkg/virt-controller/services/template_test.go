@@ -49,6 +49,7 @@ import (
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -994,7 +995,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				value, ok := pod.Annotations[networkv1.NetworkAttachmentAnnot]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := "[" +
 					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
@@ -1036,7 +1037,7 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations["v1.multus-cni.io/default-network"]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("default"))
-				value, ok = pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				value, ok = pod.Annotations[networkv1.NetworkAttachmentAnnot]
 				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("[{\"name\":\"test1\",\"namespace\":\"default\",\"interface\":\"pod1b4f0e98519\"}]"))
 			})
@@ -1079,7 +1080,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				value, ok := pod.Annotations[networkv1.NetworkAttachmentAnnot]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := "[" +
 					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
@@ -1127,7 +1128,7 @@ var _ = Describe("Template", func() {
 					targetPod, err := svc.RenderMigrationManifest(vmi, sourcePod)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(targetPod.Annotations[MultusNetworksAnnotation]).To(MatchJSON(expectedTargetPodMultusNetworksAnnotation[MultusNetworksAnnotation]))
+					Expect(targetPod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedTargetPodMultusNetworksAnnotation[networkv1.NetworkAttachmentAnnot]))
 				},
 				Entry("when the migration source Multus network-status annotation has ordinal naming",
 					map[string]string{
@@ -1138,7 +1139,7 @@ var _ = Describe("Template", func() {
 						]`,
 					},
 					map[string]string{
-						MultusNetworksAnnotation: `[
+						networkv1.NetworkAttachmentAnnot: `[
 							{"interface":"net1", "name":"test1", "namespace":"default"},
 							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
 						]`,
@@ -1152,7 +1153,7 @@ var _ = Describe("Template", func() {
 						]`,
 					},
 					map[string]string{
-						MultusNetworksAnnotation: `[
+						networkv1.NetworkAttachmentAnnot: `[
 							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
 							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
 						]`,
@@ -1218,8 +1219,8 @@ var _ = Describe("Template", func() {
 				config, kvInformer, svc = configFactory(arch)
 
 				nodeSelector := map[string]string{
-					"kubernetes.io/hostname": "master",
-					v1.NodeSchedulable:       "true",
+					k8sv1.LabelHostname: "master",
+					v1.NodeSchedulable:  "true",
 				}
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -1243,9 +1244,9 @@ var _ = Describe("Template", func() {
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
-					"kubernetes.io/hostname": "master",
-					v1.NodeSchedulable:       "true",
-					k8sv1.LabelArchStable:    arch,
+					k8sv1.LabelHostname:   "master",
+					v1.NodeSchedulable:    "true",
+					k8sv1.LabelArchStable: arch,
 				}))
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher-monitor",
 					"--qemu-timeout", validateAndExtractQemuTimeoutArg(pod.Spec.Containers[0].Command),
@@ -1318,7 +1319,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				cpuModelLabel := NFD_CPU_MODEL_PREFIX + vmiCpuModel
+				cpuModelLabel := v1.CPUModelLabel + vmiCpuModel
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(cpuModelLabel, "true"))
 
 				cpuFeatureLabels := CPUFeatureLabelsFromCPUFeatures(&vmi)
@@ -1330,7 +1331,7 @@ var _ = Describe("Template", func() {
 			It("should add node selectors from kubevirt-config configMap", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
-				nodeSelectors := map[string]string{"kubernetes.io/hostname": "node02", "node-role.kubernetes.io/compute": "true"}
+				nodeSelectors := map[string]string{k8sv1.LabelHostname: "node02", "node-role.kubernetes.io/compute": "true"}
 				kvConfig.Spec.Configuration.DeveloperConfiguration.NodeSelectors = nodeSelectors
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
@@ -1346,7 +1347,7 @@ var _ = Describe("Template", func() {
 				}
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "node02"))
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(k8sv1.LabelHostname, "node02"))
 				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("node-role.kubernetes.io/compute", "true"))
 			})
 
@@ -1375,7 +1376,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.HypervLabel))))
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.CPUModelVendorLabel))))
 			})
 
@@ -1413,7 +1414,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.HypervLabel))))
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.CPUModelVendorLabel))))
 			})
 
@@ -1457,10 +1458,10 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synic", "true"))
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synictimer", "true"))
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"frequencies", "true"))
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"ipi", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"synic", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"synictimer", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"frequencies", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.HypervLabel+"ipi", "true"))
 				if EVMCSEnabled {
 					Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUModelVendorLabel+IntelVendorName, "true"))
 				} else {
@@ -1510,7 +1511,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(NFD_KVM_INFO_PREFIX))))
+				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.HypervLabel))))
 			})
 
 			Context("TSC frequency label", func() {
@@ -1570,8 +1571,8 @@ var _ = Describe("Template", func() {
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				nodeSelector := map[string]string{
-					"kubernetes.io/hostname": "master",
-					v1.NodeSchedulable:       "true",
+					k8sv1.LabelHostname: "master",
+					v1.NodeSchedulable:  "true",
 				}
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
@@ -3790,8 +3791,6 @@ var _ = Describe("Template", func() {
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			case "masquerade":
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-			case "slirp":
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultSlirpNetworkInterface()}
 			}
 
 			pod, err := svc.RenderLaunchManifest(vmi)
@@ -3807,12 +3806,16 @@ var _ = Describe("Template", func() {
 		},
 			Entry("when there is bridge interface", "bridge"),
 			Entry("when there is masquerade interface", "masquerade"),
-			Entry("when there is slirp interface", "slirp"),
 		)
 
 		It("should require capabilites which we set on virt-launcher binary", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface("test")}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name: "test",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{},
+				},
+			}}
 
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -3928,7 +3931,7 @@ var _ = Describe("Template", func() {
 
 			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			claimMap := map[string]*k8sv1.PersistentVolumeClaim{}
-			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
 			runUser := int64(util.NonRootUID)
@@ -3978,7 +3981,7 @@ var _ = Describe("Template", func() {
 					},
 				},
 			})
-			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap, false)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
 			prop := k8sv1.MountPropagationHostToContainer
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(2))
@@ -4025,7 +4028,7 @@ var _ = Describe("Template", func() {
 					},
 				},
 			})
-			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap, false)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeNil())
 			Expect(pod.Spec.Containers[0].VolumeDevices).To(Equal([]k8sv1.VolumeDevice{
@@ -4097,7 +4100,7 @@ var _ = Describe("Template", func() {
 				},
 			}
 			claimMap := map[string]*k8sv1.PersistentVolumeClaim{}
-			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 			verifyPodRequestLimits(pod)
 		})
@@ -4965,45 +4968,128 @@ var _ = Describe("Template", func() {
 		)
 	})
 
+	Context("network-info", func() {
+		const (
+			noDeviceInfoPlugin = "no_deviceinfo"
+			deviceInfoPlugin   = "deviceinfo"
+		)
+		BeforeEach(func() {
+			bindingPlugins := map[string]v1.InterfaceBindingPlugin{
+				deviceInfoPlugin:   {DownwardAPI: v1.DeviceInfo},
+				noDeviceInfoPlugin: {},
+			}
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{Binding: bindingPlugins}
+			_, kvInformer, svc = configFactory(defaultArch)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		})
+		It("has no downward-api for network-info when missing supported network-binding", func() {
+			vmi := libvmi.New(libvmi.WithNamespace("default"),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(libvmi.MultusNetwork("network1", "default/default")),
+				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("network1", v1.PluginBinding{Name: noDeviceInfoPlugin})),
+			)
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Volumes).ToNot(ContainElement(networkInfoAnnotVolume()),
+				"pod should not have network-info annotation volume")
+
+			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+			Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(ContainElement(networkInfoAnnotVolumeMount()),
+				"pod should not have network-info annotation volume mount")
+		})
+
+		DescribeTable("downward api for network-info is defined",
+			func(interfaces []v1.Interface, networks []v1.Network) {
+				vmi := libvmi.New(libvmi.WithNamespace("default"))
+				vmi.Spec.Domain.Devices.Interfaces = interfaces
+				vmi.Spec.Networks = networks
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				const netInfoAnnotVolName = "network-info-annotation"
+				netInfoVolumes := filterDownwardAPIVolumeByName(pod.Spec.Volumes, netInfoAnnotVolName)
+				Expect(netInfoVolumes).To(ConsistOf(networkInfoAnnotVolume()),
+					"should have single network-info annotation volume")
+
+				const computeContainerName = "compute"
+				Expect(pod.Spec.Containers[0].Name).To(Equal(computeContainerName))
+				netInfoVolumeMounts := filterVolumeMountByName(pod.Spec.Containers[0].VolumeMounts, netInfoAnnotVolName)
+				Expect(netInfoVolumeMounts).To(ConsistOf(networkInfoAnnotVolumeMount()),
+					"should have single network-info annotation volume mount")
+			},
+			Entry("with SR-IOV interface",
+				[]v1.Interface{libvmi.InterfaceDeviceWithSRIOVBinding("network1")},
+				[]v1.Network{*libvmi.MultusNetwork("network1", "default/default")},
+			),
+			Entry("with binding plugin device-info interface",
+				[]v1.Interface{libvmi.InterfaceWithBindingPlugin("network1", v1.PluginBinding{Name: deviceInfoPlugin})},
+				[]v1.Network{*libvmi.MultusNetwork("network1", "default/default")},
+			),
+			Entry("with binding plugin device-info and SR-IOV interfaces",
+				[]v1.Interface{
+					libvmi.InterfaceDeviceWithSRIOVBinding("network1"),
+					libvmi.InterfaceWithBindingPlugin("network2", v1.PluginBinding{Name: deviceInfoPlugin}),
+				},
+				[]v1.Network{
+					*libvmi.MultusNetwork("network1", "default/default"),
+					*libvmi.MultusNetwork("network2", "default/default"),
+				},
+			),
+		)
+	})
 })
+
+func networkInfoAnnotVolume() k8sv1.Volume {
+	netInfoAnnotFile := k8sv1.DownwardAPIVolumeFile{
+		Path: "network-info",
+		FieldRef: &k8sv1.ObjectFieldSelector{
+			FieldPath: "metadata.annotations['kubevirt.io/network-info']",
+		},
+	}
+	return k8sv1.Volume{
+		Name: "network-info-annotation",
+		VolumeSource: k8sv1.VolumeSource{
+			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+				Items: []k8sv1.DownwardAPIVolumeFile{netInfoAnnotFile},
+			},
+		},
+	}
+}
+
+func networkInfoAnnotVolumeMount() k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      "network-info-annotation",
+		MountPath: "/etc/podinfo",
+	}
+}
+
+func filterDownwardAPIVolumeByName(volumes []k8sv1.Volume, name string) []k8sv1.Volume {
+	var filteredVolumes []k8sv1.Volume
+	for _, vol := range volumes {
+		if vol.Name == name && vol.VolumeSource.DownwardAPI != nil {
+			filteredVolumes = append(filteredVolumes, vol)
+		}
+	}
+	return filteredVolumes
+}
+
+func filterVolumeMountByName(mounts []k8sv1.VolumeMount, name string) []k8sv1.VolumeMount {
+	var filteredVolumesMounts []k8sv1.VolumeMount
+	for _, mount := range mounts {
+		if mount.Name == name {
+			filteredVolumesMounts = append(filteredVolumesMounts, mount)
+		}
+	}
+	return filteredVolumesMounts
+}
 
 func testSidecarCreator(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 	return []hooks.HookSidecar{testHookSidecar}, nil
 }
-
-var _ = Describe("getResourceNameForNetwork", func() {
-	It("should return empty string when resource name is not specified", func() {
-		network := &networkv1.NetworkAttachmentDefinition{}
-		Expect(getResourceNameForNetwork(network)).To(Equal(""))
-	})
-
-	It("should return resource name if specified", func() {
-		network := &networkv1.NetworkAttachmentDefinition{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					MULTUS_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
-				},
-			},
-		}
-		Expect(getResourceNameForNetwork(network)).To(Equal("fake.com/fakeResource"))
-	})
-})
-
-var _ = Describe("getNamespaceAndNetworkName", func() {
-	It("should return vmi namespace when namespace is implicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, "testnet")
-		Expect(namespace).To(Equal("testns"))
-		Expect(networkName).To(Equal("testnet"))
-	})
-
-	It("should return namespace from networkName when namespace is explicit", func() {
-		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, "otherns/testnet")
-		Expect(namespace).To(Equal("otherns"))
-		Expect(networkName).To(Equal("testnet"))
-	})
-})
 
 var _ = Describe("requestResource", func() {
 	It("should register resource in limits and requests", func() {

@@ -176,7 +176,6 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		Product:      SmbiosConfigDefaultProduct,
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
-	DefaultOVMFPath, _, emulatedMachinesDefault := getCPUArchSpecificDefault(cpuArch)
 	defaultDiskVerification := &v1.DiskVerification{
 		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
 	}
@@ -212,17 +211,15 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			AllowAutoConverge:                 &allowAutoConverge,
 			AllowPostCopy:                     &allowPostCopy,
 		},
-		CPURequest:       &cpuRequestDefault,
-		EmulatedMachines: emulatedMachinesDefault,
+		CPURequest: &cpuRequestDefault,
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			NetworkInterface:                  defaultNetworkInterface,
-			PermitSlirpInterface:              pointer.P(DefaultPermitSlirpInterface),
+			DeprecatedPermitSlirpInterface:    pointer.P(DefaultPermitSlirpInterface),
 			PermitBridgeInterfaceOnPodNetwork: pointer.P(DefaultPermitBridgeInterfaceOnPodNetwork),
 		},
 		SMBIOSConfig:                SmbiosDefaultConfig,
 		SELinuxLauncherType:         DefaultSELinuxLauncherType,
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
-		OVMFPath:                    DefaultOVMFPath,
 		MemBalloonStatsPeriod:       &defaultMemBalloonStatsPeriod,
 		APIConfiguration: &v1.ReloadableComponentConfiguration{
 			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
@@ -489,7 +486,7 @@ func validateConfig(config *v1.KubeVirtConfiguration) error {
 
 	// set default network interface
 	switch config.NetworkConfiguration.NetworkInterface {
-	case "", string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
+	case "", string(v1.BridgeInterface), string(v1.DeprecatedSlirpInterface), string(v1.MasqueradeInterface):
 		break
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", config.NetworkConfiguration.NetworkInterface)
