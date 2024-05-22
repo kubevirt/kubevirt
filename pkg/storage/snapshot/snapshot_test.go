@@ -1625,7 +1625,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("created and ready", timeFunc(), true),
 			)
 
-			It("should unfreeze vm with and remove content finalizer if vmsnapshot deleting", func() {
+			DescribeTable("should attempt to unfreeze vm and remove content finalizer if vmsnapshot deleting", func(freezeError error) {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1651,11 +1651,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Finalizers = []string{}
 
-				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(nil)
+				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(freezeError)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotContentWorkItem()
-			})
+			},
+				Entry("Freeze success", nil),
+				Entry("Freeze error", fmt.Errorf("error")),
+			)
 
 			DescribeTable("should delete informer", func(crdName string) {
 				crd := &extv1.CustomResourceDefinition{

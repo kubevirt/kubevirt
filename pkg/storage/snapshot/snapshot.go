@@ -275,7 +275,8 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	if vmSnapshot == nil || vmSnapshotTerminating(vmSnapshot) {
 		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
-			return 0, err
+			log.Log.Warningf("Failed to unfreeze source for snapshot content %s/%s: %+v",
+				content.Namespace, content.Name, err)
 		}
 		err = ctrl.removeContentFinalizer(content)
 		if err != nil {
