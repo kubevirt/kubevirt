@@ -276,6 +276,7 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			}
 		case iface.SRIOV != nil:
 		case iface.Binding != nil:
+		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedPasst != nil:
 			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
 			spec.LinuxStack.IPv4.UnprivilegedPortStart = pointer.P(0)

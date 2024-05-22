@@ -78,6 +78,7 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return err
 			}
 
+		// passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case vmiSpecIface.DeprecatedPasst != nil:
 			if !podIfaceExists {
 				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
