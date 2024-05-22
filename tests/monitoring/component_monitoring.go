@@ -26,23 +26,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	appsv1 "k8s.io/api/apps/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -262,29 +256,3 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		})
 	})
 })
-
-func updateDeploymentResourcesRequest(virtClient kubecli.KubevirtClient, deploymentName string, cpu, memory resource.Quantity) {
-	deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	deployment.Spec.Template.Spec.Containers[0].Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceCPU:    cpu,
-		k8sv1.ResourceMemory: memory,
-	}
-
-	patchDeployment(virtClient, deployment)
-}
-
-func patchDeployment(virtClient kubecli.KubevirtClient, deployment *appsv1.Deployment) {
-	patchOp := patch.PatchOperation{
-		Op:    "replace",
-		Path:  "/spec",
-		Value: deployment.Spec,
-	}
-
-	payload, err := patch.GeneratePatchPayload(patchOp)
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
-	Expect(err).ToNot(HaveOccurred())
-}
