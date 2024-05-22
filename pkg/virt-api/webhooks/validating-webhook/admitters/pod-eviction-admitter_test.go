@@ -20,12 +20,9 @@
 package admitters_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/golang/mock/gomock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,12 +33,15 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -60,18 +60,19 @@ var _ = Describe("Pod eviction admitter", func() {
 	const isDryRun = true
 
 	It("should allow the request when it refers to a non virt-launcher pod", func() {
+		virtClient := kubevirtfake.NewSimpleClientset()
+		Expect(virtClient.Fake.Resources).To(BeEmpty())
+
 		const evictedPodName = "my-pod"
 
 		evictedPod := newPod(testNamespace, evictedPodName, testNodeName)
 		kubeClient := fake.NewSimpleClientset(evictedPod)
 
-		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedPod.Namespace, evictedPod.Name, !isDryRun),
@@ -79,19 +80,21 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(BeEmpty())
 	})
 
 	It("should allow the request when the admitter cannot fetch the pod", func() {
+		virtClient := kubevirtfake.NewSimpleClientset()
+		Expect(virtClient.Fake.Resources).To(BeEmpty())
+
 		kubeClient := fake.NewSimpleClientset()
 		Expect(kubeClient.Fake.Resources).To(BeEmpty())
 
-		virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(testNamespace, "does-not-exist", !isDryRun),
@@ -99,36 +102,21 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(BeEmpty())
 	})
 
 	DescribeTable("should trigger VMI Evacuation and deny the request", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
 		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
 
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-		expectedPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, testNodeName)
-		vmiClient.
-			EXPECT().
-			Patch(context.Background(),
-				vmi.Name,
-				types.JSONPatchType,
-				[]byte(expectedPatchData),
-				metav1.PatchOptions{}).
-			Return(nil, nil)
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(clusterWideEvictionStrategy),
+			kubeClient,
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name),
@@ -140,6 +128,9 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+
+		expectedJSONPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, vmi.Status.NodeName)
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(vmi, expectedJSONPatchData)))
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is migratable",
 			nil,
@@ -183,22 +174,16 @@ var _ = Describe("Pod eviction admitter", func() {
 
 	DescribeTable("should allow the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
 		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
 
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(clusterWideEvictionStrategy),
+			kubeClient,
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
@@ -206,6 +191,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is missing and VMI is not migratable",
 			nil,
@@ -246,22 +232,16 @@ var _ = Describe("Pod eviction admitter", func() {
 
 	DescribeTable("should deny the request without triggering VMI evacuation", func(clusterWideEvictionStrategy *virtv1.EvictionStrategy, vmiOptions ...vmiOption) {
 		vmi := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(vmi)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
 
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(clusterWideEvictionStrategy),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(clusterWideEvictionStrategy),
+			kubeClient,
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name),
@@ -273,6 +253,7 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	},
 		Entry("When cluster-wide eviction strategy is missing, VMI eviction strategy is LiveMigrate and VMI is not migratable",
 			nil,
@@ -286,24 +267,21 @@ var _ = Describe("Pod eviction admitter", func() {
 
 	It("should deny the request when the admitter fails to fetch the VMI", func() {
 		vmi := newVMI(testNamespace, testVMIName, testNodeName)
+		virtClient := kubevirtfake.NewSimpleClientset(vmi)
+
+		expectedError := errors.New("some error")
+		virtClient.PrependReactor("get", "virtualmachineinstances", func(_ testing.Action) (bool, runtime.Object, error) {
+			return true, nil, expectedError
+		})
 
 		evictedVirtLauncherPod := newVirtLauncherPod(vmi.Namespace, vmi.Name, vmi.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
 
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
-
-		expectedError := errors.New("some error")
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(nil, expectedError)
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("kubevirt failed getting the vmi: %s", expectedError.Error()),
@@ -315,40 +293,29 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	})
 
 	It("should deny the request when the admitter fails to patch the VMI", func() {
-		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
+		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition()}
 
 		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
+
+		expectedError := errors.New("some error")
+		virtClient.PrependReactor("patch", "virtualmachineinstances", func(_ testing.Action) (bool, runtime.Object, error) {
+			return true, nil, expectedError
+		})
 
 		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
 
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
-		vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
-
-		expectedPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, testNodeName)
-		expectedError := errors.New("some error")
-		vmiClient.
-			EXPECT().
-			Patch(context.Background(),
-				migratableVMI.Name,
-				types.JSONPatchType,
-				[]byte(expectedPatchData),
-				metav1.PatchOptions{}).
-			Return(nil, expectedError)
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", expectedError.Error()),
@@ -360,29 +327,26 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+
+		expectedJSONPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, migratableVMI.Status.NodeName)
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, expectedJSONPatchData)))
 	})
 
 	It("should allow the request and not mark the VMI again when the VMI is already marked for evacuation", func() {
-		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition(), withEvacuationNodeName(testNodeName)}
+		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition(), withEvacuationNodeName(testNodeName)}
 
 		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
 
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
-		vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
-
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, !isDryRun),
@@ -390,44 +354,28 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(allowedAdmissionResponse()))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+		Expect(virtClient.Fake.Actions()).To(HaveLen(1))
 	})
 
 	It("should deny the request and perform a dryRun patch on the VMI when the request is a dry run", func() {
-		evictionStratrgy := virtv1.EvictionStrategyLiveMigrate
-		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStratrgy), withLiveMigratableCondition()}
+		evictionStrategy := virtv1.EvictionStrategyLiveMigrate
+		vmiOptions := []vmiOption{withEvictionStrategy(&evictionStrategy), withLiveMigratableCondition()}
 
 		migratableVMI := newVMI(testNamespace, testVMIName, testNodeName, vmiOptions...)
+		virtClient := kubevirtfake.NewSimpleClientset(migratableVMI)
 
 		evictedVirtLauncherPod := newVirtLauncherPod(migratableVMI.Namespace, migratableVMI.Name, migratableVMI.Status.NodeName)
 		kubeClient := fake.NewSimpleClientset(evictedVirtLauncherPod)
-
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmiClient := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(testNamespace).Return(vmiClient).AnyTimes()
-		vmiClient.EXPECT().Get(context.Background(), migratableVMI.Name, metav1.GetOptions{}).Return(migratableVMI, nil)
-
-		expectedPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, testNodeName)
-		vmiClient.
-			EXPECT().
-			Patch(context.Background(),
-				migratableVMI.Name,
-				types.JSONPatchType,
-				[]byte(expectedPatchData),
-				metav1.PatchOptions{
-					DryRun: []string{metav1.DryRunAll},
-				}).Return(migratableVMI, nil)
 
 		expectedAdmissionResponse := newDeniedAdmissionResponse(
 			fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", migratableVMI.Namespace, migratableVMI.Name),
 		)
 
-		admitter := admitters.PodEvictionAdmitter{
-			ClusterConfig: newClusterConfig(nil),
-			VirtClient:    virtClient,
-		}
+		admitter := admitters.NewPodEvictionAdmitter(
+			newClusterConfig(nil),
+			kubeClient,
+			virtClient,
+		)
 
 		actualAdmissionResponse := admitter.Admit(
 			newAdmissionReview(evictedVirtLauncherPod.Namespace, evictedVirtLauncherPod.Name, isDryRun),
@@ -435,6 +383,9 @@ var _ = Describe("Pod eviction admitter", func() {
 
 		Expect(actualAdmissionResponse).To(Equal(expectedAdmissionResponse))
 		Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
+
+		expectedJSONPatchData := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, migratableVMI.Status.NodeName)
+		Expect(virtClient.Actions()).To(ContainElement(newExpectedJSONPatchToVMI(migratableVMI, expectedJSONPatchData)))
 	})
 })
 
@@ -538,6 +489,24 @@ func newDeniedAdmissionResponse(message string) *admissionv1.AdmissionResponse {
 			Code:    int32(http.StatusTooManyRequests),
 			Message: message,
 		},
+	}
+}
+
+func newExpectedJSONPatchToVMI(vmi *virtv1.VirtualMachineInstance, expectedJSONPatchData string) testing.PatchActionImpl {
+	return testing.PatchActionImpl{
+		ActionImpl: testing.ActionImpl{
+			Namespace: vmi.Namespace,
+			Verb:      "patch",
+			Resource: schema.GroupVersionResource{
+				Group:    "kubevirt.io",
+				Version:  "v1",
+				Resource: "virtualmachineinstances",
+			},
+			Subresource: "",
+		},
+		Name:      vmi.Name,
+		PatchType: types.JSONPatchType,
+		Patch:     []byte(expectedJSONPatchData),
 	}
 }
 

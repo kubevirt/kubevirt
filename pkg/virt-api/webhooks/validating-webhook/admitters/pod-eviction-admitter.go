@@ -9,10 +9,14 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8scorev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/kubernetes"
+
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
+
+	kubevirt "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
@@ -20,12 +24,21 @@ import (
 )
 
 type PodEvictionAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
-	VirtClient    kubecli.KubevirtClient
+	clusterConfig *virtconfig.ClusterConfig
+	kubeClient    kubernetes.Interface
+	virtClient    kubevirt.Interface
+}
+
+func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, kubeClient kubernetes.Interface, virtClient kubevirt.Interface) *PodEvictionAdmitter {
+	return &PodEvictionAdmitter{
+		clusterConfig: clusterConfig,
+		kubeClient:    kubeClient,
+		virtClient:    virtClient,
+	}
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	pod, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
+	pod, err := admitter.kubeClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
@@ -39,12 +52,12 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
+	vmi, err := admitter.virtClient.KubevirtV1().VirtualMachineInstances(ar.Request.Namespace).Get(context.Background(), vmiName, metav1.GetOptions{})
 	if err != nil {
 		return denied(fmt.Sprintf("kubevirt failed getting the vmi: %s", err.Error()))
 	}
 
-	evictionStrategy := migrations.VMIEvictionStrategy(admitter.ClusterConfig, vmi)
+	evictionStrategy := migrations.VMIEvictionStrategy(admitter.clusterConfig, vmi)
 	if evictionStrategy == nil {
 		// we don't act on VMIs without an eviction strategy
 		return validating_webhooks.NewPassingAdmissionResponse()
@@ -91,8 +104,9 @@ func (admitter *PodEvictionAdmitter) markVMI(vmiNamespace, vmiName, nodeName str
 	}
 
 	_, err := admitter.
-		VirtClient.
-		VirtualMachineInstance(vmiNamespace).
+		virtClient.
+		KubevirtV1().
+		VirtualMachineInstances(vmiNamespace).
 		Patch(context.Background(),
 			vmiName,
 			types.JSONPatchType,
