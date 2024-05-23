@@ -432,14 +432,6 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		return causes
 	}
 
-	if spec.Instancetype != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("Cannot configure instance type when the vmRolloutStrategy is LiveUpdate"),
-			Field:   field.Child("instancetype").String(),
-		})
-	}
-
 	causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
 
 	if hasCPURequestsOrLimits(&spec.Template.Spec.Domain.Resources) {

@@ -1872,17 +1872,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			disableFeatureGates()
 		})
 
-		Context("Instance type", func() {
-			It("should reject VM creation", func() {
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: "test",
-					Kind: instancetypeapi.SingularResourceName,
-				}
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-			})
-		})
-
 		Context("CPU", func() {
 			const maximumSockets uint32 = 24
 

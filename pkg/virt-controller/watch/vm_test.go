@@ -5984,6 +5984,80 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 			})
+
+			Context("Instance Types and Preferences", func() {
+				BeforeEach(func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+								DeveloperConfiguration: &v1.DeveloperConfiguration{
+									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								},
+							},
+						},
+					})
+				})
+				DescribeTable("should add RestartRequired to VM when", func(originalVM, updatedVM *v1.VirtualMachine) {
+					_, required := controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)
+					Expect(required).To(BeTrue())
+					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
+					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
+				},
+					Entry("instance type changed",
+						&v1.VirtualMachine{
+							Spec: v1.VirtualMachineSpec{
+								Instancetype: &v1.InstancetypeMatcher{
+									Name: "original",
+								},
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{},
+									},
+								},
+							},
+						},
+						&v1.VirtualMachine{
+							Spec: v1.VirtualMachineSpec{
+								Instancetype: &v1.InstancetypeMatcher{
+									Name: "updated",
+								},
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{},
+									},
+								},
+							},
+						},
+					),
+					Entry("preference changed",
+						&v1.VirtualMachine{
+							Spec: v1.VirtualMachineSpec{
+								Preference: &v1.PreferenceMatcher{
+									Name: "original",
+								},
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{},
+									},
+								},
+							},
+						},
+						&v1.VirtualMachine{
+							Spec: v1.VirtualMachineSpec{
+								Preference: &v1.PreferenceMatcher{
+									Name: "updated",
+								},
+								Template: &v1.VirtualMachineInstanceTemplateSpec{
+									Spec: v1.VirtualMachineInstanceSpec{
+										Domain: v1.DomainSpec{},
+									},
+								},
+							},
+						},
+					),
+				)
+			})
 		})
 
 		Context("CPU topology", func() {
