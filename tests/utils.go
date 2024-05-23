@@ -219,25 +219,8 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerIma
 //
 // Deprecated: Use libvmi
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
-	AddCloudInitNoCloudData(vmi, name, userData, "", true)
-}
-
-// AddCloudInitNoCloudData
-//
-// Deprecated: Use libvmi
-func AddCloudInitNoCloudData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
 	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
-	if b64encode {
-		cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
-		if networkData != "" {
-			cloudInitNoCloudSource.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
-		}
-	} else {
-		cloudInitNoCloudSource.UserData = userData
-		if networkData != "" {
-			cloudInitNoCloudSource.NetworkData = networkData
-		}
-	}
+	cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
 	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitNoCloud: &cloudInitNoCloudSource})
 }
 
