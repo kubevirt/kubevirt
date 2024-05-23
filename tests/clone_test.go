@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -162,11 +163,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		return vmClone
 	}
 
-	createCloneAndWaitForFinish := func(vmClone *clone.VirtualMachineClone) {
+	createClone := func(vmClone *clone.VirtualMachineClone) *clone.VirtualMachineClone {
 		By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
 		vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
-
+		return vmClone
+	}
+	waitCloneSucceeded := func(vmClone *clone.VirtualMachineClone) {
 		By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
 		Eventually(func() clone.VirtualMachineClonePhase {
 			vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
@@ -174,6 +177,11 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 			return vmClone.Status.Phase
 		}, 3*time.Minute, 3*time.Second).Should(Equal(clone.Succeeded), "clone should finish successfully")
+	}
+
+	createCloneAndWaitForCompletion := func(vmClone *clone.VirtualMachineClone) {
+		vmClone = createClone(vmClone)
+		waitCloneSucceeded(vmClone)
 	}
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
@@ -283,7 +291,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				Expect(err).ShouldNot(HaveOccurred())
 				vmClone = generateCloneFromVM()
 
-				createCloneAndWaitForFinish(vmClone)
+				createCloneAndWaitForCompletion(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -337,7 +345,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 				By("Creating a clone with a snapshot source")
 				vmClone = generateCloneFromSnapshot(snapshot, targetVMName)
-				createCloneAndWaitForFinish(vmClone)
+				createCloneAndWaitForCompletion(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -363,7 +371,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				vmClone.Spec.AnnotationFilters = []string{
 					key1,
 				}
-				createCloneAndWaitForFinish(vmClone)
+				createCloneAndWaitForCompletion(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -389,7 +397,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				vmClone.Spec.Template.AnnotationFilters = []string{
 					key1,
 				}
-				createCloneAndWaitForFinish(vmClone)
+				createCloneAndWaitForCompletion(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -421,7 +429,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					srcInterface.Name: newMacAddress,
 				}
 
-				createCloneAndWaitForFinish(vmClone)
+				createCloneAndWaitForCompletion(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -466,7 +474,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					vmClone = generateCloneFromVM()
 					vmClone.Spec.NewSMBiosSerial = pointer.P(targetSerial)
 
-					createCloneAndWaitForFinish(vmClone)
+					createCloneAndWaitForCompletion(vmClone)
 
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -497,7 +505,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					Expect(err).ShouldNot(HaveOccurred())
 					vmClone = generateCloneFromVM()
 
-					createCloneAndWaitForFinish(vmClone)
+					createCloneAndWaitForCompletion(vmClone)
 
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -521,7 +529,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
-			createVMWithStorageClass := func(storageClass string, runStrategy virtv1.VirtualMachineRunStrategy) *virtv1.VirtualMachine {
+			generateVMWithStorageClass := func(storageClass string, runStrategy virtv1.VirtualMachineRunStrategy) *virtv1.VirtualMachine {
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -532,6 +540,10 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				)
 				vm := libstorage.RenderVMWithDataVolumeTemplate(dv)
 				vm.Spec.RunStrategy = &runStrategy
+				return vm
+			}
+
+			createVM := func(vm *virtv1.VirtualMachine, storageClass string, runStrategy virtv1.VirtualMachineRunStrategy) *virtv1.VirtualMachine {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -544,6 +556,11 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				}
 
 				return vm
+			}
+
+			createVMWithStorageClass := func(storageClass string, runStrategy virtv1.VirtualMachineRunStrategy) *virtv1.VirtualMachine {
+				vm := generateVMWithStorageClass(storageClass, runStrategy)
+				return createVM(vm, storageClass, runStrategy)
 			}
 
 			Context("and no snapshot storage class", decorators.RequiresNoSnapshotStorageClass, func() {
@@ -564,13 +581,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						sourceVM, err = stopCloneVM(virtClient, sourceVM)
 						Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
 						Eventually(ThisVM(sourceVM), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
-					})
-
-					It("with VM source", func() {
-						vmClone = generateCloneFromVM()
-						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
-						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).Should(ContainSubstring("does not support snapshots"))
 					})
 
 					It("with snapshot source", func() {
@@ -602,17 +612,21 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					Expect(snapshotStorageClass).ToNot(BeEmpty(), "no storage class with snapshot support")
 				})
 
-				It("with a simple clone", func() {
+				It("with a simple clone, create clone before VM", func() {
 					runStrategy := virtv1.RunStrategyHalted
 					if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass) {
 						// with wffc need to start the virtual machine
 						// in order for the pvc to be populated
 						runStrategy = virtv1.RunStrategyAlways
 					}
-					sourceVM = createVMWithStorageClass(snapshotStorageClass, runStrategy)
+					sourceVM = generateVMWithStorageClass(snapshotStorageClass, runStrategy)
 					vmClone = generateCloneFromVM()
+					vmClone = createClone(vmClone)
 
-					createCloneAndWaitForFinish(vmClone)
+					events.ExpectEvent(vmClone, k8sv1.EventTypeNormal, "SourceDoesNotExist")
+					createVM(sourceVM, snapshotStorageClass, runStrategy)
+
+					waitCloneSucceeded(vmClone)
 
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -699,7 +713,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
 
 						vmClone = generateCloneFromVM()
-						createCloneAndWaitForFinish(vmClone)
+						createCloneAndWaitForCompletion(vmClone)
 
 						By("Waiting until the targetVM has instancetype and preference RevisionNames")
 						Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(sourceVM), targetVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
@@ -746,7 +760,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					sourceVM = createVMWithStorageClass(snapshotStorageClass, runStrategy)
 					vmClone = generateCloneWithFilters(sourceVM, targetVMName)
 
-					createCloneAndWaitForFinish(vmClone)
+					createCloneAndWaitForCompletion(vmClone)
 
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -760,7 +774,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					const cloneFromCloneName = "vm-clone-from-clone"
 					vmCloneFromClone := generateCloneWithFilters(targetVM, cloneFromCloneName)
 					vmCloneFromClone.Name = "test-clone-from-clone"
-					createCloneAndWaitForFinish(vmCloneFromClone)
+					createCloneAndWaitForCompletion(vmCloneFromClone)
 
 					By(fmt.Sprintf("Getting the target VM %s from clone", cloneFromCloneName))
 					targetVMCloneFromClone, err := virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), cloneFromCloneName, v1.GetOptions{})
@@ -801,7 +815,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
 						Eventually(ThisVM(sourceVM), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 
-						createCloneAndWaitForFinish(vmClone)
+						createCloneAndWaitForCompletion(vmClone)
 
 						By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 						targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
