@@ -273,7 +273,7 @@ func (c *VMController) runWorker() {
 	}
 }
 
-func (c *VMController) needsSync(key string) bool {
+func (c *VMController) satisfiedExpectations(key string) bool {
 	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 }
 
@@ -3073,7 +3073,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		startVMSpec *virtv1.VirtualMachineSpec
 	)
 
-	if !c.needsSync(key) {
+	if !c.satisfiedExpectations(key) {
 		return vm, nil, nil
 	}
 
@@ -3147,13 +3147,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 	vm, restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
 
-	if !c.needsSync(key) {
+	// Must check satisfiedExpectations again here because a VMI can be created or
+	// deleted in the startStop function which impacts how we process
+	// hotplugged volumes and interfaces
+	if !c.satisfiedExpectations(key) {
 		return vm, nil, nil
 	}
 
-	// Must check needsSync again here because a VMI can be created or
-	// deleted in the startStop function which impacts how we process
-	// hotplugged volumes and interfaces
 	vmCopy := vm.DeepCopy()
 
 	if c.clusterConfig.HotplugNetworkInterfacesEnabled() &&
