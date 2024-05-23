@@ -556,6 +556,20 @@ var _ = Describe("Apply", func() {
 				matchExpression := preferredSchedulingTerm.Preference.MatchExpressions[0]
 				Expect(matchExpression.Key).To(Equal(workerLabel))
 				Expect(matchExpression.Operator).To(Equal(corev1.NodeSelectorOpDoesNotExist))
+
+				Expect(podSpec.Tolerations).ToNot(BeEmpty())
+				Expect(podSpec.Tolerations).To(ContainElements(
+					corev1.Toleration{
+						Key:      "node-role.kubernetes.io/control-plane",
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+					corev1.Toleration{
+						Key:      "node-role.kubernetes.io/master",
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				))
 			},
 				Entry("nil component config", nil),
 				Entry("nil node placement", &v1.ComponentConfig{}),
