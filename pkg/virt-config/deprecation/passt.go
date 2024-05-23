@@ -27,6 +27,10 @@ import (
 
 const PasstDeprecationMessage = "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
 
+func init() {
+	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed})
+}
+
 func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
 	return util.IsPasstVMI(spec)
 }

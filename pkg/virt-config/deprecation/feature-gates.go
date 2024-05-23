@@ -62,9 +62,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
-
-	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed})
-	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
 }
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
