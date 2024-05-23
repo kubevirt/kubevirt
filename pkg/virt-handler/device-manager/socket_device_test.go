@@ -30,7 +30,7 @@ var _ = Describe("Socket device", func() {
 		fileObj.Close()
 		dpi = NewSocketDevicePlugin("test", workDir, "fake-test.sock", 1)
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.pluginSocketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		dpi.done = make(chan struct{})
 		stop = make(chan struct{})
 		dpi.stop = stop
@@ -42,7 +42,7 @@ var _ = Describe("Socket device", func() {
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
-		os.OpenFile(dpi.pluginSocketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 		errChan := make(chan error, 1)
 		go func(errChan chan error) {
 			errChan <- dpi.healthCheck()
@@ -50,13 +50,13 @@ var _ = Describe("Socket device", func() {
 		Consistently(func() string {
 			return dpi.devs[0].Health
 		}, 2*time.Second, 500*time.Millisecond).Should(Equal(pluginapi.Healthy))
-		Expect(os.Remove(dpi.pluginSocketPath)).To(Succeed())
+		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Expect(<-errChan).ToNot(HaveOccurred())
 	})
 
 	It("Should monitor health of device node", func() {
-		os.OpenFile(dpi.pluginSocketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 
 		go dpi.healthCheck()
 		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
