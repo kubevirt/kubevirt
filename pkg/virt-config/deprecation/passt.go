@@ -23,7 +23,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+const PasstGate = "Passt" // Deprecated
+
 const PasstDiscontinueMessage = "Passt network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+
+func init() {
+	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
+}
 
 func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
 	for _, net := range spec.Domain.Devices.Interfaces {
