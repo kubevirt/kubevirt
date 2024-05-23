@@ -1,6 +1,7 @@
 package device_manager
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
 type FakePlugin struct {
@@ -36,6 +38,18 @@ func (fp *FakePlugin) GetDeviceName() string {
 
 func (fp *FakePlugin) GetInitialized() bool {
 	return true
+}
+
+func (fp *FakePlugin) PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+	return &pluginapi.PreStartContainerResponse{}, nil
+}
+
+func (fp *FakePlugin) ListAndWatch(*pluginapi.Empty, pluginapi.DevicePlugin_ListAndWatchServer) error {
+	return nil
+}
+
+func (fp *FakePlugin) Allocate(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+	return &pluginapi.AllocateResponse{}, nil
 }
 
 func NewFakePlugin(name string, path string) *FakePlugin {
