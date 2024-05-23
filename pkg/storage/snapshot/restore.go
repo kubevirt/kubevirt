@@ -61,11 +61,13 @@ const (
 
 	restoreErrorEvent = "VirtualMachineRestoreError"
 
+	restoreVMNotStoppedEvent = "RestoreTargetVMNotStopped"
+
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
 )
 
 type restoreTarget interface {
-	Ready() (bool, error)
+	Stopped() (bool, string, error)
 	Reconcile() (bool, error)
 	Cleanup() error
 	Own(obj metav1.Object)
@@ -123,17 +125,16 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateError(vmRestoreOut, err)
 	}
 
-	ready, err := target.Ready()
+	stopped, reason, err := target.Stopped()
 	if err != nil {
-		logger.Reason(err).Error("Error checking target ready")
+		logger.Reason(err).Error("Error checking target stopped")
 		return 0, ctrl.doUpdateError(vmRestoreIn, err)
 	}
-	if !ready {
-		reason := "Waiting for target to be ready"
+	if !stopped {
+		ctrl.Recorder.Event(vmRestoreOut, corev1.EventTypeNormal, restoreVMNotStoppedEvent, reason)
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, reason))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, reason))
-		// try again in 5 secs
-		return 5 * time.Second, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
+		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
 
 	if len(vmRestoreOut.OwnerReferences) == 0 {
@@ -370,33 +371,38 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 	return nil
 }
 
-func (t *vmRestoreTarget) Ready() (bool, error) {
+func (t *vmRestoreTarget) Stopped() (bool, string, error) {
 	if !t.doesTargetVMExist() {
-		return true, nil
+		return true, "", nil
 	}
 
-	log.Log.Object(t.vmRestore).V(3).Info("Checking VM ready")
+	log.Log.Object(t.vmRestore).V(3).Info("Checking if VM is stopped")
 
 	rs, err := t.vm.RunStrategy()
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	if rs != kubevirtv1.RunStrategyHalted {
-		return false, fmt.Errorf("invalid RunStrategy %q", rs)
+		if t.vm.Spec.Running != nil && *t.vm.Spec.Running {
+			return false, "VM target is not stopped", nil
+		}
+		return false, fmt.Sprintf("VM target RunStrategy %q has to be %q", rs, kubevirtv1.RunStrategyHalted), nil
 	}
 
 	vmiKey, err := controller.KeyFunc(t.vm)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	_, exists, err := t.controller.VMIInformer.GetStore().GetByKey(vmiKey)
 	if err != nil {
-		return false, err
+		return false, "", err
+	} else if exists {
+		return false, fmt.Sprintf("VMI %s still exists", vmiKey), nil
 	}
 
-	return !exists, nil
+	return true, "", nil
 }
 
 func (t *vmRestoreTarget) Reconcile() (bool, error) {
