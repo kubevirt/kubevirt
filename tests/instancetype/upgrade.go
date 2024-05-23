@@ -36,7 +36,6 @@ import (
 	builderv1alpha2 "kubevirt.io/kubevirt/tests/libinstancetype/builder/v1alpha2"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instance type and preference ControllerRevision Upgrades", decorators.SigCompute, func() {
@@ -192,7 +191,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builder.WithCPUs(uint32(1)),
 					builder.WithMemory(resource.MustParse("128Mi")),
 				)
-				instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				instancetype, err := virtClient.VirtualMachineInstancetype(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(instancetype)
 			},
@@ -205,7 +204,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builder.WithCPUs(uint32(1)),
 					builder.WithMemory(resource.MustParse("128Mi")),
 				)
-				instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				instancetype, err := virtClient.VirtualMachineInstancetype(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createControllerRevision(instancetype)
 			},
@@ -218,7 +217,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builderv1alpha2.WithCPUs(uint32(1)),
 					builderv1alpha2.WithMemory(resource.MustParse("128Mi")),
 				)
-				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(instancetype)
 			},
@@ -231,7 +230,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builderv1alpha1.WithCPUs(uint32(1)),
 					builderv1alpha1.WithMemory(resource.MustParse("128Mi")),
 				)
-				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(instancetype)
 			},
@@ -325,7 +324,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builder.NewPreference(
 					builder.WithPreferredCPUTopology(instancetypev1beta1.PreferSockets),
 				)
-				preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+				preference, err := virtClient.VirtualMachinePreference(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
 			},
@@ -337,7 +336,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builder.NewPreference(
 					builder.WithPreferredCPUTopology(instancetypev1beta1.PreferSockets),
 				)
-				preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+				preference, err := virtClient.VirtualMachinePreference(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createControllerRevision(preference)
 			},
@@ -349,7 +348,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builderv1alpha2.NewPreference(
 					builderv1alpha2.WithPreferredCPUTopology(instancetypev1alpha2.PreferSockets),
 				)
-				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
 			},
@@ -361,7 +360,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builderv1alpha1.NewPreference(
 					builderv1alpha1.WithPreferredCPUTopology(instancetypev1alpha1.PreferSockets),
 				)
-				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
 			},
