@@ -46,7 +46,7 @@ const (
 	subjectAltNameId     = "2.5.29.17"
 
 	apiGroup              = "export.kubevirt.io"
-	apiVersion            = "v1alpha1"
+	apiVersion            = "v1beta1"
 	exportResourceName    = "virtualmachineexports"
 	gv                    = apiGroup + "/" + apiVersion
 	externalUrlLinkFormat = "/api/" + gv + "/namespaces/%s/" + exportResourceName + "/%s"

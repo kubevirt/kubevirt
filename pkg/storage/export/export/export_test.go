@@ -71,8 +71,9 @@ import (
 )
 
 const (
-	testNamespace = "default"
-	ingressSecret = "ingress-secret"
+	testNamespace  = "default"
+	ingressSecret  = "ingress-secret"
+	currentVersion = "v1beta1"
 )
 
 var (
@@ -1397,9 +1398,9 @@ func verifyKubevirtInternal(vmExport *exportv1.VirtualMachineExport, exportName,
 func verifyKubevirtExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
 	verifyLinksExternal(vmExport,
 		exportv1.KubeVirtRaw,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", namespace, exportName, volumeName),
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img", currentVersion, namespace, exportName, volumeName),
 		exportv1.KubeVirtGz,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", namespace, exportName, volumeName))
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.img.gz", currentVersion, namespace, exportName, volumeName))
 }
 
 func verifyArchiveInternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
@@ -1476,9 +1477,9 @@ func ingressToHost() *networkingv1.Ingress {
 func verifyArchiveExternal(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
 	verifyLinksExternal(vmExport,
 		exportv1.Dir,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", namespace, exportName, volumeName),
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/dir", currentVersion, namespace, exportName, volumeName),
 		exportv1.ArchiveGz,
-		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", namespace, exportName, volumeName))
+		fmt.Sprintf("https://virt-exportproxy-kubevirt.apps-crc.testing/api/export.kubevirt.io/%s/namespaces/%s/virtualmachineexports/%s/volumes/%s/disk.tar.gz", currentVersion, namespace, exportName, volumeName))
 }
 
 func writeCertsToDir(dir string) {
