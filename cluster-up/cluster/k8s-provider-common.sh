@@ -65,6 +65,15 @@ function deploy_cnao() {
     fi
 }
 
+function deploy_kwok() {
+    if [[ ${KUBEVIRT_DEPLOY_KWOK} == "true" ]]; then
+        $kubectl create -f /opt/kwok/kwok.yaml
+        $kubectl create -f /opt/kwok/stage-fast.yaml
+
+        $kubectl apply -k /opt/kwok/kubevirt
+    fi
+}
+
 function create_network_addons_config() {
     local nac="/opt/cnao/network-addons-config-example.cr.yaml"
     if [ "$KUBEVIRT_WITH_MULTUS_V3" == "true" ]; then
@@ -189,6 +198,12 @@ function wait_for_aaq_ready() {
     fi
 }
 
+function wait_for_kwok_ready() {
+    if [ "KUBEVIRT_DEPLOY_KWOK" == "true" ]; then
+        $kubectl wait deployment -n kube-system kwok-controller --for condition=Available --timeout=200s
+    fi
+}
+
 function configure_cpu_manager() {
     if [ ${KUBEVIRT_CPU_MANAGER_POLICY} == "static" ]; then
         for node in $($kubectl get nodes -l "node-role.kubernetes.io/worker" --no-headers -o custom-columns=":metadata.name" | tr -d '\r'); do
@@ -254,8 +269,9 @@ function up() {
     deploy_istio
     deploy_cdi
     deploy_aaq
+    deploy_kwok
 
-    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready && wait_for_multus_ready && wait_for_aaq_ready; do
+    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready && wait_for_multus_ready && wait_for_aaq_ready && wait_for_kwok_ready; do
         echo "Waiting for cluster components..."
         sleep 5
     done
