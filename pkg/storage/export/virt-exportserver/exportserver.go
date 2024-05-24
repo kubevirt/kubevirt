@@ -536,14 +536,12 @@ func vmHandler(vi []VolumeInfo, getBasePath func() (string, error), getCmFunc fu
 		headerSecretName := getSecretTokenName(exportName)
 		path, err := getBasePath()
 		if err != nil {
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					log.Log.Reason(err).Info("path not found")
-					w.WriteHeader(http.StatusNotFound)
-				} else {
-					log.Log.Reason(err).Error("error reading path")
-					w.WriteHeader(http.StatusInternalServerError)
-				}
+			if errors.Is(err, os.ErrNotExist) {
+				log.Log.Reason(err).Info("path not found")
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				log.Log.Reason(err).Error("error reading path")
+				w.WriteHeader(http.StatusInternalServerError)
 			}
 			return
 		}

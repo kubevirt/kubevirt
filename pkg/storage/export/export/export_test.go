@@ -62,7 +62,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -370,7 +369,7 @@ var _ = Describe("Export controller", func() {
 	generateExpectedPem := func(allPem string) string {
 		now := time.Now()
 		pemOut := strings.Builder{}
-		certs, err := cert.ParseCertsPEM([]byte(allPem))
+		certs, err := certutil.ParseCertsPEM([]byte(allPem))
 		Expect(err).ToNot(HaveOccurred())
 		for _, cert := range certs {
 			if cert.NotAfter.After(now) && cert.NotBefore.Before(now) {

@@ -176,7 +176,7 @@ var _ = Describe("VMSnapshot source", func() {
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
 		}
-		initCert = func(ctrl *VMExportController) {
+		initCert = func(_ *VMExportController) {
 			go controller.caCertManager.Start()
 			// Give the thread time to read the certs.
 			Eventually(func() *tls.Certificate {
