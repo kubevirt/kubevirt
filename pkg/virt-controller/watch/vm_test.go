@@ -2721,7 +2721,7 @@ var _ = Describe("VirtualMachine", func() {
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), nonMatchingVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmiSource.Add(nonMatchingVMI)
-			syncCache(controller.vmiInformer.GetIndexer())
+			syncCache(controller.vmiInformer.GetIndexer(), 1)
 
 			sanityExecute(vm)
 
@@ -6196,7 +6196,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiInformer.GetIndexer())
+				syncCache(controller.vmiInformer.GetIndexer(), 1)
 
 				By("Bumping the VM sockets above the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
@@ -6228,11 +6228,11 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec.Hostname = "a"
 				vmi = controller.setupVMIFromVM(vm)
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiInformer.GetIndexer())
+				syncCache(controller.vmiInformer.GetIndexer(), 1)
 
 				By("Creating a Controller Revision with the hostname 'a'")
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crInformer.GetIndexer())
+				syncCache(controller.crInformer.GetIndexer(), 1)
 
 				By("Changing the hostname to 'b'")
 				vm.Spec.Template.Spec.Hostname = "b"
@@ -6261,7 +6261,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiInformer.GetIndexer())
+				syncCache(controller.vmiInformer.GetIndexer(), 1)
 
 				By("Bumping the VM sockets above the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
@@ -6286,7 +6286,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crInformer.GetIndexer())
+				syncCache(controller.crInformer.GetIndexer(), 1)
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6296,7 +6296,7 @@ var _ = Describe("VirtualMachine", func() {
 					GuestCurrent: &maxGuest,
 				}
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiInformer.GetIndexer())
+				syncCache(controller.vmiInformer.GetIndexer(), 1)
 
 				By("Bumping the VM guest memory above the cluster maximum")
 				bigGuest := resource.MustParse("257Mi")
@@ -6330,7 +6330,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with CPU sockets set to 2")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crInformer.GetIndexer())
+				syncCache(controller.crInformer.GetIndexer(), 1)
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6338,7 +6338,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiInformer.GetIndexer())
+				syncCache(controller.vmiInformer.GetIndexer(), 1)
 
 				By("Bumping the VM sockets to 4")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 4
@@ -6431,7 +6431,7 @@ var _ = Describe("VirtualMachine", func() {
 				sanityExecute(vm)
 
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crInformer.GetIndexer())
+				syncCache(controller.crInformer.GetIndexer(), 1)
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6451,7 +6451,7 @@ var _ = Describe("VirtualMachine", func() {
 				sanityExecute(vm)
 
 				crSource.Delete(createVMRevision(vm))
-				syncCache(controller.crInformer.GetIndexer())
+				syncCache(controller.crInformer.GetIndexer(), 0)
 
 				// let the controller pick up the deletion
 				vmiFeeder.Delete(vmi)
@@ -6671,9 +6671,9 @@ func failVMSpecUpdate(virtFakeClient *fake.Clientset) {
 	})
 }
 
-func syncCache(store cache.Store) {
+func syncCache(store cache.Store, expectedLen int) {
 	EventuallyWithOffset(1, func(g Gomega) {
 		keys := store.ListKeys()
-		g.Expect(keys).To(HaveLen(1))
+		g.Expect(keys).To(HaveLen(expectedLen))
 	}, 2*time.Second, 100*time.Millisecond).Should(Succeed(), "Cache did not recieve object from informer")
 }
