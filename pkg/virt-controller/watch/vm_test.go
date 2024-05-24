@@ -1408,7 +1408,7 @@ var _ = Describe("VirtualMachine", func() {
 				initFunc()
 			}
 
-			controller.Execute()
+			sanityExecute(vm)
 			Expect(createCount).To(Equal(expectedCreations))
 			if expectedCreations > 0 {
 				testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -1848,6 +1848,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					return true, "", nil
 				}
+
 				sanityExecute(vm)
 				if fail {
 					Expect(createCount).To(Equal(0))
@@ -2723,7 +2724,7 @@ var _ = Describe("VirtualMachine", func() {
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), nonMatchingVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmiSource.Add(nonMatchingVMI)
-			syncCache(controller.vmiIndexer)
+			syncCache(controller.vmiIndexer, 1)
 
 			sanityExecute(vm)
 
@@ -6300,6 +6301,69 @@ var _ = Describe("VirtualMachine", func() {
 				}
 			})
 
+			It("should not call update if the condition is set", func() {
+				vm, vmi := DefaultVirtualMachine(true)
+				vm.ObjectMeta.UID = types.UID(uuid.NewString())
+				vmi.ObjectMeta.UID = vm.ObjectMeta.UID
+				vm.Generation = 1
+				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+					Cores: 2,
+				}
+				guest := resource.MustParse("128Mi")
+				vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guest,
+				}
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{},
+							VMRolloutStrategy:       &liveUpdate,
+							DeveloperConfiguration: &v1.DeveloperConfiguration{
+								FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+							},
+						},
+					},
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+
+				var maxSockets uint32 = 8
+
+				By("Setting a cluster-wide CPU maxSockets value")
+				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = kvpointer.P(maxSockets)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+
+				By("Creating a VM with CPU sockets set to the cluster maxiumum")
+				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
+				crSource.Add(createVMRevision(vm))
+
+				By("Creating a VMI with cluster max")
+				vmi = controller.setupVMIFromVM(vm)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer, 1)
+
+				By("Bumping the VM sockets above the cluster maximum")
+				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				virtFakeClient.PrependReactor("update", "virtualmachines", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					if action.GetSubresource() != "" {
+						return false, nil, nil
+					}
+
+					Fail("Update should not be called")
+					return true, &v1.VirtualMachine{}, fmt.Errorf("conflict")
+				})
+
+				By("Executing the controller expecting the RestartRequired condition to appear")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue))
+
+			})
+
 			It("should appear when changing a non-live-updatable field", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 
@@ -6307,11 +6371,11 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec.Hostname = "a"
 				vmi = controller.setupVMIFromVM(vm)
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer)
+				syncCache(controller.vmiIndexer, 1)
 
 				By("Creating a Controller Revision with the hostname 'a'")
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer)
+				syncCache(controller.crIndexer, 1)
 
 				By("Changing the hostname to 'b'")
 				vm.Spec.Template.Spec.Hostname = "b"
@@ -6340,7 +6404,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer)
+				syncCache(controller.vmiIndexer, 1)
 
 				By("Bumping the VM sockets above the cluster maximum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 10
@@ -6350,10 +6414,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Executing the controller expecting the RestartRequired condition to appear")
 				sanityExecute(vm)
-				_, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				// TODO fix
-				// Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
+				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
 			})
 
 			It("should appear when VM doesn't specify maxGuest and guest memory goes above cluster-wide maxGuest", func() {
@@ -6366,7 +6429,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer)
+				syncCache(controller.crIndexer, 1)
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6376,7 +6439,7 @@ var _ = Describe("VirtualMachine", func() {
 					GuestCurrent: &maxGuest,
 				}
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer)
+				syncCache(controller.vmiIndexer, 1)
 
 				By("Bumping the VM guest memory above the cluster maximum")
 				bigGuest := resource.MustParse("257Mi")
@@ -6388,10 +6451,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Executing the controller expecting the RestartRequired condition to appear")
 				sanityExecute(vm)
-				_, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				// TODO fix
-				// Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
+				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
 			})
 
 			DescribeTable("when changing a live-updatable field", func(fgs []string, strat *v1.VMRolloutStrategy, matcher gomegatypes.GomegaMatcher) {
@@ -6411,7 +6473,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with CPU sockets set to 2")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer)
+				syncCache(controller.crIndexer, 1)
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6419,7 +6481,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				vmiSource.Add(vmi)
-				syncCache(controller.vmiIndexer)
+				syncCache(controller.vmiIndexer, 1)
 
 				By("Bumping the VM sockets to 4")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 4
@@ -6430,10 +6492,9 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Executing the controller expecting the RestartRequired condition to appear")
 				sanityExecute(vm)
-				_, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				// TODO fix
-				// Expect(vm.Status.Conditions).To(matcher, "restart Required")
+				Expect(vm.Status.Conditions).To(matcher, "restart Required")
 
 				if strat == &liveUpdate && len(fgs) > 0 {
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -6513,7 +6574,7 @@ var _ = Describe("VirtualMachine", func() {
 				sanityExecute(vm)
 
 				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer)
+				syncCache(controller.crIndexer, 1)
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6533,7 +6594,7 @@ var _ = Describe("VirtualMachine", func() {
 				sanityExecute(vm)
 
 				crSource.Delete(createVMRevision(vm))
-				syncCache(controller.crIndexer)
+				syncCache(controller.crIndexer, 0)
 
 				// let the controller pick up the deletion
 				vmiFeeder.Delete(vmi)
@@ -6753,9 +6814,9 @@ func failVMSpecUpdate(virtFakeClient *fake.Clientset) {
 	})
 }
 
-func syncCache(store cache.Store) {
+func syncCache(store cache.Store, expectedLen int) {
 	EventuallyWithOffset(1, func(g Gomega) {
 		keys := store.ListKeys()
-		g.Expect(keys).To(HaveLen(1))
+		g.Expect(keys).To(HaveLen(expectedLen))
 	}, 2*time.Second, 100*time.Millisecond).Should(Succeed(), "Cache did not recieve object from informer")
 }
