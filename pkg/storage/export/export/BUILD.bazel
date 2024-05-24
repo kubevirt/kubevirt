@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "export.go",
         "links.go",
+        "paths.go",
         "pvc-source.go",
         "vm-source.go",
         "vmsnapshot-source.go",

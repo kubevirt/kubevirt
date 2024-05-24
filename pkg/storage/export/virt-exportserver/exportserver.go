@@ -38,18 +38,18 @@ import (
 	"time"
 
 	flag "github.com/spf13/pflag"
-	"sigs.k8s.io/yaml"
-
-	"kubevirt.io/client-go/log"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
+
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/storage/export/export"
 )
 
 const (
@@ -68,20 +68,6 @@ const (
 
 type TokenGetterFunc func() (string, error)
 
-type VolumeInfo struct {
-	Path       string
-	ArchiveURI string
-	DirURI     string
-	RawURI     string
-	RawGzURI   string
-}
-
-type ExportPaths struct {
-	VMURI     string
-	SecretURI string
-	Volumes   []VolumeInfo
-}
-
 type ExportServerConfig struct {
 	Deadline time.Time
 
@@ -91,14 +77,14 @@ type ExportServerConfig struct {
 
 	TokenFile string
 
-	Paths *ExportPaths
+	Paths *export.ServerPaths
 
 	// unit testing helpers
 	ArchiveHandler     func(string) http.Handler
 	DirHandler         func(string, string) http.Handler
 	FileHandler        func(string) http.Handler
 	GzipHandler        func(string) http.Handler
-	VmHandler          func([]VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
+	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
 
 	TokenGetter TokenGetterFunc
@@ -158,7 +144,7 @@ func getExternalCAConfigMap() (*corev1.ConfigMap, error) {
 	return getCAConfigMap(externalCaConfigMapPath)
 }
 
-func (s *exportServer) getHandlerMap(vi VolumeInfo) map[string]http.Handler {
+func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handler {
 	fi, err := os.Stat(vi.Path)
 	if err != nil {
 		log.Log.Reason(err).Errorf("error statting %s", vi.Path)
@@ -515,7 +501,7 @@ func gzipHandler(filePath string) http.Handler {
 	})
 }
 
-func vmHandler(vi []VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
+func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			w.WriteHeader(http.StatusBadRequest)

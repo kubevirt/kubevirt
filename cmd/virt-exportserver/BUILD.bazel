@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/service:go_default_library",
+        "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/export/virt-exportserver:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
