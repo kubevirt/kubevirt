@@ -22,7 +22,6 @@ package apply
 import (
 	"crypto/tls"
 	"encoding/json"
-	"strings"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -396,23 +395,17 @@ var _ = Describe("Apply", func() {
 				Expect(hasImmutableFieldChanged(targetService, cachedService)).To(BeFalse())
 				ops, err := generateServicePatch(cachedService, targetService)
 				Expect(err).ToNot(HaveOccurred())
-
-				hasSubstring := func(ops []string, substring string) bool {
-					for _, op := range ops {
-						if strings.Contains(op, substring) {
-							return true
-						}
-					}
-					return false
+				if !expectLabelsAnnotationsPatch && !expectSpecPatch {
+					Expect(ops).To(BeEmpty())
 				}
 
 				if expectLabelsAnnotationsPatch {
-					Expect(hasSubstring(ops, "/metadata/labels")).To(BeTrue())
-					Expect(hasSubstring(ops, "/metadata/annotations")).To(BeTrue())
+					Expect(string(ops)).To(ContainSubstring("/metadata/labels"))
+					Expect(string(ops)).To(ContainSubstring("/metadata/annotations"))
 				}
 
 				if expectSpecPatch {
-					Expect(hasSubstring(ops, "/spec")).To(BeTrue())
+					Expect(string(ops)).To(ContainSubstring("/spec"))
 				}
 
 				if !expectSpecPatch && !expectLabelsAnnotationsPatch {
