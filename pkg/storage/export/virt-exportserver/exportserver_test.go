@@ -61,7 +61,7 @@ func newTestServer(token string) *exportServer {
 		GzipHandler: func(string) http.Handler {
 			return http.HandlerFunc(successHandler)
 		},
-		VmHandler: func(string, []VolumeInfo, func() (string, error), func() (*v1.ConfigMap, error)) http.Handler {
+		VmHandler: func([]VolumeInfo, func() (string, error), func() (*v1.ConfigMap, error)) http.Handler {
 			return http.HandlerFunc(successHandler)
 		},
 		TokenSecretHandler: func(tgf TokenGetterFunc) http.Handler {
@@ -76,10 +76,13 @@ func newTestServer(token string) *exportServer {
 }
 
 var _ = Describe("exportserver", func() {
-	DescribeTable("should handle", func(vi VolumeInfo, uri string) {
+	DescribeTable("should handle", func(vmURI string, vi *VolumeInfo, uri string) {
 		token := "foo"
 		es := newTestServer(token)
-		es.Volumes = []VolumeInfo{vi}
+		es.Paths = &ExportPaths{VMURI: vmURI}
+		if vi != nil {
+			es.Paths.Volumes = []VolumeInfo{*vi}
+		}
 		es.initHandler()
 
 		httpServer := httptest.NewServer(es.handler)
@@ -98,35 +101,44 @@ var _ = Describe("exportserver", func() {
 		Expect(string(out)).To(Equal("OK"))
 	},
 		Entry("archive URI",
-			VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
 			"/volume/v1/disk.tar.gz",
 		),
 		Entry("dir URI",
-			VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
+			"",
+			&VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
 			"/volume/v1/dir/",
 		),
 		Entry("raw URI",
-			VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
 			"/volume/v1/disk.img",
 		),
 		Entry("raw gz URI",
-			VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/manifest",
+			nil,
 			"/internal/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/manifest/secret",
+			nil,
 			"/internal/manifest/secret",
 		),
 	)
 
-	DescribeTable("should handle (query param version)", func(vi VolumeInfo, uri string) {
+	DescribeTable("should handle (query param version)", func(vmURI string, vi *VolumeInfo, uri string) {
 		token := "foo"
 		es := newTestServer(token)
-		es.Volumes = []VolumeInfo{vi}
+		es.Paths = &ExportPaths{VMURI: vmURI}
+		if vi != nil {
+			es.Paths.Volumes = []VolumeInfo{*vi}
+		}
 		es.initHandler()
 
 		httpServer := httptest.NewServer(es.handler)
@@ -144,35 +156,44 @@ var _ = Describe("exportserver", func() {
 		Expect(string(out)).To(Equal("OK"))
 	},
 		Entry("archive URI",
-			VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
 			"/volume/v1/disk.tar.gz",
 		),
 		Entry("dir URI",
-			VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
+			"",
+			&VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
 			"/volume/v1/dir/",
 		),
 		Entry("raw URI",
-			VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
 			"/volume/v1/disk.img",
 		),
 		Entry("raw gz URI",
-			VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/manifest",
+			nil,
 			"/internal/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/manifest/secret",
+			nil,
 			"/internal/manifest/secret",
 		),
 	)
 
-	DescribeTable("should fail bad token", func(vi VolumeInfo, uri string) {
+	DescribeTable("should fail bad token", func(vmURI string, vi *VolumeInfo, uri string) {
 		token := "foo"
 		es := newTestServer(token)
-		es.Volumes = []VolumeInfo{vi}
+		es.Paths = &ExportPaths{VMURI: vmURI}
+		if vi != nil {
+			es.Paths.Volumes = []VolumeInfo{*vi}
+		}
 		es.initHandler()
 
 		httpServer := httptest.NewServer(es.handler)
@@ -187,35 +208,44 @@ var _ = Describe("exportserver", func() {
 		Expect(res.StatusCode).To(Equal(http.StatusUnauthorized))
 	},
 		Entry("archive URI",
-			VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
 			"/volume/v1/disk.tar.gz",
 		),
 		Entry("dir URI",
-			VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
+			"",
+			&VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
 			"/volume/v1/dir/",
 		),
 		Entry("raw URI",
-			VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
 			"/volume/v1/disk.img",
 		),
 		Entry("raw gz URI",
-			VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/manifest",
+			nil,
 			"/external/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/manifest/secret",
+			nil,
 			"/external/manifest/secret",
 		),
 	)
 
-	DescribeTable("should fail bad token (query param version)", func(vi VolumeInfo, uri string) {
+	DescribeTable("should fail bad token (query param version)", func(vmURI string, vi *VolumeInfo, uri string) {
 		token := "foo"
 		es := newTestServer(token)
-		es.Volumes = []VolumeInfo{vi}
+		es.Paths = &ExportPaths{VMURI: vmURI}
+		if vi != nil {
+			es.Paths.Volumes = []VolumeInfo{*vi}
+		}
 		es.initHandler()
 
 		httpServer := httptest.NewServer(es.handler)
@@ -229,27 +259,33 @@ var _ = Describe("exportserver", func() {
 		Expect(res.StatusCode).To(Equal(http.StatusUnauthorized))
 	},
 		Entry("archive URI",
-			VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", ArchiveURI: "/volume/v1/disk.tar.gz"},
 			"/volume/v1/disk.tar.gz",
 		),
 		Entry("dir URI",
-			VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
+			"",
+			&VolumeInfo{Path: "/tmp", DirURI: "/volume/v1/dir/"},
 			"/volume/v1/dir/",
 		),
 		Entry("raw URI",
-			VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawURI: "/volume/v1/disk.img"},
 			"/volume/v1/disk.img",
 		),
 		Entry("raw gz URI",
-			VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
+			"",
+			&VolumeInfo{Path: "/tmp", RawGzURI: "/volume/v1/disk.img.gz"},
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/manifest",
+			nil,
 			"/external/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/manifest/secret",
+			nil,
 			"/internal/manifest/secret",
 		),
 	)
@@ -326,7 +362,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest(verb, "https://test.blah.invalid/vm_def/secret?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusBadRequest))
 		},
@@ -343,7 +379,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
@@ -355,7 +391,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getErrorBasePath, getCaConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getErrorBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
@@ -364,7 +400,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getErrorCaConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getBasePath, getErrorCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
@@ -376,7 +412,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar&externalURI=test", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getErrorBasePath, getInternalCAConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getErrorBasePath, getInternalCAConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
@@ -388,7 +424,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar&externalURI=test", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
@@ -398,7 +434,7 @@ var _ = Describe("exportserver", func() {
 			req.Header.Set("Accept", runtime.ContentTypeYAML)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
 			out := strings.Split(resp.Body.String(), "---\n")
@@ -419,7 +455,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
+			handler := vmHandler([]VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
 			list := &v1.List{}
@@ -498,7 +534,7 @@ var _ = Describe("exportserver", func() {
 			req.Header.Set("Accept", runtime.ContentTypeYAML)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{
+			handler := vmHandler([]VolumeInfo{
 				{
 					RawGzURI: "volume0",
 				},
@@ -528,7 +564,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{
+			handler := vmHandler([]VolumeInfo{
 				{
 					RawGzURI: "volume0",
 				},
@@ -611,7 +647,7 @@ var _ = Describe("exportserver", func() {
 			req.Header.Set("Accept", runtime.ContentTypeYAML)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{
+			handler := vmHandler([]VolumeInfo{
 				{
 					RawGzURI: "test-dv-volume0",
 				},

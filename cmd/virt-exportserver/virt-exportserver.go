@@ -46,15 +46,18 @@ func main() {
 		Deadline:   getDeadline(),
 		ListenAddr: getListenAddr(),
 		TokenFile:  getTokenFile(),
-		Volumes:    getVolumeInfo(),
+		Paths:      getExportPaths(),
 	}
 	server := exportServer.NewExportServer(config)
 	service.Setup(server)
 	server.Run()
 }
 
-func getVolumeInfo() []exportServer.VolumeInfo {
-	var result []exportServer.VolumeInfo
+func getExportPaths() *exportServer.ExportPaths {
+	result := &exportServer.ExportPaths{
+		VMURI:     os.Getenv("EXPORT_VM_DEF_URI"),
+		SecretURI: os.Getenv("EXPORT_SECRET_DEF_URI"),
+	}
 	for _, env := range os.Environ() {
 		kv := strings.Split(env, "=")
 		envPrefix := strings.TrimSuffix(kv[0], "_EXPORT_PATH")
@@ -65,10 +68,8 @@ func getVolumeInfo() []exportServer.VolumeInfo {
 				DirURI:     os.Getenv(envPrefix + "_EXPORT_DIR_URI"),
 				RawURI:     os.Getenv(envPrefix + "_EXPORT_RAW_URI"),
 				RawGzURI:   os.Getenv(envPrefix + "_EXPORT_RAW_GZIP_URI"),
-				VMURI:      os.Getenv("EXPORT_VM_DEF_URI"),
-				SecretURI:  os.Getenv("EXPORT_SECRET_DEF_URI"),
 			}
-			result = append(result, vi)
+			result.Volumes = append(result.Volumes, vi)
 		}
 	}
 	return result

@@ -74,9 +74,14 @@ type VolumeInfo struct {
 	DirURI     string
 	RawURI     string
 	RawGzURI   string
-	VMURI      string
-	SecretURI  string
 }
+
+type ExportPaths struct {
+	VMURI     string
+	SecretURI string
+	Volumes   []VolumeInfo
+}
+
 type ExportServerConfig struct {
 	Deadline time.Time
 
@@ -86,14 +91,14 @@ type ExportServerConfig struct {
 
 	TokenFile string
 
-	Volumes []VolumeInfo
+	Paths *ExportPaths
 
 	// unit testing helpers
 	ArchiveHandler     func(string) http.Handler
 	DirHandler         func(string, string) http.Handler
 	FileHandler        func(string) http.Handler
 	GzipHandler        func(string) http.Handler
-	VmHandler          func(string, []VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
+	VmHandler          func([]VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
 
 	TokenGetter TokenGetterFunc
@@ -128,25 +133,20 @@ func (er *execReader) Close() error {
 
 func (s *exportServer) initHandler() {
 	mux := http.NewServeMux()
-	for i, vi := range s.Volumes {
+	for _, vi := range s.Paths.Volumes {
 		for path, handler := range s.getHandlerMap(vi) {
 			log.Log.Infof("Handling path %s\n", path)
 			mux.Handle(path, tokenChecker(s.TokenGetter, handler))
 		}
-		if i == 0 {
-			// Only register once
-			if vi.VMURI != "" {
-				p := vi.Path
-				mux.Handle(filepath.Join(internal, vi.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(p, s.Volumes, getInternalBasePath, getInternalCAConfigMap)))
-				mux.Handle(filepath.Join(external, vi.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(p, s.Volumes, getExternalBasePath, getExternalCAConfigMap)))
-			}
-			if vi.SecretURI != "" {
-				mux.Handle(filepath.Join(internal, vi.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
-				mux.Handle(filepath.Join(external, vi.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
-			}
-		}
 	}
-
+	if s.Paths.VMURI != "" {
+		mux.Handle(filepath.Join(internal, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getInternalBasePath, getInternalCAConfigMap)))
+		mux.Handle(filepath.Join(external, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getExternalBasePath, getExternalCAConfigMap)))
+	}
+	if s.Paths.SecretURI != "" {
+		mux.Handle(filepath.Join(internal, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
+		mux.Handle(filepath.Join(external, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
+	}
 	s.handler = mux
 }
 
@@ -515,7 +515,7 @@ func gzipHandler(filePath string) http.Handler {
 	})
 }
 
-func vmHandler(filePath string, vi []VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
+func vmHandler(vi []VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			w.WriteHeader(http.StatusBadRequest)
