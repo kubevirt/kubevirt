@@ -1610,6 +1610,10 @@ type VirtualMachineStatus struct {
 	// updated through an Update() before ObservedGeneration in Status.
 	// +optional
 	DesiredGeneration int64 `json:"desiredGeneration,omitempty" optional:"true"`
+
+	// RunStrategy tracks the last recorded RunStrategy used by the VM.
+	// This is needed to correctly process the next strategy (for now only the RerunOnFailure)
+	RunStrategy VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1665,9 +1669,6 @@ const (
 	// VirtualMachinePaused is added in a virtual machine when its vmi
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
-
-	// VirtualMachineInitialized means the virtual machine object has been seen by the VM controller
-	VirtualMachineInitialized VirtualMachineConditionType = "Initialized"
 
 	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI
 	VirtualMachineRestartRequired VirtualMachineConditionType = "RestartRequired"

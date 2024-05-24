@@ -25069,6 +25069,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Format:      "int64",
 						},
 					},
+					"runStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RunStrategy tracks the last recorded RunStrategy used by the VM. This is needed to correctly process the next strategy (for now only the RerunOnFailure)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
