@@ -243,7 +243,7 @@ func IsChanClosed(ch <-chan struct{}) bool {
 	return false
 }
 
-func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
+func formatVFIODeviceSpecs(devID string, separator string) []*v1beta1.DeviceSpec {
 	// always add /dev/vfio/vfio device as well
 	devSpecs := make([]*v1beta1.DeviceSpec, 0)
 	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
@@ -251,8 +251,8 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 		ContainerPath: vfioMount,
 		Permissions:   "mrw",
 	})
-
-	vfioDevice := filepath.Join(vfioDevicePath, devID)
+	iommuGroup := strings.Split(devID, separator)[0]
+	vfioDevice := filepath.Join(vfioDevicePath, iommuGroup)
 	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
 		HostPath:      vfioDevice,
 		ContainerPath: vfioDevice,
