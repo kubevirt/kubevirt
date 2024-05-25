@@ -35,6 +35,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -335,6 +337,10 @@ func (plugin *USBDevicePlugin) GetDevicePluginOptions(ctx context.Context, _ *pl
 	return &pluginapi.DevicePluginOptions{
 		PreStartRequired: false,
 	}, nil
+}
+
+func (plugin *USBDevicePlugin) GetPreferredAllocation(_ context.Context, _ *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "GetPreferredAllocation is not implemented")
 }
 
 // Interface to expose Devices: IDs, health and Topology
