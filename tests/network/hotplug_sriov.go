@@ -35,7 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -52,7 +52,7 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 	sriovResourceName := readSRIOVResourceName()
 
 	BeforeEach(func() {
-		if !checks.HasFeature(virtconfig.HotplugNetworkIfacesGate) {
+		if !checks.HasFeature(featuregate.HotplugNetworkIfacesGate) {
 			Skip("HotplugNICs feature gate is disabled.")
 		}
 	})

@@ -15,8 +15,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	pkgUtil "kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -71,7 +72,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 
 			By("Adding the emulated USB device to the permitted host devices")
 			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{virtconfig.HostDevicesGate},
+				FeatureGates: []string{featuregate.HostDevicesGate},
 			}
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
 				USB: []v1.USBHostDevice{

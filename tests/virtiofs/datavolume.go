@@ -40,7 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -86,9 +86,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 		DescribeTable("[Serial] should be successfully started and accessible", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
-				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.EnableFeatureGate(featuregate.VirtIOFSGate)
 			} else {
-				kvconfig.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.DisableFeatureGate(featuregate.VirtIOFSGate)
 			}
 
 			createPVC(namespace, pvc1)
@@ -209,9 +209,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 			if namespace == testsuite.NamespacePrivileged {
-				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.EnableFeatureGate(featuregate.VirtIOFSGate)
 			} else {
-				kvconfig.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.DisableFeatureGate(featuregate.VirtIOFSGate)
 			}
 
 			pvcName := fmt.Sprintf("disk-%s", pvc)
@@ -285,9 +285,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
-				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.EnableFeatureGate(featuregate.VirtIOFSGate)
 			} else {
-				kvconfig.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.DisableFeatureGate(featuregate.VirtIOFSGate)
 			}
 
 			dataVolume := libdv.NewDataVolume(

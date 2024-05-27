@@ -19,7 +19,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -78,7 +78,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 
 	Context("should start the realtime VM", func() {
 		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
+			checks.SkipTestIfNoFeatureGate(featuregate.CPUManager)
 			checks.SkipTestIfNotRealtimeCapable()
 		})
 
