@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,7 +48,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
@@ -1012,7 +1013,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				}
 
-				tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
+				tests.EnableFeatureGate(featuregate.HypervStrictCheckGate)
 			})
 
 			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {

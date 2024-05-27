@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -20,8 +22,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -55,7 +55,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 	BeforeEach(func() {
 		skipIfNoRealtimePerformanceTests()
 		virtClient = kubevirt.Client()
-		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
+		checks.SkipTestIfNoFeatureGate(featuregate.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 	})
 

@@ -27,11 +27,11 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -125,7 +125,7 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(featuregate.CPUManager), "mynode")
 
 			heartbeat.do()
 			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})

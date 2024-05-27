@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +19,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -187,7 +188,7 @@ var _ = Describe("Mediated Device", func() {
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				MediatedDevices: []v1.MediatedHostDevice{
 					{

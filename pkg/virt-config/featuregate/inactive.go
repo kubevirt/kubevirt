@@ -19,23 +19,18 @@
 
 package featuregate
 
-import (
-	v1 "kubevirt.io/api/core/v1"
+const (
+	LiveMigrationGate      = "LiveMigration"      // GA
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
+	NonRoot                = "NonRoot"            // GA
+	PSA                    = "PSA"                // GA
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
 )
 
-const MacvtapGate = "Macvtap" // Deprecated
-
-const MacvtapDiscontinueMessage = "Macvtap network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
-
 func init() {
-	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
-}
-
-func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedMacvtap != nil {
-			return true
-		}
-	}
-	return false
+	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
 }

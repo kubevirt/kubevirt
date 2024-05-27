@@ -37,16 +37,6 @@ const (
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
 
-const (
-	LiveMigrationGate      = "LiveMigration"      // GA
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
-	NonRoot                = "NonRoot"            // GA
-	PSA                    = "PSA"                // GA
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
-	PasstGate              = "Passt"              // Deprecated
-	MacvtapGate            = "Macvtap"            // Deprecated
-)
-
 type FeatureGate struct {
 	Name        string
 	State       State
@@ -55,14 +45,6 @@ type FeatureGate struct {
 }
 
 var featureGates = map[string]FeatureGate{}
-
-func init() {
-	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
-}
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
 // In case the FG already exists (based on its name), it overrides the

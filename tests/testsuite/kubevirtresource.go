@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/libstorage"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -41,7 +43,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
@@ -93,27 +94,27 @@ func AdjustKubeVirtResource() {
 		},
 	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.CPUManager,
-		virtconfig.IgnitionGate,
-		virtconfig.SidecarGate,
-		virtconfig.SnapshotGate,
-		virtconfig.HostDiskGate,
-		virtconfig.VirtIOFSGate,
-		virtconfig.HotplugVolumesGate,
-		virtconfig.DownwardMetricsFeatureGate,
-		virtconfig.NUMAFeatureGate,
-		virtconfig.ExpandDisksGate,
-		virtconfig.WorkloadEncryptionSEV,
-		virtconfig.VMExportGate,
-		virtconfig.KubevirtSeccompProfile,
-		virtconfig.HotplugNetworkIfacesGate,
-		virtconfig.VMPersistentState,
-		virtconfig.VMLiveUpdateFeaturesGate,
-		virtconfig.AutoResourceLimitsGate,
+		featuregate.CPUManager,
+		featuregate.IgnitionGate,
+		featuregate.SidecarGate,
+		featuregate.SnapshotGate,
+		featuregate.HostDiskGate,
+		featuregate.VirtIOFSGate,
+		featuregate.HotplugVolumesGate,
+		featuregate.DownwardMetricsFeatureGate,
+		featuregate.NUMAFeatureGate,
+		featuregate.ExpandDisksGate,
+		featuregate.WorkloadEncryptionSEV,
+		featuregate.VMExportGate,
+		featuregate.KubevirtSeccompProfile,
+		featuregate.HotplugNetworkIfacesGate,
+		featuregate.VMPersistentState,
+		featuregate.VMLiveUpdateFeaturesGate,
+		featuregate.AutoResourceLimitsGate,
 	)
 	if flags.DisableCustomSELinuxPolicy {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			virtconfig.DisableCustomSELinuxPolicy,
+			featuregate.DisableCustomSELinuxPolicy,
 		)
 	}
 
@@ -136,7 +137,7 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 	util.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	if checks.HasFeature(virtconfig.CPUManager) {
+	if checks.HasFeature(featuregate.CPUManager) {
 		// CPUManager is not enabled in the control-plane node(s)
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
 		Expect(err).NotTo(HaveOccurred())

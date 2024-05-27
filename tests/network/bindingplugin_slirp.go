@@ -23,7 +23,8 @@ import (
 	"context"
 	"strings"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/libkvconfig"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -54,7 +55,7 @@ var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingP
 	BeforeEach(libnet.SkipWhenClusterNotSupportIpv4)
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		tests.EnableFeatureGate(featuregate.NetworkBindingPlugingsGate)
 	})
 
 	const slirpBindingName = "slirp"

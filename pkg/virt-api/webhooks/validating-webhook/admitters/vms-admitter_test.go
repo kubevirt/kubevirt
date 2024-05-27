@@ -55,7 +55,6 @@ import (
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
@@ -1003,7 +1002,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	Context("with Volume", func() {
 
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.HostDiskGate)
+			enableFeatureGate(featuregate.HostDiskGate)
 		})
 
 		AfterEach(func() {
@@ -1963,7 +1962,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		BeforeEach(func() {
 			vmi := api.NewMinimalVMI("testvmi")
-			enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
+			enableFeatureGate(featuregate.VMLiveUpdateFeaturesGate)
 			enableLiveUpdate()
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
@@ -2038,7 +2037,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with hugepages",
 				}),
 				Entry("realtime is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.NUMAFeatureGate)
+					enableFeatureGate(featuregate.VMLiveUpdateFeaturesGate, featuregate.NUMAFeatureGate)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						DedicatedCPUPlacement: true,
 						Realtime:              &v1.Realtime{},
@@ -2055,7 +2054,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with realtime VMs",
 				}),
 				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.WorkloadEncryptionSEV)
+					enableFeatureGate(featuregate.VMLiveUpdateFeaturesGate, featuregate.WorkloadEncryptionSEV)
 					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2070,7 +2069,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with dedicated CPUs",
 				}),
 				Entry("guest mapping passthrough is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.NUMAFeatureGate)
+					enableFeatureGate(featuregate.VMLiveUpdateFeaturesGate, featuregate.NUMAFeatureGate)
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						DedicatedCPUPlacement: true,
 						NUMA: &v1.NUMA{
@@ -2119,7 +2118,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.MultiArchitecture)
+					enableFeatureGate(featuregate.VMLiveUpdateFeaturesGate, featuregate.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "arm"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2131,7 +2130,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		Context("Update volume strategy", func() {
 			It("should accept the VM with the feature gate enabled", func() {
-				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.VolumesUpdateStrategy)
+				enableFeatureGate(featuregate.VMLiveUpdateFeaturesGate, featuregate.VolumesUpdateStrategy)
 				vm.Spec.UpdateVolumesStrategy = virtpointer.P(v1.UpdateVolumesStrategyReplacement)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeTrue())
@@ -2144,7 +2143,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "updateVolumesStrategy",
-					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VolumesUpdateStrategy),
 				}))
 			})
 		})

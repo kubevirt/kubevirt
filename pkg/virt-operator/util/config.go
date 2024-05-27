@@ -31,12 +31,12 @@ import (
 	"sort"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	clientutil "kubevirt.io/client-go/util"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -212,7 +212,7 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	}
 	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
 		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-			if v == virtconfig.PersistentReservation {
+			if v == featuregate.PersistentReservation {
 				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
 			}
 		}

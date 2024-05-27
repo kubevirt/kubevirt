@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,13 +43,12 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		tests.EnableFeatureGate(featuregate.NetworkBindingPlugingsGate)
 	})
 
 	Context("with CNI and Sidecar", func() {

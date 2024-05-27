@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,7 +17,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	pkgUtil "kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -69,7 +70,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 
 			By("Adding the emulated USB device to the permitted host devices")
 			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{virtconfig.HostDevicesGate},
+				FeatureGates: []string{featuregate.HostDevicesGate},
 			}
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
 				USB: []v1.USBHostDevice{

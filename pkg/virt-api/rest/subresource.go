@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"github.com/emicklei/go-restful/v3"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -1592,7 +1594,7 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 
 func (app *SubresourceAPIApp) ensureSEVEnabled(response *restful.Response) bool {
 	if !app.clusterConfig.WorkloadEncryptionSEVEnabled() {
-		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, virtconfig.WorkloadEncryptionSEV)), response)
+		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, featuregate.WorkloadEncryptionSEV)), response)
 		return false
 	}
 	return true

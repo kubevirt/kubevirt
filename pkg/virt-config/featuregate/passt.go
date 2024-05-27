@@ -25,6 +25,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
+const PasstGate = "Passt" // Deprecated
+
 const PasstDeprecationMessage = "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
 
 func init() {

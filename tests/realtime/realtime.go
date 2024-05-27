@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,8 +20,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -78,8 +78,8 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 
 	Context("should start the realtime VM", func() {
 		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
-			checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
+			checks.SkipTestIfNoFeatureGate(featuregate.NUMAFeatureGate)
+			checks.SkipTestIfNoFeatureGate(featuregate.CPUManager)
 			checks.SkipTestIfNotRealtimeCapable()
 		})
 

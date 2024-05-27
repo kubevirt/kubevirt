@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -58,7 +60,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -1238,16 +1239,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			var clusterIsRoot bool
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(virtconfig.Root)
+				clusterIsRoot = checks.HasFeature(featuregate.Root)
 				if !clusterIsRoot {
-					tests.EnableFeatureGate(virtconfig.Root)
+					tests.EnableFeatureGate(featuregate.Root)
 				}
 			})
 			AfterEach(func() {
 				if !clusterIsRoot {
-					tests.DisableFeatureGate(virtconfig.Root)
+					tests.DisableFeatureGate(featuregate.Root)
 				} else {
-					tests.EnableFeatureGate(virtconfig.Root)
+					tests.EnableFeatureGate(featuregate.Root)
 				}
 				libstorage.DeleteDataVolume(&dv)
 			})
@@ -1266,7 +1267,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("0"))
 
-				tests.DisableFeatureGate(virtconfig.Root)
+				tests.DisableFeatureGate(featuregate.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1323,16 +1324,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			size := "256Mi"
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(virtconfig.Root)
+				clusterIsRoot = checks.HasFeature(featuregate.Root)
 				if clusterIsRoot {
-					tests.DisableFeatureGate(virtconfig.Root)
+					tests.DisableFeatureGate(featuregate.Root)
 				}
 			})
 			AfterEach(func() {
 				if clusterIsRoot {
-					tests.EnableFeatureGate(virtconfig.Root)
+					tests.EnableFeatureGate(featuregate.Root)
 				} else {
-					tests.DisableFeatureGate(virtconfig.Root)
+					tests.DisableFeatureGate(featuregate.Root)
 				}
 				if dv != nil {
 					libstorage.DeleteDataVolume(&dv)
@@ -1356,7 +1357,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("107"))
 
-				tests.EnableFeatureGate(virtconfig.Root)
+				tests.EnableFeatureGate(featuregate.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2725,7 +2726,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 		Context("and NUMA passthrough", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			It("should not make migrations fail", func() {
-				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
+				checks.SkipTestIfNoFeatureGate(featuregate.NUMAFeatureGate)
 				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 				var err error
 				cpuVMI := libvmifact.NewAlpine(

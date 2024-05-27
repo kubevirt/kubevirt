@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	expect "github.com/google/goexpect"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -42,8 +44,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -464,7 +464,7 @@ var istioTestsWithMasqueradeBinding = func() {
 
 var istioTestsWithPasstBinding = func() {
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
+		tests.EnableFeatureGate(featuregate.NetworkBindingPlugingsGate)
 	})
 
 	BeforeEach(func() {

@@ -3,7 +3,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "active.go",
         "feature-gates.go",
+        "inactive.go",
         "macvtap.go",
         "passt.go",
         "validator.go",

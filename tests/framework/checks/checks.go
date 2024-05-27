@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -14,8 +16,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests/util"
 
 	v12 "kubevirt.io/api/core/v1"
@@ -112,7 +112,7 @@ func IsOpenShift() bool {
 
 func RequireFeatureGateVirtHandlerRestart(feature string) bool {
 	// List of feature gates that requires virt-handler to be redeployed
-	fgs := []string{virtconfig.PersistentReservation}
+	fgs := []string{featuregate.PersistentReservation}
 	for _, f := range fgs {
 		if feature == f {
 			return true

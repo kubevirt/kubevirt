@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -47,8 +49,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -541,7 +541,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var snap *snapshotv1.VirtualMachineSnapshot
 
 		BeforeEach(func() {
-			tests.EnableFeatureGate(virtconfig.SnapshotGate)
+			tests.EnableFeatureGate(featuregate.SnapshotGate)
 
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
@@ -632,7 +632,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var restore *snapshotv1.VirtualMachineRestore
 
 		BeforeEach(func() {
-			tests.EnableFeatureGate(virtconfig.SnapshotGate)
+			tests.EnableFeatureGate(featuregate.SnapshotGate)
 
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")

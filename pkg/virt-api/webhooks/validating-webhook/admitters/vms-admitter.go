@@ -486,7 +486,7 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	if spec.UpdateVolumesStrategy != nil && !config.VolumesUpdateStrategyEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VolumesUpdateStrategy),
 			Field:   "updateVolumesStrategy",
 		})
 	}

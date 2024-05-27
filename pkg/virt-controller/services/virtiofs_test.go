@@ -4,12 +4,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("virtiofs container", func() {
@@ -53,7 +54,7 @@ var _ = Describe("virtiofs container", func() {
 
 	DescribeTable("virtiofs privileged container", func(shouldEnableFeatureGate bool) {
 		if shouldEnableFeatureGate {
-			enableFeatureGate(virtconfig.VirtIOFSGate)
+			enableFeatureGate(featuregate.VirtIOFSGate)
 		}
 
 		vmi := api.NewMinimalVMI("testvm")
