@@ -58,7 +58,7 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -1120,16 +1120,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			var clusterIsRoot bool
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(virtconfig.Root)
+				clusterIsRoot = checks.HasFeature(featuregate.Root)
 				if !clusterIsRoot {
-					kvconfig.EnableFeatureGate(virtconfig.Root)
+					kvconfig.EnableFeatureGate(featuregate.Root)
 				}
 			})
 			AfterEach(func() {
 				if !clusterIsRoot {
-					kvconfig.DisableFeatureGate(virtconfig.Root)
+					kvconfig.DisableFeatureGate(featuregate.Root)
 				} else {
-					kvconfig.EnableFeatureGate(virtconfig.Root)
+					kvconfig.EnableFeatureGate(featuregate.Root)
 				}
 				libstorage.DeleteDataVolume(&dv)
 			})
@@ -1148,7 +1148,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("0"))
 
-				kvconfig.DisableFeatureGate(virtconfig.Root)
+				kvconfig.DisableFeatureGate(featuregate.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1205,16 +1205,16 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			size := "256Mi"
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(virtconfig.Root)
+				clusterIsRoot = checks.HasFeature(featuregate.Root)
 				if clusterIsRoot {
-					kvconfig.DisableFeatureGate(virtconfig.Root)
+					kvconfig.DisableFeatureGate(featuregate.Root)
 				}
 			})
 			AfterEach(func() {
 				if clusterIsRoot {
-					kvconfig.EnableFeatureGate(virtconfig.Root)
+					kvconfig.EnableFeatureGate(featuregate.Root)
 				} else {
-					kvconfig.DisableFeatureGate(virtconfig.Root)
+					kvconfig.DisableFeatureGate(featuregate.Root)
 				}
 				if dv != nil {
 					libstorage.DeleteDataVolume(&dv)
@@ -1238,7 +1238,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("107"))
 
-				kvconfig.EnableFeatureGate(virtconfig.Root)
+				kvconfig.EnableFeatureGate(featuregate.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)

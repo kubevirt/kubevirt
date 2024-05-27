@@ -494,7 +494,7 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
 			Field:   field.Child("launchSecurity").String(),
 		})
 	} else if launchSecurity != nil && launchSecurity.SEV != nil {
@@ -1101,7 +1101,7 @@ func validateArchitecture(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	if spec.Architecture != "" && spec.Architecture != runtime.GOARCH && !config.MultiArchitectureEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config, invalid entry %s", virtconfig.MultiArchitecture,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config, invalid entry %s", featuregate.MultiArchitecture,
 				field.Child("architecture").String()),
 			Field: field.Child("architecture").String(),
 		})
@@ -2259,7 +2259,7 @@ func validateVSOCK(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, co
 	if !config.VSOCKEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VSOCKGate),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VSOCKGate),
 			Field:   field.Child("domain", "devices", "autoattachVSOCK").String(),
 		})
 	}
@@ -2276,7 +2276,7 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 	if !config.PersistentReservationEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.PersistentReservation),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.PersistentReservation),
 			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
 		})
 	}
@@ -2294,14 +2294,14 @@ func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 		if backendstorage.HasPersistentTPMDevice(spec) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VMPersistentState),
 				Field:   field.Child("domain", "devices", "tpm", "persistent").String(),
 			})
 		}
 		if backendstorage.HasPersistentEFI(spec) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VMPersistentState),
 				Field:   field.Child("domain", "firmware", "bootloader", "efi", "persistent").String(),
 			})
 		}
