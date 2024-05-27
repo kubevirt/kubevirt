@@ -17,7 +17,7 @@
  *
  */
 
-package deprecation
+package featuregate
 
 import (
 	"fmt"
