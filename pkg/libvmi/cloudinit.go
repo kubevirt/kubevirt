@@ -29,90 +29,165 @@ import (
 
 const cloudInitDiskName = "disk1"
 
+// WithCloudInitVolume adds cloudInit volume and disk
+func WithCloudInitVolume(volumeBuilder CloudInitBuilder) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addCloudInitDiskAndVolume(vmi, cloudInitDiskName, v1.DiskBusVirtio, volumeBuilder.build(cloudInitDiskName))
+	}
+}
+
 // WithCloudInitNoCloudUserData adds cloud-init no-cloud user data.
 func WithCloudInitNoCloudUserData(data string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.UserData = data
-		volume.CloudInitNoCloud.UserDataBase64 = ""
-	}
+	b := NewNoCloudResourceBuilder().WithUserData(data)
+	return WithCloudInitVolume(b)
 }
 
 // WithCloudInitNoCloudEncodedUserData adds cloud-init no-cloud base64-encoded user data
 func WithCloudInitNoCloudEncodedUserData(data string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		encodedData := base64.StdEncoding.EncodeToString([]byte(data))
-		volume.CloudInitNoCloud.UserData = ""
-		volume.CloudInitNoCloud.UserDataBase64 = encodedData
-	}
+	b := NewNoCloudResourceBuilder().WithEncodedData(data)
+	return WithCloudInitVolume(b)
 }
 
 // WithCloudInitNoCloudNetworkData adds cloud-init no-cloud network data.
 func WithCloudInitNoCloudNetworkData(data string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.NetworkData = data
-		volume.CloudInitNoCloud.NetworkDataBase64 = ""
-		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
-	}
+	b := NewNoCloudResourceBuilder().WithNetworkData(data)
+	return WithCloudInitVolume(b)
 }
 
 // WithCloudInitNoCloudEncodedNetworkData adds cloud-init no-cloud base64 encoded network data.
 func WithCloudInitNoCloudEncodedNetworkData(networkData string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
-		volume.CloudInitNoCloud.NetworkData = ""
-		volume.CloudInitNoCloud.NetworkDataSecretRef = nil
-	}
+	b := NewNoCloudResourceBuilder().WithNetworkEncodedData(networkData)
+	return WithCloudInitVolume(b)
 }
 
 // WithCloudInitNoCloudNetworkDataSecretName adds cloud-init no-cloud network data from secret.
 func WithCloudInitNoCloudNetworkDataSecretName(secretName string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitNoCloud(vmi, cloudInitDiskName, v1.DiskBusVirtio)
-
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitNoCloud.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
-		volume.CloudInitNoCloud.NetworkData = ""
-		volume.CloudInitNoCloud.NetworkDataBase64 = ""
-	}
+	b := NewNoCloudResourceBuilder().WithNetworkSecretName(secretName)
+	return WithCloudInitVolume(b)
 }
 
 // WithCloudInitConfigDriveUserData adds cloud-init config-drive user data.
 func WithCloudInitConfigDriveUserData(data string) Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+	b := NewConfigDriveResourceBuilder().WithUserData(data)
+	return WithCloudInitVolume(b)
+}
 
-		volume := getVolume(vmi, cloudInitDiskName)
-		volume.CloudInitConfigDrive.UserData = data
-		volume.CloudInitConfigDrive.UserDataBase64 = ""
+func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus, v v1.Volume) {
+	addDisk(vmi, newDisk(diskName, bus))
+	addVolume(vmi, v)
+}
+
+type CloudInitBuilder interface {
+	WithUserData(string) CloudInitBuilder
+	WithEncodedData(string) CloudInitBuilder
+	WithSecretName(string) CloudInitBuilder
+	WithNetworkData(string) CloudInitBuilder
+	WithNetworkEncodedData(string) CloudInitBuilder
+	WithNetworkSecretName(string) CloudInitBuilder
+	build(name string) v1.Volume
+}
+
+type NoCloudResource struct {
+	src *v1.CloudInitNoCloudSource
+}
+
+func NewNoCloudResourceBuilder() *NoCloudResource {
+	return &NoCloudResource{src: &v1.CloudInitNoCloudSource{}}
+}
+
+func (r *NoCloudResource) WithUserData(data string) CloudInitBuilder {
+	r.src.UserData = data
+	return r
+}
+
+func (r *NoCloudResource) WithEncodedData(data string) CloudInitBuilder {
+	r.src.UserDataBase64 = encodeData(data)
+	return r
+}
+
+func (r *NoCloudResource) WithSecretName(name string) CloudInitBuilder {
+	r.src.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{
+		Name: name,
+	}
+	return r
+}
+
+func (r *NoCloudResource) WithNetworkData(data string) CloudInitBuilder {
+	r.src.NetworkData = data
+	return r
+}
+
+func (r *NoCloudResource) WithNetworkEncodedData(data string) CloudInitBuilder {
+	r.src.UserDataBase64 = encodeData(data)
+	return r
+}
+
+func (r *NoCloudResource) WithNetworkSecretName(name string) CloudInitBuilder {
+	r.src.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{
+		Name: name,
+	}
+	return r
+}
+
+func (r *NoCloudResource) build(name string) v1.Volume {
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			CloudInitNoCloud: r.src,
+		},
 	}
 }
 
-func addDiskVolumeWithCloudInitConfigDrive(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus) {
-	addDisk(vmi, newDisk(diskName, bus))
-	v := newVolume(diskName)
-	v.VolumeSource = v1.VolumeSource{CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{}}
-	addVolume(vmi, v)
+type ConfigDriveResource struct {
+	src *v1.CloudInitConfigDriveSource
 }
 
-func addDiskVolumeWithCloudInitNoCloud(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus) {
-	addDisk(vmi, newDisk(diskName, bus))
-	v := newVolume(diskName)
-	setCloudInitNoCloud(&v, &v1.CloudInitNoCloudSource{})
-	addVolume(vmi, v)
+func NewConfigDriveResourceBuilder() *ConfigDriveResource {
+	return &ConfigDriveResource{src: &v1.CloudInitConfigDriveSource{}}
+}
+func (r *ConfigDriveResource) WithUserData(data string) CloudInitBuilder {
+	r.src.UserData = data
+	return r
 }
 
-func setCloudInitNoCloud(volume *v1.Volume, source *v1.CloudInitNoCloudSource) {
-	volume.VolumeSource = v1.VolumeSource{CloudInitNoCloud: source}
+func (r *ConfigDriveResource) WithEncodedData(data string) CloudInitBuilder {
+	r.src.UserDataBase64 = encodeData(data)
+	return r
+}
+
+func (r *ConfigDriveResource) WithSecretName(name string) CloudInitBuilder {
+	r.src.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{
+		Name: name,
+	}
+	return r
+}
+
+func (r *ConfigDriveResource) WithNetworkData(data string) CloudInitBuilder {
+	r.src.NetworkData = data
+	return r
+}
+
+func (r *ConfigDriveResource) WithNetworkEncodedData(data string) CloudInitBuilder {
+	r.src.UserDataBase64 = encodeData(data)
+	return r
+}
+
+func (r *ConfigDriveResource) WithNetworkSecretName(name string) CloudInitBuilder {
+	r.src.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{
+		Name: name,
+	}
+	return r
+}
+
+func (r *ConfigDriveResource) build(name string) v1.Volume {
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			CloudInitConfigDrive: r.src,
+		},
+	}
+}
+
+func encodeData(data string) string {
+	return base64.StdEncoding.EncodeToString([]byte(data))
 }
