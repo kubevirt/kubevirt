@@ -54,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 )
@@ -1167,7 +1166,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	Context("with Volume", func() {
 
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.HostDiskGate)
+			enableFeatureGate(featuregate.HostDiskGate)
 		})
 
 		AfterEach(func() {
@@ -2189,7 +2188,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with realtime VMs",
 				}),
 				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
+					enableFeatureGate(featuregate.WorkloadEncryptionSEV)
 					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2254,7 +2253,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.MultiArchitecture)
+					enableFeatureGate(featuregate.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2273,7 +2272,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		Context("Update volume strategy", func() {
 			It("should accept the VM with the feature gate enabled", func() {
-				enableFeatureGate(virtconfig.VolumesUpdateStrategy)
+				enableFeatureGate(featuregate.VolumesUpdateStrategy)
 				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyReplacement)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeTrue())
@@ -2286,25 +2285,25 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "updateVolumesStrategy",
-					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VolumesUpdateStrategy),
 				}))
 			})
 			It("should accept the VM with the feature gate enabled for volume migration", func() {
-				enableFeatureGate(virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
+				enableFeatureGate(featuregate.VolumesUpdateStrategy, featuregate.VolumeMigration)
 				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeTrue())
 				Expect(resp.Result).To(BeNil())
 			})
 			It("should reject the VM creation if the volume migration feature gate isn't enabled", func() {
-				enableFeatureGate(virtconfig.VolumesUpdateStrategy)
+				enableFeatureGate(featuregate.VolumesUpdateStrategy)
 				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 				resp := admitVm(vmsAdmitter, vm)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "updateVolumesStrategy",
-					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VolumeMigration),
 				}))
 			})
 		})
