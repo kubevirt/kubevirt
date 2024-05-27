@@ -56,7 +56,7 @@ var _ = Describe("Install Strategy", func() {
 				ImageRegistry: registry,
 				ImageTag:      version,
 			},
-		})
+		}, nil)
 	}
 
 	config := getConfig("fake-registry", "v9.9.9")

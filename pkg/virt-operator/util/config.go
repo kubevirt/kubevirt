@@ -31,6 +31,8 @@ import (
 	"sort"
 	"strings"
 
+	"kubevirt.io/client-go/kubecli"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -99,6 +101,12 @@ const (
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesValidatingAdmissionPolicyBindingEnabled = "ValidatingAdmissionPolicyBindingEnabled"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesValidatingAdmissionPolicyEnabled = "ValidatingAdmissionPolicyEnabled"
 
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
@@ -200,11 +208,11 @@ func GetConfigFromEnvWithEnvVarManager(envVarManager EnvVarManager) (*KubeVirtDe
 	return getConfig("", "", ns, additionalProperties, envVarManager), nil
 }
 
-func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
-	return GetTargetConfigFromKVWithEnvVarManager(kv, DefaultEnvVarManager)
+func GetTargetConfigFromKV(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) *KubeVirtDeploymentConfig {
+	return GetTargetConfigFromKVWithEnvVarManager(kv, DefaultEnvVarManager, clientset)
 }
 
-func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVarManager, clientset kubecli.KubevirtClient) *KubeVirtDeploymentConfig {
 	additionalProperties := getKVMapFromSpec(kv.Spec)
 	if kv.Spec.Configuration.MigrationConfiguration != nil &&
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
@@ -214,6 +222,16 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
 			if v == virtconfig.PersistentReservation {
 				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+			}
+
+			if v == virtconfig.NodeRestrictionGate {
+				if vapbEnabled, _ := IsValidatingAdmissionPolicyBindingEnabled(clientset); vapbEnabled {
+					additionalProperties[AdditionalPropertiesValidatingAdmissionPolicyBindingEnabled] = ""
+				}
+
+				if vapEnabled, _ := IsValidatingAdmissionPolicyEnabled(clientset); vapEnabled {
+					additionalProperties[AdditionalPropertiesValidatingAdmissionPolicyEnabled] = ""
+				}
 			}
 		}
 	}
@@ -618,6 +636,16 @@ func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectRefe
 
 func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesPersistentReservationEnabled]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) ValidatingAdmissionPolicyBindingEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesValidatingAdmissionPolicyBindingEnabled]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) ValidatingAdmissionPolicyEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesValidatingAdmissionPolicyEnabled]
 	return enabled
 }
 

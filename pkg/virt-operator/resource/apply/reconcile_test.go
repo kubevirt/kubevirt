@@ -77,7 +77,7 @@ func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
 			ImageRegistry: registry,
 			ImageTag:      version,
 		},
-	})
+	}, nil)
 }
 
 func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentConfig, stores util.Stores) *install.Strategy {
