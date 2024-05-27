@@ -22,9 +22,12 @@ package matcher
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	. "github.com/onsi/gomega"
+
 	"github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
 )
@@ -81,4 +84,21 @@ func HaveStateChangeRequests() gomegatypes.GomegaMatcher {
 			"StateChangeRequests": Not(BeEmpty()),
 		}),
 	}))
+}
+
+func InterfaceIPs(networkInterface *v1.VirtualMachineInstanceNetworkInterface) []string {
+	if networkInterface == nil {
+		return nil
+	}
+	return networkInterface.IPs
+}
+
+func MatchIPsAtInterfaceByName(interfaceName string, ipsMatcher gomegatypes.GomegaMatcher) gomegatypes.GomegaMatcher {
+	return WithTransform(
+		func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceNetworkInterface {
+			return vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, interfaceName)
+		},
+		SatisfyAll(
+			Not(BeNil()),
+			WithTransform(InterfaceIPs, ipsMatcher)))
 }

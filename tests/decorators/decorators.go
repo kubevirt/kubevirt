@@ -15,6 +15,9 @@ var (
 	SigComputeMigrations = []interface{}{Label("sig-compute-migrations")}
 	SigMonitoring        = []interface{}{Label("sig-monitoring")}
 
+	// WGs
+	WgIPAM = []interface{}{Label("wg-ipam")}
+
 	// HW
 	GPU         = []interface{}{Label("GPU")}
 	VGPU        = []interface{}{Label("VGPU")}

@@ -7,6 +7,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
+	ipamclaimsv1alpha1 "github.com/k8snetworkplumbingwg/ipamclaims/pkg/crd/ipamclaims/v1alpha1"
+
 	k8sv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -152,5 +154,13 @@ func ThisDeploymentWith(namespace string, name string) func() (*k8sv1.Deployment
 		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "Deployment"
 		return
+	}
+}
+
+// IPAMClaimsFromNamespace fetches the IPAMClaims related to namespace
+func IPAMClaimsFromNamespace(namespace string) func() ([]ipamclaimsv1alpha1.IPAMClaim, error) {
+	return func() ([]ipamclaimsv1alpha1.IPAMClaim, error) {
+		ipamClaimList, err := kubevirt.Client().IPAMClaimsClient().K8sV1alpha1().IPAMClaims(namespace).List(context.Background(), k8smetav1.ListOptions{})
+		return ipamClaimList.Items, err
 	}
 }
