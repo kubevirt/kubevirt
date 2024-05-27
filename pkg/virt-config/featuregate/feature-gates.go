@@ -28,6 +28,12 @@ import (
 type State string
 
 const (
+	// Alpha represents features that are under experimentation.
+	// The feature is disabled by default and can be enabled explicitly through the FG.
+	Alpha State = "Alpha"
+	// Beta represents features that are under evaluation.
+	// The feature is disabled by default and can be enabled explicitly through the FG.
+	Beta State = "Beta"
 	// GA represents features that reached General Availability.
 	// GA features are considered enabled, with no option to disable them.
 	GA State = "General Availability"
@@ -54,9 +60,9 @@ var featureGates = map[string]FeatureGate{}
 // RegisterFeatureGate adds a given feature-gate to the FG list
 // In case the FG already exists (based on its name), it overrides the
 // existing FG.
-// If the feature-gate is missing a message, a default one is set.
+// If an inactive feature-gate is missing a message, a default one is set.
 func RegisterFeatureGate(fg FeatureGate) {
-	if fg.Message == "" {
+	if fg.State != Alpha && fg.State != Beta && fg.Message == "" {
 		fg.Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
 	}
 	featureGates[fg.Name] = fg
