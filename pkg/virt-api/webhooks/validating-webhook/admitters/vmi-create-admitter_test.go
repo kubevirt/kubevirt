@@ -52,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -184,7 +184,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		var policyExternal = v1.EvictionStrategyExternal
 
 		BeforeEach(func() {
-			enableFeatureGate(deprecation.LiveMigrationGate)
+			enableFeatureGate(featuregate.LiveMigrationGate)
 			vmi = api.NewMinimalVMI("testvmi")
 			vmi.Spec.EvictionStrategy = nil
 		})
@@ -1134,14 +1134,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should raise a warning when Deprecated API is used", func() {
 			const testsFGName = "test-deprecated"
-			deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 				Name:        testsFGName,
-				State:       deprecation.Deprecated,
+				State:       featuregate.Deprecated,
 				VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 			})
-			DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
+			DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
 			enableFeatureGate(testsFGName)
-
 			vmi := api.NewMinimalVMI("testvmi")
 			vmiJSON, _ := json.Marshal(&vmi)
 
