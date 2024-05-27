@@ -37,7 +37,7 @@ var _ = Describe("Validator", func() {
 		fgWarning = "test warning message"
 	)
 
-	DescribeTable("validate feature gate", func(fgState string, expected []metav1.StatusCause) {
+	DescribeTable("validate feature gate", func(fgState featuregate.State, expected []metav1.StatusCause) {
 		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 			Name:        fgName,
 			State:       featuregate.State(fgState),
