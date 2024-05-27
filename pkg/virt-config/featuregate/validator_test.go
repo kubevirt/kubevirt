@@ -17,7 +17,7 @@
  *
  */
 
-package deprecation_test
+package featuregate_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -28,7 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validator", func() {
@@ -38,20 +38,20 @@ var _ = Describe("Validator", func() {
 	)
 
 	DescribeTable("validate feature gate", func(fgState string, expected []metav1.StatusCause) {
-		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 			Name:        fgName,
-			State:       deprecation.State(fgState),
+			State:       featuregate.State(fgState),
 			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 			Message:     fgWarning,
 		})
-		DeferCleanup(deprecation.UnregisterFeatureGate, fgName)
+		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
 		vmi := libvmi.New()
 
-		Expect(deprecation.ValidateFeatureGates([]string{fgName}, &vmi.Spec)).To(ConsistOf(expected))
+		Expect(featuregate.ValidateFeatureGates([]string{fgName}, &vmi.Spec)).To(ConsistOf(expected))
 	},
-		Entry("that is GA", deprecation.GA, nil),
-		Entry("that is Deprecated", deprecation.Deprecated, nil),
-		Entry("that is Discontinued", deprecation.Discontinued,
+		Entry("that is GA", featuregate.GA, nil),
+		Entry("that is Deprecated", featuregate.Deprecated, nil),
+		Entry("that is Discontinued", featuregate.Discontinued,
 			[]metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: fgWarning,
