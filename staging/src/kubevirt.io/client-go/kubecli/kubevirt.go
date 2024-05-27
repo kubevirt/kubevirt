@@ -48,7 +48,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
-	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 	"kubevirt.io/client-go/version"
@@ -62,9 +62,9 @@ type KubevirtClient interface {
 	VirtualMachine(namespace string) VirtualMachineInterface
 	KubeVirt(namespace string) KubeVirtInterface
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
-	VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface
-	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
-	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
+	VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface
+	VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface
+	VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface
 	VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface
 	VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface
 	VirtualMachineClusterInstancetype() instancetypev1beta1.VirtualMachineClusterInstancetypeInterface
@@ -171,16 +171,16 @@ func (k kubevirt) VirtualMachinePool(namespace string) poolv1.VirtualMachinePool
 	return k.generatedKubeVirtClient.PoolV1alpha1().VirtualMachinePools(namespace)
 }
 
-func (k kubevirt) VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface {
-	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshots(namespace)
+func (k kubevirt) VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface {
+	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineSnapshots(namespace)
 }
 
-func (k kubevirt) VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface {
-	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshotContents(namespace)
+func (k kubevirt) VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface {
+	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(namespace)
 }
 
-func (k kubevirt) VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface {
-	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineRestores(namespace)
+func (k kubevirt) VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface {
+	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineRestores(namespace)
 }
 
 func (k kubevirt) VirtualMachineExport(namespace string) vmexportv1alpha1.VirtualMachineExportInterface {

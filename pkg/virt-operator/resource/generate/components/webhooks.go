@@ -25,7 +25,7 @@ import (
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
 var sideEffectNone = admissionregistrationv1.SideEffectClassNone

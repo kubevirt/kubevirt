@@ -34,7 +34,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"

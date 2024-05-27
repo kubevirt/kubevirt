@@ -41,7 +41,7 @@ go_library(
         "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests:go_default_library",

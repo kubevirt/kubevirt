@@ -34,7 +34,7 @@ import (
 
 	"kubevirt.io/api/core"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"

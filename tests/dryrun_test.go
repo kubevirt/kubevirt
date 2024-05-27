@@ -43,7 +43,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -538,7 +538,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 	})
 
 	Context("VM Snapshots", func() {
-		var snap *v1alpha1.VirtualMachineSnapshot
+		var snap *snapshotv1.VirtualMachineSnapshot
 
 		BeforeEach(func() {
 			tests.EnableFeatureGate(virtconfig.SnapshotGate)
@@ -629,7 +629,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 	})
 
 	Context("VM Restores", func() {
-		var restore *v1alpha1.VirtualMachineRestore
+		var restore *snapshotv1.VirtualMachineRestore
 
 		BeforeEach(func() {
 			tests.EnableFeatureGate(virtconfig.SnapshotGate)
@@ -777,15 +777,15 @@ func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
 	}
 }
 
-func newVMSnapshot(vm *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
+func newVMSnapshot(vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 	group := vm.GroupVersionKind().Group
 
-	return &v1alpha1.VirtualMachineSnapshot{
+	return &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vm.Name + "-snapshot",
 			Namespace: testsuite.GetTestNamespace(vm),
 		},
-		Spec: v1alpha1.VirtualMachineSnapshotSpec{
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: corev1.TypedLocalObjectReference{
 				APIGroup: &group,
 				Kind:     vm.GroupVersionKind().Kind,
@@ -795,15 +795,15 @@ func newVMSnapshot(vm *v1.VirtualMachine) *v1alpha1.VirtualMachineSnapshot {
 	}
 }
 
-func newVMRestore(vm *v1.VirtualMachine, snapshot *v1alpha1.VirtualMachineSnapshot) *v1alpha1.VirtualMachineRestore {
+func newVMRestore(vm *v1.VirtualMachine, snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineRestore {
 	group := vm.GroupVersionKind().Group
 
-	return &v1alpha1.VirtualMachineRestore{
+	return &snapshotv1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vm.Name + "-restore",
 			Namespace: testsuite.GetTestNamespace(vm),
 		},
-		Spec: v1alpha1.VirtualMachineRestoreSpec{
+		Spec: snapshotv1.VirtualMachineRestoreSpec{
 			Target: corev1.TypedLocalObjectReference{
 				APIGroup: &group,
 				Kind:     vm.GroupVersionKind().Kind,
@@ -814,7 +814,7 @@ func newVMRestore(vm *v1.VirtualMachine, snapshot *v1alpha1.VirtualMachineSnapsh
 	}
 }
 
-func waitForSnapshotToBeReady(virtClient kubecli.KubevirtClient, snapshot *v1alpha1.VirtualMachineSnapshot, timeoutSec int) {
+func waitForSnapshotToBeReady(virtClient kubecli.KubevirtClient, snapshot *snapshotv1.VirtualMachineSnapshot, timeoutSec int) {
 	By(fmt.Sprintf("Waiting for snapshot %s to be ready to use", snapshot.Name))
 	EventuallyWithOffset(1, func() bool {
 		updatedSnap, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})

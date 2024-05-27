@@ -55,7 +55,7 @@ go_test(
         "//staging/src/kubevirt.io/api/instancetype/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1alpha2:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1:go_default_library",

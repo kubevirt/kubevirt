@@ -269,6 +269,7 @@ API rule violation: names_match,kubevirt.io/api/instancetype/v1alpha1,VirtualMac
 API rule violation: names_match,kubevirt.io/api/instancetype/v1alpha2,VirtualMachineInstancetypeSpec,GPUs
 API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,VirtualMachineInstancetypeSpec,GPUs
 API rule violation: names_match,kubevirt.io/api/snapshot/v1alpha1,VolumeRestore,PersistentVolumeClaimName
+API rule violation: names_match,kubevirt.io/api/snapshot/v1beta1,VolumeRestore,PersistentVolumeClaimName
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,CDISpec,Workloads
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeSourceImageIO,DiskID
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,ImportProxy,HTTPProxy

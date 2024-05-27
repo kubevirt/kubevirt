@@ -57,7 +57,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 

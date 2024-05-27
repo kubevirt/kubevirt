@@ -22762,10 +22762,12 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+          x-kubernetes-list-type: atomic
         deletedDataVolumes:
           items:
             type: string
           type: array
+          x-kubernetes-list-type: set
         restoreTime:
           format: date-time
           type: string
@@ -22787,6 +22789,7 @@ var CRDsValidation map[string]string = map[string]string{
             - volumeSnapshotName
             type: object
           type: array
+          x-kubernetes-list-type: atomic
       type: object
   required:
   - spec
@@ -22883,6 +22886,7 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+          x-kubernetes-list-type: atomic
         creationTime:
           format: date-time
           nullable: true
@@ -27647,6 +27651,7 @@ var CRDsValidation map[string]string = map[string]string{
             - volumeName
             type: object
           type: array
+          x-kubernetes-list-type: atomic
       required:
       - source
       type: object
@@ -27694,6 +27699,7 @@ var CRDsValidation map[string]string = map[string]string{
             - volumeSnapshotName
             type: object
           type: array
+          x-kubernetes-list-type: atomic
       type: object
   required:
   - spec

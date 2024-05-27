@@ -18,7 +18,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 )
