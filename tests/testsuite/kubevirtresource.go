@@ -137,7 +137,7 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 	util.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	if checks.HasFeature(virtconfig.CPUManager) {
+	if !flags.SkipCPUManagerCheck && checks.HasFeature(virtconfig.CPUManager) {
 		// CPUManager is not enabled in the control-plane node(s)
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
 		Expect(err).NotTo(HaveOccurred())
