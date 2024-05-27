@@ -450,10 +450,12 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
+  elif [[ $TARGET =~ ovn.* ]]; then
+    label_filter='(wg-ipam)'
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
     label_filter='(!(SRIOV,GPU,VGPU))'
   else
-    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins))'
+    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins,wg-ipam))'
   fi
 fi
 
@@ -466,7 +468,7 @@ add_to_label_filter '(!exclude-native-ssh)' '&&'
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
+  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes,wg-ipam))' '&&'
 fi
 
 # Single stack IPv6 cluster should skip tests that require dual stack cluster
