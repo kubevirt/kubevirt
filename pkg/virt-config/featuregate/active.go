@@ -70,3 +70,32 @@ const (
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 )
+
+func init() {
+	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: HypervStrictCheckGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
+}
