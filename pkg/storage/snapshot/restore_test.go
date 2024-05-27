@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -34,6 +33,7 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -424,10 +424,38 @@ var _ = Describe("Restore controller", func() {
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
 			})
 
+			It("should wait for target to be ready before any update", func() {
+				r := createRestoreWithOwner()
+				r.OwnerReferences = nil
+				vm := createModifiedVM()
+				vmi := createVMI(vm)
+				rc := r.DeepCopy()
+				rc.ResourceVersion = "1"
+				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+					},
+				}
+				vmSource.Add(vm)
+				vmiSource.Add(vmi)
+				expectVMRestoreUpdate(kubevirtClient, rc)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+			})
+
 			It("should update restore status, initializing conditions and add owner", func() {
 				r := createRestoreWithOwner()
 				refs := r.OwnerReferences
 				r.OwnerReferences = nil
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+					},
+				}
 				vm := createModifiedVM()
 				rc := r.DeepCopy()
 				rc.OwnerReferences = refs
@@ -542,46 +570,13 @@ var _ = Describe("Restore controller", func() {
 				addVolumeRestores(r)
 
 				vm := createModifiedVM()
-				vmi := createVMI(vm)
 				vmSource.Add(vm)
-				vmiSource.Add(vmi)
 				vmRestoreSource.Add(r)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimPending
 					addPVC(&pvc)
 				}
 				expectUpdateVMRestoreInProgress(vm)
-				controller.processVMRestoreWorkItem()
-			})
-
-			It("should update restore status with datavolume", func() {
-				r := createRestoreWithOwner()
-				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: &f,
-					Conditions: []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
-						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
-					},
-				}
-				addVolumeRestores(r)
-				ur := r.DeepCopy()
-				ur.ResourceVersion = "1"
-				ur.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
-					newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
-				}
-
-				vm := createModifiedVM()
-				vmi := createVMI(vm)
-				vmSource.Add(vm)
-				vmiSource.Add(vmi)
-				vmRestoreSource.Add(r)
-				expectUpdateVMRestoreInProgress(vm)
-				expectVMRestoreUpdate(kubevirtClient, ur)
-				for _, pvc := range getRestorePVCs(r) {
-					pvc.Status.Phase = corev1.ClaimBound
-					addPVC(&pvc)
-				}
 				controller.processVMRestoreWorkItem()
 			})
 
@@ -833,7 +828,7 @@ var _ = Describe("Restore controller", func() {
 					}
 
 					Expect(vmRestore.Status.Restores).To(HaveLen(1))
-					vmRestore.Status.Restores[0].DataVolumeName = pointer.String(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName))
+					vmRestore.Status.Restores[0].DataVolumeName = pointer.P(restoreDVName(vmRestore, vmRestore.Status.Restores[0].VolumeName))
 					expectPVCUpdates(k8sClient, vmRestore)
 
 					By("Making sure right VM update occurs")
@@ -885,8 +880,8 @@ var _ = Describe("Restore controller", func() {
 							Kind:               "VirtualMachine",
 							Name:               newVM.Name,
 							UID:                newVM.UID,
-							Controller:         pointer.BoolPtr(true),
-							BlockOwnerDeletion: pointer.BoolPtr(true),
+							Controller:         pointer.P(true),
+							BlockOwnerDeletion: pointer.P(true),
 						},
 					}
 

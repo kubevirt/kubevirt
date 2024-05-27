@@ -123,6 +123,19 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateError(vmRestoreOut, err)
 	}
 
+	ready, err := target.Ready()
+	if err != nil {
+		logger.Reason(err).Error("Error checking target ready")
+		return 0, ctrl.doUpdateError(vmRestoreIn, err)
+	}
+	if !ready {
+		reason := "Waiting for target to be ready"
+		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, reason))
+		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, reason))
+		// try again in 5 secs
+		return 5 * time.Second, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
+	}
+
 	if len(vmRestoreOut.OwnerReferences) == 0 {
 		target.Own(vmRestoreOut)
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"))
@@ -148,19 +161,6 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"))
 		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
-	}
-
-	ready, err := target.Ready()
-	if err != nil {
-		logger.Reason(err).Error("Error checking target ready")
-		return 0, ctrl.doUpdateError(vmRestoreIn, err)
-	}
-	if !ready {
-		reason := "Waiting for target to be ready"
-		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, reason))
-		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, reason))
-		// try again in 5 secs
-		return 5 * time.Second, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
 
 	updated, err = target.Reconcile()
