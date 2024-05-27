@@ -19,7 +19,7 @@
 
 package virtconfig
 
-import "kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 /*
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
@@ -78,8 +78,7 @@ const (
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	deprecatedFeature := deprecation.FeatureGateInfo(featureGate)
-	if deprecatedFeature != nil && deprecatedFeature.State == deprecation.GA {
+	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
 		return true
 	}
 
@@ -100,7 +99,7 @@ func (config *ClusterConfig) CPUManagerEnabled() bool {
 }
 
 func (config *ClusterConfig) NUMAEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.NUMAFeatureGate)
+	return config.isFeatureGateEnabled(featuregate.NUMAFeatureGate)
 }
 
 func (config *ClusterConfig) DownwardMetricsEnabled() bool {
@@ -112,11 +111,11 @@ func (config *ClusterConfig) IgnitionEnabled() bool {
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.LiveMigrationGate)
+	return config.isFeatureGateEnabled(featuregate.LiveMigrationGate)
 }
 
 func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.SRIOVLiveMigrationGate)
+	return config.isFeatureGateEnabled(featuregate.SRIOVLiveMigrationGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
@@ -124,7 +123,7 @@ func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
 }
 
 func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.CPUNodeDiscoveryGate)
+	return config.isFeatureGateEnabled(featuregate.CPUNodeDiscoveryGate)
 }
 
 func (config *ClusterConfig) SidecarEnabled() bool {
@@ -132,7 +131,7 @@ func (config *ClusterConfig) SidecarEnabled() bool {
 }
 
 func (config *ClusterConfig) GPUPassthroughEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.GPUGate)
+	return config.isFeatureGateEnabled(featuregate.GPUGate)
 }
 
 func (config *ClusterConfig) SnapshotEnabled() bool {
@@ -152,7 +151,7 @@ func (config *ClusterConfig) HostDiskEnabled() bool {
 }
 
 func (config *ClusterConfig) OldVirtiofsEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.VirtIOFSGate)
+	return config.isFeatureGateEnabled(featuregate.VirtIOFSGate)
 }
 
 func (config *ClusterConfig) VirtiofsConfigVolumesEnabled() bool {
@@ -164,11 +163,11 @@ func (config *ClusterConfig) VirtiofsStorageEnabled() bool {
 }
 
 func (config *ClusterConfig) MacvtapEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.MacvtapGate)
+	return config.isFeatureGateEnabled(featuregate.MacvtapGate)
 }
 
 func (config *ClusterConfig) PasstEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.PasstGate)
+	return config.isFeatureGateEnabled(featuregate.PasstGate)
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
@@ -188,7 +187,7 @@ func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
 }
 
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.DockerSELinuxMCSWorkaround)
+	return config.isFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround)
 }
 
 func (config *ClusterConfig) VSOCKEnabled() bool {
@@ -204,7 +203,7 @@ func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 }
 
 func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
-	return config.isFeatureGateEnabled(deprecation.HotplugNetworkIfacesGate)
+	return config.isFeatureGateEnabled(featuregate.HotplugNetworkIfacesGate)
 }
 
 func (config *ClusterConfig) PersistentReservationEnabled() bool {

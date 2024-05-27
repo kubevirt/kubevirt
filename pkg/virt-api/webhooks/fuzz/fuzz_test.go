@@ -21,7 +21,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 type fuzzOption int
@@ -184,11 +184,11 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 			featureGates := []string{
 				virtconfig.ExpandDisksGate,
 				virtconfig.CPUManager,
-				deprecation.NUMAFeatureGate,
+				featuregate.NUMAFeatureGate,
 				virtconfig.IgnitionGate,
-				deprecation.LiveMigrationGate,
-				deprecation.SRIOVLiveMigrationGate,
-				deprecation.CPUNodeDiscoveryGate,
+				featuregate.LiveMigrationGate,
+				featuregate.SRIOVLiveMigrationGate,
+				featuregate.CPUNodeDiscoveryGate,
 				virtconfig.HypervStrictCheckGate,
 				virtconfig.SidecarGate,
 				virtconfig.HostDevicesGate,
@@ -196,15 +196,15 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				virtconfig.VMExportGate,
 				virtconfig.HotplugVolumesGate,
 				virtconfig.HostDiskGate,
-				deprecation.MacvtapGate,
-				deprecation.PasstGate,
+				featuregate.MacvtapGate,
+				featuregate.PasstGate,
 				virtconfig.DownwardMetricsFeatureGate,
-				deprecation.NonRoot,
+				featuregate.NonRoot,
 				virtconfig.Root,
 				virtconfig.ClusterProfiler,
 				virtconfig.WorkloadEncryptionSEV,
-				deprecation.DockerSELinuxMCSWorkaround,
-				deprecation.PSA,
+				featuregate.DockerSELinuxMCSWorkaround,
+				featuregate.PSA,
 				virtconfig.VSOCKGate,
 			}
 

@@ -55,7 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
@@ -1829,14 +1829,13 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	It("should raise a warning when Deprecated API is used", func() {
 		const testsFGName = "test-deprecated"
-		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 			Name:        testsFGName,
-			State:       deprecation.Deprecated,
+			State:       featuregate.Deprecated,
 			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 		})
-		DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
+		DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
 		enableFeatureGate(testsFGName)
-
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
@@ -1859,13 +1858,13 @@ var _ = Describe("Validating VM Admitter", func() {
 	It("should reject request when Discontinued feature is used", func() {
 		const fgName = "test-discontinued"
 		const fgMessage = "FG is discontinued"
-		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 			Name:        fgName,
-			State:       deprecation.Discontinued,
+			State:       featuregate.Discontinued,
 			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 			Message:     fgMessage,
 		})
-		DeferCleanup(deprecation.UnregisterFeatureGate, fgName)
+		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
 		enableFeatureGate(fgName)
 
 		vmi := api.NewMinimalVMI("testvmi")
