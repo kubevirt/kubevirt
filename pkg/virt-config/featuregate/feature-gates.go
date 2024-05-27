@@ -28,11 +28,16 @@ import (
 type State string
 
 const (
-	// By default, GAed feature gates are considered enabled and no-op.
-	GA = "General Availability"
-	// The feature is going to be discontinued next release
-	Deprecated     = "Deprecated"
-	Discontinued   = "Discontinued"
+	// GA represents features that reached General Availability.
+	// GA features are considered enabled, with no option to disable them.
+	GA State = "General Availability"
+	// Deprecated represents features that are going to be discontinued in the following release.
+	// Warn users about the eminent removal of the feature & FG.
+	// The feature is disabled by default and can be enabled explicitly through the FG.
+	Deprecated State = "Deprecated"
+	// Discontinued represents features that have been removed, with no option to enable them.
+	Discontinued State = "Discontinued"
+
 	WarningPattern = "feature gate %s is deprecated (feature state is %q), therefore it can be safely removed and is redundant. " +
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
