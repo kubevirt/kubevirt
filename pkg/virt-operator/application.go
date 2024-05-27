@@ -270,6 +270,36 @@ func Execute() {
 		app.stores.PrometheusRuleCache = app.informerFactory.DummyOperatorPrometheusRule().GetStore()
 	}
 
+	validatingAdmissionPolicyBindingEnabled, err := util.IsValidatingAdmissionPolicyBindingEnabled(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error checking for ValidatingAdmissionPolicyBinding: %v", err)
+	}
+	if validatingAdmissionPolicyBindingEnabled {
+		log.Log.Info("validatingAdmissionPolicyBindingEnabled is defined")
+		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.OperatorValidatingAdmissionPolicyBinding()
+		app.stores.ValidatingAdmissionPolicyBindingCache = app.informerFactory.OperatorValidatingAdmissionPolicyBinding().GetStore()
+		app.stores.ValidatingAdmissionPolicyBindingEnabled = true
+	} else {
+		log.Log.Info("validatingAdmissionPolicyBindingEnabled is not defined")
+		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding()
+		app.stores.ValidatingAdmissionPolicyBindingCache = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding().GetStore()
+	}
+
+	validatingAdmissionPolicyEnabled, err := util.IsValidatingAdmissionPolicyEnabled(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error checking for ValidatingAdmissionPolicy: %v", err)
+	}
+	if validatingAdmissionPolicyEnabled {
+		log.Log.Info("validatingAdmissionPolicyEnabled is defined")
+		app.informers.ValidatingAdmissionPolicy = app.informerFactory.OperatorValidatingAdmissionPolicy()
+		app.stores.ValidatingAdmissionPolicyCache = app.informerFactory.OperatorValidatingAdmissionPolicy().GetStore()
+		app.stores.ValidatingAdmissionPolicyEnabled = true
+	} else {
+		log.Log.Info("validatingAdmissionPolicyEnabled is not defined")
+		app.informers.ValidatingAdmissionPolicy = app.informerFactory.DummyOperatorValidatingAdmissionPolicy()
+		app.stores.ValidatingAdmissionPolicyCache = app.informerFactory.DummyOperatorValidatingAdmissionPolicy().GetStore()
+	}
+
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)

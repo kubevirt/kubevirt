@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -351,5 +352,162 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 	SetGeneration(&r.kv.Status.Generations, webhook)
 	log.Log.V(2).Infof("mutatingwebhoookconfiguration %v updated", webhook.Name)
 
+	return nil
+}
+
+func generateValidatingAdmissionPolicyBindingPatch(
+	cachedValidatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
+	validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) ([]string, error) {
+
+	patchOps, err := getObjectMetaPatch(validatingAdmissionPolicyBinding.ObjectMeta, cachedValidatingAdmissionPolicyBinding.ObjectMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the Specs don't equal each other, replace it
+	if !equality.Semantic.DeepEqual(cachedValidatingAdmissionPolicyBinding.Spec, validatingAdmissionPolicyBinding.Spec) {
+		newSpec, err := json.Marshal(validatingAdmissionPolicyBinding.Spec)
+		if err != nil {
+			return patchOps, err
+		}
+
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+	}
+
+	return patchOps, nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBindings() error {
+	if !r.stores.ValidatingAdmissionPolicyBindingEnabled {
+		return nil
+	}
+
+	for _, validatingAdmissionPolicyBinding := range r.targetStrategy.ValidatingAdmissionPolicyBindings() {
+		err := r.createOrUpdateValidatingAdmissionPolicyBinding(validatingAdmissionPolicyBinding.DeepCopy())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBinding(validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) error {
+	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+
+	injectOperatorMetadata(r.kv, &validatingAdmissionPolicyBinding.ObjectMeta, version, imageRegistry, id, true)
+
+	obj, exists, _ := r.stores.ValidatingAdmissionPolicyBindingCache.Get(validatingAdmissionPolicyBinding)
+
+	if !exists {
+		r.expectations.ValidatingAdmissionPolicyBinding.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := admissionRegistrationV1.ValidatingAdmissionPolicyBindings().Create(context.Background(), validatingAdmissionPolicyBinding, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.ValidatingAdmissionPolicyBinding.LowerExpectations(r.kvKey, 1, 0)
+			return fmt.Errorf("unable to create validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
+		}
+
+		return nil
+	}
+
+	cachedValidatingAdmissionPolicyBinding := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+
+	patchOps, err := generateValidatingAdmissionPolicyBindingPatch(cachedValidatingAdmissionPolicyBinding, validatingAdmissionPolicyBinding)
+	if err != nil {
+		return fmt.Errorf("unable to generate validatingAdmissionPolicyBinding patch operations for %+v: %v", validatingAdmissionPolicyBinding, err)
+	}
+
+	if len(patchOps) == 0 {
+		log.Log.V(4).Infof("validatingAdmissionPolicyBinding %v is up-to-date", validatingAdmissionPolicyBinding.GetName())
+		return nil
+	}
+
+	_, err = admissionRegistrationV1.ValidatingAdmissionPolicyBindings().Patch(context.Background(),
+		validatingAdmissionPolicyBinding.Name,
+		types.JSONPatchType,
+		generatePatchBytes(patchOps),
+		metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
+	}
+
+	log.Log.V(2).Infof("validatingAdmissionPolicyBinding %v patched", validatingAdmissionPolicyBinding.GetName())
+	return nil
+}
+
+func generateValidatingAdmissionPolicyPatch(
+	cachedValidatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy,
+	validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy) ([]string, error) {
+
+	patchOps, err := getObjectMetaPatch(validatingAdmissionPolicy.ObjectMeta, cachedValidatingAdmissionPolicy.ObjectMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the Specs don't equal each other, replace it
+	if !equality.Semantic.DeepEqual(cachedValidatingAdmissionPolicy.Spec, validatingAdmissionPolicy.Spec) {
+		newSpec, err := json.Marshal(validatingAdmissionPolicy.Spec)
+		if err != nil {
+			return patchOps, err
+		}
+
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+	}
+
+	return patchOps, nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicies() error {
+	if !r.stores.ValidatingAdmissionPolicyEnabled {
+		return nil
+	}
+
+	for _, validatingAdmissionPolicy := range r.targetStrategy.ValidatingAdmissionPolicies() {
+		err := r.createOrUpdateValidatingAdmissionPolicy(validatingAdmissionPolicy.DeepCopy())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateValidatingAdmissionPolicy(validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy) error {
+	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+
+	injectOperatorMetadata(r.kv, &validatingAdmissionPolicy.ObjectMeta, version, imageRegistry, id, true)
+
+	obj, exists, _ := r.stores.ValidatingAdmissionPolicyCache.Get(validatingAdmissionPolicy)
+
+	if !exists {
+		r.expectations.ValidatingAdmissionPolicy.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := admissionRegistrationV1.ValidatingAdmissionPolicies().Create(context.Background(), validatingAdmissionPolicy, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.ValidatingAdmissionPolicy.LowerExpectations(r.kvKey, 1, 0)
+			return fmt.Errorf("unable to create validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
+		}
+
+		return nil
+	}
+
+	cachedValidatingAdmissionPolicy := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+
+	patchOps, err := generateValidatingAdmissionPolicyPatch(cachedValidatingAdmissionPolicy, validatingAdmissionPolicy)
+	if err != nil {
+		return fmt.Errorf("unable to generate validatingAdmissionPolicy patch operations for %+v: %v", validatingAdmissionPolicy, err)
+	}
+
+	if len(patchOps) == 0 {
+		log.Log.V(4).Infof("validatingAdmissionPolicy %v is up-to-date", validatingAdmissionPolicy.GetName())
+		return nil
+	}
+
+	_, err = admissionRegistrationV1.ValidatingAdmissionPolicies().Patch(context.Background(), validatingAdmissionPolicy.Name, types.JSONPatchType, generatePatchBytes(patchOps), metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
+	}
+
+	log.Log.V(2).Infof("validatingAdmissionPolicy %v patched", validatingAdmissionPolicy.GetName())
 	return nil
 }
