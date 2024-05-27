@@ -17,6 +17,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -762,7 +763,7 @@ var _ = Describe("test configuration", func() {
 		Entry("ClusterProfiler feature gate empty should result in cluster profiler being disabled",
 			[]string{}, false),
 		Entry("ClusterProfiler feature gate enabled should result in cluster profiler being enabled",
-			[]string{virtconfig.ClusterProfiler}, true),
+			[]string{featuregate.ClusterProfiler}, true),
 	)
 
 	Context("GAed feature gates should be considered as enabled by default", func() {
@@ -786,7 +787,7 @@ var _ = Describe("test configuration", func() {
 	})
 
 	disableInstancetypeRferencePolicyFG := []string{}
-	enableInstancetypeReferencePolicyFG := []string{virtconfig.InstancetypeReferencePolicy}
+	enableInstancetypeReferencePolicyFG := []string{featuregate.InstancetypeReferencePolicy}
 
 	DescribeTable("GetInstancetypeReferencePolicy should return", func(
 		instancetypeConfig *v1.InstancetypeConfiguration, featureGates []string, expectedPolicy v1.InstancetypeReferencePolicy) {

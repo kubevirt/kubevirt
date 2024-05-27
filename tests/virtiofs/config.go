@@ -39,7 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -51,7 +51,7 @@ import (
 
 var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, decorators.VirtioFS, func() {
 	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSConfigVolumesGate)
+		checks.SkipTestIfNoFeatureGate(featuregate.VirtIOFSConfigVolumesGate)
 	})
 
 	Context("With a single ConfigMap volume", func() {

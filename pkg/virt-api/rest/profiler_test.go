@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Cluster Profiler Subresources", func() {
@@ -155,7 +155,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 				),
 			)
 
-			enableFeatureGate(virtconfig.ClusterProfiler)
+			enableFeatureGate(featuregate.ClusterProfiler)
 			expectPodList()
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -181,7 +181,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 				),
 			)
 
-			enableFeatureGate(virtconfig.ClusterProfiler)
+			enableFeatureGate(featuregate.ClusterProfiler)
 			expectPodList()
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))

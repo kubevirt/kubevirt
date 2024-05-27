@@ -37,58 +37,6 @@ const (
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
 
-const (
-	LiveMigrationGate      = "LiveMigration"      // GA
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
-	NonRoot                = "NonRoot"            // GA
-	PSA                    = "PSA"                // GA
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
-	NUMAFeatureGate        = "NUMA"               // GA
-	GPUGate                = "GPU"                // GA
-	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
-	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures" // GA
-	// Owner: @lyarwood
-	// Alpha: v1.1.0
-	// Beta:  v1.2.0
-	// GA:	  v1.4.0
-	//
-	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
-	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate" // GA
-
-	// HotplugNetworkIfacesGate controls the network interface hotplug feature lifecycle.
-	// Alpha: v1.1.0
-	// Beta:  v1.3.0
-	// GA:    v1.4.0
-	HotplugNetworkIfacesGate = "HotplugNICs"
-
-	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
-	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests" // GA
-
-	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
-	// Alpha: v1.1.0
-	// Beta:  v1.4.0
-	// GA:    v1.5.0
-	NetworkBindingPlugingsGate = "NetworkBindingPlugins" // GA
-
-	// DynamicPodInterfaceNamingGate enables a mechanism to dynamically determine the primary pod interface for KubeVirt virtual machines.
-	DynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming" // GA
-
-	PasstGate   = "Passt"   // Deprecated
-	MacvtapGate = "Macvtap" // Deprecated
-	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
-	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"  // Deprecated
-	VirtIOFSGate               = "ExperimentalVirtiofsSupport" // Deprecated
-
-	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
-	// Introduced in v1.3.0
-	VolumesUpdateStrategy = "VolumesUpdateStrategy" // GA
-	// VolumeMigration enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
-	// Introduced in v1.3.0
-	VolumeMigration = "VolumeMigration" // GA
-
-	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy" // GA
-)
-
 type FeatureGate struct {
 	Name        string
 	State       State
@@ -97,30 +45,6 @@ type FeatureGate struct {
 }
 
 var featureGates = map[string]FeatureGate{}
-
-func init() {
-	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NUMAFeatureGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: CommonInstancetypesDeploymentGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: GPUGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: BochsDisplayForEFIGuests, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: VMLiveUpdateFeaturesGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NetworkBindingPlugingsGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: DynamicPodInterfaceNamingGate, State: GA})
-
-	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
-	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
-	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf("DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
-	RegisterFeatureGate(FeatureGate{Name: VirtIOFSGate, State: Deprecated, Message: VirtioFsFeatureGateDeprecationMessage})
-	RegisterFeatureGate(FeatureGate{Name: VolumesUpdateStrategy, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
-}
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
 // In case the FG already exists (based on its name), it overrides the

@@ -53,9 +53,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -1974,7 +1975,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, func() {
 
 		It("[test_id:1681]should set appropriate cache modes", decorators.HostDiskGate, func() {
-			if !checks.HasFeature(virtconfig.HostDiskGate) {
+			if !checks.HasFeature(featuregate.HostDiskGate) {
 				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
@@ -2229,7 +2230,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", decorators.HostDiskGate, func() {
-			if !checks.HasFeature(virtconfig.HostDiskGate) {
+			if !checks.HasFeature(featuregate.HostDiskGate) {
 				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
@@ -2963,7 +2964,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			if testingPciFunctions {
 				assignDisksToFunctions(startIndex, vmi)
 			} else {
-				kvconfig.DisableFeatureGate(virtconfig.ExpandDisksGate)
+				kvconfig.DisableFeatureGate(featuregate.ExpandDisksGate)
 				assignDisksToSlots(startIndex, vmi)
 			}
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

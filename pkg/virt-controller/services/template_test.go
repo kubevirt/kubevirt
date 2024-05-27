@@ -1209,7 +1209,7 @@ var _ = Describe("Template", func() {
 
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(virtconfig.HypervStrictCheckGate)
+				enableFeatureGate(featuregate.HypervStrictCheckGate)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1276,7 +1276,7 @@ var _ = Describe("Template", func() {
 
 			DescribeTable("should add node selector for hyperv nodes if VMI requests hyperv features which depend on host kernel", func(EVMCSEnabled bool) {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(virtconfig.HypervStrictCheckGate)
+				enableFeatureGate(featuregate.HypervStrictCheckGate)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1331,7 +1331,7 @@ var _ = Describe("Template", func() {
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features which do not depend on host kernel", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(virtconfig.HypervStrictCheckGate)
+				enableFeatureGate(featuregate.HypervStrictCheckGate)
 
 				var retries uint32 = 4095
 				enabled := true
@@ -4586,7 +4586,7 @@ var _ = Describe("Template", func() {
 			BeforeEach(func() {
 				By("enabling the auto resource limits feature gate")
 				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.AutoResourceLimitsGate}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			})
 
@@ -4660,7 +4660,7 @@ var _ = Describe("Template", func() {
 					kvConfig.Spec.Configuration.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
 						MatchLabels: map[string]string{"testAutoLimits": "true"},
 					}
-					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
+					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.AutoResourceLimitsGate}
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 				})
 
@@ -4767,7 +4767,7 @@ var _ = Describe("Template", func() {
 			BeforeEach(func() {
 				By("enabling the auto resource limits feature gate")
 				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.AutoResourceLimitsGate}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			})
 

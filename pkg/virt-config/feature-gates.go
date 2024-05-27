@@ -25,58 +25,6 @@ import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
-const (
-	ExpandDisksGate           = "ExpandDisks"
-	CPUManager                = "CPUManager"
-	IgnitionGate              = "ExperimentalIgnitionSupport"
-	HypervStrictCheckGate     = "HypervStrictCheck"
-	SidecarGate               = "Sidecar"
-	HostDevicesGate           = "HostDevices"
-	SnapshotGate              = "Snapshot"
-	VMExportGate              = "VMExport"
-	HotplugVolumesGate        = "HotplugVolumes"
-	HostDiskGate              = "HostDisk"
-	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
-	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
-
-	DownwardMetricsFeatureGate = "DownwardMetrics"
-	Root                       = "Root"
-	ClusterProfiler            = "ClusterProfiler"
-	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
-	VSOCKGate                  = "VSOCK"
-	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
-	// user can tell Kubevirt to use it
-	KubevirtSeccompProfile = "KubevirtSeccompProfile"
-	// DisableMediatedDevicesHandling disables the handling of mediated
-	// devices, its creation and deletion
-	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
-	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
-	PersistentReservation = "PersistentReservation"
-	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
-	VMPersistentState = "VMPersistentState"
-	MultiArchitecture = "MultiArchitecture"
-	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
-	AutoResourceLimitsGate = "AutoResourceLimitsGate"
-
-	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
-	AlignCPUsGate = "AlignCPUs"
-
-	// Owner: @xpivarc
-	// Alpha: v1.3.0
-	//
-	// NodeRestriction enables Kubelet's like NodeRestriction but for Kubevirt's virt-handler.
-	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
-	// in Kubernetes 1.30 as Beta.
-	NodeRestrictionGate = "NodeRestriction"
-
-	// Owner: @lyarwood
-	// Alpha: v1.4.0
-	//
-	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
-	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
-	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
-)
-
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
 		return true
@@ -91,11 +39,11 @@ func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 }
 
 func (config *ClusterConfig) ExpandDisksEnabled() bool {
-	return config.isFeatureGateEnabled(ExpandDisksGate)
+	return config.isFeatureGateEnabled(featuregate.ExpandDisksGate)
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
-	return config.isFeatureGateEnabled(CPUManager)
+	return config.isFeatureGateEnabled(featuregate.CPUManager)
 }
 
 func (config *ClusterConfig) NUMAEnabled() bool {
@@ -103,11 +51,11 @@ func (config *ClusterConfig) NUMAEnabled() bool {
 }
 
 func (config *ClusterConfig) DownwardMetricsEnabled() bool {
-	return config.isFeatureGateEnabled(DownwardMetricsFeatureGate)
+	return config.isFeatureGateEnabled(featuregate.DownwardMetricsFeatureGate)
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {
-	return config.isFeatureGateEnabled(IgnitionGate)
+	return config.isFeatureGateEnabled(featuregate.IgnitionGate)
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
@@ -119,7 +67,7 @@ func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
-	return config.isFeatureGateEnabled(HypervStrictCheckGate)
+	return config.isFeatureGateEnabled(featuregate.HypervStrictCheckGate)
 }
 
 func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
@@ -127,7 +75,7 @@ func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
 }
 
 func (config *ClusterConfig) SidecarEnabled() bool {
-	return config.isFeatureGateEnabled(SidecarGate)
+	return config.isFeatureGateEnabled(featuregate.SidecarGate)
 }
 
 func (config *ClusterConfig) GPUPassthroughEnabled() bool {
@@ -135,19 +83,19 @@ func (config *ClusterConfig) GPUPassthroughEnabled() bool {
 }
 
 func (config *ClusterConfig) SnapshotEnabled() bool {
-	return config.isFeatureGateEnabled(SnapshotGate)
+	return config.isFeatureGateEnabled(featuregate.SnapshotGate)
 }
 
 func (config *ClusterConfig) VMExportEnabled() bool {
-	return config.isFeatureGateEnabled(VMExportGate)
+	return config.isFeatureGateEnabled(featuregate.VMExportGate)
 }
 
 func (config *ClusterConfig) HotplugVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(HotplugVolumesGate)
+	return config.isFeatureGateEnabled(featuregate.HotplugVolumesGate)
 }
 
 func (config *ClusterConfig) HostDiskEnabled() bool {
-	return config.isFeatureGateEnabled(HostDiskGate)
+	return config.isFeatureGateEnabled(featuregate.HostDiskGate)
 }
 
 func (config *ClusterConfig) OldVirtiofsEnabled() bool {
@@ -155,11 +103,11 @@ func (config *ClusterConfig) OldVirtiofsEnabled() bool {
 }
 
 func (config *ClusterConfig) VirtiofsConfigVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(VirtIOFSConfigVolumesGate)
+	return config.isFeatureGateEnabled(featuregate.VirtIOFSConfigVolumesGate)
 }
 
 func (config *ClusterConfig) VirtiofsStorageEnabled() bool {
-	return config.isFeatureGateEnabled(VirtIOFSStorageVolumeGate)
+	return config.isFeatureGateEnabled(featuregate.VirtIOFSStorageVolumeGate)
 }
 
 func (config *ClusterConfig) MacvtapEnabled() bool {
@@ -171,19 +119,19 @@ func (config *ClusterConfig) PasstEnabled() bool {
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
-	return config.isFeatureGateEnabled(HostDevicesGate)
+	return config.isFeatureGateEnabled(featuregate.HostDevicesGate)
 }
 
 func (config *ClusterConfig) RootEnabled() bool {
-	return config.isFeatureGateEnabled(Root)
+	return config.isFeatureGateEnabled(featuregate.Root)
 }
 
 func (config *ClusterConfig) ClusterProfilerEnabled() bool {
-	return config.isFeatureGateEnabled(ClusterProfiler)
+	return config.isFeatureGateEnabled(featuregate.ClusterProfiler)
 }
 
 func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
-	return config.isFeatureGateEnabled(WorkloadEncryptionSEV)
+	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionSEV)
 }
 
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
@@ -191,15 +139,15 @@ func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 }
 
 func (config *ClusterConfig) VSOCKEnabled() bool {
-	return config.isFeatureGateEnabled(VSOCKGate)
+	return config.isFeatureGateEnabled(featuregate.VSOCKGate)
 }
 
 func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
-	return config.isFeatureGateEnabled(DisableMediatedDevicesHandling)
+	return config.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
 }
 
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
-	return config.isFeatureGateEnabled(KubevirtSeccompProfile)
+	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
 }
 
 func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
@@ -207,25 +155,25 @@ func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
 }
 
 func (config *ClusterConfig) PersistentReservationEnabled() bool {
-	return config.isFeatureGateEnabled(PersistentReservation)
+	return config.isFeatureGateEnabled(featuregate.PersistentReservation)
 }
 
 func (config *ClusterConfig) VMPersistentStateEnabled() bool {
-	return config.isFeatureGateEnabled(VMPersistentState)
+	return config.isFeatureGateEnabled(featuregate.VMPersistentState)
 }
 
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
-	return config.isFeatureGateEnabled(MultiArchitecture)
+	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
 }
 
 func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
-	return config.isFeatureGateEnabled(AutoResourceLimitsGate)
+	return config.isFeatureGateEnabled(featuregate.AutoResourceLimitsGate)
 }
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
-	return config.isFeatureGateEnabled(AlignCPUsGate)
+	return config.isFeatureGateEnabled(featuregate.AlignCPUsGate)
 }
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
-	return config.isFeatureGateEnabled(NodeRestrictionGate)
+	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }
