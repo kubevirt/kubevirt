@@ -1,0 +1,9 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+approvers:
+  - sig-network-approvers
+  - wg-ipam-approvers
+reviewers:
+  - sig-network-reviewers
+  - wg-ipam-reviewers
+labels:
+  - wg/ipam
