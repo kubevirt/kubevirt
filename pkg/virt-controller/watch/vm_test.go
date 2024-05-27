@@ -6456,6 +6456,31 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
 			})
 
+			It("should appear when VM sockets count is reduced", func() {
+				By("Creating a VM with two sockets")
+				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
+
+				vmi = controller.setupVMIFromVM(vm)
+				vmiSource.Add(vmi)
+				syncCache(controller.vmiIndexer, 1)
+
+				By("Creating a Controller Revision with two sockets")
+				crSource.Add(createVMRevision(vm))
+				syncCache(controller.crIndexer, 1)
+
+				By("Reducing the sockets count to one")
+				vm.Spec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets - 1
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				addVirtualMachine(vm)
+
+				By("Executing the controller expecting the RestartRequired condition to appear")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
+			})
+
 			DescribeTable("when changing a live-updatable field", func(fgs []string, strat *v1.VMRolloutStrategy, matcher gomegatypes.GomegaMatcher) {
 				// Add necessary stuff to reflect running VM
 				// TODO: This should be done in more places
