@@ -458,6 +458,45 @@ var _ = Describe("Restore controller", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
+			It("should wait for target to be ready before updating vm in progress", func() {
+				r := createRestoreWithOwner()
+				finalizers := r.Finalizers
+				r.Finalizers = nil
+				ownerRefs := r.OwnerReferences
+				r.OwnerReferences = nil
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
+						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
+					},
+				}
+				vm := createModifiedVM()
+				vmi := createVMI(vm)
+				rc := r.DeepCopy()
+				rc.ResourceVersion = "1"
+				rc.Finalizers = finalizers
+				rc.OwnerReferences = ownerRefs
+				updateCalls := expectVMRestoreUpdate(kubevirtClient, rc)
+
+				rc2 := rc.DeepCopy()
+				rc2.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: pointer.P(false),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+					},
+				}
+				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, rc2)
+				vmSource.Add(vm)
+				vmiSource.Add(vmi)
+
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+				Expect(*updateCalls).To(Equal(1))
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
 			It("should update restore, add finalizer and owner", func() {
 				r := createRestoreWithOwner()
 				finalizers := r.Finalizers
@@ -705,9 +744,7 @@ var _ = Describe("Restore controller", func() {
 				addVolumeRestores(r)
 
 				vm := createModifiedVM()
-				vmi := createVMI(vm)
 				vmSource.Add(vm)
-				vmiSource.Add(vmi)
 				vmRestoreSource.Add(r)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimPending
@@ -715,38 +752,6 @@ var _ = Describe("Restore controller", func() {
 				}
 				expectUpdateVMRestoreInProgress(vm)
 				controller.processVMRestoreWorkItem()
-			})
-
-			It("should wait for target to be ready", func() {
-				r := createRestoreWithOwner()
-				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: pointer.P(false),
-					Conditions: []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
-						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
-					},
-				}
-				addVolumeRestores(r)
-				ur := r.DeepCopy()
-				ur.ResourceVersion = "1"
-				ur.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
-					newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
-				}
-
-				vm := createModifiedVM()
-				vmi := createVMI(vm)
-				vmSource.Add(vm)
-				vmiSource.Add(vmi)
-				vmRestoreSource.Add(r)
-				expectUpdateVMRestoreInProgress(vm)
-				updateStatusCalls := expectVMRestoreUpdateStatus(kubevirtClient, ur)
-				for _, pvc := range getRestorePVCs(r) {
-					pvc.Status.Phase = corev1.ClaimBound
-					addPVC(&pvc)
-				}
-				controller.processVMRestoreWorkItem()
-				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
 			It("should update PVCs and restores to have datavolumename", func() {
