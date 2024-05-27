@@ -37,32 +37,6 @@ const (
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
 
-const (
-	LiveMigrationGate      = "LiveMigration"      // GA
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
-	NonRoot                = "NonRoot"            // GA
-	PSA                    = "PSA"                // GA
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
-	NUMAFeatureGate        = "NUMA"               // GA
-	GPUGate                = "GPU"                // GA
-	// Owner: @lyarwood
-	// Alpha: v1.1.0
-	// Beta:  v1.2.0
-	// GA:	  v1.4.0
-	//
-	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
-	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate" // GA
-
-	// HotplugNetworkIfacesGate controls the network interface hotplug feature lifecycle.
-	// Alpha: v1.1.0
-	// Beta:  v1.3.0
-	// GA:    v1.4.0
-	HotplugNetworkIfacesGate = "HotplugNICs"
-
-	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
-	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround" // Deprecated
-)
-
 type FeatureGate struct {
 	Name        string
 	State       State
@@ -71,20 +45,6 @@ type FeatureGate struct {
 }
 
 var featureGates = map[string]FeatureGate{}
-
-func init() {
-	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: NUMAFeatureGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: CommonInstancetypesDeploymentGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: GPUGate, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: HotplugNetworkIfacesGate, State: GA})
-
-	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf("DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
-}
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
 // In case the FG already exists (based on its name), it overrides the
