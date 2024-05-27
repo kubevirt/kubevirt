@@ -288,6 +288,8 @@ spec:
           resources:
           - validatingwebhookconfigurations
           - mutatingwebhookconfigurations
+          - validatingadmissionpolicybindings
+          - validatingadmissionpolicies
           verbs:
           - get
           - list
