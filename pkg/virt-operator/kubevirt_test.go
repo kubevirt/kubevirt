@@ -100,29 +100,31 @@ type KubeVirtTestData struct {
 	kvInformer       cache.SharedIndexInformer
 	apiServiceClient *install.MockAPIServiceInterface
 
-	serviceAccountSource           *framework.FakeControllerSource
-	clusterRoleSource              *framework.FakeControllerSource
-	clusterRoleBindingSource       *framework.FakeControllerSource
-	roleSource                     *framework.FakeControllerSource
-	roleBindingSource              *framework.FakeControllerSource
-	crdSource                      *framework.FakeControllerSource
-	serviceSource                  *framework.FakeControllerSource
-	deploymentSource               *framework.FakeControllerSource
-	daemonSetSource                *framework.FakeControllerSource
-	validatingWebhookSource        *framework.FakeControllerSource
-	mutatingWebhookSource          *framework.FakeControllerSource
-	apiserviceSource               *framework.FakeControllerSource
-	sccSource                      *framework.FakeControllerSource
-	routeSource                    *framework.FakeControllerSource
-	installStrategyConfigMapSource *framework.FakeControllerSource
-	installStrategyJobSource       *framework.FakeControllerSource
-	infrastructurePodSource        *framework.FakeControllerSource
-	podDisruptionBudgetSource      *framework.FakeControllerSource
-	serviceMonitorSource           *framework.FakeControllerSource
-	namespaceSource                *framework.FakeControllerSource
-	prometheusRuleSource           *framework.FakeControllerSource
-	secretsSource                  *framework.FakeControllerSource
-	configMapSource                *framework.FakeControllerSource
+	serviceAccountSource                   *framework.FakeControllerSource
+	clusterRoleSource                      *framework.FakeControllerSource
+	clusterRoleBindingSource               *framework.FakeControllerSource
+	roleSource                             *framework.FakeControllerSource
+	roleBindingSource                      *framework.FakeControllerSource
+	crdSource                              *framework.FakeControllerSource
+	serviceSource                          *framework.FakeControllerSource
+	deploymentSource                       *framework.FakeControllerSource
+	daemonSetSource                        *framework.FakeControllerSource
+	validatingWebhookSource                *framework.FakeControllerSource
+	mutatingWebhookSource                  *framework.FakeControllerSource
+	apiserviceSource                       *framework.FakeControllerSource
+	sccSource                              *framework.FakeControllerSource
+	routeSource                            *framework.FakeControllerSource
+	installStrategyConfigMapSource         *framework.FakeControllerSource
+	installStrategyJobSource               *framework.FakeControllerSource
+	infrastructurePodSource                *framework.FakeControllerSource
+	podDisruptionBudgetSource              *framework.FakeControllerSource
+	serviceMonitorSource                   *framework.FakeControllerSource
+	namespaceSource                        *framework.FakeControllerSource
+	prometheusRuleSource                   *framework.FakeControllerSource
+	secretsSource                          *framework.FakeControllerSource
+	configMapSource                        *framework.FakeControllerSource
+	ValidatingAdmissionPolicyBindingSource *framework.FakeControllerSource
+	ValidatingAdmissionPolicySource        *framework.FakeControllerSource
 
 	stop       chan struct{}
 	controller *KubeVirtController
@@ -259,6 +261,13 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.ConfigMap, k.configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 	k.stores.ConfigMapCache = k.informers.ConfigMap.GetStore()
 
+	k.informers.ValidatingAdmissionPolicyBinding, k.ValidatingAdmissionPolicyBindingSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
+	k.stores.ValidatingAdmissionPolicyBindingCache = k.informers.ValidatingAdmissionPolicyBinding.GetStore()
+	k.stores.ValidatingAdmissionPolicyBindingEnabled = true
+	k.informers.ValidatingAdmissionPolicy, k.ValidatingAdmissionPolicySource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
+	k.stores.ValidatingAdmissionPolicyCache = k.informers.ValidatingAdmissionPolicy.GetStore()
+	k.stores.ValidatingAdmissionPolicyEnabled = true
+
 	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.kvInformer, k.recorder, k.stores, k.informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
 		// no delay to speed up tests
@@ -308,6 +317,14 @@ func (k *KubeVirtTestData) BeforeTest() {
 		}
 		if action.GetVerb() == "get" && action.GetResource().Resource == "mutatingwebhookconfigurations" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "mutatingwebhookconfigurations"}, "whatever")
+		}
+		if action.GetVerb() == "create" && action.GetResource().Resource == "validatingadmissionpolicybindings" {
+			dummyValidatingAdmissionPolicyBinding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}
+			return true, dummyValidatingAdmissionPolicyBinding, nil
+		}
+		if action.GetVerb() == "create" && action.GetResource().Resource == "validatingadmissionpolicies" {
+			dummyValidatingAdmissionPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+			return true, dummyValidatingAdmissionPolicy, nil
 		}
 		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "serviceaccounts"}, "whatever")
@@ -533,6 +550,10 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
 		k.deleteInstallStrategyJob(key)
 	case "configmaps":
 		k.deleteConfigMap(key)
+	case "validatingadmissionpolicybindings":
+		k.deleteValidatingAdmissionPolicyBinding(key)
+	case "validatingadmissionpolicies":
+		k.deleteValidatingAdmissionPolicy(key)
 	case "poddisruptionbudgets":
 		k.deletePodDisruptionBudget(key)
 	case "secrets":
@@ -682,6 +703,24 @@ func (k *KubeVirtTestData) deleteConfigMap(key string) {
 	} else if obj, exists, _ := k.informers.InstallStrategyConfigMap.GetStore().GetByKey(key); exists {
 		configMap := obj.(*k8sv1.ConfigMap)
 		k.installStrategyConfigMapSource.Delete(configMap)
+	}
+	k.mockQueue.Wait()
+}
+
+func (k *KubeVirtTestData) deleteValidatingAdmissionPolicyBinding(key string) {
+	k.mockQueue.ExpectAdds(1)
+	if obj, exists, _ := k.informers.ValidatingAdmissionPolicyBinding.GetStore().GetByKey(key); exists {
+		validatingAdmissionPolicyBinding := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+		k.ValidatingAdmissionPolicyBindingSource.Delete(validatingAdmissionPolicyBinding)
+	}
+	k.mockQueue.Wait()
+}
+
+func (k *KubeVirtTestData) deleteValidatingAdmissionPolicy(key string) {
+	k.mockQueue.ExpectAdds(1)
+	if obj, exists, _ := k.informers.ValidatingAdmissionPolicy.GetStore().GetByKey(key); exists {
+		validatingAdmissionPolicy := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+		k.ValidatingAdmissionPolicySource.Delete(validatingAdmissionPolicy)
 	}
 	k.mockQueue.Wait()
 }
@@ -863,6 +902,8 @@ func (k *KubeVirtTestData) shouldExpectCreations() {
 	k.secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 	k.promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
 	k.promClient.Fake.PrependReactor("create", "prometheusrules", genericCreateFunc)
+	k.promClient.Fake.PrependReactor("create", "validatingadmissionpolicybindings", genericCreateFunc)
+	k.promClient.Fake.PrependReactor("create", "validatingadmissionpolicies", genericCreateFunc)
 	k.apiServiceClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(ctx context.Context, obj runtime.Object, opts metav1.CreateOptions) {
 		genericCreateFunc(&testing.CreateActionImpl{Object: obj})
 	})
@@ -945,6 +986,12 @@ func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirt
 	case *routev1.Route:
 		injectMetadata(&obj.(*routev1.Route).ObjectMeta, config)
 		k.addRoute(resource)
+	case *admissionregistrationv1.ValidatingAdmissionPolicyBinding:
+		injectMetadata(&obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding).ObjectMeta, config)
+		k.addValidatingAdmissionPolicyBinding(resource)
+	case *admissionregistrationv1.ValidatingAdmissionPolicy:
+		injectMetadata(&obj.(*admissionregistrationv1.ValidatingAdmissionPolicy).ObjectMeta, config)
+		k.addValidatingAdmissionPolicy(resource)
 	default:
 		Fail("unknown resource type")
 	}
@@ -1062,6 +1109,18 @@ func (k *KubeVirtTestData) addPodDisruptionBudget(podDisruptionBudget *policyv1.
 func (k *KubeVirtTestData) addSecret(secret *k8sv1.Secret) {
 	k.mockQueue.ExpectAdds(1)
 	k.secretsSource.Add(secret)
+	k.mockQueue.Wait()
+}
+
+func (k *KubeVirtTestData) addValidatingAdmissionPolicyBinding(validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	k.mockQueue.ExpectAdds(1)
+	k.ValidatingAdmissionPolicyBindingSource.Add(validatingAdmissionPolicyBinding)
+	k.mockQueue.Wait()
+}
+
+func (k *KubeVirtTestData) addValidatingAdmissionPolicy(validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy) {
+	k.mockQueue.ExpectAdds(1)
+	k.ValidatingAdmissionPolicySource.Add(validatingAdmissionPolicy)
 	k.mockQueue.Wait()
 }
 

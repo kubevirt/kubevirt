@@ -288,6 +288,18 @@ type KubeInformerFactory interface {
 	// Fake ServiceMonitor informer used when Prometheus is not installed
 	DummyOperatorServiceMonitor() cache.SharedIndexInformer
 
+	// ValidatingAdmissionPolicyBinding created/managed by virt operator
+	OperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer
+
+	// Fake OperatorValidatingAdmissionPolicyBinding informer used when ValidatingAdmissionPolicyBinding is not installed
+	DummyOperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer
+
+	// ValidatingAdmissionPolicies created/managed by virt operator
+	OperatorValidatingAdmissionPolicy() cache.SharedIndexInformer
+
+	// Fake OperatorValidatingAdmissionPolicy informer used when ValidatingAdmissionPolicy is not installed
+	DummyOperatorValidatingAdmissionPolicy() cache.SharedIndexInformer
+
 	// The namespace where kubevirt is deployed in
 	Namespace() cache.SharedIndexInformer
 
@@ -1279,6 +1291,44 @@ func (f *kubeInformerFactory) OperatorServiceMonitor() cache.SharedIndexInformer
 func (f *kubeInformerFactory) DummyOperatorServiceMonitor() cache.SharedIndexInformer {
 	return f.getInformer("FakeOperatorServiceMonitor", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&promv1.ServiceMonitor{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) OperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer {
+	return f.getInformer("operatorValidatingAdmissionPolicyBindingInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1().RESTClient(), "validatingadmissionpolicybindings", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorValidatingAdmissionPolicyBinding() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorValidatingAdmissionPolicyBindingInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) OperatorValidatingAdmissionPolicy() cache.SharedIndexInformer {
+	return f.getInformer("operatorValidatingAdmissionPolicyInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1().RESTClient(), "validatingadmissionpolicies", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1.ValidatingAdmissionPolicy{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorValidatingAdmissionPolicy() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorValidatingAdmissionPolicyInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
 		return informer
 	})
 }
