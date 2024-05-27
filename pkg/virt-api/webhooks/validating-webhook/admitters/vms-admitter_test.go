@@ -56,7 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	rt "runtime"
@@ -2151,7 +2151,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	It("should raise a warning when Deprecated API is used", func() {
-		enableFeatureGate(deprecation.PasstGate)
+		enableFeatureGate(featuregate.PasstGate)
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}

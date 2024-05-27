@@ -17,14 +17,20 @@
  *
  */
 
-package deprecation
+package featuregate
 
 import (
-	"testing"
+	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
-func TestDeprecation(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
+const PasstDeprecationMessage = "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
+
+func init() {
+	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed})
+}
+
+func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
+	return util.IsPasstVMI(spec)
 }

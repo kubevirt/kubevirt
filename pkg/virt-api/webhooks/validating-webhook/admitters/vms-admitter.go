@@ -24,10 +24,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	corev1 "k8s.io/api/core/v1"
@@ -172,7 +171,7 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
+			causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
 		}
 
 		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec, admitter.ClusterConfig)

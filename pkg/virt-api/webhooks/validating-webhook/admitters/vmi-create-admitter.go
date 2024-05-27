@@ -50,7 +50,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const requiredFieldFmt = "%s is a required field"
@@ -109,7 +109,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	var causes []metav1.StatusCause
 	clusterCfg := admitter.ClusterConfig.GetConfig()
 	if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-		causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
+		causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
 	}
 
 	netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
@@ -138,8 +138,8 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []string {
 	var warnings []string
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		deprecatedFeature := deprecation.FeatureGateInfo(fg)
-		if deprecatedFeature != nil && deprecatedFeature.State == deprecation.Deprecated && deprecatedFeature.VmiSpecUsed != nil {
+		deprecatedFeature := featuregate.FeatureGateInfo(fg)
+		if deprecatedFeature != nil && deprecatedFeature.State == featuregate.Deprecated && deprecatedFeature.VmiSpecUsed != nil {
 			if used := deprecatedFeature.VmiSpecUsed(spec); used {
 				warnings = append(warnings, deprecatedFeature.Message)
 			}

@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -51,7 +52,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -183,7 +183,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		var policyExternal = v1.EvictionStrategyExternal
 
 		BeforeEach(func() {
-			enableFeatureGate(deprecation.LiveMigrationGate)
+			enableFeatureGate(featuregate.LiveMigrationGate)
 			vmi = api.NewMinimalVMI("testvmi")
 			vmi.Spec.EvictionStrategy = nil
 		})
@@ -1130,7 +1130,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 		It("should raise a warning when Deprecated API is used", func() {
-			enableFeatureGate(deprecation.PasstGate)
+			enableFeatureGate(featuregate.PasstGate)
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}}
