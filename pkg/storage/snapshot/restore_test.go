@@ -424,18 +424,19 @@ var _ = Describe("Restore controller", func() {
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
 			})
 
-			It("should wait for target to be ready before any update", func() {
+			It("should wait for target to be Running false before any update", func() {
 				r := createRestoreWithOwner()
 				r.OwnerReferences = nil
 				vm := createModifiedVM()
+				vm.Spec.Running = pointer.P(true)
 				vmi := createVMI(vm)
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
 					Conditions: []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
-						newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						newProgressingCondition(corev1.ConditionFalse, "VM target is not stopped"),
+						newReadyCondition(corev1.ConditionFalse, "VM target is not stopped"),
 					},
 				}
 				vmSource.Add(vm)
@@ -445,15 +446,36 @@ var _ = Describe("Restore controller", func() {
 				controller.processVMRestoreWorkItem()
 			})
 
-			It("should update restore status, initializing conditions and add owner", func() {
+			It("should wait for target to be stopped before any update", func() {
+				r := createRestoreWithOwner()
+				r.OwnerReferences = nil
+				vm := createModifiedVM()
+				vmi := createVMI(vm)
+				rc := r.DeepCopy()
+				rc.ResourceVersion = "1"
+				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "VMI default/testvm still exists"),
+						newReadyCondition(corev1.ConditionFalse, "VMI default/testvm still exists"),
+					},
+				}
+				vmSource.Add(vm)
+				vmiSource.Add(vmi)
+				expectVMRestoreUpdate(kubevirtClient, rc)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+			})
+
+			It("VM stopped, should update restore status, initializing conditions and add owner", func() {
 				r := createRestoreWithOwner()
 				refs := r.OwnerReferences
 				r.OwnerReferences = nil
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
 					Conditions: []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
-						newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
+						newProgressingCondition(corev1.ConditionFalse, "VMI default/testvm still exists"),
+						newReadyCondition(corev1.ConditionFalse, "VMI default/testvm still exists"),
 					},
 				}
 				vm := createModifiedVM()

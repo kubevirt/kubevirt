@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -65,8 +66,10 @@ const (
 
 	bashHelloScript = "#!/bin/bash\necho 'hello'\n"
 
-	onlineSnapshot = true
-	offlineSnaphot = false
+	onlineSnapshot      = true
+	offlineSnaphot      = false
+	stopVMBeforeRestore = true
+	stopVMAfterRestore  = false
 )
 
 var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
@@ -373,18 +376,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(vm.Spec).To(Equal(*origSpec))
 
 				deleteRestore(restore)
-			})
-
-			It("[test_id:5257]should reject restore if VM running", func() {
-				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				restore := createRestoreDef(vm.Name, snapshot.Name)
-
-				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
@@ -911,7 +902,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(newVM.Spec.DataVolumeTemplates).To(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 			}
 
-			doRestoreNoVMStart := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+			createSnapshotAndRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string, stopVMBeforeRestore bool) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 
 				var targetUID *types.UID
@@ -942,8 +933,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					updateMessage(device, onlineSnapshot, vmi)
 				}
 
-				By(stoppingVM)
-				vm = tests.StopVirtualMachine(vm)
+				if stopVMBeforeRestore {
+					By(stoppingVM)
+					vm = tests.StopVirtualMachine(vm)
+				}
 
 				By("Restoring VM")
 				restore = createRestoreDefWithMacAddressPatch(vm, targetVMName, snapshot.Name)
@@ -954,7 +947,21 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				if !stopVMBeforeRestore {
+					events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetVMNotStopped")
+					By(stoppingVM)
+					vm = tests.StopVirtualMachine(vm)
+				}
+
 				restore = waitRestoreComplete(restore, targetVMName, targetUID)
+			}
+
+			doRestoreNoVMStart := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+				createSnapshotAndRestore(device, login, onlineSnapshot, targetVMName, stopVMBeforeRestore)
+			}
+
+			doRestoreStopVMAfterRestoreCreate := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+				createSnapshotAndRestore(device, login, onlineSnapshot, targetVMName, stopVMAfterRestore)
 			}
 
 			startVMAfterRestore := func(targetVMName, device string, login console.LoginToFunction) {
@@ -1405,15 +1412,26 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm = newVMWithDataVolumeForRestore(snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 				vm, vmi = createAndStartVM(vm)
+				targetVMName := getTargetVMName(restoreToNewVM, newVmName)
+				login := console.LoginToCirros
 
-				doRestore("", console.LoginToCirros, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				if !restoreToNewVM {
+					// Expect to get event in case we stop
+					// the VM after we created the restore.
+					// Once VM is stopped the VMRestore will
+					// continue and complete successfully
+					doRestoreStopVMAfterRestoreCreate("", login, onlineSnapshot, targetVMName)
+				} else {
+					doRestoreNoVMStart("", login, onlineSnapshot, targetVMName)
+				}
+				startVMAfterRestore(targetVMName, "", login)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
 
 			},
-				Entry("[test_id:6053] to the same VM", false),
+				Entry("[test_id:6053] to the same VM, stop VM after create restore", false),
 				Entry("to a new VM", true),
 			)
 
