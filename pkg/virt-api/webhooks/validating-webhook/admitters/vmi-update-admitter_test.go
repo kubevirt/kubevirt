@@ -822,7 +822,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	Context("with filesystem devices", func() {
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.VirtIOFSGate)
+			enableFeatureGate(virtconfig.VirtIOFSConfigVolumesGate)
+			enableFeatureGate(virtconfig.VirtIOFSStorageVolumeGate)
 		})
 
 		DescribeTable("Should return proper admission response", testHotplugResponse,
