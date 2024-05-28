@@ -865,9 +865,9 @@ func (c *MigrationController) handlePreHandoffMigrationCancel(migration *virtv1.
 		return fmt.Errorf("cannot delete pending target pod %s/%s for migration although migration is aborted", pod.Name, pod.Namespace)
 	}
 
-	reason := "migration canceled"
-	log.Log.Object(vmi).Infof("Deleted pending migration target pod %s/%s with uuid %s for migration %s with uuid %s with reason [%s]", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID), reason)
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, reason, pod.Name)
+	reason := fmt.Sprintf("migration canceled and pod %s/%s is deleted", pod.Namespace, pod.Name)
+	log.Log.Object(vmi).Infof("Deleted pending migration target pod with uuid %s for migration %s with uuid %s with reason [%s]", string(pod.UID), migration.Name, string(migration.UID), reason)
+	c.recorder.Event(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, reason)
 	return nil
 }
 
@@ -1141,7 +1141,7 @@ func timeSinceCreationSeconds(objectMeta *metav1.ObjectMeta) int64 {
 	return seconds
 }
 
-func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, reason string) error {
+func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, message string) error {
 
 	migrationKey, err := controller.KeyFunc(migration)
 	if err != nil {
@@ -1155,8 +1155,8 @@ func (c *MigrationController) deleteTimedOutTargetPod(migration *virtv1.VirtualM
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedDeletePodReason, "Error deleted migration target pod: %v", err)
 		return fmt.Errorf("failed to delete vmi migration target pod that reached pending pod timeout period.: %v", err)
 	}
-	log.Log.Object(vmi).Infof("Deleted pending migration target pod %s/%s with uuid %s for migration %s with uuid %s with reason [%s]", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID), reason)
-	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, reason, pod.Name)
+	log.Log.Object(vmi).Infof("Deleted pending migration target pod with uuid %s for migration %s with uuid %s with reason [%s]", string(pod.UID), migration.Name, string(migration.UID), message)
+	c.recorder.Event(migration, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, message)
 	return nil
 }
 
@@ -1217,7 +1217,7 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 			"Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
 		log.Log.Object(migration).Warningf("Migration target pod for VMI [%s/%s] is currently unschedulable.", vmi.Namespace, vmi.Name)
 		if secondsSpentPending >= unschedulableTimeout {
-			return c.deleteTimedOutTargetPod(migration, vmi, pod, "unschedulable pod timeout period exceeded")
+			return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("unschedulable pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 		} else {
 			// Make sure we check this again after some time
 			c.Queue.AddAfter(migrationKey, time.Second*time.Duration(unschedulableTimeout-secondsSpentPending))
@@ -1225,7 +1225,7 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 	}
 
 	if secondsSpentPending >= catchAllTimeout {
-		return c.deleteTimedOutTargetPod(migration, vmi, pod, "pending pod timeout period exceeded")
+		return c.deleteTimedOutTargetPod(migration, vmi, pod, fmt.Sprintf("pending pod %s/%s timeout period exceeded", pod.Namespace, pod.Name))
 	} else {
 		// Make sure we check this again after some time
 		c.Queue.AddAfter(migrationKey, time.Second*time.Duration(catchAllTimeout-secondsSpentPending))
