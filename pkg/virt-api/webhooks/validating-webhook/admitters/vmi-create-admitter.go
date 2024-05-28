@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -210,6 +211,42 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validatePersistentState(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
+	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
+
+	return causes
+}
+
+func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if spec.Domain.Devices.Filesystems == nil {
+		return causes
+	}
+
+	volumes := make(map[string]v1.Volume)
+	for _, volume := range spec.Volumes {
+		volumes[volume.Name] = volume
+	}
+
+	for _, fs := range spec.Domain.Devices.Filesystems {
+		volume, ok := volumes[fs.Name]
+		if !ok {
+			continue
+		}
+
+		switch {
+		case storagetypes.IsConfigVolume(&volume) && (!config.VirtiofsConfigVolumesEnabled() && !config.OldVirtiofsEnabled()):
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for config volumes",
+				Field:   field.Child("domain", "devices", "filesystems").String(),
+			})
+		case storagetypes.IsPVCVolume(&volume) && (!config.VirtiofsPVCEnabled() && !config.OldVirtiofsEnabled()):
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for PVC",
+				Field:   field.Child("domain", "devices", "filesystems").String(),
+			})
+		}
+	}
 
 	return causes
 }

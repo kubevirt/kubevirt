@@ -7,6 +7,7 @@ go_library(
         "macvtap.go",
         "passt.go",
         "validator.go",
+        "virtiofs.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-config/deprecation",
     visibility = ["//visibility:public"],

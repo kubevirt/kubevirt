@@ -367,3 +367,12 @@ func GetTotalSizeMigratedVolumes(vmi *virtv1.VirtualMachineInstance) *resource.Q
 
 	return resource.NewScaledQuantity(size, resource.Giga)
 }
+
+func IsConfigVolume(volume *virtv1.Volume) bool {
+	return volume.ConfigMap != nil || volume.Secret != nil ||
+		volume.ServiceAccount != nil || volume.DownwardAPI != nil
+}
+
+func IsPVCVolume(volume *virtv1.Volume) bool {
+	return volume.PersistentVolumeClaim != nil
+}
