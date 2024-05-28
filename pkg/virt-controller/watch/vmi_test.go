@@ -856,7 +856,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	})
 
 	Context("On valid VirtualMachineInstance given", func() {
-		It("should create a corresponding Pod on VirtualMachineInstance creation", func() {
+		It("should create a corresponding Pod on VirtualMachineInstance creation with proper annotation", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			addVirtualMachine(vmi)
@@ -864,8 +864,29 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
-			expectMatchingPodCreation(vmi)
+			expectMatchingPodCreation(vmi, WithTransform(
+				func(pod *k8sv1.Pod) map[string]string {
+					return pod.Annotations
+				},
+				HaveKey(descheduler.EvictOnlyAnnotation),
+			))
 		})
+
+		It("should add request-evict-only annotation to the virt-launcher pod if annotation does not exist", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
+			vmi.Status.Phase = virtv1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			delete(pod.Annotations, descheduler.EvictOnlyAnnotation)
+
+			addVirtualMachine(vmi)
+			addPod(pod)
+
+			controller.Execute()
+
+			expectPodAnnotations(pod, HaveKey(descheduler.EvictOnlyAnnotation))
+		})
+
 		DescribeTable("should delete the corresponding Pods on VirtualMachineInstance deletion with vmi", func(phase virtv1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 

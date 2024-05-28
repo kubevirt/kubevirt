@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
 
 var _ = Describe("Migration watcher", func() {
@@ -1936,18 +1937,6 @@ var _ = Describe("Migration watcher", func() {
 	Context("Migration backoff", func() {
 		var vmi *virtv1.VirtualMachineInstance
 
-		setEvacuationAnnotation := func(migrations ...*virtv1.VirtualMachineInstanceMigration) {
-			for _, m := range migrations {
-				if m.Annotations == nil {
-					m.Annotations = map[string]string{
-						virtv1.EvacuationMigrationAnnotation: m.Name,
-					}
-				} else {
-					m.Annotations[virtv1.EvacuationMigrationAnnotation] = m.Name
-				}
-			}
-		}
-
 		It("should be applied after an evacuation migration fails", func() {
 			vmi = newVirtualMachine("testvmi", virtv1.Running)
 			failedMigration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
@@ -2024,6 +2013,79 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, pendingMigration.UID, 1, 0, 0)
+		})
+	})
+
+	Context("Descheduler annotations", func() {
+		var vmi *virtv1.VirtualMachineInstance
+
+		It("should not add eviction-in-progress annotation in case of non evacuation migration", func() {
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			sourcePod := newSourcePodForVirtualMachine(vmi)
+			addPod(sourcePod)
+
+			controller.Execute()
+
+			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
+			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
+			updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedSourcePod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+		})
+
+		Context("with an evacuation migration", func() {
+			It("should add eviction-in-progress annotation only to source virt-launcher pod", func() {
+				vmi = newVirtualMachine("testvmi", virtv1.Running)
+				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+				setEvacuationAnnotation(migration)
+
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				sourcePod := newSourcePodForVirtualMachine(vmi)
+				addPod(sourcePod)
+
+				controller.Execute()
+
+				testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
+				expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
+				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedSourcePod.Annotations).To(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, "kubevirt"))
+
+				pods, err := kubeClient.CoreV1().Pods(migration.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migration.UID), virtv1.CreatedByLabel, string(vmi.UID)),
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pods.Items).To(HaveLen(1))
+				targetPod := pods.Items[0]
+				Expect(targetPod.Annotations).ToNot(HaveKey(descheduler.EvictionInProgressAnnotation))
+			})
+
+			It("should remove eviction-in-progress annotation from source virt-launcher pod in case of failure", func() {
+				By("Create a pending migration")
+				vmi = newVirtualMachine("testvmi", virtv1.Running)
+				sourcePod := newSourcePodForVirtualMachine(vmi)
+				sourcePod.Annotations[descheduler.EvictionInProgressAnnotation] = "kubevirt"
+				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationFailed)
+				migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+					SourcePod: sourcePod.Name,
+				}
+				setEvacuationAnnotation(migration)
+
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				addPod(sourcePod)
+
+				controller.Execute()
+
+				updatedSourcePod, err := kubeClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), sourcePod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedSourcePod.Annotations).ToNot(HaveKeyWithValue(descheduler.EvictionInProgressAnnotation, ""))
+			})
 		})
 	})
 
@@ -2344,4 +2406,16 @@ func preparePolicyAndVMIWithNSAndVMILabels(vmi *virtv1.VirtualMachineInstance, n
 
 func generatePolicyAndAlignVMI(vmi *virtv1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
 	return preparePolicyAndVMIWithNSAndVMILabels(vmi, nil, 1, 0)
+}
+
+func setEvacuationAnnotation(migrations ...*virtv1.VirtualMachineInstanceMigration) {
+	for _, m := range migrations {
+		if m.Annotations == nil {
+			m.Annotations = map[string]string{
+				virtv1.EvacuationMigrationAnnotation: m.Name,
+			}
+		} else {
+			m.Annotations[virtv1.EvacuationMigrationAnnotation] = m.Name
+		}
+	}
 }
