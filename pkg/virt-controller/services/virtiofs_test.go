@@ -53,7 +53,7 @@ var _ = Describe("virtiofs container", func() {
 
 	DescribeTable("virtiofs privileged container", func(shouldEnableFeatureGate bool) {
 		if shouldEnableFeatureGate {
-			enableFeatureGate(virtconfig.VirtIOFSGate)
+			enableFeatureGate(virtconfig.Root)
 		}
 
 		vmi := api.NewMinimalVMI("testvm")
