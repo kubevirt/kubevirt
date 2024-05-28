@@ -38,19 +38,16 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 // VMSnapshotAdmitter validates VirtualMachineSnapshots
 type VMSnapshotAdmitter struct {
-	Config *virtconfig.ClusterConfig
 	Client kubecli.KubevirtClient
 }
 
 // NewVMSnapshotAdmitter creates a VMSnapshotAdmitter
-func NewVMSnapshotAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMSnapshotAdmitter {
+func NewVMSnapshotAdmitter(client kubecli.KubevirtClient) *VMSnapshotAdmitter {
 	return &VMSnapshotAdmitter{
-		Config: config,
 		Client: client,
 	}
 }
