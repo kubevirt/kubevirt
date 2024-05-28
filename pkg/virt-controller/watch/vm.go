@@ -3060,17 +3060,6 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 		return true
 	}
 
-	if !equality.Semantic.DeepEqual(lastSeenVMSpec.Instancetype, vm.Spec.Instancetype) || !equality.Semantic.DeepEqual(lastSeenVMSpec.Preference, vm.Spec.Preference) {
-		vmConditionManager := controller.NewVirtualMachineConditionManager()
-		vmConditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
-			Type:               virtv1.VirtualMachineRestartRequired,
-			LastTransitionTime: metav1.Now(),
-			Status:             k8score.ConditionTrue,
-			Message:            "the instance type or preference matcher of the VM was changed",
-		})
-		return true
-	}
-
 	return false
 }
 
