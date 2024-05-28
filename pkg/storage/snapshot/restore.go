@@ -625,18 +625,6 @@ func (t *vmRestoreTarget) getControllerRevision(namespace, name string) (*appsv1
 	return obj.(*appsv1.ControllerRevision), nil
 }
 
-func (t *vmRestoreTarget) getVirtualMachineSnapshot(namespace, name string) (*snapshotv1.VirtualMachineSnapshot, error) {
-	vmSnapshotKey := cacheKeyFunc(namespace, name)
-	obj, exists, err := t.controller.VMSnapshotInformer.GetStore().GetByKey(vmSnapshotKey)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, fmt.Errorf("Unable to find VirtualMachineSnapshot %s", vmSnapshotKey)
-	}
-	return obj.(*snapshotv1.VirtualMachineSnapshot), nil
-}
-
 func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine, isPreference bool) (*appsv1.ControllerRevision, error) {
 	snapshotCR, err := t.getControllerRevision(vm.Namespace, vmSnapshotRevisionName)
 	if err != nil {
