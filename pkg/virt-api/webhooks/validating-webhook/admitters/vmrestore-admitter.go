@@ -40,20 +40,17 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 // VMRestoreAdmitter validates VirtualMachineRestores
 type VMRestoreAdmitter struct {
-	Config            *virtconfig.ClusterConfig
 	Client            kubecli.KubevirtClient
 	VMRestoreInformer cache.SharedIndexInformer
 }
 
 // NewVMRestoreAdmitter creates a VMRestoreAdmitter
-func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
+func NewVMRestoreAdmitter(client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
 	return &VMRestoreAdmitter{
-		Config:            config,
 		Client:            client,
 		VMRestoreInformer: vmRestoreInformer,
 	}

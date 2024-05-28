@@ -67,8 +67,8 @@ func ServeVMSnapshots(resp http.ResponseWriter, req *http.Request, virtCli kubec
 	validating_webhooks.Serve(resp, req, admitters.NewVMSnapshotAdmitter(virtCli))
 }
 
-func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
-	validating_webhooks.Serve(resp, req, admitters.NewVMRestoreAdmitter(clusterConfig, virtCli, informers.VMRestoreInformer))
+func ServeVMRestores(resp http.ResponseWriter, req *http.Request, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMRestoreAdmitter(virtCli, informers.VMRestoreInformer))
 }
 
 func ServeVMExports(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

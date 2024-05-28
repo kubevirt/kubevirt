@@ -890,7 +890,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMSnapshots(w, r, app.virtCli)
 	})
 	http.HandleFunc(components.VMRestoreValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeVMRestores(w, r, app.virtCli, informers)
 	})
 	http.HandleFunc(components.VMExportValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMExports(w, r, app.clusterConfig)
