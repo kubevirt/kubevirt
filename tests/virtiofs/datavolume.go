@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -71,6 +72,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		vmi = nil
+		checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSPVCGate)
 	})
 
 	Context("VirtIO-FS with multiple PVCs", func() {

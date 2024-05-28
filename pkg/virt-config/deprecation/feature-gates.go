@@ -38,13 +38,14 @@ const (
 )
 
 const (
-	LiveMigrationGate      = "LiveMigration"      // GA
-	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
-	NonRoot                = "NonRoot"            // GA
-	PSA                    = "PSA"                // GA
-	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
-	PasstGate              = "Passt"              // Deprecated
-	MacvtapGate            = "Macvtap"            // Deprecated
+	LiveMigrationGate      = "LiveMigration"               // GA
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration"          // GA
+	NonRoot                = "NonRoot"                     // GA
+	PSA                    = "PSA"                         // GA
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"            // GA
+	PasstGate              = "Passt"                       // Deprecated
+	MacvtapGate            = "Macvtap"                     // Deprecated
+	VirtIOFSGate           = "ExperimentalVirtiofsSupport" // Deprecated
 )
 
 type FeatureGate struct {
@@ -65,6 +66,7 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+	RegisterFeatureGate(FeatureGate{Name: VirtIOFSGate, State: Deprecated, Message: virtioFsFeatureGateDeprecationMessage})
 }
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
