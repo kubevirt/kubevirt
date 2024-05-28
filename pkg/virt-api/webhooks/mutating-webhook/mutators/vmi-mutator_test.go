@@ -197,10 +197,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		// no limits wanted on this test, to not copy the limit to requests
 
 		if arch == "" {
-			if rt.GOARCH == "amd64" {
-				cpuModel = v1.DefaultCPUModel
-			} else {
+			if rt.GOARCH == "arm64" {
 				cpuModel = v1.CPUModeHostPassthrough
+			} else {
+				cpuModel = v1.DefaultCPUModel
 			}
 		}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(arch)
