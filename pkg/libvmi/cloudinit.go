@@ -60,12 +60,6 @@ func WithCloudInitNoCloudEncodedNetworkData(networkData string) Option {
 	return WithCloudInitVolume(b)
 }
 
-// WithCloudInitNoCloudNetworkDataSecretName adds cloud-init no-cloud network data from secret.
-func WithCloudInitNoCloudNetworkDataSecretName(secretName string) Option {
-	b := NewNoCloudResourceBuilder().WithNetworkSecretName(secretName)
-	return WithCloudInitVolume(b)
-}
-
 // WithCloudInitConfigDriveUserData adds cloud-init config-drive user data.
 func WithCloudInitConfigDriveUserData(data string) Option {
 	b := NewConfigDriveResourceBuilder().WithUserData(data)

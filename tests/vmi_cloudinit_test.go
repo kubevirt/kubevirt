@@ -388,7 +388,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkDataSecretName(secretID),
+					libvmi.WithCloudInitVolume(
+						libvmi.NewNoCloudResourceBuilder().WithNetworkSecretName(secretID),
+					),
 				)
 
 				By("Creating a secret with network data")
