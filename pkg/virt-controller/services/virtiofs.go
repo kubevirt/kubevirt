@@ -29,7 +29,7 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 	for _, volume := range vmi.Spec.Volumes {
 		if _, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
 			resources := resourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
-			container := generateContainerFromVolume(config, &volume, image, resources)
+			container := generateContainerFromVolume(&volume, image, resources)
 			containers = append(containers, container)
 
 		}
@@ -154,22 +154,14 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 	return volumeMountPoint
 }
 
-func generateContainerFromVolume(config *virtconfig.ClusterConfig, volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
+func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
-	args := []string{socketPathArg, sourceArg, "--cache=auto"}
+
+	args := []string{socketPathArg, sourceArg, "--sandbox=none", "--cache=auto"}
 
 	securityProfile := restricted
-	sandbox := "none"
-	if virtiofs.CanRunWithPrivileges(config, volume) {
-		securityProfile = privileged
-		sandbox = "chroot"
-		args = append(args, "--xattr")
-	}
-
-	sandboxArg := fmt.Sprintf("--sandbox=%s", sandbox)
-	args = append(args, sandboxArg)
 
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
