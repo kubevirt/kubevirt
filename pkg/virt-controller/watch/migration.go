@@ -62,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
 
 const (
@@ -493,6 +494,12 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	} else {
 		err := c.processMigrationPhase(migration, migrationCopy, pod, attachmentPod, vmi, syncError)
 		if err != nil {
+			return err
+		}
+	}
+
+	if migrationCopy.Status.Phase == virtv1.MigrationFailed {
+		if err := descheduler.MarkSourcePodEvictionCompleted(c.clientset, migrationCopy, c.podIndexer); err != nil {
 			return err
 		}
 	}
@@ -1277,6 +1284,12 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				return nil
 			}
 
+			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
+				if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
+					return err
+				}
+			}
+
 			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
 			patches := c.setupVMIRuntimeUser(vmi)
 			if !patches.IsEmpty() {
@@ -1332,8 +1345,17 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			!vmi.Status.MigrationState.Failed &&
 			!vmi.Status.MigrationState.Completed {
 
-			return c.handleMarkMigrationFailedOnVMI(migration, vmi)
+			err = c.handleMarkMigrationFailedOnVMI(migration, vmi)
+			if err != nil {
+				return err
+			}
 		}
+
+		if migration.Status.Phase != virtv1.MigrationFailed {
+			return nil
+		}
+
+		return descheduler.MarkSourcePodEvictionCompleted(c.clientset, migration, c.podIndexer)
 	case virtv1.MigrationRunning:
 		if migration.DeletionTimestamp != nil && vmi.Status.MigrationState != nil {
 			err = c.markMigrationAbortInVmiStatus(migration, vmi)
