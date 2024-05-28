@@ -82,6 +82,16 @@ func WaitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, 
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
 }
 
+func WaitForMetricValueWithLabelsToBe(client kubecli.KubevirtClient, metric string, labels map[string]string, offset int, comparator string, expectedValue float64) {
+	EventuallyWithOffset(offset, func() float64 {
+		i, err := GetMetricValueWithLabels(client, metric, labels)
+		if err != nil {
+			return -1
+		}
+		return i
+	}, 3*time.Minute, 1*time.Second).Should(BeNumerically(comparator, expectedValue))
+}
+
 func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
 	result, err := fetchMetric(cli, query)
 	if err != nil {
