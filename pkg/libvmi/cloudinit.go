@@ -54,12 +54,6 @@ func WithCloudInitNoCloudNetworkData(data string) Option {
 	return WithCloudInitVolume(b)
 }
 
-// WithCloudInitNoCloudEncodedNetworkData adds cloud-init no-cloud base64 encoded network data.
-func WithCloudInitNoCloudEncodedNetworkData(networkData string) Option {
-	b := NewNoCloudResourceBuilder().WithNetworkEncodedData(networkData)
-	return WithCloudInitVolume(b)
-}
-
 func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus, v v1.Volume) {
 	addDisk(vmi, newDisk(diskName, bus))
 	addVolume(vmi, v)
