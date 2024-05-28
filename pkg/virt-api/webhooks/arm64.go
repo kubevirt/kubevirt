@@ -30,7 +30,7 @@ import (
 var _false bool = false
 
 const (
-	defaultCPUModel = v1.CPUModeHostPassthrough
+	defaultCPUModelArm64 = v1.CPUModeHostPassthrough
 )
 
 // ValidateVirtualMachineInstanceArm64Setting is a validation function for validating-webhook to filter unsupported setting on Arm64
@@ -141,7 +141,7 @@ func setDefaultArm64CPUModel(spec *v1.VirtualMachineInstanceSpec) {
 	}
 
 	if spec.Domain.CPU.Model == "" {
-		spec.Domain.CPU.Model = defaultCPUModel
+		spec.Domain.CPU.Model = defaultCPUModelArm64
 	}
 }
 

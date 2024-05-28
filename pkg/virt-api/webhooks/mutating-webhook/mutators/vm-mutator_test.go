@@ -166,11 +166,12 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	It("should apply defaults on VM create", func() {
 		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
-		if webhooks.IsPPC64(&vmSpec.Template.Spec) {
+		switch {
+		case webhooks.IsPPC64(&vmSpec.Template.Spec):
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("pseries"))
-		} else if webhooks.IsARM64(&vmSpec.Template.Spec) {
+		case webhooks.IsARM64(&vmSpec.Template.Spec):
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("virt"))
-		} else {
+		default:
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
 		}
 	})
@@ -189,7 +190,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		})
 
 		vmSpec, _ := getVMSpecMetaFromResponse(arch)
-		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
 
 	},
 		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", machineTypeFromConfig),

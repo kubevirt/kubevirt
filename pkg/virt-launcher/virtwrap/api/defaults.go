@@ -31,11 +31,12 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 
 	if ostype.Arch == "" {
-		if d.IsPPC64() {
+		switch {
+		case d.IsPPC64():
 			ostype.Arch = "ppc64le"
-		} else if d.IsARM64() {
+		case d.IsARM64():
 			ostype.Arch = "aarch64"
-		} else {
+		default:
 			ostype.Arch = "x86_64"
 		}
 	}
@@ -43,11 +44,12 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 	// q35 is an alias of the newest q35 machine type.
 	// TODO: we probably want to select concrete type in the future for "future-backwards" compatibility.
 	if ostype.Machine == "" {
-		if d.IsPPC64() {
+		switch {
+		case d.IsPPC64():
 			ostype.Machine = "pseries"
-		} else if d.IsARM64() {
+		case d.IsARM64():
 			ostype.Machine = "virt"
-		} else {
+		default:
 			ostype.Machine = "q35"
 		}
 	}

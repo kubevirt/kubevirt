@@ -66,13 +66,14 @@ func setGuestMemoryStatus(vmi *v1.VirtualMachineInstance) {
 
 func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	// Do some CPU arch specific setting.
-	if IsARM64(spec) {
+	switch {
+	case IsARM64(spec):
 		log.Log.V(4).Info("Apply Arm64 specific setting")
 		SetArm64Defaults(spec)
-	} else {
+	default:
 		SetAmd64Defaults(spec)
-		setDefaultCPUModel(clusterConfig, spec)
 	}
+	setDefaultCPUModel(clusterConfig, spec)
 }
 
 func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
