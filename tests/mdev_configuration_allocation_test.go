@@ -42,10 +42,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
 	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
 		return func() (bool, error) {
 
@@ -122,6 +118,11 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			return 0
 		}, 2*time.Minute, 5*time.Second).Should(BeZero(), "wait for the kubelet to stop promoting unconfigured devices")
 	}
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+		Eventually(checkAllMDEVRemoved, 2*time.Minute, 10*time.Second).Should(BeInPhase(k8sv1.PodSucceeded), "Cluster failed mdev sanity check")
+	})
 
 	Context("with externally provided mediated devices", func() {
 		var deviceName = "nvidia.com/GRID_T4-1B"
