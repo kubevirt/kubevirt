@@ -66,10 +66,6 @@ func (admitter *VMRestoreAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Snapshot/Restore feature gate not enabled"))
-	}
-
 	vmRestore := &snapshotv1.VirtualMachineRestore{}
 	// TODO ideally use UniversalDeserializer here
 	err := json.Unmarshal(ar.Request.Object.Raw, vmRestore)

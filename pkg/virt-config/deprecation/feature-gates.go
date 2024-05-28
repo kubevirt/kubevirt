@@ -43,6 +43,7 @@ const (
 	NonRoot                = "NonRoot"            // GA
 	PSA                    = "PSA"                // GA
 	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
+	SnapshotGate           = "Snapshot"           // GA
 	PasstGate              = "Passt"              // Deprecated
 	MacvtapGate            = "Macvtap"            // Deprecated
 )
@@ -60,6 +61,7 @@ var featureGates = [...]FeatureGate{
 	{Name: NonRoot, State: GA},
 	{Name: PSA, State: GA},
 	{Name: CPUNodeDiscoveryGate, State: GA},
+	{Name: SnapshotGate, State: GA},
 	{Name: PasstGate, State: Deprecated, Message: PasstDeprecationMessage, VmiSpecUsed: passtApiUsed},
 	{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed},
 }

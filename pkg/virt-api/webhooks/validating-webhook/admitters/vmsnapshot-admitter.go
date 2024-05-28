@@ -62,10 +62,6 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *admissionv1.AdmissionReview) *admi
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate not enabled"))
-	}
-
 	vmSnapshot := &snapshotv1.VirtualMachineSnapshot{}
 	// TODO ideally use UniversalDeserializer here
 	err := json.Unmarshal(ar.Request.Object.Raw, vmSnapshot)

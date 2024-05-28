@@ -34,7 +34,6 @@ const (
 	SidecarGate           = "Sidecar"
 	GPUGate               = "GPU"
 	HostDevicesGate       = "HostDevices"
-	SnapshotGate          = "Snapshot"
 	VMExportGate          = "VMExport"
 	HotplugVolumesGate    = "HotplugVolumes"
 	HostDiskGate          = "HostDisk"
@@ -139,10 +138,6 @@ func (config *ClusterConfig) SidecarEnabled() bool {
 
 func (config *ClusterConfig) GPUPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(GPUGate)
-}
-
-func (config *ClusterConfig) SnapshotEnabled() bool {
-	return config.isFeatureGateEnabled(SnapshotGate)
 }
 
 func (config *ClusterConfig) VMExportEnabled() bool {

@@ -71,10 +71,6 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource: %+v. Expected resource: %+v", ar.Request.Resource.Resource, clone.ResourceVMClonePlural))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate is not enabled"))
-	}
-
 	vmClone := &clonev1alpha1.VirtualMachineClone{}
 	err := json.Unmarshal(ar.Request.Object.Raw, vmClone)
 	if err != nil {

@@ -312,6 +312,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with CPUNodeDiscoveryGate", deprecation.CPUNodeDiscoveryGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.CPUNodeDiscoveryGate, deprecation.GA)),
 			Entry("with Passt", deprecation.PasstGate, deprecation.PasstDeprecationMessage),
 			Entry("with MacvtapGate", deprecation.MacvtapGate, deprecation.MacvtapDiscontinueMessage),
+			Entry("with SnapshotGate", deprecation.SnapshotGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.SnapshotGate, deprecation.GA)),
 		)
 	})
 })

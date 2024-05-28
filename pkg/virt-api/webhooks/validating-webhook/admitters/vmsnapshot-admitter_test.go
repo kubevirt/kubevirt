@@ -51,19 +51,6 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-	Context("Without feature gate enabled", func() {
-		It("should reject anything", func() {
-			snapshot := &snapshotv1.VirtualMachineSnapshot{
-				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
-			}
-
-			ar := createSnapshotAdmissionReview(snapshot)
-			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(Equal("snapshot feature gate not enabled"))
-		})
-	})
-
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{

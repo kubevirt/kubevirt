@@ -290,11 +290,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		})
 	})
 
-	It("Should reject if snapshot feature gate is not enabled", func() {
-		disableFeatureGates()
-		admitter.admitAndExpect(vmClone, false)
-	})
-
 	DescribeTable("Should reject a source volume not Snapshot-able", func(index int) {
 		vm.Status.VolumeSnapshotStatuses[index].Enabled = false
 		admitter.admitAndExpect(vmClone, false)

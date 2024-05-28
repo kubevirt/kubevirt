@@ -173,7 +173,7 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				virtconfig.SidecarGate,
 				virtconfig.GPUGate,
 				virtconfig.HostDevicesGate,
-				virtconfig.SnapshotGate,
+				deprecation.SnapshotGate,
 				virtconfig.VMExportGate,
 				virtconfig.HotplugVolumesGate,
 				virtconfig.HostDiskGate,

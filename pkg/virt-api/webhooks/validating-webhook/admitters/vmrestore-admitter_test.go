@@ -72,23 +72,6 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-	Context("Without feature gate enabled", func() {
-		It("should reject anything", func() {
-			restore := &snapshotv1.VirtualMachineRestore{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "restore",
-					Namespace: "default",
-				},
-				Spec: snapshotv1.VirtualMachineRestoreSpec{},
-			}
-
-			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(Equal("Snapshot/Restore feature gate not enabled"))
-		})
-	})
-
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{

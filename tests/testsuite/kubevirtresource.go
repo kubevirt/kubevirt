@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/util"
@@ -95,8 +96,9 @@ func AdjustKubeVirtResource() {
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 		virtconfig.CPUManager,
 		virtconfig.IgnitionGate,
+		// need SnapshotGate for upgrade test [test_id:3145]
+		deprecation.SnapshotGate,
 		virtconfig.SidecarGate,
-		virtconfig.SnapshotGate,
 		virtconfig.HostDiskGate,
 		virtconfig.VirtIOFSGate,
 		virtconfig.HotplugVolumesGate,
