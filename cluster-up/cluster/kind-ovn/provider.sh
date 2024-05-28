@@ -77,7 +77,7 @@ function up() {
 }
 
 function down() {
-    kind delete cluster --name $CLUSTER_NAME
+    ${KIND_PATH}/kind delete cluster --name $CLUSTER_NAME
 }
 
 function _kubectl() {
