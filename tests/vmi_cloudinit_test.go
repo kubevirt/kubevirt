@@ -198,7 +198,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						sshAuthorizedKey,
 					)
 					vmi := libvmifact.NewFedora(
-						libvmi.WithCloudInitConfigDriveUserData(userData),
+						libvmi.WithCloudInitVolume(
+							libvmi.NewConfigDriveResourceBuilder().WithUserData(userData),
+						),
 					)
 
 					vmi = LaunchVMI(vmi)
@@ -228,8 +230,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					"#cloud-config\npassword: %s\nchpasswd: { expire: False }",
 					fedoraPassword,
 				)
-				vmi := libvmifact.NewFedora(libvmi.WithCloudInitConfigDriveUserData(userData))
-				// runStrategy := v1.RunStrategyManual
+				vmi := libvmifact.NewFedora(
+					libvmi.WithCloudInitVolume(
+						libvmi.NewConfigDriveResourceBuilder().WithUserData(userData),
+					),
+				)
+
 				vm := &v1.VirtualMachine{
 					ObjectMeta: vmi.ObjectMeta,
 					Spec: v1.VirtualMachineSpec{

@@ -1675,7 +1675,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with AccessCredentials", func() {
 		It("should accept a valid ssh access credential with configdrive propagation", func() {
-			vmi := newBaseVmi(libvmi.WithCloudInitConfigDriveUserData(" "))
+			vmi := newBaseVmi(
+				libvmi.WithCloudInitVolume(libvmi.NewConfigDriveResourceBuilder().WithUserData(" ")),
+			)
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{

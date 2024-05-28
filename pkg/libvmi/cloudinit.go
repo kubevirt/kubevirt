@@ -60,12 +60,6 @@ func WithCloudInitNoCloudEncodedNetworkData(networkData string) Option {
 	return WithCloudInitVolume(b)
 }
 
-// WithCloudInitConfigDriveUserData adds cloud-init config-drive user data.
-func WithCloudInitConfigDriveUserData(data string) Option {
-	b := NewConfigDriveResourceBuilder().WithUserData(data)
-	return WithCloudInitVolume(b)
-}
-
 func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus, v v1.Volume) {
 	addDisk(vmi, newDisk(diskName, bus))
 	addVolume(vmi, v)

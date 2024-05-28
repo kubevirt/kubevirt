@@ -222,10 +222,10 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			}, 3*time.Minute)).To(Succeed())
 		}
 
-		DescribeTable("should have ssh-key under authorized keys added ", func(volumeCreationOption func(data string) libvmi.Option, propagationMethod v1.SSHPublicKeyAccessCredentialPropagationMethod) {
+		DescribeTable("should have ssh-key under authorized keys added ", func(volumeBuilder libvmi.CloudInitBuilder, propagationMethod v1.SSHPublicKeyAccessCredentialPropagationMethod) {
 			By("Creating a secret with three ssh keys")
 			vmi := libvmifact.NewFedora(
-				volumeCreationOption(userData),
+				libvmi.WithCloudInitVolume(volumeBuilder.WithUserData(userData)),
 				withSSHPK(secretID, propagationMethod))
 			createNewSecret(testsuite.GetTestNamespace(vmi), secretID, map[string][]byte{
 				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
@@ -236,10 +236,10 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 			verifySSHKeys(vmi)
 		},
-			Entry("[test_id:6224]using configdrive", libvmi.WithCloudInitConfigDriveUserData, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+			Entry("[test_id:6224]using configdrive", libvmi.NewConfigDriveResourceBuilder(), v1.SSHPublicKeyAccessCredentialPropagationMethod{
 				ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 			}),
-			Entry("using nocloud", libvmi.WithCloudInitNoCloudUserData, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+			Entry("using nocloud", libvmi.NewNoCloudResourceBuilder(), v1.SSHPublicKeyAccessCredentialPropagationMethod{
 				NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
 			}),
 		)
