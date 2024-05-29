@@ -48,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = DescribeInfra("tls configuration", func() {
+var _ = DescribeSerialInfra("tls configuration", func() {
 
 	var virtClient kubecli.KubevirtClient
 
