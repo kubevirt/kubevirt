@@ -473,25 +473,27 @@ func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstanc
 }
 
 func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
-	var patchOps []string
+	patchSet := patch.New()
 	for key, newValue := range newAnnotations {
 		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
-			patchOp, err := prepareAnnotationsPatchAddOp(key, newValue)
-			if err != nil {
-				return nil, err
-			}
-			patchOps = append(patchOps, patchOp)
+			patchSet.AddOption(
+				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)), newValue),
+			)
 		}
 	}
-	var patchedPod *k8sv1.Pod
-	patchBytes := controller.GeneratePatchBytes(patchOps)
-	if len(patchBytes) > 0 {
-		var err error
-		patchedPod, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
-		if err != nil {
-			log.Log.Object(pod).Errorf("failed to sync pod annotations during sync: %v", err)
-			return nil, err
-		}
+	if patchSet.IsEmpty() {
+		return pod, nil
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
+	if err != nil {
+		return pod, fmt.Errorf("failed to generate patch payload: %w", err)
+	}
+
+	patchedPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to sync pod annotations during sync: %v", err)
+		return nil, err
 	}
 	return patchedPod, nil
 }
@@ -801,17 +803,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	return nil
-}
-
-func prepareAnnotationsPatchAddOp(key, value string) (string, error) {
-	valueBytes, err := json.Marshal(value)
-	if err != nil {
-		return "", fmt.Errorf("failed to prepare new annotation patchOp for key %s: %v", key, err)
-	}
-
-	key = patch.EscapeJSONPointer(key)
-	return fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": %s }`, key, string(valueBytes)), nil
-
 }
 
 func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
