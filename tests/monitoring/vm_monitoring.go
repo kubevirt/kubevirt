@@ -248,7 +248,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	})
 
 	Context("VM metrics that are based on the guest agent", func() {
-		It("should have kubevirt_vmi_phase_count correctly configured with guest OS labels", func() {
+		It("should have kubevirt_vmi_info correctly configured with guest OS labels", func() {
 			agentVMI := createAgentVMI()
 			Expect(agentVMI.Status.GuestOSInfo.KernelRelease).ToNot(BeEmpty())
 			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
@@ -262,7 +262,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
 			}
 
-			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_phase_count", 1, labels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
 		})
 	})
 

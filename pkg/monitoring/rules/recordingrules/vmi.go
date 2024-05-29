@@ -25,6 +25,14 @@ import (
 var vmiRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_phase_count",
+			Help: "Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum by (node, phase, os, workload, flavor, instance_type, preference, guest_os_kernel_release, guest_os_machine, guest_os_name, guest_os_version_id) (kubevirt_vmi_info)"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_memory_used_bytes",
 			Help: "Amount of `used` memory as seen by the domain.",
 		},

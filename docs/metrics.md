@@ -114,6 +114,9 @@ Total VM filesystem capacity in bytes. Type: Gauge.
 ### kubevirt_vmi_filesystem_used_bytes
 Used VM filesystem capacity in bytes. Type: Gauge.
 
+### kubevirt_vmi_info
+Information about VirtualMachineInstances. Type: Gauge.
+
 ### kubevirt_vmi_memory_actual_balloon_bytes
 Current balloon size in bytes. Type: Gauge.
 
