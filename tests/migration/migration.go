@@ -3203,7 +3203,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 	})
 
-	Context("when evacuating fails", func() {
+	Context("during evacuation", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		setEvacuationAnnotation := func(migrations ...*v1.VirtualMachineInstanceMigration) {
@@ -3214,65 +3214,112 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			}
 		}
 
-		BeforeEach(func() {
+		It("should add eviction-in-progress annotation to source virt-launcher pod", func() {
 			vmi = libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
 			)
-		})
-
-		It("retrying immediately should be blocked by the migration backoff", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-			By("Waiting for the migration to fail")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			setEvacuationAnnotation(migration)
-			_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+			_ = libmigration.RunMigration(virtClient, migration)
 
-			By("Try again")
-			migration = libmigration.New(vmi.Name, vmi.Namespace)
-			setEvacuationAnnotation(migration)
-			_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
-
-			events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
+			Eventually(func() map[string]string {
+				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+				return virtLauncherPod.GetAnnotations()
+			}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(HaveKeyWithValue("descheduler.alpha.kubernetes.io/eviction-in-progress", "kubevirt"))
 		})
 
-		It("after a successful migration backoff should be cleared", func() {
-			By("Starting the VirtualMachineInstance")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+		Context("when evacuating fails", func() {
+			BeforeEach(func() {
+				vmi = libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
+				)
+			})
 
-			By("Waiting for the migration to fail")
-			migration := libmigration.New(vmi.Name, vmi.Namespace)
-			setEvacuationAnnotation(migration)
-			_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+			It("should remove eviction-in-progress annotation to source virt-launcher pod", func() {
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-			By("Patch VMI")
-			patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}]`, patch.EscapeJSONPointer(v1.FuncTestForceLauncherMigrationFailureAnnotation)))
-			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				// Manually adding the eviction-in-progress annotation to the virt-launcher pod
+				// to avoid flakiness between annotation addition and removal
+				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+				patchBytes, err := patch.New(
+					patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer("descheduler.alpha.kubernetes.io/eviction-in-progress")), "kubevirt"),
+				).GeneratePayload()
+				Expect(err).NotTo(HaveOccurred())
+				_, err = virtClient.CoreV1().Pods(virtLauncherPod.Namespace).Patch(context.Background(), virtLauncherPod.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
-			By("Try again with backoff")
-			migration = libmigration.New(vmi.Name, vmi.Namespace)
-			setEvacuationAnnotation(migration)
-			_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				setEvacuationAnnotation(migration)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
 
-			// Intentionally modifying history
-			events.DeleteEvents(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
+				Eventually(func() map[string]string {
+					virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).NotTo(HaveOccurred())
+					return virtLauncherPod.GetAnnotations()
+				}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).ShouldNot(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
+			})
 
-			By("There should be no backoff now")
-			migration = libmigration.New(vmi.Name, vmi.Namespace)
-			setEvacuationAnnotation(migration)
-			_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+			It("retrying immediately should be blocked by the migration backoff", func() {
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-			By("Checking that no backoff event occurred")
-			events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
-			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			for _, ev := range events.Items {
-				Expect(ev.Reason).ToNot(Equal(controller.MigrationBackoffReason))
-			}
+				By("Waiting for the migration to fail")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				setEvacuationAnnotation(migration)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+
+				By("Try again")
+				migration = libmigration.New(vmi.Name, vmi.Namespace)
+				setEvacuationAnnotation(migration)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+
+				events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
+			})
+
+			It("after a successful migration backoff should be cleared", func() {
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+				By("Waiting for the migration to fail")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				setEvacuationAnnotation(migration)
+				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+
+				By("Patch VMI")
+				patchBytes := []byte(fmt.Sprintf(`[{"op": "remove", "path": "/metadata/annotations/%s"}]`, patch.EscapeJSONPointer(v1.FuncTestForceLauncherMigrationFailureAnnotation)))
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Try again with backoff")
+				migration = libmigration.New(vmi.Name, vmi.Namespace)
+				setEvacuationAnnotation(migration)
+				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				// Intentionally modifying history
+				events.DeleteEvents(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
+
+				By("There should be no backoff now")
+				migration = libmigration.New(vmi.Name, vmi.Namespace)
+				setEvacuationAnnotation(migration)
+				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				By("Checking that no backoff event occurred")
+				events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
+				events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, ev := range events.Items {
+					Expect(ev.Reason).ToNot(Equal(controller.MigrationBackoffReason))
+				}
+			})
 		})
 	})
 
