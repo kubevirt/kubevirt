@@ -195,7 +195,7 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
 	})
 
-	It("sync succeeds to hotunplug interfaces when pod is not found", func() {
+	It("sync does not hotunplug interfaces when pod is not found", func() {
 		clientset := fake.NewSimpleClientset()
 		c := network.NewVMNetController(
 			clientset,
@@ -216,7 +216,8 @@ var _ = Describe("VM Network Controller", func() {
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
 		// Unplug the network interface at the VM (only).
-		vm = unplugNetworkInterface(vm, "foonet")
+		const unplugNetworkName = "foonet"
+		vm = unplugNetworkInterface(vm, unplugNetworkName)
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -228,12 +229,15 @@ var _ = Describe("VM Network Controller", func() {
 
 		Expect(updatedVM).To(Equal(originalVM))
 
-		// Assert that the hotunplug reached the VMI
+		// Assert that the hotunplug did **not** reach the VMI
 		updatedVMI, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
-		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
+		iface := vmispec.LookupInterfaceByName(updatedVMI.Spec.Domain.Devices.Interfaces, unplugNetworkName)
+		Expect(iface).NotTo(BeNil())
+		Expect(iface.State).NotTo(Equal(v1.InterfaceStateAbsent))
+
 	})
 
 	It("sync does not hotunplug interfaces when legacy ordinal interface names are found", func() {
