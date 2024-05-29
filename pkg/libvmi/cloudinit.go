@@ -27,12 +27,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const cloudInitDiskName = "disk1"
+const CloudInitDiskName = "disk1"
 
 // WithCloudInitVolume adds cloudInit volume and disk
 func WithCloudInitVolume(volumeBuilder CloudInitBuilder) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addCloudInitDiskAndVolume(vmi, cloudInitDiskName, v1.DiskBusVirtio, volumeBuilder.build(cloudInitDiskName))
+		addCloudInitDiskAndVolume(vmi, CloudInitDiskName, v1.DiskBusVirtio, volumeBuilder.build(CloudInitDiskName))
 	}
 }
 
@@ -145,6 +145,7 @@ type ConfigDriveResource struct {
 func NewConfigDriveResourceBuilder() *ConfigDriveResource {
 	return &ConfigDriveResource{src: &v1.CloudInitConfigDriveSource{}}
 }
+
 func (r *ConfigDriveResource) WithUserData(data string) CloudInitBuilder {
 	r.src.UserData = data
 	return r

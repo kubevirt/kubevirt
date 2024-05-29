@@ -138,7 +138,8 @@ func addFilesystem(vmi *v1.VirtualMachineInstance, filesystem v1.Filesystem) {
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, filesystem)
 }
 
-func getVolume(vmi *v1.VirtualMachineInstance, name string) *v1.Volume {
+// GetVolume returns a volume by name, from a VMI, or nil if the volume does not exist
+func GetVolume(vmi *v1.VirtualMachineInstance, name string) *v1.Volume {
 	for i := range vmi.Spec.Volumes {
 		if vmi.Spec.Volumes[i].Name == name {
 			return &vmi.Spec.Volumes[i]
@@ -213,10 +214,6 @@ func newLun(name string, reservation bool) v1.Disk {
 			},
 		},
 	}
-}
-
-func newVolume(name string) v1.Volume {
-	return v1.Volume{Name: name}
 }
 
 func newContainerVolume(name, image string) v1.Volume {
