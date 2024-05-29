@@ -41,6 +41,7 @@ import (
 	"github.com/google/go-github/v32/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	v12 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -1740,14 +1741,20 @@ spec:
 
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
-				Eventually(func() bool {
-					virtualMachine, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					if virtualMachine.Status.Ready {
-						return true
-					}
-					return false
-				}, 180*time.Second, 1*time.Second).Should(BeTrue())
+				// Expect to see start request or Ready as the start can be faster than what we observe
+				Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(nil), vmYaml.vmName), 180*time.Second, 1*time.Second).Should(Or(
+					matcher.BeReady(),
+					gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"StateChangeRequests": ContainElement(gstruct.MatchFields(
+								gstruct.IgnoreExtras, gstruct.Fields{
+									"Action": Equal("Start"),
+								},
+							)),
+						}),
+					})),
+				))
+				Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(nil), vmYaml.vmName), 180*time.Second, 1*time.Second).Should(matcher.BeReady())
 			}
 
 			By("Starting multiple migratable VMIs before performing update")
