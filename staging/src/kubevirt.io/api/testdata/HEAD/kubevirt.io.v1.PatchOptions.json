@@ -1,0 +1,10 @@
+{
+  "kind": "PatchOptions",
+  "apiVersion": "kubevirt.io/v1",
+  "dryRun": [
+    "dryRunValue"
+  ],
+  "force": true,
+  "fieldManager": "fieldManagerValue",
+  "fieldValidation": "fieldValidationValue"
+}

@@ -1,0 +1,3 @@
+apiVersion: kubevirt.io/v1
+kind: GetOptions
+resourceVersion: resourceVersionValue
