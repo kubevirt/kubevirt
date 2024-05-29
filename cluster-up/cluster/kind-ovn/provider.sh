@@ -77,7 +77,7 @@ function up() {
 }
 
 function down() {
-    ${KIND_PATH}/kind delete cluster --name $CLUSTER_NAME
+    ${KIND_PATH}/kind delete cluster --name $CLUSTER_NAME || [[ "$CI" == "true" ]]
 }
 
 function _kubectl() {
