@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = DescribeInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
+var _ = DescribeSerialInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
 
 	var (
 		virtClient kubecli.KubevirtClient

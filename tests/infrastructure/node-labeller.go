@@ -49,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = DescribeInfra("Node-labeller", func() {
+var _ = DescribeSerialInfra("Node-labeller", func() {
 
 	var (
 		virtClient               kubecli.KubevirtClient

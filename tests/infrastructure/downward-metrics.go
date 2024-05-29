@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = DescribeInfra("downwardMetrics", func() {
+var _ = DescribeSerialInfra("downwardMetrics", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)

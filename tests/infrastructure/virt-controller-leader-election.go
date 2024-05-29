@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = DescribeInfra("Start a VirtualMachineInstance", func() {
+var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
 
 	var (
 		virtClient kubecli.KubevirtClient

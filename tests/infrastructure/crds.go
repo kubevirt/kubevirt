@@ -22,7 +22,6 @@ package infrastructure
 import (
 	"context"
 
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -38,7 +37,7 @@ import (
 	crds "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
-var _ = DescribeInfra("[Serial]CRDs", Serial, decorators.SigCompute, func() {
+var _ = DescribeSerialInfra("CRDs", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)

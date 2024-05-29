@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = DescribeInfra("virt-handler", func() {
+var _ = DescribeSerialInfra("virt-handler", func() {
 
 	var (
 		virtClient       kubecli.KubevirtClient
