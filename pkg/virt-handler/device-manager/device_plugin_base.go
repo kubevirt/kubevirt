@@ -57,7 +57,9 @@ func (dpi *DevicePluginBase) GetDeviceName() string {
 }
 
 func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
+	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs}); err != nil {
+		return err
+	}
 
 	done := false
 	for {
@@ -68,7 +70,9 @@ func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.Device
 					dev.Health = devHealth.Health
 				}
 			}
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
+			if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs}); err != nil {
+				return err
+			}
 		case <-dpi.stop:
 			done = true
 		case <-dpi.done:
