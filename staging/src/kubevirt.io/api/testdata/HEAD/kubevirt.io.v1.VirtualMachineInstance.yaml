@@ -606,6 +606,30 @@ status:
     guestAtBoot: "0"
     guestCurrent: "0"
     guestRequested: "0"
+  migratedVolumes:
+  - destinationPVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    sourcePVCInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    volumeName: volumeNameValue
   migrationMethod: migrationMethodValue
   migrationState:
     abortRequested: true
@@ -675,6 +699,7 @@ status:
       - accessModesValue
       capacity:
         capacityKey: "0"
+      claimName: claimNameValue
       filesystemOverhead: filesystemOverheadValue
       preallocated: true
       requests:

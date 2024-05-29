@@ -238,6 +238,10 @@ lint-metrics:
 gofumpt:
 	./hack/dockerized "hack/gofumpt.sh"
 
+update-generate-api-testdata:
+	rm -f staging/src/kubevirt.io/api/testdata/HEAD/*.{yaml,json}
+	hack/dockerized "cd staging/src/kubevirt.io/api && UPDATE_COMPATIBILITY_FIXTURE_DATA=true go test ./ -run //HEAD >/dev/null 2>&1 || true && go test ./ -run //HEAD -count=1"
+    
 .PHONY: \
 	build-verify \
 	conformance \
@@ -274,5 +278,6 @@ gofumpt:
 	format \
 	fmt \
 	lint \
-	lint-metrics\
+	lint-metrics \
+	update-generate-api-testdata \
 	$(NULL)
