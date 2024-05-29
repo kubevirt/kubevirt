@@ -6299,6 +6299,12 @@ var CRDsValidation map[string]string = map[string]string{
                             efi:
                               description: If set, EFI will be used instead of BIOS.
                               properties:
+                                enrolledKeys:
+                                  description: |-
+                                    If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.
+                                    This is only valid if SecureBoot is enabled.
+                                    Defaults to true
+                                  type: boolean
                                 persistent:
                                   description: |-
                                     If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -11168,6 +11174,12 @@ var CRDsValidation map[string]string = map[string]string{
                     efi:
                       description: If set, EFI will be used instead of BIOS.
                       properties:
+                        enrolledKeys:
+                          description: |-
+                            If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.
+                            This is only valid if SecureBoot is enabled.
+                            Defaults to true
+                          type: boolean
                         persistent:
                           description: |-
                             If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -14182,6 +14194,12 @@ var CRDsValidation map[string]string = map[string]string{
                     efi:
                       description: If set, EFI will be used instead of BIOS.
                       properties:
+                        enrolledKeys:
+                          description: |-
+                            If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.
+                            This is only valid if SecureBoot is enabled.
+                            Defaults to true
+                          type: boolean
                         persistent:
                           description: |-
                             If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -16426,6 +16444,12 @@ var CRDsValidation map[string]string = map[string]string{
                             efi:
                               description: If set, EFI will be used instead of BIOS.
                               properties:
+                                enrolledKeys:
+                                  description: |-
+                                    If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.
+                                    This is only valid if SecureBoot is enabled.
+                                    Defaults to true
+                                  type: boolean
                                 persistent:
                                   description: |-
                                     If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -20747,6 +20771,12 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: If set, EFI will be used instead
                                         of BIOS.
                                       properties:
+                                        enrolledKeys:
+                                          description: |-
+                                            If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.
+                                            This is only valid if SecureBoot is enabled.
+                                            Defaults to true
+                                          type: boolean
                                         persistent:
                                           description: |-
                                             If set to true, Persistent will persist the EFI NVRAM across reboots.
@@ -25755,6 +25785,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           description: If set, EFI will be used instead
                                             of BIOS.
                                           properties:
+                                            enrolledKeys:
+                                              description: |-
+                                                If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.
+                                                This is only valid if SecureBoot is enabled.
+                                                Defaults to true
+                                              type: boolean
                                             persistent:
                                               description: |-
                                                 If set to true, Persistent will persist the EFI NVRAM across reboots.

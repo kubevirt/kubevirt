@@ -16946,6 +16946,10 @@
     "description": "If set, EFI will be used instead of BIOS.",
     "type": "object",
     "properties": {
+     "enrolledKeys": {
+      "description": "If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys. This is only valid if SecureBoot is enabled. Defaults to true",
+      "type": "boolean"
+     },
      "persistent": {
       "description": "If set to true, Persistent will persist the EFI NVRAM across reboots. Defaults to false",
       "type": "boolean"

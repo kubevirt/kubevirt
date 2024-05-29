@@ -17566,6 +17566,13 @@ func schema_kubevirtio_api_core_v1_EFI(ref common.ReferenceCallback) common.Open
 							Format:      "",
 						},
 					},
+					"enrolledKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys. This is only valid if SecureBoot is enabled. Defaults to true",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"persistent": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If set to true, Persistent will persist the EFI NVRAM across reboots. Defaults to false",

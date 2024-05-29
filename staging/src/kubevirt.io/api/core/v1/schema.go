@@ -246,6 +246,11 @@ type EFI struct {
 	// Defaults to true
 	// +optional
 	SecureBoot *bool `json:"secureBoot,omitempty"`
+	// If set, libvirt will initialize the NVRAM file associated with the VM from a template that contains a suitable set of keys.
+	// This is only valid if SecureBoot is enabled.
+	// Defaults to true
+	// +optional
+	EnrolledKeys *bool `json:"enrolledKeys,omitempty"`
 	// If set to true, Persistent will persist the EFI NVRAM across reboots.
 	// Defaults to false
 	// +optional
