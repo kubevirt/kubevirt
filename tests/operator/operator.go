@@ -1604,7 +1604,7 @@ spec:
 				Skip("Skip update test when CDI is not present")
 			}
 
-			if updateOperator && flags.OperatorManifestPath == "" {
+			if flags.OperatorManifestPath == "" {
 				Skip("Skip operator update test when operator manifest path isn't configured")
 			}
 
@@ -1658,17 +1658,15 @@ spec:
 			By("Sanity Checking Deployments infrastructure is deleted")
 			sanityCheckDeploymentsDeleted()
 
-			if updateOperator {
-				By("Deleting testing manifests")
-				deleteTestingManifests(flags.TestingManifestPath)
+			By("Deleting testing manifests")
+			deleteTestingManifests(flags.TestingManifestPath)
 
-				By("Deleting virt-operator installation")
-				deleteOperator(flags.OperatorManifestPath)
+			By("Deleting virt-operator installation")
+			deleteOperator(flags.OperatorManifestPath)
 
-				By("Installing previous release of virt-operator")
-				manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
-				installOperator(manifestURL)
-			}
+			By("Installing previous release of virt-operator")
+			manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
+			installOperator(manifestURL)
 
 			// Install previous release of KubeVirt
 			By("Creating KubeVirt object")
