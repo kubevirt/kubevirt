@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "checked.go",
+        "enum.go",
+        "equal.go",
+        "file.go",
+        "pb.go",
+        "type.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/types/pb",
+    importpath = "github.com/google/cel-go/common/types/pb",
+    deps = [
+        "//vendor/google.golang.org/genproto/googleapis/api/expr/v1alpha1:go_default_library",
+        "//vendor/google.golang.org/protobuf/encoding/protowire:go_default_library",
+        "//vendor/google.golang.org/protobuf/proto:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoregistry:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/dynamicpb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/anypb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/durationpb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/emptypb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/structpb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/timestamppb:go_default_library",
+        "//vendor/google.golang.org/protobuf/types/known/wrapperspb:go_default_library",
+    ],
+)

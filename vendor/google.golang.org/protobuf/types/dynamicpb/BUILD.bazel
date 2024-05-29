@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "dynamic.go",
+        "types.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/types/dynamicpb",
+    importpath = "google.golang.org/protobuf/types/dynamicpb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/protobuf/internal/errors:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/reflect/protoregistry:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoiface:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
+    ],
+)
