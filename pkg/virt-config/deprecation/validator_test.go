@@ -32,31 +32,29 @@ import (
 )
 
 var _ = Describe("Validator", func() {
-	DescribeTable("validate feature gate", func(fgName string, vmi *v1.VirtualMachineInstance, expected []metav1.StatusCause) {
+	const (
+		fgName    = "test"
+		fgWarning = "test warning message"
+	)
+
+	DescribeTable("validate feature gate", func(fgState string, expected []metav1.StatusCause) {
+		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+			Name:        fgName,
+			State:       deprecation.State(fgState),
+			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
+			Message:     fgWarning,
+		})
+		DeferCleanup(deprecation.UnregisterFeatureGate, fgName)
+		vmi := libvmi.New()
+
 		Expect(deprecation.ValidateFeatureGates([]string{fgName}, &vmi.Spec)).To(ConsistOf(expected))
 	},
-		Entry("that is GA", deprecation.LiveMigrationGate, libvmi.New(), nil),
-		Entry(
-			"that is Deprecated",
-			deprecation.PasstGate,
-			libvmi.New(
-				libvmi.WithInterface(v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}}),
-				libvmi.WithNetwork(&v1.Network{}),
-			),
-			nil,
-		),
-		Entry(
-			"that is Discontinued",
-			deprecation.MacvtapGate,
-			libvmi.New(
-				libvmi.WithInterface(v1.Interface{
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
-				}),
-				libvmi.WithNetwork(&v1.Network{}),
-			),
+		Entry("that is GA", deprecation.GA, nil),
+		Entry("that is Deprecated", deprecation.Deprecated, nil),
+		Entry("that is Discontinued", deprecation.Discontinued,
 			[]metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: deprecation.MacvtapDiscontinueMessage,
+				Message: fgWarning,
 			}},
 		),
 	)
