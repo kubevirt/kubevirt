@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["debug.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/debug",
+    importpath = "github.com/google/cel-go/common/debug",
+    deps = ["//vendor/google.golang.org/genproto/googleapis/api/expr/v1alpha1:go_default_library"],
+)

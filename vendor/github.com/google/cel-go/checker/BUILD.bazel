@@ -1,0 +1,39 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    licenses = ["notice"],  # Apache 2.0
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "checker.go",
+        "cost.go",
+        "env.go",
+        "errors.go",
+        "format.go",
+        "mapping.go",
+        "options.go",
+        "printer.go",
+        "scopes.go",
+        "standard.go",
+        "types.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/checker",
+    importpath = "github.com/google/cel-go/checker",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/cel-go/checker/decls:go_default_library",
+        "//vendor/github.com/google/cel-go/common:go_default_library",
+        "//vendor/github.com/google/cel-go/common/ast:go_default_library",
+        "//vendor/github.com/google/cel-go/common/containers:go_default_library",
+        "//vendor/github.com/google/cel-go/common/debug:go_default_library",
+        "//vendor/github.com/google/cel-go/common/decls:go_default_library",
+        "//vendor/github.com/google/cel-go/common/operators:go_default_library",
+        "//vendor/github.com/google/cel-go/common/overloads:go_default_library",
+        "//vendor/github.com/google/cel-go/common/stdlib:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types:go_default_library",
+        "//vendor/github.com/google/cel-go/parser:go_default_library",
+        "//vendor/google.golang.org/genproto/googleapis/api/expr/v1alpha1:go_default_library",
+    ],
+)
