@@ -64,9 +64,11 @@ func (e *EFIEnvironment) EFICode(secureBoot, sev bool) string {
 	}
 }
 
-func (e *EFIEnvironment) EFIVars(secureBoot, sev bool) string {
-	if secureBoot {
+func (e *EFIEnvironment) EFIVars(secureBoot, enrolledKeys, sev bool) string {
+	if secureBoot && enrolledKeys {
 		return e.varsSecureBoot
+	} else if secureBoot && !enrolledKeys {
+		return e.vars
 	} else if sev {
 		return e.varsSEV
 	} else {

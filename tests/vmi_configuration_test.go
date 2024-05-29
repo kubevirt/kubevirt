@@ -242,13 +242,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Describe("VirtualMachineInstance definition", func() {
 		fedoraWithUefiSecuredBoot := libvmifact.NewFedora(
 			libvmi.WithResourceMemory("1Gi"),
-			libvmi.WithUefi(true),
+			libvmi.WithUefi(true, true),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		alpineWithUefiWithoutSecureBoot := libvmifact.NewAlpine(
 			libvmi.WithResourceMemory("1Gi"),
-			libvmi.WithUefi(false),
+			libvmi.WithUefi(false, false),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
