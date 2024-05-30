@@ -85,6 +85,13 @@ const (
 	VolumesUpdateStrategy = "VolumesUpdateStrategy"
 	// VolumeMigration enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
 	VolumeMigration = "VolumeMigration"
+	// Owner: @xpivarc
+	// Alpha: v1.3.0
+	//
+	// NodeRestriction enables Kubelet's like NodeRestriction but for Kubevirt's virt-handler.
+	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
+	// in Kubernetes 1.30 as Beta.
+	NodeRestrictionGate = "NodeRestriction"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -255,4 +262,8 @@ func (config *ClusterConfig) VolumesUpdateStrategyEnabled() bool {
 
 func (config *ClusterConfig) VolumeMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(VolumeMigration)
+}
+
+func (config *ClusterConfig) NodeRestrictionEnabled() bool {
+	return config.isFeatureGateEnabled(NodeRestrictionGate)
 }

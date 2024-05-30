@@ -29,18 +29,20 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
+const nodeNameExtraInfo = "authentication.kubernetes.io/node-name"
+
 type VMIUpdateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
 func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-
 	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
@@ -48,6 +50,45 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	newVMI, oldVMI, err := webhookutils.GetVMIFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	if admitter.ClusterConfig.NodeRestrictionEnabled() && webhooks.IsComponentServiceAccount(ar.Request.UserInfo.Username, webhooks.GetNamespace(), components.HandlerServiceAccountName) {
+		values, exist := ar.Request.UserInfo.Extra[nodeNameExtraInfo]
+		if exist && len(values) > 0 {
+			nodeName := values[0]
+			sourceNode := oldVMI.Status.NodeName
+			targetNode := ""
+			if oldVMI.Status.MigrationState != nil {
+				targetNode = oldVMI.Status.MigrationState.TargetNode
+			}
+
+			// Check that source or target is making this request
+			if nodeName != sourceNode && (targetNode == "" || nodeName != targetNode) {
+				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "Node restriction, virt-handler is only allowed to modify VMIs it owns",
+					},
+				})
+			}
+
+			// Check that handler is not setting target
+			if targetNode == "" && newVMI.Status.MigrationState != nil && newVMI.Status.MigrationState.TargetNode != targetNode {
+				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "Node restriction, virt-handler is not allowed to set target node",
+					},
+				})
+			}
+		} else {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Node restriction failed, virt-handler service account is missing node name",
+				},
+			})
+		}
 	}
 
 	// Reject VMI update if VMI spec changed
