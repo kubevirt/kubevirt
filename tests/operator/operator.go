@@ -1736,8 +1736,9 @@ spec:
 				// NOTE: we are using virtctl explicitly here because we want to start the VM
 				// using the subresource endpoint in the same way virtctl performs this.
 				By("Starting VM with virtctl")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand("start", "--namespace", testsuite.GetTestNamespace(nil), vmYaml.vmName)
-				Expect(startCommand()).To(Succeed())
+				output, err := clientcmd.NewRepeatableVirtctlCommandWithOut("start", "--namespace", testsuite.GetTestNamespace(nil), vmYaml.vmName)()
+				Expect(err).To(Not(HaveOccurred()))
+				fmt.Fprint(GinkgoWriter, output)
 
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
