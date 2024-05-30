@@ -1023,7 +1023,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi := newVMWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 300)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1090,7 +1090,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi := newVMWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc)
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 				tests.AddEphemeralDisk(vmi, "myephemeral", v1.VirtIO, image)
 
@@ -1109,7 +1109,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.RunVMIAndExpectLaunch(newVMWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc), 180)
+				vmi := tests.RunVMIAndExpectLaunch(newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc), 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1124,7 +1124,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -1984,7 +1984,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteOnce, sc)
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteOnce, sc)
 				vmi.Spec.Hostname = string(cd.ContainerDiskAlpine)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
@@ -3517,7 +3517,7 @@ func runCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 	return output, nil
 }
 
-func newVMWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode k8sv1.PersistentVolumeAccessMode, storageClass string) *v1.VirtualMachineInstance {
+func newVMIWithDataVolumeForMigration(containerDisk cd.ContainerDisk, accessMode k8sv1.PersistentVolumeAccessMode, storageClass string) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 
 	dv := libdv.NewDataVolume(

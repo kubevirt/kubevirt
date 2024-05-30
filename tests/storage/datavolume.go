@@ -95,6 +95,15 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		}
 	})
 
+	createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
+		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		By("Waiting until the DataVolume is ready")
+		libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+		By("Waiting until the VirtualMachineInstance starts")
+		return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
+	}
+
 	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
@@ -278,7 +287,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					vmi := createVMIAndWaitForReady(vmi, dataVolume)
+					vmi := createAndWaitForVMIReady(vmi, dataVolume)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -369,7 +378,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
-				vmi = createVMIAndWaitForReady(vmi, dataVolume)
+				vmi = createAndWaitForVMIReady(vmi, dataVolume)
 
 				By(checkingVMInstanceConsoleExpectedOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1114,8 +1123,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			vm = tests.StopVirtualMachine(vm)
 		},
-			Entry("[test_id:8567]GC is enabled", pointer.P(0), pointer.P(0), ""),
-			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(-1), pointer.P(0), "true"),
+			Entry("[test_id:8567]GC is enabled", pointer.P(int32(0)), pointer.P(int32(0)), ""),
+			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(int32(-1)), pointer.P(int32(0)), "true"),
 		)
 	})
 
@@ -1203,7 +1212,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			By("Making sure the slow Fedora import is complete before creating the VMI")
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
-			vmi = createVMIAndWaitForReady(vmi, dataVolume)
+			vmi = createAndWaitForVMIReady(vmi, dataVolume)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1493,21 +1502,4 @@ func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 		libvmi.WithDataVolumeTemplate(dataVolume),
 	)
 	return vm
-}
-
-func createVMIAndWaitForReady(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
-	virtClient := kubevirt.Client()
-
-	vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	By("Waiting until the DataVolume is ready")
-	libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
-	By("Waiting until the VirtualMachineInstance starts")
-	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-
-	return libwait.WaitForVMIPhase(vmi,
-		[]v1.VirtualMachineInstancePhase{v1.Running},
-		libwait.WithWarningsIgnoreList(warningsIgnoreList),
-		libwait.WithTimeout(500),
-	)
 }

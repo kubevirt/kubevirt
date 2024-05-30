@@ -326,13 +326,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			By("Waiting until the DataVolume is ready")
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 			By("Waiting until the VirtualMachineInstance starts")
-			warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-			vmi = libwait.WaitForVMIPhase(vmi,
-				[]v1.VirtualMachineInstancePhase{v1.Running},
-				libwait.WithWarningsIgnoreList(warningsIgnoreList),
-				libwait.WithTimeout(500),
-			)
-
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
 			// Wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 

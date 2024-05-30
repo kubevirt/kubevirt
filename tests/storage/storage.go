@@ -140,6 +140,16 @@ var _ = SIGDescribe("Storage", func() {
 				}
 			}
 		}
+
+		createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume, timeoutSec int) *v1.VirtualMachineInstance {
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, timeoutSec, HaveSucceeded())
+			By("Waiting until the VirtualMachineInstance starts")
+			return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(timeoutSec))
+		}
+
 		Context("[Serial]with error disk", Serial, func() {
 			var (
 				nodeName, address, device string
@@ -982,10 +992,11 @@ var _ = SIGDescribe("Storage", func() {
 						libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
 					),
 				)
+
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Launching a VMI with PVC ")
+				By("Launching a VMI with PVC")
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -993,8 +1004,8 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithResourceMemory("1Gi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				)
-				libstorage.EventuallyDV(dv, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-				tests.RunVMIAndExpectLaunch(vmi, 180)
+
+				createAndWaitForVMIReady(vmi, dv, 240)
 
 				By(checkingVMInstanceConsoleOut)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -1210,27 +1221,13 @@ var _ = SIGDescribe("Storage", func() {
 				vmi2.Spec.Affinity = affinityRule
 			})
 
-			createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				By("Waiting until the DataVolume is ready")
-				libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
-				By("Waiting until the VirtualMachineInstance starts")
-				warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-				return libwait.WaitForVMIPhase(vmi,
-					[]v1.VirtualMachineInstancePhase{v1.Running},
-					libwait.WithWarningsIgnoreList(warningsIgnoreList),
-					libwait.WithTimeout(500),
-				)
-			}
-
 			It("should successfully start 2 VMs with a shareable disk", func() {
 				setShareable(vmi1, "disk0")
 				setShareable(vmi2, "disk0")
 
 				By("Starting the VirtualMachineInstances")
-				createAndWaitForVMIReady(vmi1, dv)
-				createAndWaitForVMIReady(vmi2, dv)
+				createAndWaitForVMIReady(vmi1, dv, 500)
+				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
 		Context("write and read data from a shared disk", func() {

@@ -535,21 +535,21 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
 					),
 				)
-				vm := libvmi.NewVirtualMachine(libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-					libvmi.WithDataVolume("disk0", dataVolume.Name),
-					libvmi.WithResourceMemory("1Gi"),
-					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				))
-				libstorage.AddDataVolumeTemplate(vm, dataVolume)
-				return vm
+				return libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+						libvmi.WithDataVolume("disk0", dataVolume.Name),
+						libvmi.WithResourceMemory("1Gi"),
+						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					),
+					libvmi.WithDataVolumeTemplate(dataVolume),
+				)
 			}
 
 			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
 				vm := getVMWithRegistryImportDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), storageClass)
 				vm.Spec.Running = pointer.Bool(running)
-
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 

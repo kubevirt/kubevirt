@@ -1827,7 +1827,7 @@ func newVMWithDataVolumeForRestore(containerDisk cd.ContainerDisk, storageClass 
 			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
 		),
 	)
-	vm := libvmi.NewVirtualMachine(
+	return libvmi.NewVirtualMachine(
 		libvmi.New(
 			libvmi.WithDataVolume("disk0", dv.Name),
 			libvmi.WithResourceMemory("256Mi"),
@@ -1836,7 +1836,6 @@ func newVMWithDataVolumeForRestore(containerDisk cd.ContainerDisk, storageClass 
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		),
+		libvmi.WithDataVolumeTemplate(dv),
 	)
-	libstorage.AddDataVolumeTemplate(vm, dv)
-	return vm
 }

@@ -1375,8 +1375,8 @@ var _ = SIGDescribe("Export", func() {
 		checkVMNameInStatus(vm.Name, export)
 		checkExportSecretRef(export)
 		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
-		// [1] is the cloud init
-		restoreName2 := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[2].DataVolume.Name)
+		// [1] is the blank image
+		restoreName2 := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[1].DataVolume.Name)
 		verifyMultiKubevirtInternal(export, export.Name, export.Namespace, restoreName, restoreName2)
 	})
 
@@ -2652,7 +2652,7 @@ func newVMWithDataVolumeForExport(containerDisk cd.ContainerDisk, storageClass s
 			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
 		),
 	)
-	vm := libvmi.NewVirtualMachine(
+	return libvmi.NewVirtualMachine(
 		libvmi.New(
 			libvmi.WithDataVolume("disk0", dv.Name),
 			libvmi.WithResourceMemory("256Mi"),
@@ -2663,6 +2663,4 @@ func newVMWithDataVolumeForExport(containerDisk cd.ContainerDisk, storageClass s
 		),
 		libvmi.WithDataVolumeTemplate(dv),
 	)
-
-	return vm
 }
