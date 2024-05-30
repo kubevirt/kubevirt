@@ -59,6 +59,10 @@ const (
 )
 
 var _ = SIGDescribe("bridge nic-hotplug", func() {
+	const (
+		ifaceName = "iface1"
+		nadName   = "skynet"
+	)
 
 	BeforeEach(func() {
 		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
@@ -95,7 +99,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		})
 
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
+			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 
@@ -122,7 +126,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
+			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("restarting the VM")
 			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).Restart(
@@ -154,7 +158,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
+			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			By("migrating the VMI")
@@ -168,7 +172,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("has connectivity over the secondary network", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
+			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			const subnetMask = "/24"
@@ -215,7 +219,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
+			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			var err error
@@ -259,6 +263,8 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 	const (
 		linuxBridgeNetworkName1 = "red"
 		linuxBridgeNetworkName2 = "blue"
+
+		nadName = "skynet"
 	)
 
 	BeforeEach(func() {

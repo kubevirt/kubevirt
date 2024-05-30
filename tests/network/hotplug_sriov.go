@@ -65,6 +65,11 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 	})
 
 	Context("a running VM", func() {
+		const (
+			ifaceName = "iface1"
+			nadName   = "skynet"
+		)
+
 		var hotPluggedVM *v1.VirtualMachine
 		var hotPluggedVMI *v1.VirtualMachineInstance
 
@@ -93,7 +98,7 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 		})
 
 		It("can hotplug a network interface", func() {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
+			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 
 			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
 			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)

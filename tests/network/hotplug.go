@@ -38,11 +38,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
-const (
-	ifaceName = "iface1"
-	nadName   = "skynet"
-)
-
 func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int32) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -66,7 +61,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int
 	return vmi
 }
 
-func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance, ifaceName, nadName string) *v1.VirtualMachineInstance {
 	EventuallyWithOffset(1, func() []v1.Network {
 		var err error
 		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
