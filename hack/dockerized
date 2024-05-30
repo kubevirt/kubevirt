@@ -24,18 +24,6 @@ TEMPFILE=".rsynctemp"
 
 CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY}"
 
-# Be less verbose with bazel
-# For ppc64le the bazel server seems to be running out of memory in the Travis CI, so forcing no concurrent jobs to be run
-if [ -n "${TRAVIS_JOB_ID}" ]; then
-    cat >ci.bazelrc <<EOF
-common --noshow_progress --noshow_loading_progress
-build:ppc64le --jobs=1
-build:aarch64 --jobs=1
-run:ppc64le --jobs=1
-run:aarch64 --jobs=1
-EOF
-fi
-
 # Create the persistent container volume
 if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
     $KUBEVIRT_CRI volume create ${BUILDER}
