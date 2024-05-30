@@ -43,13 +43,6 @@ const (
 	nadName   = "skynet"
 )
 
-type hotplugMethod string
-
-const (
-	migrationBased hotplugMethod = "migrationBased"
-	inPlace        hotplugMethod = "inPlace"
-)
-
 func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int32) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())

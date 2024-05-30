@@ -51,6 +51,13 @@ import (
 
 const linuxBridgeName = "supadupabr"
 
+type hotplugMethod string
+
+const (
+	migrationBased hotplugMethod = "migrationBased"
+	inPlace        hotplugMethod = "inPlace"
+)
+
 var _ = SIGDescribe("bridge nic-hotplug", func() {
 
 	BeforeEach(func() {

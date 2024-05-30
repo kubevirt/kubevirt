@@ -94,7 +94,13 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 
 		It("can hotplug a network interface", func() {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifySriovDynamicInterfaceChange(hotPluggedVMI, migrationBased)
+
+			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
+			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migrationUID)
+
+			hotPluggedVMI = verifySriovDynamicInterfaceChange(hotPluggedVMI)
+
 			const guestSecondaryIfaceName = "eth1"
 			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 
@@ -152,12 +158,7 @@ func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) err
 	return patchVMWithNewInterface(vm, newNetwork, newIface)
 }
 
-func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
-	if plugMethod == migrationBased {
-		migration := libmigration.New(vmi.Name, vmi.Namespace)
-		migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-		libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
-	}
+func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	const queueCount = 0
 	return verifyDynamicInterfaceChange(vmi, queueCount)
 }
