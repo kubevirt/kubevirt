@@ -39,9 +39,8 @@ import (
 )
 
 const (
-	ifaceName   = "iface1"
-	nadName     = "skynet"
-	vmIfaceName = "eth1"
+	ifaceName = "iface1"
+	nadName   = "skynet"
 )
 
 type hotplugMethod string

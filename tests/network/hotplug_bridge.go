@@ -58,6 +58,8 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 	})
 
 	Context("a running VM", func() {
+		const guestSecondaryIfaceName = "eth1"
+
 		var hotPluggedVM *v1.VirtualMachine
 		var hotPluggedVMI *v1.VirtualMachineInstance
 
@@ -88,7 +90,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
-			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 
 			updatedVM, err := kubevirt.Client().VirtualMachine(hotPluggedVM.Namespace).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -138,7 +140,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 
 			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -152,7 +154,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
 			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migrationUID)
-			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -167,8 +169,8 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			const ip2 = "10.1.1.2"
 
 			By("Configuring static IP address on the hotplugged interface inside the guest")
-			Expect(libnet.AddIPAddress(hotPluggedVMI, vmIfaceName, ip1+subnetMask)).To(Succeed())
-			Expect(libnet.SetInterfaceUp(hotPluggedVMI, vmIfaceName)).To(Succeed())
+			Expect(libnet.AddIPAddress(hotPluggedVMI, guestSecondaryIfaceName, ip1+subnetMask)).To(Succeed())
+			Expect(libnet.SetInterfaceUp(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 
 			By("creating another VM connected to the same secondary network")
 			net := v1.Network{
