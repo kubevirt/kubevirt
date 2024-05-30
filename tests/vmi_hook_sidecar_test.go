@@ -293,7 +293,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
-			DescribeTable("should update domain XML with SM BIOS properties", func(withImage bool) {
+			DescribeTable("[test_id:9833]should update domain XML with SM BIOS properties", func(withImage bool) {
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if withImage {
