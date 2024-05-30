@@ -174,18 +174,6 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 							},
 						},
 					},
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      "node-role.kubernetes.io/control-plane",
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      "node-role.kubernetes.io/master",
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
 				},
 			}
 
