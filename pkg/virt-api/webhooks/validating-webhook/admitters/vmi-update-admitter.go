@@ -423,7 +423,7 @@ func admitHotplugCPU(oldCPUTopology, newCPUTopology *v1.CPU) *admissionv1.Admiss
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("CPU topology maxSockets changed"),
+				Message: "CPU topology maxSockets changed",
 			},
 		})
 	}
@@ -443,7 +443,7 @@ func admitHotplugMemory(oldMemory, newMemory *v1.Memory) *admissionv1.AdmissionR
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Memory maxGuest changed"),
+				Message: "Memory maxGuest changed",
 			},
 		})
 	}
