@@ -6,6 +6,7 @@ go_library(
         "expose_util.go",
         "interface.go",
         "ipaddress.go",
+        "mac.go",
         "namespace.go",
         "network_attachment_definition.go",
         "ping.go",

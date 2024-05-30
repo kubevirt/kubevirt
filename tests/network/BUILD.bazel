@@ -14,7 +14,6 @@ go_library(
         "hotplug_bridge.go",
         "hotplug_sriov.go",
         "kubectl.go",
-        "mac.go",
         "networkpolicy.go",
         "port_forward.go",
         "primary_pod_network.go",

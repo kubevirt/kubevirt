@@ -136,7 +136,7 @@ func newSRIOVNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Int
 
 func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
 	newNetwork, newIface := newSRIOVNetworkInterface(name, netAttachDefName)
-	mac, err := GenerateRandomMac()
+	mac, err := libnet.GenerateRandomMac()
 	if err != nil {
 		return err
 	}

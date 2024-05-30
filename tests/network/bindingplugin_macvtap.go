@@ -77,10 +77,10 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 
 	var serverMAC, clientMAC string
 	BeforeEach(func() {
-		mac, err := GenerateRandomMac()
+		mac, err := libnet.GenerateRandomMac()
 		serverMAC = mac.String()
 		Expect(err).NotTo(HaveOccurred())
-		mac, err = GenerateRandomMac()
+		mac, err = libnet.GenerateRandomMac()
 		Expect(err).NotTo(HaveOccurred())
 		clientMAC = mac.String()
 	})

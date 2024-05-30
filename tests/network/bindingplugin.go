@@ -120,7 +120,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			var vmi *v1.VirtualMachineInstance
 			var chosenMAC string
 
-			chosenMACHW, err := GenerateRandomMac()
+			chosenMACHW, err := libnet.GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 			chosenMAC = chosenMACHW.String()
 
