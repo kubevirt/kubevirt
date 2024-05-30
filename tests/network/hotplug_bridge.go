@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -143,7 +144,10 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
-			migrate(hotPluggedVMI)
+			By("migrating the VMI")
+			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
+			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migrationUID)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -300,7 +304,10 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 			Expect(removeInterface(vm, linuxBridgeNetworkName1)).To(Succeed())
 
 			if plugMethod == migrationBased {
-				migrate(vmi)
+				By("migrating the VMI")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+				libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 			}
 
 			By("verify unplugged iface cleared from VM & VMI")
@@ -380,8 +387,13 @@ func addBridgeInterface(vm *v1.VirtualMachine, name, netAttachDefName string) er
 }
 
 func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+	if plugMethod == migrationBased {
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
+		migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+		libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+	}
 	const queueCount = 1
-	return verifyDynamicInterfaceChange(vmi, plugMethod, queueCount)
+	return verifyDynamicInterfaceChange(vmi, queueCount)
 }
 
 func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {

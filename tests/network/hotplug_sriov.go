@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -145,6 +146,11 @@ func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) err
 }
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+	if plugMethod == migrationBased {
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
+		migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+		libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+	}
 	const queueCount = 0
-	return verifyDynamicInterfaceChange(vmi, plugMethod, queueCount)
+	return verifyDynamicInterfaceChange(vmi, queueCount)
 }

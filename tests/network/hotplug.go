@@ -24,15 +24,12 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,11 +53,7 @@ const (
 	inPlace        hotplugMethod = "inPlace"
 )
 
-func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod, queueCount int32) *v1.VirtualMachineInstance {
-	if plugMethod == migrationBased {
-		migrate(vmi)
-	}
-
+func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int32) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
@@ -157,13 +150,6 @@ func newVMWithOneInterface() *v1.VirtualMachine {
 	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	return vm
-}
-
-func migrate(vmi *v1.VirtualMachineInstance) {
-	By("migrating the VMI")
-	migration := libmigration.New(vmi.Name, vmi.Namespace)
-	migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-	libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 }
 
 func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
