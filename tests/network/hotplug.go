@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	. "github.com/onsi/gomega"
@@ -37,7 +36,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
 const (
@@ -143,13 +141,6 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 		})
 	}
 	return ifaceStatus
-}
-
-func newVMWithOneInterface() *v1.VirtualMachine {
-	vm := libvmi.NewVirtualMachine(libvmifact.NewAlpineWithTestTooling(), libvmi.WithRunning())
-	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	return vm
 }
 
 func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
