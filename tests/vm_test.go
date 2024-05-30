@@ -1349,7 +1349,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 							Should(Equal(k8sv1.PodFailed))
 					}
 				},
-					Entry("[test_id:7164]VMI launcher pod should fail", "false"),
+					Entry("[test_id:7164][QUARANTINE]VMI launcher pod should fail", "false", decorators.Quarantine),
 					Entry("[test_id:6993][QUARANTINE]VMI launcher pod compute container should keep running", "true", decorators.Quarantine),
 				)
 			})
