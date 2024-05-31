@@ -640,7 +640,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
-			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 			vm.Spec.Running = &running
 
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
@@ -734,7 +734,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+				vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				preallocation := true
 				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
 
@@ -758,7 +758,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+				vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				num := 2
@@ -784,7 +784,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+				vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1102,7 +1102,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
-			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm := RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1304,7 +1304,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Skip("Skip test when Filesystem storage class is not present")
 			}
 
-			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 
 			storageClass = &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1490,7 +1490,7 @@ func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 	return vm
 }
 
-func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
+func RenderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
 	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(importUrl),
@@ -1503,7 +1503,6 @@ func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storag
 		libvmi.New(
 			libvmi.WithDataVolume("disk0", dv.Name),
 			libvmi.WithResourceMemory("256Mi"),
-			libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
 			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),

@@ -583,7 +583,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:6837]delete snapshot after freeze, expect vm unfreeze", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -610,7 +610,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:6949]should unfreeze vm if snapshot fails when deadline exceeded", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -668,7 +668,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("[test_id:7472]should succeed online snapshot with hot plug disk", func() {
 				var vmi *v1.VirtualMachineInstance
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm, vmi = createAndStartVM(vm)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -860,7 +860,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				const noGuestAgentString = "No guest agent, exiting"
 				By("Creating VM")
 				var vmi *v1.VirtualMachineInstance
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
+				vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
 				vm.Spec.Running = pointer.BoolPtr(false)
 
 				vm, vmi = createAndStartVM(vm)
@@ -948,7 +948,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				It("[test_id:8922]should include memory dump in vm snapshot", func() {
 					var vmi *v1.VirtualMachineInstance
-					vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+					vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 					vm, vmi = createAndStartVM(vm)
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -1015,7 +1015,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 		Context("With more complicated VM", func() {
 			BeforeEach(func() {
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
+				vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
 				wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 				if wffcSC {
 					// with wffc need to start the virtual machine
@@ -1353,7 +1353,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			DescribeTable("should successfully create a snapshot", func(ttl *int32) {
 				libstorage.SetDataVolumeGC(virtClient, ttl)
 
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
+				vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
 				wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 				if wffcSC {
 					// with wffc need to start the virtual machine
@@ -1563,7 +1563,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
+				vm = RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 					Name: instancetype.Name,

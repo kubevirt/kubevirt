@@ -8,11 +8,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -42,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/storage"
 )
 
 const (
@@ -527,29 +526,8 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
-			getVMWithRegistryImportDataVolume := func(imgUrl, storageClassName string) *virtv1.VirtualMachine {
-				dataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(imgUrl, cdiv1.RegistryPullNode),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClassName),
-						libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(imgUrl)),
-						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
-					),
-				)
-				return libvmi.NewVirtualMachine(
-					libvmi.New(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-						libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
-						libvmi.WithDataVolume("disk0", dataVolume.Name),
-						libvmi.WithResourceMemory("1Gi"),
-						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					),
-					libvmi.WithDataVolumeTemplate(dataVolume),
-				)
-			}
-
 			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
-				vm := getVMWithRegistryImportDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), storageClass)
+				vm := storage.RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, storageClass)
 				vm.Spec.Running = pointer.Bool(running)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -684,7 +662,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						preference, err := virtClient.VirtualMachinePreference(ns).Create(context.Background(), preference, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						sourceVM = getVMWithRegistryImportDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), snapshotStorageClass)
+						sourceVM = storage.RenderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
 						sourceVM.Spec.Running = nil
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
