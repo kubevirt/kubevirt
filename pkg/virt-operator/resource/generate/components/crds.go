@@ -39,7 +39,8 @@ import (
 	"k8s.io/utils/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1alpha1 "kubevirt.io/api/export/v1alpha1"
+	exportv1beta1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -65,7 +66,7 @@ var (
 	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1beta1.SchemeGroupVersion.Group
-	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
+	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
 	PreserveUnknownFieldsFalse       = false
@@ -595,17 +596,25 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
+	crd.ObjectMeta.Name = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: exportv1.SchemeGroupVersion.Group,
+		Group: exportv1beta1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
-				Name:    exportv1.SchemeGroupVersion.Version,
+				Name:    exportv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+			},
+			{
+				Name:    exportv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 			},
 		},
 		Scope: "Namespaced",
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
 		Names: extv1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachineexports",
 			Singular:   "virtualmachineexport",

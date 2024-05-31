@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"

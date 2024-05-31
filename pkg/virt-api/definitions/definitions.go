@@ -40,7 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"

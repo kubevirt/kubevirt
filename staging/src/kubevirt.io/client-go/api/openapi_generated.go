@@ -556,6 +556,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus":                                 schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref),
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume":                                 schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref),
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat":                           schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolumeFormat(ref),
+		"kubevirt.io/api/export/v1beta1.Condition":                                                   schema_kubevirtio_api_export_v1beta1_Condition(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExport":                                        schema_kubevirtio_api_export_v1beta1_VirtualMachineExport(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportLink":                                    schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLink(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportLinks":                                   schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLinks(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportList":                                    schema_kubevirtio_api_export_v1beta1_VirtualMachineExportList(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportManifest":                                schema_kubevirtio_api_export_v1beta1_VirtualMachineExportManifest(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportSpec":                                    schema_kubevirtio_api_export_v1beta1_VirtualMachineExportSpec(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportStatus":                                  schema_kubevirtio_api_export_v1beta1_VirtualMachineExportStatus(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportVolume":                                  schema_kubevirtio_api_export_v1beta1_VirtualMachineExportVolume(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportVolumeFormat":                            schema_kubevirtio_api_export_v1beta1_VirtualMachineExportVolumeFormat(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.CPUInstancetype":                                      schema_kubevirtio_api_instancetype_v1alpha1_CPUInstancetype(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.CPUPreferences":                                       schema_kubevirtio_api_instancetype_v1alpha1_CPUPreferences(ref),
 		"kubevirt.io/api/instancetype/v1alpha1.ClockPreferences":                                     schema_kubevirtio_api_instancetype_v1alpha1_ClockPreferences(ref),
@@ -25994,6 +26004,465 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref common
 }
 
 func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolumeFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportVolumeFormat contains the format type and URL to get the volume in that format",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"format": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Format is the format of the image at the specified URL",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Url is the url that contains the volume in the format specified",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"format", "url"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Condition defines conditions",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExport defines the operation of exporting a VM source",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/export/v1beta1.VirtualMachineExportSpec", "kubevirt.io/api/export/v1beta1.VirtualMachineExportStatus"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cert is the public CA certificate base64 encoded",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Volumes is a list of available volumes to export",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportVolume"),
+									},
+								},
+							},
+						},
+					},
+					"manifests": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Manifests is a list of available manifests for the export",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportManifest"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"cert"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/export/v1beta1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1beta1.VirtualMachineExportVolume"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportLinks contains the links that point the exported VM resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"internal": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportLink"),
+						},
+					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportLink"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/export/v1beta1.VirtualMachineExportLink"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportList is a list of VirtualMachineExport resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1beta1.VirtualMachineExport"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/export/v1beta1.VirtualMachineExport"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportManifest contains the type and URL of the exported manifest",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is the type of manifest returned",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Url is the url of the endpoint that returns the manifest",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "url"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportSpec is the spec for a VirtualMachineExport resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+						},
+					},
+					"tokenSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ttlDuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ttlDuration limits the lifetime of an export If this field is set, after this duration has passed from counting from CreationTimestamp, the export is eligible to be automatically deleted. If this field is omitted, a reasonable default is applied.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportLinks"),
+						},
+					},
+					"tokenSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenSecretRef is the name of the secret that contains the token used by the export server pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ttlExpirationTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The time at which the VM Export will be completely removed according to specified TTL Formula is CreationTimestamp + TTL",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"serviceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceName is the name of the service created associated with the Virtual Machine export. It will be used to create the internal URLs for downloading the images",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualMachineName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineName shows the name of the source virtual machine if the source is either a VirtualMachine or a VirtualMachineSnapshot. This is mainly to easily identify the source VirtualMachine in case of a VirtualMachineSnapshot",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1beta1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/export/v1beta1.Condition", "kubevirt.io/api/export/v1beta1.VirtualMachineExportLinks"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportVolume contains the name and available formats for the exported volume",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the exported volume",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"formats": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"format",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportVolumeFormat"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/export/v1beta1.VirtualMachineExportVolumeFormat"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportVolumeFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

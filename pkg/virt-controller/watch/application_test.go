@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"

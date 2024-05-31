@@ -38,18 +38,18 @@ import (
 	"time"
 
 	flag "github.com/spf13/pflag"
-	"sigs.k8s.io/yaml"
-
-	"kubevirt.io/client-go/log"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
+
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/storage/export/export"
 )
 
 const (
@@ -68,15 +68,6 @@ const (
 
 type TokenGetterFunc func() (string, error)
 
-type VolumeInfo struct {
-	Path       string
-	ArchiveURI string
-	DirURI     string
-	RawURI     string
-	RawGzURI   string
-	VMURI      string
-	SecretURI  string
-}
 type ExportServerConfig struct {
 	Deadline time.Time
 
@@ -86,14 +77,14 @@ type ExportServerConfig struct {
 
 	TokenFile string
 
-	Volumes []VolumeInfo
+	Paths *export.ServerPaths
 
 	// unit testing helpers
 	ArchiveHandler     func(string) http.Handler
 	DirHandler         func(string, string) http.Handler
 	FileHandler        func(string) http.Handler
 	GzipHandler        func(string) http.Handler
-	VmHandler          func(string, []VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
+	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
 
 	TokenGetter TokenGetterFunc
@@ -128,25 +119,20 @@ func (er *execReader) Close() error {
 
 func (s *exportServer) initHandler() {
 	mux := http.NewServeMux()
-	for i, vi := range s.Volumes {
+	for _, vi := range s.Paths.Volumes {
 		for path, handler := range s.getHandlerMap(vi) {
 			log.Log.Infof("Handling path %s\n", path)
 			mux.Handle(path, tokenChecker(s.TokenGetter, handler))
 		}
-		if i == 0 {
-			// Only register once
-			if vi.VMURI != "" {
-				p := vi.Path
-				mux.Handle(filepath.Join(internal, vi.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(p, s.Volumes, getInternalBasePath, getInternalCAConfigMap)))
-				mux.Handle(filepath.Join(external, vi.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(p, s.Volumes, getExternalBasePath, getExternalCAConfigMap)))
-			}
-			if vi.SecretURI != "" {
-				mux.Handle(filepath.Join(internal, vi.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
-				mux.Handle(filepath.Join(external, vi.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
-			}
-		}
 	}
-
+	if s.Paths.VMURI != "" {
+		mux.Handle(filepath.Join(internal, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getInternalBasePath, getInternalCAConfigMap)))
+		mux.Handle(filepath.Join(external, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getExternalBasePath, getExternalCAConfigMap)))
+	}
+	if s.Paths.SecretURI != "" {
+		mux.Handle(filepath.Join(internal, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
+		mux.Handle(filepath.Join(external, s.Paths.SecretURI), tokenChecker(s.TokenGetter, s.TokenSecretHandler(s.TokenGetter)))
+	}
 	s.handler = mux
 }
 
@@ -158,7 +144,7 @@ func getExternalCAConfigMap() (*corev1.ConfigMap, error) {
 	return getCAConfigMap(externalCaConfigMapPath)
 }
 
-func (s *exportServer) getHandlerMap(vi VolumeInfo) map[string]http.Handler {
+func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handler {
 	fi, err := os.Stat(vi.Path)
 	if err != nil {
 		log.Log.Reason(err).Errorf("error statting %s", vi.Path)
@@ -515,7 +501,7 @@ func gzipHandler(filePath string) http.Handler {
 	})
 }
 
-func vmHandler(filePath string, vi []VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
+func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			w.WriteHeader(http.StatusBadRequest)
@@ -536,14 +522,12 @@ func vmHandler(filePath string, vi []VolumeInfo, getBasePath func() (string, err
 		headerSecretName := getSecretTokenName(exportName)
 		path, err := getBasePath()
 		if err != nil {
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					log.Log.Reason(err).Info("path not found")
-					w.WriteHeader(http.StatusNotFound)
-				} else {
-					log.Log.Reason(err).Error("error reading path")
-					w.WriteHeader(http.StatusInternalServerError)
-				}
+			if errors.Is(err, os.ErrNotExist) {
+				log.Log.Reason(err).Info("path not found")
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				log.Log.Reason(err).Error("error reading path")
+				w.WriteHeader(http.StatusInternalServerError)
 			}
 			return
 		}
