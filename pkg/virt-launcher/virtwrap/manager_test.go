@@ -42,8 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -2862,7 +2860,7 @@ var _ = Describe("Manager helper functions", func() {
 
 		BeforeEach(func() {
 			fakePercentFloat = 0.7648
-			fakePercent := cdiv1beta1.Percent(fmt.Sprint(fakePercentFloat))
+			fakePercent := v1.Percent(fmt.Sprint(fakePercentFloat))
 			fakeCapacity := int64(2345 * 3456) // We need (1-0.7648)*fakeCapacity to be > 1MiB and misaligned
 
 			properDisk = api.Disk{
@@ -2900,13 +2898,13 @@ var _ = Describe("Manager helper functions", func() {
 			}),
 			Entry("filesystem overhead is invalid float", func() api.Disk {
 				disk := properDisk
-				badPercent := cdiv1beta1.Percent(fmt.Sprintf("%f", 3.14)) // Must be between 0 and 1
+				badPercent := v1.Percent("3.14") // Must be between 0 and 1
 				disk.FilesystemOverhead = &badPercent
 				return disk
 			}),
 			Entry("filesystem overhead is non-float", func() api.Disk {
 				disk := properDisk
-				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
+				fakePercent := v1.Percent("abcdefg")
 				disk.FilesystemOverhead = &fakePercent
 				return disk
 			}),

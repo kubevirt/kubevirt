@@ -36,7 +36,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -54,7 +53,7 @@ const (
 	localPortArg    = "local-port"
 
 	configName         = "config"
-	filesystemOverhead = cdiv1.Percent("0.055")
+	filesystemOverhead = v1.Percent("0.055")
 	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
 
 	processingWaitInterval = 2 * time.Second

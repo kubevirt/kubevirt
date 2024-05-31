@@ -33,7 +33,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/precond"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // For versioning of the virt-handler and -launcher communication,
@@ -657,25 +656,25 @@ type ControllerDriver struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
-	Device             string         `xml:"device,attr"`
-	Snapshot           string         `xml:"snapshot,attr,omitempty"`
-	Type               string         `xml:"type,attr"`
-	Source             DiskSource     `xml:"source"`
-	Target             DiskTarget     `xml:"target"`
-	Serial             string         `xml:"serial,omitempty"`
-	Driver             *DiskDriver    `xml:"driver,omitempty"`
-	ReadOnly           *ReadOnly      `xml:"readonly,omitempty"`
-	Auth               *DiskAuth      `xml:"auth,omitempty"`
-	Alias              *Alias         `xml:"alias,omitempty"`
-	BackingStore       *BackingStore  `xml:"backingStore,omitempty"`
-	BootOrder          *BootOrder     `xml:"boot,omitempty"`
-	Address            *Address       `xml:"address,omitempty"`
-	Model              string         `xml:"model,attr,omitempty"`
-	BlockIO            *BlockIO       `xml:"blockio,omitempty"`
-	FilesystemOverhead *cdiv1.Percent `xml:"filesystemOverhead,omitempty"`
-	Capacity           *int64         `xml:"capacity,omitempty"`
-	ExpandDisksEnabled bool           `xml:"expandDisksEnabled,omitempty"`
-	Shareable          *Shareable     `xml:"shareable,omitempty"`
+	Device             string        `xml:"device,attr"`
+	Snapshot           string        `xml:"snapshot,attr,omitempty"`
+	Type               string        `xml:"type,attr"`
+	Source             DiskSource    `xml:"source"`
+	Target             DiskTarget    `xml:"target"`
+	Serial             string        `xml:"serial,omitempty"`
+	Driver             *DiskDriver   `xml:"driver,omitempty"`
+	ReadOnly           *ReadOnly     `xml:"readonly,omitempty"`
+	Auth               *DiskAuth     `xml:"auth,omitempty"`
+	Alias              *Alias        `xml:"alias,omitempty"`
+	BackingStore       *BackingStore `xml:"backingStore,omitempty"`
+	BootOrder          *BootOrder    `xml:"boot,omitempty"`
+	Address            *Address      `xml:"address,omitempty"`
+	Model              string        `xml:"model,attr,omitempty"`
+	BlockIO            *BlockIO      `xml:"blockio,omitempty"`
+	FilesystemOverhead *v1.Percent   `xml:"filesystemOverhead,omitempty"`
+	Capacity           *int64        `xml:"capacity,omitempty"`
+	ExpandDisksEnabled bool          `xml:"expandDisksEnabled,omitempty"`
+	Shareable          *Shareable    `xml:"shareable,omitempty"`
 }
 
 type DiskAuth struct {

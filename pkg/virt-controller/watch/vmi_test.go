@@ -2883,10 +2883,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			fsOverhead, err := controller.getFilesystemOverhead(nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Failed to find CDIConfig but CDI exists"))
-			Expect(fsOverhead).To(Equal(cdiv1.Percent("0")))
+			Expect(fsOverhead).To(Equal(virtv1.Percent("0")))
 		})
 
-		DescribeTable("getFilesystemOverhead", func(volumeMode k8sv1.PersistentVolumeMode, scName string, expectedOverhead cdiv1.Percent) {
+		DescribeTable("getFilesystemOverhead", func(volumeMode k8sv1.PersistentVolumeMode, scName string, expectedOverhead virtv1.Percent) {
 			cdi := cdiv1.CDI{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testCDI",
@@ -2925,10 +2925,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fsOverhead).To(Equal(expectedOverhead))
 		},
-			Entry("should not get any fs overhead if the PVC has volumeMode block", k8sv1.PersistentVolumeBlock, "default", cdiv1.Percent("0")),
-			Entry("should return global fs overhead if there's no storageClassName", k8sv1.PersistentVolumeFilesystem, "", cdiv1.Percent("0.5")),
-			Entry("should return global fs overhead if the storageClassName is invalid", k8sv1.PersistentVolumeFilesystem, "nonValid", cdiv1.Percent("0.5")),
-			Entry("should return the appropiate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", cdiv1.Percent("0.8")),
+			Entry("should not get any fs overhead if the PVC has volumeMode block", k8sv1.PersistentVolumeBlock, "default", virtv1.Percent("0")),
+			Entry("should return global fs overhead if there's no storageClassName", k8sv1.PersistentVolumeFilesystem, "", virtv1.Percent("0.5")),
+			Entry("should return global fs overhead if the storageClassName is invalid", k8sv1.PersistentVolumeFilesystem, "nonValid", virtv1.Percent("0.5")),
+			Entry("should return the appropiate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", virtv1.Percent("0.8")),
 		)
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {
@@ -3027,7 +3027,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Target: "",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
 						ClaimName:          "existing",
-						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055")),
+						FilesystemOverhead: pointer.P(virtv1.Percent("0.055")),
 					},
 				},
 				{
@@ -3038,7 +3038,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Message: "PVC is in phase Bound",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
 						ClaimName:          "hotplug",
-						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055")),
+						FilesystemOverhead: pointer.P(virtv1.Percent("0.055")),
 					},
 					HotplugVolume: &virtv1.HotplugVolumeStatus{},
 				},
@@ -3136,7 +3136,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Target: "",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
 						ClaimName:          "existing",
-						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055"))},
+						FilesystemOverhead: pointer.P(virtv1.Percent("0.055"))},
 				},
 				{
 					Name:   "hotplug",

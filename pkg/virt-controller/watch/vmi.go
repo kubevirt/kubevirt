@@ -2167,7 +2167,7 @@ func (c *VMIController) volumeReady(phase virtv1.VolumePhase) bool {
 	return phase == virtv1.VolumeReady
 }
 
-func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
+func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (virtv1.Percent, error) {
 	// To avoid conflicts, we only allow having one CDI instance
 	if cdiInstances := len(c.cdiStore.List()); cdiInstances != 1 {
 		if cdiInstances > 1 {

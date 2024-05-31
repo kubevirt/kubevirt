@@ -340,8 +340,12 @@ type PersistentVolumeClaimInfo struct {
 
 	// Percentage of filesystem's size to be reserved when resizing the PVC
 	// +optional
-	FilesystemOverhead *cdiv1.Percent `json:"filesystemOverhead,omitempty"`
+	FilesystemOverhead *Percent `json:"filesystemOverhead,omitempty"`
 }
+
+// Percent is a string that can only be a value between [0,1)
+// +kubebuilder:validation:Pattern=`^(0(?:\.\d{1,3})?|1)$`
+type Percent string
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
 type VolumeStatus struct {
