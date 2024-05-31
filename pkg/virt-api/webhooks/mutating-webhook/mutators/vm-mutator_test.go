@@ -175,14 +175,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		}
 	})
 
-	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppcle64MachineType string, result string) {
+	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, result string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ArchitectureConfiguration: &v1.ArchConfiguration{
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: amd64MachineType},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: arm64MachineType},
-						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppcle64MachineType},
+						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppc64leMachineType},
 					},
 				},
 			},
