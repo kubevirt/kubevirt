@@ -21,6 +21,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests:go_default_library",
         "//tests/clientcmd:go_default_library",
+        "//tests/console:go_default_library",
         "//tests/decorators:go_default_library",
         "//tests/exec:go_default_library",
         "//tests/flags:go_default_library",

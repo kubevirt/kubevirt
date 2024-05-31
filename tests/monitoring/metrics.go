@@ -61,10 +61,11 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 		var excludedMetrics = map[string]bool{
 			// virt-api
 			// can later be added in pre-existing feature tests
-			"kubevirt_portforward_active_tunnels":  true,
-			"kubevirt_usbredir_active_connections": true,
-			"kubevirt_vnc_active_connections":      true,
-			"kubevirt_console_active_connections":  true,
+			"kubevirt_portforward_active_tunnels":                true,
+			"kubevirt_usbredir_active_connections":               true,
+			"kubevirt_vnc_active_connections":                    true,
+			"kubevirt_console_active_connections":                true,
+			"kubevirt_vmi_last_api_connection_timestamp_seconds": true,
 
 			// virt-controller
 			// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics

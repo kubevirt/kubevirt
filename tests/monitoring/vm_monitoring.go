@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -266,6 +267,30 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 	})
 
+	Context("Metrics that are based on VMI connections", func() {
+		It("should have kubevirt_vmi_last_api_connection_timestamp_seconds correctly configured", func() {
+
+			By("Starting a VirtualMachineInstance")
+			vmi := libvmifact.NewAlpine()
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Validating the metric gets updated with the last connection timestamp")
+			initialTimestamp := float64(time.Now().Unix())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			initialMetricValue := validateLastConnectionMetricValue(vmi, initialTimestamp)
+
+			time.Sleep(1 * time.Minute)
+
+			secondaryTimestamp := float64(time.Now().Unix())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			secondaryMetricValue := validateLastConnectionMetricValue(vmi, secondaryTimestamp)
+
+			Expect(secondaryMetricValue).To(BeNumerically(">", initialMetricValue))
+		})
+	})
+
 	Context("VM alerts", func() {
 		var scales *libmonitoring.Scaling
 
@@ -341,4 +366,21 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 	}, 240*time.Second, 1*time.Second).Should(ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition")
 
 	return agentVMI
+}
+
+func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, timestamp float64) float64 {
+	var err error
+	var metricValue float64
+	virtClient := kubevirt.Client()
+	labels := map[string]string{"vmi": vmi.Name, "namespace": vmi.Namespace}
+
+	EventuallyWithOffset(1, func() float64 {
+		metricValue, err = libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_last_api_connection_timestamp_seconds", labels)
+		if err != nil {
+			return -1
+		}
+		return metricValue
+	}, 3*time.Minute, 20*time.Second).Should(BeNumerically(">=", timestamp))
+
+	return metricValue
 }

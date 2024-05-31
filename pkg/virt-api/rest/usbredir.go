@@ -16,6 +16,8 @@ func (app *SubresourceAPIApp) USBRedirRequestHandler(request *restful.Request, r
 	activeConnectionMetric := apimetrics.NewActiveUSBRedirConnection(request.PathParameter("namespace"), request.PathParameter("name"))
 	defer activeConnectionMetric.Dec()
 
+	defer apimetrics.SetVMILastConnectionTimestamp(request.PathParameter("namespace"), request.PathParameter("name"))
+
 	streamer := NewRawStreamer(
 		app.FetchVirtualMachineInstance,
 		validateVMIForUSBRedir,
