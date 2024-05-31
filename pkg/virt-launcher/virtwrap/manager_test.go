@@ -2885,7 +2885,8 @@ var _ = Describe("Manager helper functions", func() {
 		})
 
 		DescribeTable("should return error when", func(createDisk func() api.Disk) {
-
+			_, ok := possibleGuestSize(createDisk())
+			Expect(ok).To(BeFalse())
 		},
 			Entry("disk capacity is nil", func() api.Disk {
 				disk := properDisk
