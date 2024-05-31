@@ -30,9 +30,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -403,6 +405,18 @@ func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.In
 func addBridgeInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
 	newNetwork, newIface := newBridgeNetworkInterface(name, netAttachDefName)
 	return patchVMWithNewInterface(vm, newNetwork, newIface)
+}
+
+func removeInterface(vm *v1.VirtualMachine, name string) error {
+	specCopy := vm.Spec.Template.Spec.DeepCopy()
+	ifaceToRemove := vmispec.LookupInterfaceByName(specCopy.Domain.Devices.Interfaces, name)
+	ifaceToRemove.State = v1.InterfaceStateAbsent
+	patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/devices/interfaces", vm.Spec.Template.Spec.Domain.Devices.Interfaces, specCopy.Domain.Devices.Interfaces)
+	if err != nil {
+		return err
+	}
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+	return err
 }
 
 func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {

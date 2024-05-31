@@ -161,15 +161,3 @@ func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIf
 	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
 }
-
-func removeInterface(vm *v1.VirtualMachine, name string) error {
-	specCopy := vm.Spec.Template.Spec.DeepCopy()
-	ifaceToRemove := vmispec.LookupInterfaceByName(specCopy.Domain.Devices.Interfaces, name)
-	ifaceToRemove.State = v1.InterfaceStateAbsent
-	patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/devices/interfaces", vm.Spec.Template.Spec.Domain.Devices.Interfaces, specCopy.Domain.Devices.Interfaces)
-	if err != nil {
-		return err
-	}
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
-	return err
-}
