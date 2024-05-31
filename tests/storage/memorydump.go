@@ -53,7 +53,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
@@ -717,8 +716,6 @@ var _ = SIGDescribe("Memory dump", func() {
 // createExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
 func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	var err error
-
 	pod := libstorage.RenderPodWithPVC(podName, []string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"}, nil, pvc)
 	pod.Spec.Containers[0].ReadinessProbe = &k8sv1.Probe{
 		ProbeHandler: k8sv1.ProbeHandler{
@@ -727,10 +724,5 @@ func createExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) 
 			},
 		},
 	}
-	pod = tests.RunPod(pod)
-
-	Eventually(matcher.ThisPod(pod), 120).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
-	pod, err = matcher.ThisPod(pod)()
-	Expect(err).ToNot(HaveOccurred())
-	return pod
+	return runPodAndExpectPhase(pod, k8sv1.PodRunning)
 }

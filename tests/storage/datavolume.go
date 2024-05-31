@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -634,12 +635,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			running := true
 
-			var foundSC bool
-			vm, foundSC = newRandomVMWithDataVolume()
-			if !foundSC {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
+			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 			vm.Spec.Running = &running
 
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
@@ -728,11 +729,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
 		Context("using Alpine http import", func() {
 			It("a DataVolume with preallocation shouldn't have discard=unmap", func() {
-				vm, foundSC := newRandomVMWithDataVolume()
-				if !foundSC {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				preallocation := true
 				vm.Spec.DataVolumeTemplates[0].Spec.Preallocation = &preallocation
 
@@ -751,11 +753,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
-				vm, foundSC := newRandomVMWithDataVolume()
-				if !foundSC {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				num := 2
@@ -776,11 +779,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
-				vm, foundSC := newRandomVMWithDataVolume()
-				if !foundSC {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
 				}
 
+				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1093,11 +1097,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		DescribeTable("Verify DV of VM with DataVolumeTemplates is garbage collected when", func(ttlBefore, ttlAfter *int32, gcAnnotation string) {
 			libstorage.SetDataVolumeGC(virtClient, ttlBefore)
 
-			vm, foundSC := newRandomVMWithDataVolume()
-			if !foundSC {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
 
+			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1294,7 +1299,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		var virtualMachinePreference *instanceType.VirtualMachinePreference
 
 		BeforeEach(func() {
-			vm, _ = newRandomVMWithDataVolume()
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage class is not present")
+			}
+
+			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
 
 			storageClass = &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1461,30 +1471,6 @@ func volumeExpansionAllowed(sc string) bool {
 		*storageClass.AllowVolumeExpansion
 }
 
-func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
-	if !exists {
-		return nil, false
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm, true
-}
-
 func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {
 	dataVolume := libdv.NewDataVolume(
 		libdv.WithPVCSource(sourceNamespace, sourceName),
@@ -1502,4 +1488,26 @@ func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 		libvmi.WithDataVolumeTemplate(dataVolume),
 	)
 	return vm
+}
+
+func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *virtv1.VirtualMachine {
+	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
+	dv := libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(importUrl),
+		libdv.WithPVC(
+			libdv.PVCWithStorageClass(storageClass),
+			libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
+		),
+	)
+	return libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithDataVolume("disk0", dv.Name),
+			libvmi.WithResourceMemory("256Mi"),
+			libvmi.WithCloudInitNoCloudEncodedUserData(bashHelloScript),
+			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+		),
+		libvmi.WithDataVolumeTemplate(dv),
+	)
 }
