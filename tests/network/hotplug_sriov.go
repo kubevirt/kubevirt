@@ -98,7 +98,7 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 		})
 
 		It("can hotplug a network interface", func() {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
+			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 
 			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
 			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
@@ -160,10 +160,10 @@ func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) err
 		return err
 	}
 	newIface.MacAddress = mac.String()
-	return patchVMWithNewInterface(vm, newNetwork, newIface)
+	return libnet.PatchVMWithNewInterface(vm, newNetwork, newIface)
 }
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	const queueCount = 0
-	return verifyDynamicInterfaceChange(vmi, queueCount)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount)
 }

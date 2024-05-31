@@ -101,7 +101,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		})
 
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
+			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, guestSecondaryIfaceName)).To(Succeed())
 
@@ -128,7 +128,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
+			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("restarting the VM")
 			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).Restart(
@@ -160,7 +160,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
+			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			By("migrating the VMI")
@@ -174,7 +174,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("has connectivity over the secondary network", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
+			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			const subnetMask = "/24"
@@ -221,7 +221,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		)
 
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
-			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
+			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			var err error
@@ -404,7 +404,7 @@ func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.In
 
 func addBridgeInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
 	newNetwork, newIface := newBridgeNetworkInterface(name, netAttachDefName)
-	return patchVMWithNewInterface(vm, newNetwork, newIface)
+	return libnet.PatchVMWithNewInterface(vm, newNetwork, newIface)
 }
 
 func removeInterface(vm *v1.VirtualMachine, name string) error {
@@ -426,7 +426,7 @@ func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMeth
 		libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 	}
 	const queueCount = 1
-	return verifyDynamicInterfaceChange(vmi, queueCount)
+	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount)
 }
 
 func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {

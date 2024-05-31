@@ -17,28 +17,27 @@
  *
  */
 
-package network
+package libnet
 
 import (
 	"context"
 	"fmt"
 	"time"
 
+	. "github.com/onsi/gomega"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	. "github.com/onsi/gomega"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
-func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int32) *v1.VirtualMachineInstance {
+func VerifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int32) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
@@ -61,7 +60,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int
 	return vmi
 }
 
-func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance, ifaceName, nadName string) *v1.VirtualMachineInstance {
+func WaitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance, ifaceName, nadName string) *v1.VirtualMachineInstance {
 	EventuallyWithOffset(1, func() []v1.Network {
 		var err error
 		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
@@ -130,7 +129,7 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 	return ifaceStatus
 }
 
-func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
+func PatchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
 	patchData, err := patch.GeneratePatchPayload(
 		patch.PatchOperation{
 			Op:    patch.PatchTestOp,
@@ -153,11 +152,16 @@ func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIf
 			Value: append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, newIface),
 		},
 	)
-
 	if err != nil {
 		return err
 	}
 
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(
+		context.Background(),
+		vm.Name,
+		types.JSONPatchType,
+		patchData,
+		metav1.PatchOptions{},
+	)
 	return err
 }
