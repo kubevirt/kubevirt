@@ -893,6 +893,11 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
 		return 0, false
 	}
+	if filesystemOverhead < 0 || filesystemOverhead > 1 {
+		log.DefaultLogger().Errorf("Invalid filesystem overhead %f (must be between 0 and 1)", filesystemOverhead)
+		return 0, false
+	}
+
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {

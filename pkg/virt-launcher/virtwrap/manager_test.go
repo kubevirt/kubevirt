@@ -2898,6 +2898,12 @@ var _ = Describe("Manager helper functions", func() {
 				disk.FilesystemOverhead = nil
 				return disk
 			}),
+			Entry("filesystem overhead is invalid float", func() api.Disk {
+				disk := properDisk
+				badPercent := cdiv1beta1.Percent(fmt.Sprintf("%f", 3.14)) // Must be between 0 and 1
+				disk.FilesystemOverhead = &badPercent
+				return disk
+			}),
 			Entry("filesystem overhead is non-float", func() api.Disk {
 				disk := properDisk
 				fakePercent := cdiv1beta1.Percent(fmt.Sprint("abcdefg"))
