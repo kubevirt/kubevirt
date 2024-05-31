@@ -107,7 +107,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		Eventually(func(g Gomega) []string {
 			patch := []byte(fmt.Sprintf(`[{"op": "add", "path": "/spec/configuration/developerConfiguration/featureGates/-", "value": %q}]`, fakeFG))
-			kv, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch("kubevirt-kubevirt-hyperconverged", types.JSONPatchType, patch, &metav1.PatchOptions{})
+			kv, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch(ctx, "kubevirt-kubevirt-hyperconverged", types.JSONPatchType, patch, metav1.PatchOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 			return kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
 		}).WithTimeout(10 * time.Second).

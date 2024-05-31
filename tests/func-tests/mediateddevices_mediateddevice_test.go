@@ -66,7 +66,7 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", func() {
 				hc = tests.UpdateHCORetry(ctx, cli, hc)
 				Expect(hc.Spec.MediatedDevicesConfiguration).To(Equal(expectedMediatedDevicesConfiguration))
 				Eventually(func() *kubevirtcorev1.MediatedDevicesConfiguration {
-					kubevirt, err := cli.KubeVirt(flags.KubeVirtInstallNamespace).Get("kubevirt-kubevirt-hyperconverged", &metav1.GetOptions{})
+					kubevirt, err := cli.KubeVirt(flags.KubeVirtInstallNamespace).Get(ctx, "kubevirt-kubevirt-hyperconverged", metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return kubevirt.Spec.Configuration.MediatedDevicesConfiguration
 				}, 10*time.Second, time.Second).Should(Equal(expectedKVMediatedDevicesConfiguration))

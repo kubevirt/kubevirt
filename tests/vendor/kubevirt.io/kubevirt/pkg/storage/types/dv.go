@@ -122,6 +122,10 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 	for k, v := range dataVolumeTemplate.Annotations {
 		annotations[k] = v
 	}
+
+	// passed to PVC by DataVolume controller
+	annotations[allowClaimAdoptionAnnotation] = "true"
+
 	newDataVolume.ObjectMeta.Annotations = annotations
 
 	if newDataVolume.Spec.PriorityClassName == "" && priorityClassName != "" {

@@ -81,7 +81,7 @@ var _ = Describe("Check that the TuningPolicy annotation is configuring the KV o
 
 func checkTuningPolicy(cli kubecli.KubevirtClient, expected kvv1.TokenBucketRateLimiter) {
 	Eventually(func(g Gomega) {
-		kv, err := cli.KubeVirt(flags.KubeVirtInstallNamespace).Get("kubevirt-kubevirt-hyperconverged", &metav1.GetOptions{})
+		kv, err := cli.KubeVirt(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-kubevirt-hyperconverged", metav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(kv).ToNot(BeNil())
 		g.Expect(kv.Spec.Configuration).ToNot(BeNil())

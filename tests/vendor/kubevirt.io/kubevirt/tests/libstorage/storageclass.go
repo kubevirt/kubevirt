@@ -70,8 +70,16 @@ func DeleteStorageClass(name string) {
 }
 
 func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
-	if Config != nil && Config.StorageSnapshot != "" {
-		return Config.StorageSnapshot, nil
+	var snapshotStorageClass string
+
+	if Config == nil || Config.StorageSnapshot == "" {
+		return "", nil
+	}
+	snapshotStorageClass = Config.StorageSnapshot
+
+	sc, err := client.StorageV1().StorageClasses().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
+	if err != nil {
+		return "", err
 	}
 
 	crd, err := client.
@@ -87,7 +95,7 @@ func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return "", err
 	}
 
-	hasV1 := false
+	var hasV1 bool
 	for _, v := range crd.Spec.Versions {
 		if v.Name == "v1" && v.Served {
 			hasV1 = true
@@ -105,32 +113,20 @@ func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 	if len(volumeSnapshotClasses.Items) == 0 {
 		return "", nil
 	}
-	defaultSnapClass := volumeSnapshotClasses.Items[0]
+
+	var hasMatchingSnapClass bool
 	for _, snapClass := range volumeSnapshotClasses.Items {
-		if snapClass.Annotations["snapshot.storage.kubernetes.io/is-default-class"] == "true" {
-			defaultSnapClass = snapClass
-		}
-	}
-
-	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	var storageClass string
-
-	for _, sc := range storageClasses.Items {
-		if sc.Provisioner == defaultSnapClass.Driver {
-			storageClass = sc.Name
+		if sc.Provisioner == snapClass.Driver {
+			hasMatchingSnapClass = true
 			break
 		}
 	}
 
-	if Config != nil {
-		Config.StorageSnapshot = storageClass
+	if !hasMatchingSnapClass {
+		return "", nil
 	}
 
-	return storageClass, nil
+	return snapshotStorageClass, nil
 }
 
 func GetSnapshotClass(scName string, client kubecli.KubevirtClient) (string, error) {
@@ -252,6 +248,19 @@ func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, 
 	sc, foundSC := GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {
 		sc, foundSC = GetRWXBlockStorageClass()
+	}
+
+	return sc, foundSC
+}
+
+// GetAvailableRWFileSystemStorageClass returns any RWX or RWO access mode filesystem storage class available, i.e,
+// If the available filesystem storage classes only support RWO access mode, it returns that SC or vice versa.
+// This method to get a filesystem storage class is recommended when the access mode is not relevant for the purpose of
+// the test.
+func GetAvailableRWFileSystemStorageClass() (string, bool) {
+	sc, foundSC := GetRWXFileSystemStorageClass()
+	if !foundSC {
+		sc, foundSC = GetRWOFileSystemStorageClass()
 	}
 
 	return sc, foundSC

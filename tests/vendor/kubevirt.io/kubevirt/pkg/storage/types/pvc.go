@@ -36,7 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-const MiB = 1024 * 1024
+const (
+	MiB = 1024 * 1024
+
+	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
+
+	dataVolumeGarbageCollectionAnnotation = "cdi.kubevirt.io/garbageCollected"
+)
 
 type PvcNotFoundError struct {
 	Reason string
@@ -44,6 +50,10 @@ type PvcNotFoundError struct {
 
 func (e PvcNotFoundError) Error() string {
 	return e.Reason
+}
+
+func IsDataVolumeGarbageCollected(pvc *k8sv1.PersistentVolumeClaim) bool {
+	return pvc != nil && pvc.Annotations[dataVolumeGarbageCollectionAnnotation] == "true"
 }
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
@@ -246,4 +256,38 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 	}
 
 	return pvc
+}
+
+func IsHotplugVolume(vol *virtv1.Volume) bool {
+	if vol == nil {
+		return false
+	}
+	volSrc := vol.VolumeSource
+	if volSrc.PersistentVolumeClaim != nil && volSrc.PersistentVolumeClaim.Hotpluggable {
+		return true
+	}
+	if volSrc.DataVolume != nil && volSrc.DataVolume.Hotpluggable {
+		return true
+	}
+	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
+		return true
+	}
+
+	return false
+}
+
+func GetVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {
+	volumes := map[string]*virtv1.Volume{}
+	for _, vol := range vmiSpec.Volumes {
+		volumes[vol.Name] = vol.DeepCopy()
+	}
+	return volumes
+}
+
+func GetDisksByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Disk {
+	disks := map[string]*virtv1.Disk{}
+	for _, disk := range vmiSpec.Domain.Devices.Disks {
+		disks[disk.Name] = disk.DeepCopy()
+	}
+	return disks
 }

@@ -25,35 +25,41 @@ import (
 	autov1 "k8s.io/api/autoscaling/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 )
 
 func (k *kubevirt) ReplicaSet(namespace string) ReplicaSetInterface {
-	return &rc{k.restClient, namespace, "virtualmachineinstancereplicasets"}
+	return &rc{
+		k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachineInstanceReplicaSets(namespace),
+		k.restClient,
+		namespace,
+		"virtualmachineinstancereplicasets",
+	}
 }
 
 type rc struct {
+	kvcorev1.VirtualMachineInstanceReplicaSetInterface
 	restClient *rest.RESTClient
 	namespace  string
 	resource   string
 }
 
-func (v *rc) GetScale(replicaSetName string, options k8smetav1.GetOptions) (result *autov1.Scale, err error) {
+func (v *rc) GetScale(ctx context.Context, replicaSetName string, options k8smetav1.GetOptions) (result *autov1.Scale, err error) {
 	result = &autov1.Scale{}
 	err = v.restClient.Get().
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Name(replicaSetName).
 		SubResource("scale").
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return
 }
 
-func (v *rc) UpdateScale(replicaSetName string, scale *autov1.Scale) (result *autov1.Scale, err error) {
+func (v *rc) UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (result *autov1.Scale, err error) {
 	result = &autov1.Scale{}
 	err = v.restClient.Put().
 		Namespace(v.namespace).
@@ -61,110 +67,51 @@ func (v *rc) UpdateScale(replicaSetName string, scale *autov1.Scale) (result *au
 		Name(replicaSetName).
 		SubResource("scale").
 		Body(scale).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return
 }
 
-func (v *rc) Get(name string, options k8smetav1.GetOptions) (replicaset *v1.VirtualMachineInstanceReplicaSet, err error) {
-	replicaset = &v1.VirtualMachineInstanceReplicaSet{}
-	err = v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(context.Background()).
-		Into(replicaset)
+func (v *rc) Get(ctx context.Context, name string, options k8smetav1.GetOptions) (replicaset *v1.VirtualMachineInstanceReplicaSet, err error) {
+	replicaset, err = v.VirtualMachineInstanceReplicaSetInterface.Get(ctx, name, options)
 	replicaset.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }
 
-func (v *rc) List(options k8smetav1.ListOptions) (replicasetList *v1.VirtualMachineInstanceReplicaSetList, err error) {
-	replicasetList = &v1.VirtualMachineInstanceReplicaSetList{}
-	err = v.restClient.Get().
-		Resource(v.resource).
-		Namespace(v.namespace).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(context.Background()).
-		Into(replicasetList)
+func (v *rc) List(ctx context.Context, options k8smetav1.ListOptions) (replicasetList *v1.VirtualMachineInstanceReplicaSetList, err error) {
+	replicasetList, err = v.VirtualMachineInstanceReplicaSetInterface.List(ctx, options)
 	for i := range replicasetList.Items {
 		replicasetList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	}
-
 	return
 }
 
-func (v *rc) Create(replicaset *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result = &v1.VirtualMachineInstanceReplicaSet{}
-	err = v.restClient.Post().
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Body(replicaset).
-		Do(context.Background()).
-		Into(result)
+func (v *rc) Create(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.CreateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result, err = v.VirtualMachineInstanceReplicaSetInterface.Create(ctx, replicaset, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }
 
-func (v *rc) Update(replicaset *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result = &v1.VirtualMachineInstanceReplicaSet{}
-	err = v.restClient.Put().
-		Name(replicaset.ObjectMeta.Name).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Body(replicaset).
-		Do(context.Background()).
-		Into(result)
+func (v *rc) Update(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result, err = v.VirtualMachineInstanceReplicaSetInterface.Update(ctx, replicaset, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }
 
-func (v *rc) Delete(name string, options *k8smetav1.DeleteOptions) error {
-	return v.restClient.Delete().
-		Namespace(v.namespace).
-		Resource(v.resource).
-		Name(name).
-		Body(options).
-		Do(context.Background()).
-		Error()
+func (v *rc) Delete(ctx context.Context, name string, options k8smetav1.DeleteOptions) error {
+	return v.VirtualMachineInstanceReplicaSetInterface.Delete(ctx, name, options)
 }
 
-func (v *rc) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result = &v1.VirtualMachineInstanceReplicaSet{}
-	err = v.restClient.Patch(pt).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource(subresources...).
-		Name(name).
-		Body(data).
-		Do(context.Background()).
-		Into(result)
-	return
+func (v *rc) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	return v.VirtualMachineInstanceReplicaSetInterface.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-func (v *rc) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result = &v1.VirtualMachineInstanceReplicaSet{}
-	err = v.restClient.Patch(pt).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource("status").
-		Name(name).
-		Body(data).
-		Do(context.Background()).
-		Into(result)
-	return
+func (v *rc) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts k8smetav1.PatchOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	return v.Patch(ctx, name, pt, data, opts, "status")
 }
 
-func (v *rc) UpdateStatus(vmi *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	result = &v1.VirtualMachineInstanceReplicaSet{}
-	err = v.restClient.Put().
-		Name(vmi.ObjectMeta.Name).
-		Namespace(v.namespace).
-		Resource(v.resource).
-		SubResource("status").
-		Body(vmi).
-		Do(context.Background()).
-		Into(result)
+func (v *rc) UpdateStatus(ctx context.Context, replicaset *v1.VirtualMachineInstanceReplicaSet, opts k8smetav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result, err = v.VirtualMachineInstanceReplicaSetInterface.UpdateStatus(ctx, replicaset, opts)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	return
 }

@@ -44,7 +44,7 @@ func ThisVMI(vmi *virtv1.VirtualMachineInstance) func() (*virtv1.VirtualMachineI
 func ThisVMIWith(namespace string, name string) func() (*virtv1.VirtualMachineInstance, error) {
 	return func() (p *virtv1.VirtualMachineInstance, err error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+		p, err = virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -61,7 +61,7 @@ func ThisVM(vm *virtv1.VirtualMachine) func() (*virtv1.VirtualMachine, error) {
 func ThisVMWith(namespace string, name string) func() (*virtv1.VirtualMachine, error) {
 	return func() (p *virtv1.VirtualMachine, err error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
+		p, err = virtClient.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -73,7 +73,7 @@ func ThisVMWith(namespace string, name string) func() (*virtv1.VirtualMachine, e
 func AllVMIs(namespace string) func() ([]virtv1.VirtualMachineInstance, error) {
 	return func() (p []virtv1.VirtualMachineInstance, err error) {
 		virtClient := kubevirt.Client()
-		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &k8smetav1.ListOptions{})
+		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), k8smetav1.ListOptions{})
 		return list.Items, err
 	}
 }
@@ -133,7 +133,7 @@ func ThisMigration(migration *virtv1.VirtualMachineInstanceMigration) func() (*v
 func ThisMigrationWith(namespace string, name string) func() (*virtv1.VirtualMachineInstanceMigration, error) {
 	return func() (p *virtv1.VirtualMachineInstanceMigration, err error) {
 		virtClient := kubevirt.Client()
-		p, err = virtClient.VirtualMachineInstanceMigration(namespace).Get(name, &k8smetav1.GetOptions{})
+		p, err = virtClient.VirtualMachineInstanceMigration(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}

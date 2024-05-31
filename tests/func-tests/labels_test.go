@@ -42,18 +42,18 @@ var _ = Describe("Check that all the sub-resources have the required labels", La
 		const kv_name = "kubevirt-kubevirt-hyperconverged"
 
 		By("removing one of the managed labels and wait for it to be added back")
-		kv, err := cli.KubeVirt(hc.Namespace).Get(kv_name, &metav1.GetOptions{})
+		kv, err := cli.KubeVirt(hc.Namespace).Get(ctx, kv_name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		expectedVersion := kv.Labels[hcoutil.AppLabelVersion]
 
 		patch := []byte(`[{"op": "remove", "path": "/metadata/labels/app.kubernetes.io~1version"}]`)
 		Eventually(func() error {
-			_, err := cli.KubeVirt(hc.Namespace).Patch(kv_name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			_, err := cli.KubeVirt(hc.Namespace).Patch(ctx, kv_name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			return err
 		}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).Should(Succeed())
 
 		Eventually(func(g Gomega) {
-			kv, err := cli.KubeVirt(hc.Namespace).Get(kv_name, &metav1.GetOptions{})
+			kv, err := cli.KubeVirt(hc.Namespace).Get(ctx, kv_name, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(kv.Labels).To(HaveKeyWithValue(hcoutil.AppLabelVersion, expectedVersion))
 		}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())

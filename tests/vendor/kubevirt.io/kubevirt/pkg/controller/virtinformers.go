@@ -704,6 +704,7 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 	}
 
 	return cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 		// Gets: snapshot key. Returns: clones that their source is the specified snapshot
 		"snapshotSource": func(obj interface{}) ([]string, error) {
 			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
