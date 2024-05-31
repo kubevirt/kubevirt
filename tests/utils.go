@@ -20,7 +20,6 @@
 package tests
 
 import (
-	"archive/tar"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -294,29 +293,6 @@ func RunPodInNamespace(pod *k8sv1.Pod, namespace string) *k8sv1.Pod {
 
 func RunPod(pod *k8sv1.Pod) *k8sv1.Pod {
 	return RunPodInNamespace(pod, testsuite.GetTestNamespace(pod))
-}
-
-func ChangeImgFilePermissionsToNonQEMU(pvc *k8sv1.PersistentVolumeClaim) {
-	args := []string{fmt.Sprintf(`chmod 640 %s && chown root:root %s && sync`, filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"), filepath.Join(libstorage.DefaultPvcMountPath, "disk.img"))}
-
-	By("changing disk.img permissions to non qemu")
-	pod := libstorage.RenderPodWithPVC("change-permissions-disk-img-pod", []string{"/bin/bash", "-c"}, args, pvc)
-
-	// overwrite securityContext
-	rootUser := int64(0)
-	pod.Spec.Containers[0].SecurityContext = &k8sv1.SecurityContext{
-		Capabilities: &k8sv1.Capabilities{
-			Drop: []k8sv1.Capability{"ALL"},
-		},
-		Privileged:   pointer.P(true),
-		RunAsUser:    &rootUser,
-		RunAsNonRoot: pointer.P(false),
-	}
-
-	virtClient := kubevirt.Client()
-	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
@@ -774,29 +750,6 @@ func MountCloudInitFunc(devName string) func(*v1.VirtualMachineInstance) {
 			&expect.BSnd{S: EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func ArchiveToFile(tgtFile *os.File, sourceFilesNames ...string) {
-	w := tar.NewWriter(tgtFile)
-	defer w.Close()
-
-	for _, src := range sourceFilesNames {
-		srcFile, err := os.Open(src)
-		Expect(err).ToNot(HaveOccurred())
-		defer srcFile.Close()
-
-		srcFileInfo, err := srcFile.Stat()
-		Expect(err).ToNot(HaveOccurred())
-
-		hdr, err := tar.FileInfoHeader(srcFileInfo, "")
-		Expect(err).ToNot(HaveOccurred())
-
-		err = w.WriteHeader(hdr)
-		Expect(err).ToNot(HaveOccurred())
-
-		_, err = io.Copy(w, srcFile)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }

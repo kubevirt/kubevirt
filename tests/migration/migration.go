@@ -78,8 +78,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 
@@ -232,7 +232,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			assertConnectivityToService := func(msg string) {
 				By(msg)
 				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
-				tcpJob.Spec.BackoffLimit = pointer.Int32(3)
+				tcpJob.Spec.BackoffLimit = pointer.P(int32(3))
 				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1239,7 +1239,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			}, 30*time.Second).Should(Not(BeNil()))
 			By("waiting for the dv import to pvc to finish")
 			libstorage.EventuallyDV(dv, 180, HaveSucceeded())
-			tests.ChangeImgFilePermissionsToNonQEMU(pvc)
+			libstorage.ChangeImgFilePermissionsToNonQEMU(pvc)
 			return dv
 		}
 
@@ -1423,7 +1423,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Context("[Serial] with TLS disabled", Serial, func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKvConfig(virtClient)
-					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					vmi := libvmifact.NewAlpineWithTestTooling(
@@ -1447,7 +1447,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				It("[test_id:6977]should not secure migrations with TLS", func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
-					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
+					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking()...)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -1633,8 +1633,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				BeforeEach(func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-						ProgressTimeout:         pointer.Int64(5),
-						CompletionTimeoutPerGiB: pointer.Int64(5),
+						ProgressTimeout:         pointer.P(int64(5)),
+						CompletionTimeoutPerGiB: pointer.P(int64(5)),
 						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
 					}
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -2542,7 +2542,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKvConfig(virtClient)
-				config.MigrationConfiguration.AllowAutoConverge = pointer.BoolPtr(true)
+				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := libvmifact.NewAlpine(
@@ -2554,7 +2554,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
 					policy := GeneratePolicyAndAlignVMI(vmi)
-					policy.Spec.AllowAutoConverge = pointer.BoolPtr(false)
+					policy.Spec.AllowAutoConverge = pointer.P(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -3209,7 +3209,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi := libvmifact.NewWindows()
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
-				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.P(true)}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 				expectTopologyHintsToBeSet(vmi)

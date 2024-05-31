@@ -225,7 +225,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 30*time.Second).Should(Not(BeNil()))
 				By("waiting for the dv import to pvc to finish")
 				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
-				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
+				libstorage.ChangeImgFilePermissionsToNonQEMU(pvc)
 
 				vmi := libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

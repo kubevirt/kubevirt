@@ -24,7 +24,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/errorhandling"
@@ -456,7 +455,7 @@ func createArchive(targetFile, tgtDir string, sourceFilesNames ...string) string
 	Expect(err).ToNot(HaveOccurred())
 	defer errorhandling.SafelyCloseFile(tgtFile)
 
-	tests.ArchiveToFile(tgtFile, sourceFilesNames...)
+	libstorage.ArchiveToFile(tgtFile, sourceFilesNames...)
 
 	return tgtPath
 }

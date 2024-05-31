@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "datavolume.go",
+        "image.go",
         "pvc.go",
         "storageclass.go",
         "volumesnapshot.go",
@@ -12,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/libstorage",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/pointer:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
