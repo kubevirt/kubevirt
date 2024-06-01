@@ -928,7 +928,25 @@ func (c *VMController) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi 
 	if vmi == nil {
 		return nil
 	}
-	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vm.Spec.Template.Spec.Volumes) {
+
+	// The pull policy for container disks are only set on the VMI spec and not on the VM spec.
+	// In order to correctly compare the volumes set, we need to set the pull policy on the VM spec as well.
+	vmCopy := vm.DeepCopy()
+	volsVMI := storagetypes.GetVolumesByName(&vmi.Spec)
+	for i, volume := range vmCopy.Spec.Template.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		vmiVol, ok := volsVMI[volume.Name]
+		if !ok {
+			continue
+		}
+		if vmiVol.ContainerDisk == nil {
+			continue
+		}
+		vmCopy.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
+	}
+	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vmCopy.Spec.Template.Spec.Volumes) {
 		return nil
 	}
 	vmConditions := controller.NewVirtualMachineConditionManager()
