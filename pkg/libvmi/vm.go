@@ -41,7 +41,7 @@ func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.Vir
 			Namespace: vmi.Namespace,
 		},
 		Spec: v1.VirtualMachineSpec{
-			Running: pointer.P(false),
+			RunStrategy: pointer.P(v1.RunStrategyHalted),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: vmi.ObjectMeta.Annotations,
