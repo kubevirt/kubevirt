@@ -137,6 +137,8 @@ type virtAPIApp struct {
 	hasCDIDataSource bool
 	// the channel used to trigger re-initialization.
 	reInitChan chan string
+
+	kubeVirtServiceAccounts map[string]struct{}
 }
 
 var (
@@ -188,6 +190,8 @@ func (app *virtAPIApp) Execute() {
 	if err != nil {
 		panic(err)
 	}
+
+	app.kubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(app.namespace)
 
 	app.ConfigureOpenAPIService()
 	app.reInitChan = make(chan string, 10)
@@ -927,7 +931,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 		mutating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers)
+		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
