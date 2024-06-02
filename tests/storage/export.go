@@ -1852,7 +1852,7 @@ var _ = SIGDescribe("Export", func() {
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(bashHelloScript)),
 				libvmi.WithDataVolume("blankdisk", blankDv.Name),
 			),
-			libvmi.WithRunning(),
+			libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 		)
 		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 			Name: clusterInstancetype.Name,

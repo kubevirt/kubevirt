@@ -383,7 +383,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libvmi.WithDataVolume(dataVolume2.Name, dataVolume2.Name),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 				)
-				vmSpec := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vmSpec := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -450,7 +450,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return err
 				}, 30*time.Second, 1*time.Second).Should(Succeed())
 
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 				dvt := &v1.DataVolumeTemplateSpec{
 					ObjectMeta: dv.ObjectMeta,
 					Spec:       dv.Spec,
@@ -476,8 +476,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
 				)
 
-				vm := libstorage.RenderVMWithDataVolumeTemplate(dataVolume)
-				vm.Spec.Running = pointer.P(true)
+				vm := libstorage.RenderVMWithDataVolumeTemplate(dataVolume, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				By(creatingVMInvalidDataVolume)
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -500,7 +499,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				//  Add the invalid DataVolume to a VMI
 				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 				// Create a VM for this VMI
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 				By(creatingVMInvalidDataVolume)
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -548,7 +547,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				//  Add the invalid DataVolume to a VMI
 				vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil))
 				// Create a VM for this VMI
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
