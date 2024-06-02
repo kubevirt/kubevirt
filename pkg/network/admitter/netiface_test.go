@@ -182,7 +182,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		Entry(
 			"too long address",
 			"de:ad:00:00:be:af:be:af",
-			"interface fake.domain.devices.interfaces[0].name has MAC address (de:ad:00:00:be:af:be:af) that is too long.",
+			"interface fake.domain.devices.interfaces[0].name has too long MAC address (de:ad:00:00:be:af:be:af).",
 		),
 	)
 
