@@ -338,6 +338,9 @@ func PatchVMIVolumes(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachin
 // CanVolumesUpdateMigration checks if the VMI can be update with the volume migration. For example, for certain VMs, the migration is not allowed for
 // other reasons then the storage
 func CanVolumesUpdateMigration(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
 	if len(vmi.Status.MigratedVolumes) == 0 {
 		return false
 	}
