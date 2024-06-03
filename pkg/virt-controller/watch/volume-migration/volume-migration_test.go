@@ -344,6 +344,73 @@ var _ = Describe("Volume Migration", func() {
 				})), false),
 		)
 	})
+
+	Context("PatchVMIVolumes", func() {
+		var (
+			ctrl          *gomock.Controller
+			virtClient    *kubecli.MockKubevirtClient
+			fakeClientset *fake.Clientset
+		)
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			fakeClientset = fake.NewSimpleClientset()
+			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceNone).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceNone)).AnyTimes()
+		})
+
+		It("should patch the VMI volumes", func() {
+			volName := "disk0"
+			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim(volName, "vol0"),
+				libvmi.WithStatus(&v1.VirtualMachineInstanceStatus{MigratedVolumes: []v1.StorageMigratedVolumeInfo{{VolumeName: volName}}}))
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim(volName, "vol1")))
+			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceNone).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceNone).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = volumemigration.PatchVMIVolumes(virtClient, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceNone).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Spec.Volumes).To(ContainElement(MatchFields(IgnoreExtras,
+				Fields{
+					"Name": Equal("disk0"),
+					"VolumeSource": MatchFields(IgnoreExtras,
+						Fields{
+							"PersistentVolumeClaim": PointTo(MatchFields(IgnoreExtras,
+								Fields{
+									"PersistentVolumeClaimVolumeSource": MatchFields(IgnoreExtras,
+										Fields{
+											"ClaimName": Equal("vol1"),
+										}),
+								}),
+							),
+						}),
+				}),
+			))
+		})
+
+		DescribeTable("should not patch the VMI volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine) {
+			vmiRes, err := volumemigration.PatchVMIVolumes(virtClient, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiRes).To(Equal(vmi))
+		},
+			Entry("without the migrated volumes set", libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0")),
+				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0")))),
+			Entry("without any updates with a VM using a PVC", libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
+				libvmi.WithStatus(&v1.VirtualMachineInstanceStatus{MigratedVolumes: []v1.StorageMigratedVolumeInfo{{VolumeName: "vol0"}}})),
+				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"))),
+			),
+			// The image pull policy for the container disks is set by the mutating webhook on the VMI spec but not on the VM.
+			// This entry test simulates the scenario when the pull policy isn't set on the VM and the default is applied only
+			// on the VMI spec.
+			Entry("without any updates with a VM using a PVC and a containerdisk", libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
+				libvmi.WithStatus(&v1.VirtualMachineInstanceStatus{MigratedVolumes: []v1.StorageMigratedVolumeInfo{{VolumeName: "vol0"}}}),
+				withContainerDisk("vol1", virtpointer.P(k8sv1.PullIfNotPresent))),
+				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "vol0"),
+					withContainerDisk("vol1", nil))),
+			),
+		)
+	})
 })
 
 func addPVC(vmi *v1.VirtualMachineInstance, diskName, claim string) {
@@ -394,6 +461,26 @@ func withHotpluggedVolume(diskName, claim string) libvmi.Option {
 				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claim},
 					Hotpluggable:                      true,
+				},
+			},
+		})
+	}
+}
+
+func withContainerDisk(volName string, pullPolicy *k8sv1.PullPolicy) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		var policy k8sv1.PullPolicy
+		if pullPolicy == nil {
+			policy = ""
+		} else {
+			policy = *pullPolicy
+		}
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: volName,
+			VolumeSource: v1.VolumeSource{
+				ContainerDisk: &v1.ContainerDiskSource{
+					Image:           "image",
+					ImagePullPolicy: policy,
 				},
 			},
 		})
