@@ -120,6 +120,8 @@ aliases:
     - sradco
   sig-observability-reviewers:
     - machadovilaca
+    - avlitman
+    - assafad
 
   #
   # SIG Release

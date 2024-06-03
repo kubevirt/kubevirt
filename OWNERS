@@ -28,3 +28,11 @@ filters:
       - sig-test-approvers
       - sig-compute-approvers
       - sig-network-approvers
+
+  "docs/metrics.md":
+    reviewers:
+      - sig-observability-reviewers
+    approvers:
+      - sig-observability-approvers
+    labels:
+      - sig/observability
