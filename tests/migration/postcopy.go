@@ -32,12 +32,12 @@ import (
 
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -201,19 +201,6 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						createdPods = []string{}
 					})
 
-					createLargeVirtualMachine := func() *v1.VirtualMachine {
-						vmi := libvmifact.NewFedora(
-							libnet.WithMasqueradeNetworking(),
-							libvmi.WithResourceMemory("3Gi"),
-							libvmi.WithRng(),
-						)
-						vm := libvmi.NewVirtualMachine(vmi)
-
-						vm, err := virtClient.VirtualMachine(testsuite.NamespacePrivileged).Create(context.Background(), vm, metav1.CreateOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return vm
-					}
-
 					runMigrationKillerPod := func(nodeName string) {
 						podName := fmt.Sprintf("migration-killer-pod-%s", rand.String(5))
 
@@ -257,22 +244,25 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						}, 120*time.Second, 1*time.Second).Should(Succeed(), "Virt handler should come online")
 					}
 					It("should make sure that VM restarts after failure", func() {
-
 						By("creating a large VM with RunStrategyRerunOnFailure")
-						vm := createLargeVirtualMachine()
+						vmi := libvmifact.NewFedora(
+							libnet.WithMasqueradeNetworking(),
+							libvmi.WithResourceMemory("3Gi"),
+							libvmi.WithRng(),
+							libvmi.WithNamespace(testsuite.NamespacePrivileged),
+						)
+						vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
+
+						vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
 
 						// update the migration policy to ensure slow pre-copy migration progress instead of an immidiate cancelation.
 						migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
 						migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
 						applyKubevirtCR()
 
-						By("Starting the VirtualMachine")
-						vm = tests.RunVMAndExpectLaunchWithRunStrategy(virtClient, vm, v1.RunStrategyRerunOnFailure)
-						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-
-						By("Checking that the VirtualMachineInstance console has expected output")
-						Expect(console.LoginToFedora(vmi)).To(Succeed())
+						By("Waiting for the VirtualMachine to be ready")
+						vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 						// Need to wait for cloud init to finish and start the agent inside the vmi.
 						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
