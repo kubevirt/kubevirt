@@ -64,19 +64,12 @@ var _ = Describe("VirtualMachine", func() {
 
 	Context("One valid VirtualMachine controller given", func() {
 
-		var ctrl *gomock.Controller
 		var vmiSource *framework.FakeControllerSource
 		var vmSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
-		var vmInformer cache.SharedIndexInformer
 		var dataVolumeInformer cache.SharedIndexInformer
-		var dataVolumeSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
-		var crInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
-		var podInformer cache.SharedIndexInformer
-		var instancetypeMethods *testutils.MockInstancetypeMethods
-		var stop chan struct{}
 		var controller *VMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
@@ -89,18 +82,8 @@ var _ = Describe("VirtualMachine", func() {
 		var kvInformer cache.SharedIndexInformer
 		var virtFakeClient *fake.Clientset
 
-		asInt64Ptr := func(i int64) *int64 {
-			return &i
-		}
-
-		asStrPtr := func(s string) *string {
-			return &s
-		}
-
 		BeforeEach(func() {
-			stop = make(chan struct{})
-			ctrl = gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 			virtFakeClient = fake.NewSimpleClientset()
 			// enable /status, this assumes that no other reactor will be prepend.
 			// if you need to prepend reactor it need to not handle the object or use the
@@ -115,8 +98,10 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
 				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
 
+			var dataVolumeSource *framework.FakeControllerSource
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+			var vmInformer cache.SharedIndexInformer
 			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -133,6 +118,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 			Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
 			Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
+			var crInformer cache.SharedIndexInformer
 			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
@@ -144,9 +130,9 @@ var _ = Describe("VirtualMachine", func() {
 					return nil, nil
 				},
 			})
-			podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
-			instancetypeMethods = testutils.NewMockInstancetypeMethods()
+			instancetypeMethods := testutils.NewMockInstancetypeMethods()
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -195,14 +181,12 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
+			stop := make(chan struct{})
 			go vmiInformer.Run(stop)
 			go vmInformer.Run(stop)
 			go dataVolumeInformer.Run(stop)
 			go crInformer.Run(stop)
-		})
-
-		AfterEach(func() {
-			close(stop)
+			DeferCleanup(func() { close(stop) })
 		})
 
 		// TODO: We need to make sure the action was triggered
@@ -2011,8 +1995,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Equal(desiredErr))
 				}
 			},
-				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, asStrPtr("6"), nil),
-				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, asStrPtr("5"), nil),
+				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, kvpointer.P("6"), nil),
+				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, kvpointer.P("5"), nil),
 				Entry("with no generation annotation existing", map[string]string{"test": "testing"}, nil, nil),
 				Entry("with empty annotations map", map[string]string{}, nil, nil),
 			)
@@ -2026,8 +2010,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(gen).To(Equal(desiredGeneration))
 				}
 			},
-				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), asInt64Ptr(3)),
-				Entry("with one dash in name", getVMRevisionName("abcdef", 5), asInt64Ptr(5)),
+				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), kvpointer.P(int64(3))),
+				Entry("with one dash in name", getVMRevisionName("abcdef", 5), kvpointer.P(int64(5))),
 				Entry("with no dash in name", "12345", nil),
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
