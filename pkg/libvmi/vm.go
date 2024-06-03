@@ -65,6 +65,13 @@ func WithRunning() VMOption {
 	}
 }
 
+func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.RunStrategy = &strategy
+		vm.Spec.Running = nil
+	}
+}
+
 func WithDataVolumeTemplate(datavolume *v1beta1.DataVolume) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates,
