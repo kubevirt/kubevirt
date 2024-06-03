@@ -32,14 +32,8 @@ type secretData interface {
 // New return Secret of Opaque type with "kubevirt.io/secret" label
 func New(name string, data secretData) *kubev1.Secret {
 	// secretLabel set this label to make the test suite namespace clean-up delete the secret on teardown
-	const secretLabel = "kubevirt.io/secret" // #nosec G101
 	return &kubev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				secretLabel: name,
-			},
-		},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Data:       data.Data(),
 		StringData: data.StringData(),
 	}

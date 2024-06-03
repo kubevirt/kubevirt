@@ -201,12 +201,7 @@ func CleanNamespaces() {
 		}
 
 		// Remove all VirtualMachineInstance Secrets
-		labelSelector := util.SecretLabel
-		util.PanicOnError(
-			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
-				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
-			),
-		)
+		util.PanicOnError(virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
 
 		// Remove all VirtualMachineInstance Presets
 		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error())
