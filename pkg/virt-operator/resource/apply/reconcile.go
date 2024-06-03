@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"github.com/blang/semver"
 	secv1 "github.com/openshift/api/security/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -49,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -1325,11 +1326,11 @@ func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
 }
 
 func (r *Reconciler) exportProxyEnabled() bool {
-	return r.isFeatureGateEnabled(virtconfig.VMExportGate)
+	return r.isFeatureGateEnabled(featuregate.VMExportGate)
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
-	return r.isFeatureGateEnabled(virtconfig.CommonInstancetypesDeploymentGate)
+	return r.isFeatureGateEnabled(featuregate.CommonInstancetypesDeploymentGate)
 }
 
 func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {

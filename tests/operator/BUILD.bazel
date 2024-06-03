@@ -8,7 +8,7 @@ go_library(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/libvmi:go_default_library",
-        "//pkg/virt-config:go_default_library",
+        "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virt-operator/util:go_default_library",

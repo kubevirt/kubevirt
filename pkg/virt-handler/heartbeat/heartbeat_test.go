@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -57,7 +59,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 
 	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(virtconfig.CPUManager), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(featuregate.CPUManager), "mynode")
 		heartbeat.cpuManagerPaths = cpuManagerPaths
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})

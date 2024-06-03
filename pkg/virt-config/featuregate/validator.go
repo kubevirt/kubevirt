@@ -17,14 +17,26 @@
  *
  */
 
-package deprecation
+package featuregate
 
 import (
-	"testing"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/client-go/testutils"
+	v1 "kubevirt.io/api/core/v1"
 )
 
-func TestDeprecation(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
+func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	for _, fgName := range featureGates {
+		fg := FeatureGateInfo(fgName)
+		if fg != nil && fg.State == Discontinued && fg.VmiSpecUsed != nil {
+			if used := fg.VmiSpecUsed(vmiSpec); used {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fg.Message,
+				})
+			}
+		}
+	}
+	return causes
 }

@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -45,8 +47,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -86,9 +86,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 		DescribeTable("[Serial] should be successfully started and accessible", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				tests.EnableFeatureGate(featuregate.VirtIOFSGate)
 			} else {
-				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				tests.DisableFeatureGate(featuregate.VirtIOFSGate)
 			}
 
 			createPVC(namespace, pvc1)
@@ -209,9 +209,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(*config)
 			if namespace == testsuite.NamespacePrivileged {
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				tests.EnableFeatureGate(featuregate.VirtIOFSGate)
 			} else {
-				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				tests.DisableFeatureGate(featuregate.VirtIOFSGate)
 			}
 
 			pvcName := fmt.Sprintf("disk-%s", pvc)
@@ -285,9 +285,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 
 		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				tests.EnableFeatureGate(featuregate.VirtIOFSGate)
 			} else {
-				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				tests.DisableFeatureGate(featuregate.VirtIOFSGate)
 			}
 
 			dataVolume := libdv.NewDataVolume(

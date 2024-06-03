@@ -17,16 +17,25 @@
  *
  */
 
-package deprecation
+package featuregate
 
 import (
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
-const PasstDeprecationMessage = "Passt network binding will be deprecated next release. Please refer to Kubevirt user guide for alternatives."
+const MacvtapGate = "Macvtap" // Deprecated
 
-func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	return util.IsPasstVMI(spec)
+const MacvtapDiscontinueMessage = "Macvtap network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+
+func init() {
+	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+}
+
+func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
+	for _, net := range spec.Domain.Devices.Interfaces {
+		if net.DeprecatedMacvtap != nil {
+			return true
+		}
+	}
+	return false
 }

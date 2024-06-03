@@ -25,6 +25,8 @@ import (
 	"net/http"
 	rt "runtime"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -46,7 +48,6 @@ import (
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -557,8 +558,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(exist).To(BeFalse())
 		},
 		Entry("when the AlignCPUs featureGate is disabled", "", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true),
-		Entry("when the EmulatorThreadCompleteToEvenParity annotation is not set on the kubevirt CR", virtconfig.AlignCPUsGate, nil, true),
-		Entry("when isolateEmulatorThread is disabled on the VMI spec", virtconfig.AlignCPUsGate, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false),
+		Entry("when the EmulatorThreadCompleteToEvenParity annotation is not set on the kubevirt CR", featuregate.AlignCPUsGate, nil, true),
+		Entry("when isolateEmulatorThread is disabled on the VMI spec", featuregate.AlignCPUsGate, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false),
 	)
 
 	It("should copy the EmulatorThreadCompleteToEvenParity annotation to the VMI", func() {
@@ -569,7 +570,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{virtconfig.AlignCPUsGate},
+						FeatureGates: []string{featuregate.AlignCPUsGate},
 					},
 				},
 			},
@@ -1082,7 +1083,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{virtconfig.Root},
+							FeatureGates: []string{featuregate.Root},
 						},
 					},
 				},

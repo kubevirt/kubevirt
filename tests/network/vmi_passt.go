@@ -28,7 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -41,7 +41,7 @@ import (
 
 var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 	BeforeEach(func() {
-		tests.EnableFeatureGate(deprecation.PasstGate)
+		tests.EnableFeatureGate(featuregate.PasstGate)
 	})
 
 	It("can be used by a VMI as its primary network", func() {

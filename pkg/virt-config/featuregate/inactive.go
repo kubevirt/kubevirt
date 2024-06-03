@@ -17,26 +17,20 @@
  *
  */
 
-package deprecation
+package featuregate
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "kubevirt.io/api/core/v1"
+const (
+	LiveMigrationGate      = "LiveMigration"      // GA
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration" // GA
+	NonRoot                = "NonRoot"            // GA
+	PSA                    = "PSA"                // GA
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"   // GA
 )
 
-func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	for _, fgName := range featureGates {
-		fg := FeatureGateInfo(fgName)
-		if fg != nil && fg.State == Discontinued && fg.VmiSpecUsed != nil {
-			if used := fg.VmiSpecUsed(vmiSpec); used {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: fg.Message,
-				})
-			}
-		}
-	}
-	return causes
+func init() {
+	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: CPUNodeDiscoveryGate, State: GA})
 }

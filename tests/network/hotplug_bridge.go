@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,8 +36,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -53,7 +53,7 @@ const linuxBridgeName = "supadupabr"
 var _ = SIGDescribe("bridge nic-hotplug", func() {
 
 	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+		Expect(checks.HasFeature(featuregate.HotplugNetworkIfacesGate)).To(BeTrue())
 	})
 
 	Context("a running VM", func() {
@@ -245,7 +245,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 	)
 
 	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+		Expect(checks.HasFeature(featuregate.HotplugNetworkIfacesGate)).To(BeTrue())
 	})
 
 	Context("a running VM", func() {

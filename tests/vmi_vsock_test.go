@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/libmigration"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -41,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libssh"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests/flags"
@@ -62,8 +63,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	var err error
 
 	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.VSOCKGate)
-		checks.SkipTestIfNoFeatureGate(virtconfig.VSOCKGate)
+		tests.EnableFeatureGate(featuregate.VSOCKGate)
+		checks.SkipTestIfNoFeatureGate(featuregate.VSOCKGate)
 		virtClient = kubevirt.Client()
 	})
 

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -32,7 +34,6 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -52,7 +53,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		EnableFeatureGate(virtconfig.SnapshotGate)
+		EnableFeatureGate(featuregate.SnapshotGate)
 
 		format.MaxLength = 0
 	})

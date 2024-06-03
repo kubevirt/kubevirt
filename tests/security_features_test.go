@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/libnet"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -48,7 +50,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -263,7 +264,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				}
 			}
 			caps := *container.SecurityContext.Capabilities
-			if !checks.HasFeature(virtconfig.Root) {
+			if !checks.HasFeature(featuregate.Root) {
 				Expect(caps.Add).To(HaveLen(1), fmt.Sprintf("Found capabilities %s, expected NET_BIND_SERVICE", caps.Add))
 				Expect(caps.Add).To(ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
 			} else {
@@ -276,7 +277,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(isLauncherCapabilityValid(capa)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
 			}
 
-			if !checks.HasFeature(virtconfig.Root) {
+			if !checks.HasFeature(featuregate.Root) {
 				By("Checking virt-launcher Pod's compute container has precisely the documented dropped capabilities")
 				Expect(caps.Drop).To(HaveLen(1))
 				Expect(caps.Drop[0]).To(Equal(k8sv1.Capability("ALL")), "Expected compute container of virt_launcher to drop all caps")
@@ -307,7 +308,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			policyRemovedByTest = err == nil
 
 			By("Disabling the custom policy by adding the corresponding feature gate")
-			tests.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
+			tests.EnableFeatureGate(featuregate.DisableCustomSELinuxPolicy)
 
 			By("Ensuring the custom SELinux policy is absent from all nodes")
 			Consistently(func() error {

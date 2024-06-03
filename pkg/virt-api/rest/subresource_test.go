@@ -34,6 +34,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"github.com/golang/mock/gomock"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,7 +66,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -722,7 +723,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		DescribeTable("Should succeed with add volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
 
 			if enableGate {
-				enableFeatureGate(virtconfig.HotplugVolumesGate)
+				enableFeatureGate(featuregate.HotplugVolumesGate)
 			}
 			if addOpts != nil {
 				request.Request.Body = newAddVolumeBody(addOpts)
@@ -1237,7 +1238,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		DescribeTable("With memory dump request", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int, enableGate bool, vmiRunning bool, pvc *k8sv1.PersistentVolumeClaim) {
 
 			if enableGate {
-				enableFeatureGate(virtconfig.HotplugVolumesGate)
+				enableFeatureGate(featuregate.HotplugVolumesGate)
 			}
 			request.Request.Body = newMemoryDumpBody(memDumpReq)
 
@@ -1303,7 +1304,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 
 		DescribeTable("With memory dump request", func(memDumpReq, prevMemDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int) {
-			enableFeatureGate(virtconfig.HotplugVolumesGate)
+			enableFeatureGate(featuregate.HotplugVolumesGate)
 			request.Request.Body = newMemoryDumpBody(memDumpReq)
 			vm := newMinimalVM(request.PathParameter("name"))
 			vm.Namespace = k8smetav1.NamespaceDefault
@@ -2239,7 +2240,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		}
 
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
+			enableFeatureGate(featuregate.WorkloadEncryptionSEV)
 		})
 
 		It("Should allow to fetch certificates chain when VMI is running", func() {

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,8 +21,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -185,15 +185,15 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		fgDisabled = !checks.HasFeature(virtconfig.PersistentReservation)
+		fgDisabled = !checks.HasFeature(featuregate.PersistentReservation)
 		if fgDisabled {
-			tests.EnableFeatureGate(virtconfig.PersistentReservation)
+			tests.EnableFeatureGate(featuregate.PersistentReservation)
 		}
 
 	})
 	AfterEach(func() {
 		if fgDisabled {
-			tests.DisableFeatureGate(virtconfig.PersistentReservation)
+			tests.DisableFeatureGate(featuregate.PersistentReservation)
 		}
 	})
 
@@ -313,7 +313,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 	Context("with PersistentReservation feature gate toggled", func() {
 		It("should delete and recreate virt-handler", func() {
-			tests.DisableFeatureGate(virtconfig.PersistentReservation)
+			tests.DisableFeatureGate(featuregate.PersistentReservation)
 
 			Eventually(func() bool {
 				ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})

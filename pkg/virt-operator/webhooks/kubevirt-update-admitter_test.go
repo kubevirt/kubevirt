@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -37,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
@@ -305,13 +304,13 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}))
 		},
-			Entry("with LiveMigration", deprecation.LiveMigrationGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.LiveMigrationGate, deprecation.GA)),
-			Entry("with SRIOVLiveMigration", deprecation.SRIOVLiveMigrationGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.SRIOVLiveMigrationGate, deprecation.GA)),
-			Entry("with NonRoot", deprecation.NonRoot, fmt.Sprintf(deprecation.WarningPattern, deprecation.NonRoot, deprecation.GA)),
-			Entry("with PSA", deprecation.PSA, fmt.Sprintf(deprecation.WarningPattern, deprecation.PSA, deprecation.GA)),
-			Entry("with CPUNodeDiscoveryGate", deprecation.CPUNodeDiscoveryGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.CPUNodeDiscoveryGate, deprecation.GA)),
-			Entry("with Passt", deprecation.PasstGate, deprecation.PasstDeprecationMessage),
-			Entry("with MacvtapGate", deprecation.MacvtapGate, deprecation.MacvtapDiscontinueMessage),
+			Entry("with LiveMigration", featuregate.LiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
+			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
+			Entry("with NonRoot", featuregate.NonRoot, fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
+			Entry("with PSA", featuregate.PSA, fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
+			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
+			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDeprecationMessage),
+			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
 		)
 	})
 })

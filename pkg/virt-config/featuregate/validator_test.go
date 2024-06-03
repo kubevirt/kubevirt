@@ -17,7 +17,7 @@
  *
  */
 
-package deprecation_test
+package featuregate_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -28,17 +28,17 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Validator", func() {
 	DescribeTable("validate feature gate", func(fgName string, vmi *v1.VirtualMachineInstance, expected []metav1.StatusCause) {
-		Expect(deprecation.ValidateFeatureGates([]string{fgName}, &vmi.Spec)).To(ConsistOf(expected))
+		Expect(featuregate.ValidateFeatureGates([]string{fgName}, &vmi.Spec)).To(ConsistOf(expected))
 	},
-		Entry("that is GA", deprecation.LiveMigrationGate, libvmi.New(), nil),
+		Entry("that is GA", featuregate.LiveMigrationGate, libvmi.New(), nil),
 		Entry(
 			"that is Deprecated",
-			deprecation.PasstGate,
+			featuregate.PasstGate,
 			libvmi.New(
 				libvmi.WithInterface(v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}}),
 				libvmi.WithNetwork(&v1.Network{}),
@@ -47,7 +47,7 @@ var _ = Describe("Validator", func() {
 		),
 		Entry(
 			"that is Discontinued",
-			deprecation.MacvtapGate,
+			featuregate.MacvtapGate,
 			libvmi.New(
 				libvmi.WithInterface(v1.Interface{
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
@@ -56,7 +56,7 @@ var _ = Describe("Validator", func() {
 			),
 			[]metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: deprecation.MacvtapDiscontinueMessage,
+				Message: featuregate.MacvtapDiscontinueMessage,
 			}},
 		),
 	)

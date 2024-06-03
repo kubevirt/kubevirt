@@ -48,6 +48,7 @@ import (
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 
@@ -5665,7 +5666,7 @@ var _ = Describe("VirtualMachine", func() {
 								},
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -5685,7 +5686,7 @@ var _ = Describe("VirtualMachine", func() {
 								},
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -5707,7 +5708,7 @@ var _ = Describe("VirtualMachine", func() {
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -5726,7 +5727,7 @@ var _ = Describe("VirtualMachine", func() {
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -5877,7 +5878,7 @@ var _ = Describe("VirtualMachine", func() {
 								},
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -5899,7 +5900,7 @@ var _ = Describe("VirtualMachine", func() {
 								},
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -5918,7 +5919,7 @@ var _ = Describe("VirtualMachine", func() {
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -6082,7 +6083,7 @@ var _ = Describe("VirtualMachine", func() {
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -6133,8 +6134,8 @@ var _ = Describe("VirtualMachine", func() {
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
 									FeatureGates: []string{
-										virtconfig.VMLiveUpdateFeaturesGate,
-										virtconfig.VolumesUpdateStrategy,
+										featuregate.VMLiveUpdateFeaturesGate,
+										featuregate.VolumesUpdateStrategy,
 									},
 								},
 							},
@@ -6163,7 +6164,7 @@ var _ = Describe("VirtualMachine", func() {
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+									FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 								},
 							},
 						},
@@ -6294,7 +6295,7 @@ var _ = Describe("VirtualMachine", func() {
 							LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{},
 							VMRolloutStrategy:       &liveUpdate,
 							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 							},
 						},
 					},
@@ -6319,7 +6320,7 @@ var _ = Describe("VirtualMachine", func() {
 							LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{},
 							VMRolloutStrategy:       &liveUpdate,
 							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
+								FeatureGates: []string{featuregate.VMLiveUpdateFeaturesGate},
 							},
 						},
 					},
@@ -6530,11 +6531,11 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("should appear if the feature gate is not set",
 					[]string{}, &liveUpdate, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should appear if the VM rollout strategy is not set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, nil, restartRequiredMatcher(k8sv1.ConditionTrue)),
+					[]string{featuregate.VMLiveUpdateFeaturesGate}, nil, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should appear if the VM rollout strategy is set to Stage",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &stage, restartRequiredMatcher(k8sv1.ConditionTrue)),
+					[]string{featuregate.VMLiveUpdateFeaturesGate}, &stage, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should not appear if both the VM rollout strategy and feature gate are set",
-					[]string{virtconfig.VMLiveUpdateFeaturesGate}, &liveUpdate, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
+					[]string{featuregate.VMLiveUpdateFeaturesGate}, &liveUpdate, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
 			)
 		})
 
