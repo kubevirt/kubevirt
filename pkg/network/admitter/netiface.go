@@ -24,6 +24,7 @@ import (
 	"net"
 	"regexp"
 
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 
@@ -156,31 +157,16 @@ func validateInterfaceModel(field *k8sfield.Path, idx int, iface v1.Interface) [
 
 func validateMacAddress(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if iface.MacAddress != "" {
-		mac, err := net.ParseMAC(iface.MacAddress)
-		if err != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(
-					"interface %s has malformed MAC address (%s).",
-					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-					iface.MacAddress,
-				),
-				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-			})
-		}
-		const macLen = 6
-		if len(mac) > macLen {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(
-					"interface %s has MAC address (%s) that is too long.",
-					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-					iface.MacAddress,
-				),
-				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-			})
-		}
+	if err := link.ValidateMacAddress(iface.MacAddress); err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf(
+				"interface %s has %s.",
+				field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				err.Error(),
+			),
+			Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+		})
 	}
 	return causes
 }
