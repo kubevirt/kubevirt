@@ -263,6 +263,12 @@ func WithoutSerialConsole() Option {
 	}
 }
 
+func WithStatus(status *v1.VirtualMachineInstanceStatus) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Status = *status
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
