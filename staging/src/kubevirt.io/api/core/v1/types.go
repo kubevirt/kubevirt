@@ -1497,6 +1497,7 @@ const (
 	RunStrategyRerunOnFailure VirtualMachineRunStrategy = "RerunOnFailure"
 	// VMI will run once and not be restarted upon completion regardless
 	// if the completion is of phase Failure or Success
+
 	RunStrategyOnce VirtualMachineRunStrategy = "Once"
 )
 
@@ -1533,6 +1534,9 @@ type VirtualMachineSpec struct {
 
 	// UpdateVolumesStrategy is the strategy to apply on volumes updates
 	UpdateVolumesStrategy *UpdateVolumesStrategy `json:"updateVolumesStrategy,omitempty"`
+
+	// api field for showcasing how roundtrip backward compatibility tests work with the backward incompatible field. #11629
+	DummyField *string `json:"dummyField"`
 }
 
 // StateChangeRequestType represents the existing state change requests that are possible
