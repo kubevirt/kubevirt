@@ -65,14 +65,13 @@ var _ = Describe("VirtualMachine", func() {
 		var vmiSource *framework.FakeControllerSource
 		var vmSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
-		var dataVolumeInformer cache.SharedIndexInformer
+
 		var pvcInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
 		var controller *VMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var vmiFeeder *testutils.VirtualMachineFeeder
-		var dataVolumeFeeder *testutils.DataVolumeFeeder
 		var cdiClient *cdifake.Clientset
 		var k8sClient *k8sfake.Clientset
 		var virtClient *kubecli.MockKubevirtClient
@@ -96,8 +95,7 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
 				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
 
-			var dataVolumeSource *framework.FakeControllerSource
-			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 			var vmInformer cache.SharedIndexInformer
 			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
@@ -155,7 +153,6 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Queue = mockQueue
 
 			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
-			dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
@@ -182,7 +179,6 @@ var _ = Describe("VirtualMachine", func() {
 			stop := make(chan struct{})
 			go vmiInformer.Run(stop)
 			go vmInformer.Run(stop)
-			go dataVolumeInformer.Run(stop)
 			go crInformer.Run(stop)
 			DeferCleanup(func() { close(stop) })
 		})
@@ -416,7 +412,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume.Namespace = "default"
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID), "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
@@ -1028,8 +1024,8 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
-			dataVolumeFeeder.Add(existingDataVolume1)
-			dataVolumeFeeder.Add(existingDataVolume2)
+			controller.dataVolumeStore.Add(existingDataVolume1)
+			controller.dataVolumeStore.Add(existingDataVolume2)
 
 			deletionCount := 0
 
@@ -1082,8 +1078,8 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 
-			dataVolumeFeeder.Add(existingDataVolume1)
-			dataVolumeFeeder.Add(existingDataVolume2)
+			controller.dataVolumeStore.Add(existingDataVolume1)
+			controller.dataVolumeStore.Add(existingDataVolume2)
 
 			sanityExecute(vm)
 
@@ -1134,8 +1130,8 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
 			existingDataVolume2.Annotations = nil
 
-			dataVolumeFeeder.Add(existingDataVolume1)
-			dataVolumeFeeder.Add(existingDataVolume2)
+			controller.dataVolumeStore.Add(existingDataVolume1)
+			controller.dataVolumeStore.Add(existingDataVolume2)
 
 			sanityExecute(vm)
 
@@ -1167,7 +1163,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 
@@ -1207,7 +1203,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
@@ -1249,7 +1245,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			sanityExecute(vm)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
@@ -1290,7 +1286,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			addVirtualMachine(vm)
 
-			dataVolumeFeeder.Add(existingDataVolume)
+			controller.dataVolumeStore.Add(existingDataVolume)
 
 			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -2761,7 +2757,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			orphanDV := dv.DeepCopy()
 			orphanDV.ObjectMeta.OwnerReferences = nil
-			Expect(dataVolumeInformer.GetStore().Add(orphanDV)).To(Succeed())
+			Expect(controller.dataVolumeStore.Add(orphanDV)).To(Succeed())
 
 			cdiClient.Fake.PrependReactor("patch", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				patch, ok := action.(testing.PatchAction)
@@ -3715,7 +3711,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dv.Status.Phase = phase
-					dataVolumeFeeder.Add(dv)
+					controller.dataVolumeStore.Add(dv)
 
 					pvc := k8sv1.PersistentVolumeClaim{
 						ObjectMeta: metav1.ObjectMeta{
@@ -3757,7 +3753,7 @@ var _ = Describe("VirtualMachine", func() {
 							Type:   cdiv1.DataVolumeBound,
 							Status: k8sv1.ConditionTrue,
 						})
-						dataVolumeFeeder.Add(dv)
+						controller.dataVolumeStore.Add(dv)
 
 						sanityExecute(vm)
 
@@ -3785,7 +3781,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
 					dvFunc(dv)
-					dataVolumeFeeder.Add(dv)
+					controller.dataVolumeStore.Add(dv)
 
 					sanityExecute(vm)
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -3823,7 +3819,7 @@ var _ = Describe("VirtualMachine", func() {
 						Type:   cdiv1.DataVolumeBound,
 						Status: k8sv1.ConditionTrue,
 					})
-					dataVolumeFeeder.Add(dv)
+					controller.dataVolumeStore.Add(dv)
 
 					sanityExecute(vm)
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
@@ -3865,8 +3861,8 @@ var _ = Describe("VirtualMachine", func() {
 						Status: k8sv1.ConditionTrue,
 					})
 
-					dataVolumeFeeder.Add(dv1)
-					dataVolumeFeeder.Add(dv2)
+					controller.dataVolumeStore.Add(dv1)
+					controller.dataVolumeStore.Add(dv2)
 
 					sanityExecute(vm)
 
