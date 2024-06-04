@@ -5703,6 +5703,118 @@ var _ = Describe("VirtualMachine", func() {
 					vmi := controller.setupVMIFromVM(vm)
 					Expect(vmi.Spec.Domain.CPU.MaxSockets).To(Equal(defaultSockets * 4))
 				})
+
+				DescribeTable("should patch VMI when CPU hotplug is requested", func(resources v1.ResourceRequirements) {
+					vm, _ := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Domain.Resources = resources
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Sockets: 2,
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					vmi.Spec.Domain.CPU = &v1.CPU{
+						Sockets:    1,
+						MaxSockets: 4,
+					}
+					vmi.Spec.Domain.Resources = resources
+
+					vcpusDelta := int64(vm.Spec.Template.Spec.Domain.CPU.Sockets - vmi.Spec.Domain.CPU.Sockets)
+					resourcesDelta := resource.NewMilliQuantity(vcpusDelta*int64(1000*(1.0/float32(config.GetCPUAllocationRatio()))), resource.DecimalSI)
+
+					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					err = controller.handleCPUChangeRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					updatedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updatedVMI.Spec.Domain.CPU.Sockets).To(Equal(vm.Spec.Template.Spec.Domain.CPU.Sockets))
+
+					if !resources.Requests.Cpu().IsZero() {
+						expectedCpuReq := vmi.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
+						expectedCpuReq.Add(*resourcesDelta)
+
+						Expect(updatedVMI.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal(expectedCpuReq.String()))
+					}
+
+					if !resources.Limits.Cpu().IsZero() {
+						expectedCpuLim := vmi.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
+						expectedCpuLim.Add(*resourcesDelta)
+
+						Expect(updatedVMI.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal(expectedCpuLim.String()))
+					}
+				},
+					Entry("with no resources set", v1.ResourceRequirements{}),
+					Entry("with cpu request set", v1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("100m"),
+						},
+					}),
+					Entry("with cpu request and limits set", v1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("100m"),
+						},
+						Limits: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("400m"),
+						},
+					}),
+				)
+
+				It("should correctly bump requests and limits when multiple hotplugs are performed", func() {
+					resources := v1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("100m"),
+						},
+						Limits: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("200m"),
+						},
+					}
+
+					vm, _ := DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.Domain.Resources = resources
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Sockets: 2,
+					}
+
+					vmi := api.NewMinimalVMI(vm.Name)
+					vmi.Spec.Domain.CPU = &v1.CPU{
+						Sockets:    1,
+						MaxSockets: 4,
+					}
+					vmi.Spec.Domain.Resources = resources
+
+					originalVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					By("first hotplug")
+					err = controller.handleCPUChangeRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vm.Spec.Template.Spec.Domain.CPU.Sockets))
+
+					By("second hotplug")
+					vm.Spec.Template.Spec.Domain.CPU.Sockets = 3
+					vcpusDelta := int64(vm.Spec.Template.Spec.Domain.CPU.Sockets - originalVMI.Spec.Domain.CPU.Sockets)
+					resourcesDelta := resource.NewMilliQuantity(vcpusDelta*int64(1000*(1.0/float32(config.GetCPUAllocationRatio()))), resource.DecimalSI)
+
+					err = controller.handleCPUChangeRequest(vm, vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(vm.Spec.Template.Spec.Domain.CPU.Sockets))
+
+					expectedCpuReq := originalVMI.Spec.Domain.Resources.Requests.Cpu().DeepCopy()
+					expectedCpuReq.Add(*resourcesDelta)
+					Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal(expectedCpuReq.String()))
+
+					expectedCpuLim := originalVMI.Spec.Domain.Resources.Limits.Cpu().DeepCopy()
+					expectedCpuLim.Add(*resourcesDelta)
+					Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal(expectedCpuLim.String()))
+				})
 			})
 
 			Context("Memory", func() {
