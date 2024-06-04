@@ -112,7 +112,7 @@ func IsOpenShift() bool {
 
 func RequireFeatureGateVirtHandlerRestart(feature string) bool {
 	// List of feature gates that requires virt-handler to be redeployed
-	fgs := []string{virtconfig.PersistentReservation}
+	fgs := []string{virtconfig.PersistentReservation, virtconfig.NodeRestrictionGate}
 	for _, f := range fgs {
 		if feature == f {
 			return true
