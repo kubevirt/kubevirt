@@ -23,3 +23,8 @@ filters:
        - sig-test-approvers
     labels:
       - sig/test
+  ".golangci.yml":
+    approvers:
+      - sig-test-approvers
+      - sig-compute-approvers
+      - sig-network-approvers
