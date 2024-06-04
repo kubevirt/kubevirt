@@ -305,6 +305,9 @@ func PatchVMIStatusWithMigratedVolumes(clientset kubecli.KubevirtClient, pvcStor
 
 // PatchVMIVolumes replaces the VMI volumes with the migrated volumes
 func PatchVMIVolumes(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+	if vmi == nil || vm == nil {
+		return nil, fmt.Errorf("cannot patch the volumes for an empty VMI or VM")
+	}
 	log.Log.V(2).Object(vmi).Infof("Patch VMI volumes")
 	migVols := make(map[string]bool)
 	vmiCopy := vmi.DeepCopy()
