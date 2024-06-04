@@ -167,7 +167,8 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_running_phase", 0)
 
 			labels := map[string]string{
-				"vmi": vmi.Name,
+				"vmi":       vmi.Name,
+				"namespace": vmi.Namespace,
 			}
 			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
@@ -185,7 +186,8 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			labels := map[string]string{
-				"vmi": vmi.Name,
+				"vmi":       vmi.Name,
+				"namespace": vmi.Namespace,
 			}
 
 			By("Starting the Migration")
