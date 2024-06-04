@@ -21,22 +21,22 @@ package volumemigration_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -90,9 +90,9 @@ var _ = Describe("Volume Migration", func() {
 
 	Context("VolumeMigrationCancel", func() {
 		var (
-			ctrl         *gomock.Controller
-			virtClient   *kubecli.MockKubevirtClient
-			vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+			ctrl          *gomock.Controller
+			virtClient    *kubecli.MockKubevirtClient
+			fakeClientset *fake.Clientset
 		)
 		const ns = k8sv1.NamespaceDefault
 		type migVolumes struct {
@@ -104,51 +104,10 @@ var _ = Describe("Volume Migration", func() {
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
-			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-			virtClient.EXPECT().VirtualMachineInstance(ns).Return(vmiInterface).AnyTimes()
+			fakeClientset = fake.NewSimpleClientset()
+			virtClient.EXPECT().VirtualMachineInstance(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(ns)).AnyTimes()
 		})
 
-		shouldPatchVMI := func(vmi *v1.VirtualMachineInstance) {
-			// The first patch operation is for the volumes in the VMI spec
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
-				DoAndReturn(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) (*v1.VirtualMachineInstance, error) {
-					originalVMIBytes, err := json.Marshal(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					patchBytes := patch.([]byte)
-
-					patchJSON, err := jsonpatch.DecodePatch(patchBytes)
-					Expect(err).ToNot(HaveOccurred())
-					newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
-					Expect(err).ToNot(HaveOccurred())
-
-					var newVMI *v1.VirtualMachineInstance
-					err = json.Unmarshal(newVMIBytes, &newVMI)
-					Expect(err).ToNot(HaveOccurred())
-					return newVMI, nil
-				})
-			// The second patch operation is for the conditions and the migrated volumes
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
-				Do(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) {
-					originalVMIBytes, err := json.Marshal(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					patchBytes := patch.([]byte)
-
-					patchJSON, err := jsonpatch.DecodePatch(patchBytes)
-					Expect(err).ToNot(HaveOccurred())
-					newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
-					Expect(err).ToNot(HaveOccurred())
-
-					var newVMI *v1.VirtualMachineInstance
-					err = json.Unmarshal(newVMIBytes, &newVMI)
-					Expect(err).ToNot(HaveOccurred())
-
-					condManager := controller.NewVirtualMachineInstanceConditionManager()
-					c := condManager.GetCondition(newVMI, v1.VirtualMachineInstanceVolumesChange)
-					Expect(c).ToNot(BeNil())
-					Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(newVMI.Status.MigratedVolumes).To(BeEmpty())
-				})
-		}
 		DescribeTable("should evaluate the volume migration cancellation", func(vmiVols, vmVols []string, migVols []migVolumes, expectRes bool, expectErr error, expectCancellation bool) {
 			vmi := libvmi.New(append(addVMIOptionsForVolumes(vmiVols), libvmi.WithNamespace(ns))...)
 			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
@@ -162,10 +121,35 @@ var _ = Describe("Volume Migration", func() {
 			}
 			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes(vmVols), libvmi.WithNamespace(ns))...))
 
-			if expectCancellation {
-				shouldPatchVMI(vmi)
-			}
+			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = fakeClientset.KubevirtV1().VirtualMachines(ns).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Clear actions to easy check the length later
+			fakeClientset.ClearActions()
 			res, err := volumemigration.VolumeMigrationCancel(virtClient, vmi, vm)
+
+			if expectCancellation {
+				updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVMI.Status.MigratedVolumes).To(BeEmpty())
+				Expect(updatedVMI.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(v1.VirtualMachineInstanceVolumesChange),
+						"Status": Equal(k8sv1.ConditionFalse),
+					},
+				)))
+				Expect(fakeClientset.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
+					var patchOperations []testing.Action
+					for _, action := range actions {
+						if action.GetVerb() == "patch" && action.GetResource().Resource == "virtualmachineinstances" {
+							patchOperations = append(patchOperations, action)
+						}
+					}
+					return patchOperations
+				}, HaveLen(2)))
+			}
 			if expectErr != nil {
 				Expect(err).To(Equal(expectErr))
 			} else {
@@ -202,10 +186,10 @@ var _ = Describe("Volume Migration", func() {
 
 	Context("PatchVMIStatusWithMigratedVolumes", func() {
 		var (
-			ctrl         *gomock.Controller
-			virtClient   *kubecli.MockKubevirtClient
-			vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-			pvcStore     cache.Store
+			ctrl          *gomock.Controller
+			virtClient    *kubecli.MockKubevirtClient
+			fakeClientset *fake.Clientset
+			pvcStore      cache.Store
 		)
 		const ns = k8sv1.NamespaceDefault
 		type migVolumes struct {
@@ -216,8 +200,8 @@ var _ = Describe("Volume Migration", func() {
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
-			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-			virtClient.EXPECT().VirtualMachineInstance(ns).Return(vmiInterface).AnyTimes()
+			fakeClientset = fake.NewSimpleClientset()
+			virtClient.EXPECT().VirtualMachineInstance(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(ns)).AnyTimes()
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			pvcStore = pvcInformer.GetStore()
 		})
@@ -244,42 +228,31 @@ var _ = Describe("Volume Migration", func() {
 				})
 			}
 		}
-		shouldPatchVMI := func(vmi *v1.VirtualMachineInstance, expectedMigVols map[string]migVolumes) {
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
-				Do(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) {
-					originalVMIBytes, err := json.Marshal(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					patchBytes := patch.([]byte)
-
-					patchJSON, err := jsonpatch.DecodePatch(patchBytes)
-					Expect(err).ToNot(HaveOccurred())
-					newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
-					Expect(err).ToNot(HaveOccurred())
-
-					var newVMI *v1.VirtualMachineInstance
-					err = json.Unmarshal(newVMIBytes, &newVMI)
-					Expect(err).ToNot(HaveOccurred())
-					for _, migVol := range vmi.Status.MigratedVolumes {
-						v, ok := expectedMigVols[migVol.VolumeName]
-						Expect(ok).To(BeTrue())
-						Expect(migVol.SourcePVCInfo).ToNot(BeNil())
-						Expect(migVol.DestinationPVCInfo).ToNot(BeNil())
-						Expect(migVol.SourcePVCInfo.ClaimName).To(Equal(v.src))
-						Expect(migVol.DestinationPVCInfo.ClaimName).To(Equal(v.dst))
-						Expect(migVol.SourcePVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
-						Expect(migVol.DestinationPVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
-					}
-				})
-		}
 		DescribeTable("should update the migrated volumes in the vmi", func(vmiVols, vmVols []string, expectedMigVols map[string]migVolumes) {
 			shouldAddPVCsIntoTheStore(vmiVols, vmVols)
 			vmi := libvmi.New(append(addVMIOptionsForVolumes(vmiVols), libvmi.WithNamespace(ns))...)
 			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes(vmVols), libvmi.WithNamespace(ns))...))
-			if len(expectedMigVols) > 0 {
-				shouldPatchVMI(vmi, expectedMigVols)
-			}
+			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = fakeClientset.KubevirtV1().VirtualMachines(ns).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(volumemigration.PatchVMIStatusWithMigratedVolumes(virtClient, pvcStore, vmi, vm)).ToNot(HaveOccurred())
+
+			if len(expectedMigVols) > 0 {
+				updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, migVol := range updatedVMI.Status.MigratedVolumes {
+					v, ok := expectedMigVols[migVol.VolumeName]
+					Expect(ok).To(BeTrue())
+					Expect(migVol.SourcePVCInfo).ToNot(BeNil())
+					Expect(migVol.DestinationPVCInfo).ToNot(BeNil())
+					Expect(migVol.SourcePVCInfo.ClaimName).To(Equal(v.src))
+					Expect(migVol.DestinationPVCInfo.ClaimName).To(Equal(v.dst))
+					Expect(migVol.SourcePVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
+					Expect(migVol.DestinationPVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
+				}
+			}
 		},
 			Entry("with an update of a volume", []string{"src0"}, []string{"dst0"},
 				map[string]migVolumes{generateDiskNameFromIndex(0): migVolumes{src: "src0", dst: "dst0"}}),
