@@ -18695,6 +18695,10 @@
        "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
       }
      },
+     "claimName": {
+      "description": "ClaimName is the name of the PVC",
+      "type": "string"
+     },
      "filesystemOverhead": {
       "description": "Percentage of filesystem's size to be reserved when resizing the PVC",
       "type": "string"
@@ -19315,6 +19319,28 @@
      "kind": {
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
+     }
+    }
+   },
+   "v1.StorageMigratedVolumeInfo": {
+    "description": "StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration",
+    "type": "object",
+    "required": [
+     "volumeName"
+    ],
+    "properties": {
+     "destinationPVCInfo": {
+      "description": "DestinationPVCInfo contains the information about the destination PVC",
+      "$ref": "#/definitions/v1.PersistentVolumeClaimInfo"
+     },
+     "sourcePVCInfo": {
+      "description": "SourcePVCInfo contains the information about the source PVC",
+      "$ref": "#/definitions/v1.PersistentVolumeClaimInfo"
+     },
+     "volumeName": {
+      "description": "VolumeName is the name of the volume that is being migrated",
+      "type": "string",
+      "default": ""
      }
     }
    },
@@ -20704,6 +20730,15 @@
      "memory": {
       "description": "Memory shows various informations about the VirtualMachine memory.",
       "$ref": "#/definitions/v1.MemoryStatus"
+     },
+     "migratedVolumes": {
+      "description": "MigratedVolumes lists the source and destination volumes during the volume migration",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.StorageMigratedVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "migrationMethod": {
       "description": "Represents the method using which the vmi can be migrated: live migration or block migration",

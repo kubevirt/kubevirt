@@ -24,6 +24,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
+	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -213,7 +214,8 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
 		return
 	}
 
-	if !isHotplugInProgress(vmi) || migrationutils.IsMigrating(vmi) {
+	if !(isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi)) ||
+		migrationutils.IsMigrating(vmi) {
 		return
 	}
 
@@ -317,6 +319,11 @@ func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 		condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
 }
 
+func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
+}
+
 func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
 	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
 		return false
@@ -325,6 +332,9 @@ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachi
 		return false
 	}
 	if isHotplugInProgress(vmi) {
+		return true
+	}
+	if isVolumesUpdateInProgress(vmi) {
 		return true
 	}
 
@@ -337,6 +347,9 @@ func (c *WorkloadUpdateController) shouldAbortMigration(vmi *virtv1.VirtualMachi
 		return numMig > 0
 	}
 	if isHotplugInProgress(vmi) {
+		return false
+	}
+	if isVolumesUpdateInProgress(vmi) {
 		return false
 	}
 	return numMig > 0
@@ -393,7 +406,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 			continue
 		}
 
-		if automatedMigrationAllowed && vmi.IsMigratable() {
+		if automatedMigrationAllowed && (vmi.IsMigratable() || volumemig.CanVolumesUpdateMigration(vmi)) {
 			data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
 		} else if automatedShutdownAllowed {
 			data.evictOutdatedVMIs = append(data.evictOutdatedVMIs, vmi)
@@ -540,12 +553,18 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	c.migrationExpectations.ExpectCreations(key, migrateCount)
 	for _, vmi := range migrationCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
+			var labels map[string]string
+			if isVolumesUpdateInProgress(vmi) {
+				labels = make(map[string]string)
+				labels[virtv1.VolumesUpdateMigration] = vmi.Name
+			}
 			defer wg.Done()
 			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), &virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						virtv1.WorkloadUpdateMigrationAnnotation: "",
 					},
+					Labels:       labels,
 					GenerateName: "kubevirt-workload-update-",
 				},
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{

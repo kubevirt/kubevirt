@@ -104,11 +104,12 @@ func admitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks 
 	newPermanentVolumeMap := getPermanentVolumes(newVolumes, volumeStatuses)
 	oldHotplugVolumeMap := getHotplugVolumes(oldVolumes, volumeStatuses)
 	oldPermanentVolumeMap := getPermanentVolumes(oldVolumes, volumeStatuses)
+	migratedVolumeMap := getMigratedVolumeMaps(newVMI.Status.MigratedVolumes)
 
 	newDiskMap := getDiskMap(newDisks)
 	oldDiskMap := getDiskMap(oldDisks)
 
-	permanentAr := verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap, newDiskMap, oldDiskMap)
+	permanentAr := verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap, newDiskMap, oldDiskMap, migratedVolumeMap)
 	if permanentAr != nil {
 		return permanentAr
 	}
@@ -208,7 +209,15 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 	return nil
 }
 
-func verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk) *admissionv1.AdmissionResponse {
+func isMigratedVolume(newVol, oldVol *v1.Volume, migratedVolumeMap map[string]bool) bool {
+	if newVol.Name != oldVol.Name {
+		return false
+	}
+	_, ok := migratedVolumeMap[newVol.Name]
+	return ok
+}
+
+func verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk, migratedVolumeMap map[string]bool) *admissionv1.AdmissionResponse {
 	if len(newPermanentVolumeMap) != len(oldPermanentVolumeMap) {
 		// Removed one of the permanent volumes, reject admission.
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
@@ -230,7 +239,11 @@ func verifyPermanentVolumes(newPermanentVolumeMap, oldPermanentVolumeMap map[str
 				},
 			})
 		}
-		if !equality.Semantic.DeepEqual(v, oldPermanentVolumeMap[k]) {
+		oldVol := oldPermanentVolumeMap[k]
+		if isMigratedVolume(&v, &oldVol, migratedVolumeMap) {
+			continue
+		}
+		if !equality.Semantic.DeepEqual(v, oldVol) {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 				{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -290,6 +303,14 @@ func getPermanentVolumes(volumes []v1.Volume, volumeStatuses []v1.VolumeStatus) 
 		}
 	}
 	return permanentVolumes
+}
+
+func getMigratedVolumeMaps(migratedDisks []v1.StorageMigratedVolumeInfo) map[string]bool {
+	volumes := make(map[string]bool)
+	for _, v := range migratedDisks {
+		volumes[v.VolumeName] = true
+	}
+	return volumes
 }
 
 func admitVMILabelsUpdate(

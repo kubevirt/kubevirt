@@ -2672,6 +2672,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Message: truncateSprintf(message, index, index),
 					Reason:  reason,
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName: fmt.Sprintf("claim%d", index),
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
 							k8sv1.ReadOnlyMany,
 						},
@@ -3003,6 +3004,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Name:   "existing",
 					Target: "",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:          "existing",
 						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055")),
 					},
 				},
@@ -3013,6 +3015,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Reason:  "PVCNotReady",
 					Message: "PVC is in phase Bound",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:          "hotplug",
 						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055")),
 					},
 					HotplugVolume: &virtv1.HotplugVolumeStatus{},
@@ -3110,6 +3113,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Name:   "existing",
 					Target: "",
 					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName:          "existing",
 						FilesystemOverhead: pointer.P(cdiv1.Percent("0.055"))},
 				},
 				{

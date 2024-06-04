@@ -294,10 +294,27 @@ type VirtualMachineInstanceStatus struct {
 	// Memory shows various informations about the VirtualMachine memory.
 	// +optional
 	Memory *MemoryStatus `json:"memory,omitempty"`
+
+	// MigratedVolumes lists the source and destination volumes during the volume migration
+	// +listType=atomic
+	// +optional
+	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
+}
+
+// StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration
+type StorageMigratedVolumeInfo struct {
+	// VolumeName is the name of the volume that is being migrated
+	VolumeName string `json:"volumeName"`
+	// SourcePVCInfo contains the information about the source PVC
+	SourcePVCInfo *PersistentVolumeClaimInfo `json:"sourcePVCInfo,omitempty" valid:"required"`
+	// DestinationPVCInfo contains the information about the destination PVC
+	DestinationPVCInfo *PersistentVolumeClaimInfo `json:"destinationPVCInfo,omitempty" valid:"required"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
 type PersistentVolumeClaimInfo struct {
+	// ClaimName is the name of the PVC
+	ClaimName string `json:"claimName,omitempty"`
 	// AccessModes contains the desired access modes the volume should have.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
 	// +listType=atomic
@@ -563,6 +580,8 @@ const (
 	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
 	// Indicates that the VMI is hot(un)plugging memory
 	VirtualMachineInstanceMemoryChange = "HotMemoryChange"
+	// Indicates that the VMI has an updates in its volume set
+	VirtualMachineInstanceVolumesChange = "VolumesChange"
 
 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
 	VirtualMachineInstanceDataVolumesReady = "DataVolumesReady"
@@ -1056,6 +1075,10 @@ const (
 
 	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
 	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
+
+	// VolumesUpdateMigration indicates that the migration copies and update
+	// the volumes
+	VolumesUpdateMigration string = "kubevirt.io/volume-update-migration"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1480,6 +1503,7 @@ const (
 type UpdateVolumesStrategy string
 
 const (
+	UpdateVolumesStrategyMigration   UpdateVolumesStrategy = "Migration"
 	UpdateVolumesStrategyReplacement UpdateVolumesStrategy = "Replacement"
 )
 

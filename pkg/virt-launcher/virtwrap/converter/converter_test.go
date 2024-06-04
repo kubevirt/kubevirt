@@ -56,6 +56,7 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -158,7 +159,7 @@ var _ = Describe("Converter", func() {
 			}
 			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
 			Expect(apiDisk.Capacity).ToNot(BeNil())
-			Expect(*apiDisk.Capacity).To(Equal(min(capacity, requests)))
+			Expect(*apiDisk.Capacity).To(Equal(storagetypes.Min(capacity, requests)))
 		},
 			Entry("Higher request than capacity", int64(9999), int64(1111)),
 			Entry("Lower request than capacity", int64(1111), int64(9999)),

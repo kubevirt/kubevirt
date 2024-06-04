@@ -22,14 +22,19 @@ package libkvconfig
 import (
 	"context"
 	"fmt"
+	"time"
+
+	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -55,4 +60,17 @@ func patchKV(namespace, name string, patchOps []patch.PatchOperation) error {
 	}
 	_, err = kubevirt.Client().KubeVirt(namespace).Patch(context.Background(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
+}
+
+func PatchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubecli.KubevirtClient, updateStrategy *v1.KubeVirtWorkloadUpdateStrategy, rolloutStrategy *v1.VMRolloutStrategy, fgs []string) {
+	patch, err := patch.New(
+		patch.WithAdd("/spec/workloadUpdateStrategy", updateStrategy),
+		patch.WithAdd("/spec/configuration/vmRolloutStrategy", rolloutStrategy),
+		patch.WithAdd("/spec/configuration/developerConfiguration/featureGates", fgs),
+	).GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+	EventuallyWithOffset(1, func() error {
+		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, patch, metav1.PatchOptions{})
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }

@@ -290,6 +290,24 @@ func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migrat
 	migration.Status.Conditions = conds
 }
 
+// UpdateCondition updates the given VirtualMachineMigrationCondition, unless it is already set with the same status and reason.
+func (d *VirtualMachineInstanceMigrationConditionManager) UpdateCondition(mig *v1.VirtualMachineInstanceMigration,
+	cond *v1.VirtualMachineInstanceMigrationCondition) {
+	for i, c := range mig.Status.Conditions {
+		if c.Type != cond.Type {
+			continue
+		}
+
+		if c.Status != cond.Status || c.Reason != cond.Reason {
+			mig.Status.Conditions[i] = *cond
+		}
+
+		return
+	}
+
+	mig.Status.Conditions = append(mig.Status.Conditions, *cond)
+}
+
 type PodConditionManager struct {
 }
 

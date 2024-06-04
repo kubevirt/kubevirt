@@ -92,6 +92,15 @@ func IsReadOnlyAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {
 	return false
 }
 
+func IsReadWriteOnceAccessMode(accessModes []k8sv1.PersistentVolumeAccessMode) bool {
+	for _, accessMode := range accessModes {
+		if accessMode == k8sv1.ReadOnlyMany || accessMode == k8sv1.ReadWriteMany {
+			return false
+		}
+	}
+	return true
+}
+
 func IsPreallocated(annotations map[string]string) bool {
 	for a, value := range annotations {
 		if strings.Contains(a, "/storage.preallocation") && value == "true" {
@@ -289,4 +298,79 @@ func GetDisksByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virt
 		disks[disk.Name] = disk.DeepCopy()
 	}
 	return disks
+}
+
+func Min(one, two int64) int64 {
+	if one < two {
+		return one
+	}
+	return two
+}
+
+// Get expected disk capacity - a minimum between the request and the PVC capacity.
+// Returns nil when we have insufficient data to calculate this minimum.
+func GetDiskCapacity(pvcInfo *virtv1.PersistentVolumeClaimInfo) *int64 {
+	logger := log.DefaultLogger()
+	storageCapacityResource, ok := pvcInfo.Capacity[k8sv1.ResourceStorage]
+	if !ok {
+		return nil
+	}
+	storageCapacity, ok := storageCapacityResource.AsInt64()
+	if !ok {
+		logger.Infof("Failed to convert storage capacity %+v to int64", storageCapacityResource)
+		return nil
+	}
+	storageRequestResource, ok := pvcInfo.Requests[k8sv1.ResourceStorage]
+	if !ok {
+		return nil
+	}
+	storageRequest, ok := storageRequestResource.AsInt64()
+	if !ok {
+		logger.Infof("Failed to convert storage request %+v to int64", storageRequestResource)
+		return nil
+	}
+	preferredSize := Min(storageRequest, storageCapacity)
+	return &preferredSize
+}
+
+func GetFilesystemsFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.Filesystem {
+	fs := map[string]*virtv1.Filesystem{}
+
+	for _, f := range vmi.Spec.Domain.Devices.Filesystems {
+		fs[f.Name] = f.DeepCopy()
+	}
+
+	return fs
+}
+
+func IsMigratedVolume(name string, vmi *virtv1.VirtualMachineInstance) bool {
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.VolumeName == name {
+			return true
+		}
+	}
+	return false
+}
+
+func GetTotalSizeMigratedVolumes(vmi *virtv1.VirtualMachineInstance) *resource.Quantity {
+	size := int64(0)
+	srcVols := make(map[string]bool)
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.SourcePVCInfo == nil {
+			continue
+		}
+		srcVols[v.SourcePVCInfo.ClaimName] = true
+	}
+	for _, vstatus := range vmi.Status.VolumeStatus {
+		if vstatus.PersistentVolumeClaimInfo == nil {
+			continue
+		}
+		if _, ok := srcVols[vstatus.PersistentVolumeClaimInfo.ClaimName]; ok {
+			if s := GetDiskCapacity(vstatus.PersistentVolumeClaimInfo); s != nil {
+				size += *s
+			}
+		}
+	}
+
+	return resource.NewScaledQuantity(size, resource.Giga)
 }

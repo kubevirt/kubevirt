@@ -65,6 +65,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -113,6 +114,7 @@ type ConverterContext struct {
 	IsBlockDV                       map[string]bool
 	HotplugVolumes                  map[string]v1.VolumeStatus
 	PermanentVolumes                map[string]v1.VolumeStatus
+	MigratedVolumes                 map[string]string
 	DisksInfo                       map[string]*cmdv1.DiskInfo
 	SMBios                          *cmdv1.SMBios
 	SRIOVDevices                    []api.HostDevice
@@ -235,7 +237,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		volumeStatus, ok := volumeStatusMap[diskDevice.Name]
 		if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
 			disk.FilesystemOverhead = volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead
-			disk.Capacity = getDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
+			disk.Capacity = storagetypes.GetDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
 			disk.ExpandDisksEnabled = c.ExpandDisksEnabled
 		}
 	}
@@ -251,39 +253,6 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	}
 
 	return nil
-}
-
-// Get expected disk capacity - a minimum between the request and the PVC capacity.
-// Returns nil when we have insufficient data to calculate this minimum.
-func getDiskCapacity(pvcInfo *v1.PersistentVolumeClaimInfo) *int64 {
-	logger := log.DefaultLogger()
-	storageCapacityResource, ok := pvcInfo.Capacity[k8sv1.ResourceStorage]
-	if !ok {
-		return nil
-	}
-	storageCapacity, ok := storageCapacityResource.AsInt64()
-	if !ok {
-		logger.Infof("Failed to convert storage capacity %+v to int64", storageCapacityResource)
-		return nil
-	}
-	storageRequestResource, ok := pvcInfo.Requests[k8sv1.ResourceStorage]
-	if !ok {
-		return nil
-	}
-	storageRequest, ok := storageRequestResource.AsInt64()
-	if !ok {
-		logger.Infof("Failed to convert storage request %+v to int64", storageRequestResource)
-		return nil
-	}
-	preferredSize := min(storageRequest, storageCapacity)
-	return &preferredSize
-}
-
-func min(one, two int64) int64 {
-	if one < two {
-		return one
-	}
-	return two
 }
 
 func setReservation(disk *api.Disk) {
