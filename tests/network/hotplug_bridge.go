@@ -411,7 +411,12 @@ func removeInterface(vm *v1.VirtualMachine, name string) error {
 	specCopy := vm.Spec.Template.Spec.DeepCopy()
 	ifaceToRemove := vmispec.LookupInterfaceByName(specCopy.Domain.Devices.Interfaces, name)
 	ifaceToRemove.State = v1.InterfaceStateAbsent
-	patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/devices/interfaces", vm.Spec.Template.Spec.Domain.Devices.Interfaces, specCopy.Domain.Devices.Interfaces)
+	const interfacesPath = "/spec/template/spec/domain/devices/interfaces"
+	patchSet := patch.New(
+		patch.WithTest(interfacesPath, vm.Spec.Template.Spec.Domain.Devices.Interfaces),
+		patch.WithAdd(interfacesPath, specCopy.Domain.Devices.Interfaces),
+	)
+	patchData, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
 	}
