@@ -525,7 +525,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 		newVMI.Spec.Domain.Devices.Filesystems = filesystems
 
-		result := admitHotplugStorage(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
+		result := admitStorageUpdate(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	}
 

@@ -88,8 +88,8 @@ func getExpectedDisksAndFilesystems(newVolumes []v1.Volume) int {
 	return len(newVolumes) - numMemoryDumpVolumes
 }
 
-// admitHotplugStorage compares the old and new volumes and disks, and ensures that they match and are valid.
-func admitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
+// admitStorageUpdate compares the old and new volumes and disks, and ensures that they match and are valid.
+func admitStorageUpdate(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
 	expectedDisksAndFilesystems := getExpectedDisksAndFilesystems(newVolumes)
 	observedDisksAndFilesystems := len(newDisks) + len(newVMI.Spec.Domain.Devices.Filesystems)
 	if expectedDisksAndFilesystems != observedDisksAndFilesystems {
@@ -365,7 +365,7 @@ func admitHotplug(
 		return response
 	}
 
-	return admitHotplugStorage(
+	return admitStorageUpdate(
 		newVMI.Spec.Volumes,
 		oldVMI.Spec.Volumes,
 		newVMI.Spec.Domain.Devices.Disks,
