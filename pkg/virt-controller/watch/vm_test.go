@@ -67,7 +67,6 @@ var _ = Describe("VirtualMachine", func() {
 		var vmiInformer cache.SharedIndexInformer
 
 		var pvcInformer cache.SharedIndexInformer
-		var crSource *framework.FakeControllerSource
 		var controller *VMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
@@ -114,8 +113,8 @@ var _ = Describe("VirtualMachine", func() {
 			}
 			Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
 			Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
-			var crInformer cache.SharedIndexInformer
-			crInformer, crSource = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
+
+			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
 					for _, ref := range cr.OwnerReferences {
@@ -179,7 +178,6 @@ var _ = Describe("VirtualMachine", func() {
 			stop := make(chan struct{})
 			go vmiInformer.Run(stop)
 			go vmInformer.Run(stop)
-			go crInformer.Run(stop)
 			DeferCleanup(func() { close(stop) })
 		})
 
@@ -6270,7 +6268,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
-				crSource.Add(createVMRevision(vm))
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6310,8 +6308,7 @@ var _ = Describe("VirtualMachine", func() {
 				syncCache(controller.vmiIndexer, 1)
 
 				By("Creating a Controller Revision with the hostname 'a'")
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Changing the hostname to 'b'")
 				vm.Spec.Template.Spec.Hostname = "b"
@@ -6332,7 +6329,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = maxSockets
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
-				crSource.Add(createVMRevision(vm))
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI with cluster max")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6358,8 +6355,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with guest memory set to the cluster maximum")
 				vm.Spec.Template.Spec.Domain.Memory.Guest = &maxGuest
 				vm.Spec.Template.Spec.Domain.Memory.MaxGuest = &maxGuest
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6395,8 +6391,7 @@ var _ = Describe("VirtualMachine", func() {
 				syncCache(controller.vmiIndexer, 1)
 
 				By("Creating a Controller Revision with two sockets")
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Reducing the sockets count to one")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = vm.Spec.Template.Spec.Domain.CPU.Sockets - 1
@@ -6428,8 +6423,7 @@ var _ = Describe("VirtualMachine", func() {
 				By("Creating a VM with CPU sockets set to 2")
 				vm.Spec.Template.Spec.Domain.CPU.Sockets = 2
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = 8
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				By("Creating a VMI")
 				vmi = controller.setupVMIFromVM(vm)
@@ -6579,8 +6573,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				sanityExecute(vm)
 
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6599,8 +6592,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				sanityExecute(vm)
 
-				crSource.Delete(createVMRevision(vm))
-				syncCache(controller.crIndexer, 0)
+				controller.crIndexer.Delete(createVMRevision(vm))
 
 				// let the controller pick up the deletion
 				vmiFeeder.Delete(vmi)
@@ -6634,8 +6626,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				sanityExecute(vm)
 
-				crSource.Add(createVMRevision(vm))
-				syncCache(controller.crIndexer, 1)
+				controller.crIndexer.Add(createVMRevision(vm))
 
 				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -6664,8 +6655,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				By("VM should get now restarted")
 				// pick up deletion
-				crSource.Delete(createVMRevision(vm))
-				syncCache(controller.crIndexer, 0)
+				controller.crIndexer.Delete(createVMRevision(vm))
 				vmiFeeder.Delete(vmi)
 				sanityExecute(vm)
 
