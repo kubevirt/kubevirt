@@ -60,7 +60,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -71,7 +71,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			})
 		}
 		disableFeatureGates := func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{

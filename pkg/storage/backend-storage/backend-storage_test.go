@@ -62,7 +62,7 @@ var _ = Describe("Backend Storage", func() {
 			By("Setting a VM state storage class in the CR")
 			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 			kvCR.Spec.Configuration.VMStateStorageClass = "myfave"
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 
 			By("Expecting getStorageClass() to return that one")
 			sc, err := backendStorage.getStorageClass()

@@ -391,7 +391,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 					},
 				},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 			node := &kubev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "testNode",
@@ -449,7 +449,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 			By("removing all created mdevs")
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvConfig)
 			deviceController.refreshMediatedDeviceTypes()
 			files, err := os.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())

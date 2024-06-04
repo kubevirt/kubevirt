@@ -231,7 +231,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}()
 		webhooks.Arch = arch
 
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					CPUModel:   cpuModelFromConfig,
@@ -427,7 +427,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 	DescribeTable("should add the default network interface",
 		func(expectedIface string, expectedIfaceBindingMethod v1.InterfaceBindingMethod) {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
@@ -445,7 +445,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	)
 
 	It("should reject adding a default deprecated slirp interface", func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					NetworkConfiguration: &v1.NetworkConfiguration{
@@ -519,7 +519,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("should not override specified properties with defaults on VMI create", func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					CPUModel:    cpuModelFromConfig,
@@ -546,7 +546,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	DescribeTable("should not copy the EmulatorThreadCompleteToEvenParity annotation to the VMI",
 		func(featureGate string, annotations map[string]string, isolateEmulatorThread bool) {
 			if featureGate != "" || annotations != nil {
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Annotations: annotations,
 					},
@@ -571,7 +571,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	)
 
 	It("should copy the EmulatorThreadCompleteToEvenParity annotation to the VMI", func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Annotations: map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
 			},
@@ -617,7 +617,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 	It("should apply memory-overcommit when guest-memory is set and memory-request is not set", func() {
 		// no limits wanted on this test, to not copy the limit to requests
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -1089,7 +1089,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	When("Root feature gate is enabled", func() {
 
 		BeforeEach(func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -1233,7 +1233,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 			kvCR.Spec.Configuration.EvictionStrategy = &noneStrategy
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 
 			return noneStrategy
 		}),
@@ -1243,7 +1243,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 			kvCR.Spec.Configuration.EvictionStrategy = &clusterStrategy
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 
 			s.EvictionStrategy = &vmiStrategy
 
@@ -1254,7 +1254,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
 			kvCR.Spec.Configuration.EvictionStrategy = nil
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 
 			defaultStrategy := mutator.ClusterConfig.GetDefaultClusterConfig().EvictionStrategy
 			Expect(defaultStrategy).ToNot(BeNil())
@@ -1327,7 +1327,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			kvCR.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
 				FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
 			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 		})
 		Context("configure CPU hotplug", func() {
 			It("to use maximum sockets configured in cluster config when its not set in VMI spec", func() {
@@ -1336,7 +1336,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
 					MaxCpuSockets: &maxSockets,
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(maxSockets)))
 			})
@@ -1350,7 +1350,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					MaxCpuSockets:   &maxSockets,
 					MaxHotplugRatio: 2,
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(maxSockets))
@@ -1369,7 +1369,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
 					MaxHotplugRatio: 2,
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(2)))
 			})
@@ -1403,7 +1403,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
 					MaxGuest: &maxGuest,
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 				guest := resource.MustParse("1Gi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guest,
@@ -1418,7 +1418,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					MaxGuest:        &maxGuest,
 					MaxHotplugRatio: 2,
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 				guest := resource.MustParse("1Gi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guest,
@@ -1441,7 +1441,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
 					MaxHotplugRatio: 2,
 				}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer.GetStore(), kvCR)
 				guest := resource.MustParse("1Gi")
 				expectedMaxGuest := resource.MustParse("2Gi")
 				vmi.Spec.Domain.Memory = &v1.Memory{
