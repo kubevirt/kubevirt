@@ -65,8 +65,6 @@ var _ = Describe("VirtualMachine", func() {
 		var vmiSource *framework.FakeControllerSource
 		var vmSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
-
-		var pvcInformer cache.SharedIndexInformer
 		var controller *VMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
@@ -99,7 +97,7 @@ var _ = Describe("VirtualMachine", func() {
 			var vmInformer cache.SharedIndexInformer
 			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
-			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 			ns1 := &k8sv1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1372,7 +1370,7 @@ var _ = Describe("VirtualMachine", func() {
 					Phase: k8sv1.ClaimBound,
 				},
 			}
-			Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+			Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 			createCount := 0
 			if expectedCreations > 0 {
@@ -1783,7 +1781,7 @@ var _ = Describe("VirtualMachine", func() {
 					if pvc.Namespace == "" {
 						pvc.Namespace = vm.Namespace
 					}
-					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+					Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 				}
 
 				controller.cloneAuthFunc = func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
@@ -3367,7 +3365,7 @@ var _ = Describe("VirtualMachine", func() {
 						Namespace: vm.Namespace,
 					},
 				}
-				Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+				Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 				pvcAnnotationUpdated := make(chan bool, 1)
 				defer close(pvcAnnotationUpdated)
@@ -3720,7 +3718,7 @@ var _ = Describe("VirtualMachine", func() {
 							Phase: k8sv1.ClaimPending,
 						},
 					}
-					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+					Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 					sanityExecute(vm)
 
@@ -3899,7 +3897,7 @@ var _ = Describe("VirtualMachine", func() {
 							Phase: pvcPhase,
 						},
 					}
-					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+					Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
 
 					sanityExecute(vm)
 
