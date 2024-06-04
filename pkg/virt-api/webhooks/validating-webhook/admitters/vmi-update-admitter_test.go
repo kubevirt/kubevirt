@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/client-go/api"
 
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -782,5 +783,67 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		}
 		resp := vmiUpdateAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
+	})
+
+	It("should allow change for a persistent volume if it is a migrated volume", func() {
+		disks := []v1.Disk{
+			{
+				Name:       "vol0",
+				DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio}},
+			},
+			{
+				Name:       "vol1",
+				DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio}},
+			},
+		}
+		oldVols := []v1.Volume{
+			{
+				Name: "vol0",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+					},
+				},
+			},
+			{
+				Name: "vol1",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"},
+					},
+				},
+			},
+		}
+		newVols := []v1.Volume{
+			{
+				Name: "vol0",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+					},
+				},
+			},
+			{
+				Name: "vol1",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"},
+					},
+				},
+			},
+		}
+		volumeStatuses := []v1.VolumeStatus{
+			{Name: "vol0"},
+			{Name: "vol1"},
+		}
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{
+			{
+				VolumeName:         "vol1",
+				SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "pvc1"},
+				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "pvc1"},
+			},
+		}
+		Expect(admitStorageUpdate(newVols, oldVols, disks, disks, volumeStatuses, vmi, vmiUpdateAdmitter.ClusterConfig)).To(BeNil())
 	})
 })
