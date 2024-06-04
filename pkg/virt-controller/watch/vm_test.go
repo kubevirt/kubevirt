@@ -63,7 +63,6 @@ var _ = Describe("VirtualMachine", func() {
 	Context("One valid VirtualMachine controller given", func() {
 
 		var vmiSource *framework.FakeControllerSource
-		var vmSource *framework.FakeControllerSource
 		var vmiInformer cache.SharedIndexInformer
 		var controller *VMController
 		var recorder *record.FakeRecorder
@@ -94,9 +93,8 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
-			var vmInformer cache.SharedIndexInformer
 			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
-			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
+			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 			ns1 := &k8sv1.Namespace{
@@ -175,7 +173,6 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 			stop := make(chan struct{})
 			go vmiInformer.Run(stop)
-			go vmInformer.Run(stop)
 			DeferCleanup(func() { close(stop) })
 		})
 
@@ -320,9 +317,10 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		addVirtualMachine := func(vm *v1.VirtualMachine) {
-			mockQueue.ExpectAdds(1)
-			vmSource.Add(vm)
-			mockQueue.Wait()
+			key, err := virtcontroller.KeyFunc(vm)
+			Expect(err).To(Not(HaveOccurred()))
+			controller.Queue.Add(key)
+			Expect(controller.vmIndexer.Add(vm)).To(Succeed())
 		}
 
 		sanityExecute := func(vm *v1.VirtualMachine) {
